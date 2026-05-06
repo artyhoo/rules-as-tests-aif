@@ -1,0 +1,83 @@
+{
+  "$comment": "AIF extension manifest (best-effort format as of May 2026). The official extension.json schema is in draft (PR #34 in lee-to/ai-factory). When the schema lands, update this file accordingly. For now, install.sh provides a guaranteed fallback path.",
+
+  "name": "rules-as-tests-aif",
+  "version": "0.1.0",
+  "description": "Rules-as-Tests framework for AI Factory: 5-layer enforcement (architecture, meta-tests, spec-by-example, mutation, living docs) + AI-documentation audit. Server TS + React/Next stacks.",
+
+  "author": "rules-as-tests-aif contributors",
+  "license": "MIT",
+  "homepage": "https://github.com/<org>/rules-as-tests-aif",
+
+  "compatibility": {
+    "ai-factory": ">=2.0.0",
+    "agents": ["claude", "codex", "cursor"]
+  },
+
+  "skills": [
+    {
+      "name": "rules-as-tests",
+      "path": "skills/rules-as-tests",
+      "description": "Convert any codebase rule into an executable test. AI-driven code drift defense."
+    }
+  ],
+
+  "agents": {
+    "claude": {
+      "files": [
+        "agents/best-practices-sidecar.md",
+        "agents/review-sidecar.md",
+        "agents/docs-auditor.md"
+      ]
+    }
+  },
+
+  "factory": {
+    "templates": {
+      "DESCRIPTION.md": "factory/DESCRIPTION.template.md",
+      "ARCHITECTURE.md": "factory/ARCHITECTURE.template.md",
+      "RULES.md": "factory/RULES.md"
+    },
+    "react-next": {
+      "ARCHITECTURE.react-next.md": "factory/ARCHITECTURE.react-next.md",
+      "RULES.react-next.md": "factory/RULES.react-next.md"
+    },
+    "rules": {
+      "rules/integration-rules.md": "factory/rules/integration-rules.md"
+    }
+  },
+
+  "scripts": [
+    "scripts/audit-ai-docs.sh",
+    "scripts/audit-ai-docs.react-next.sh"
+  ],
+
+  "templates": {
+    "shared": [
+      "templates/shared/AGENTS.md.template",
+      "templates/shared/tsconfig.json",
+      "templates/shared/.nvmrc",
+      "templates/shared/.lintstagedrc.json",
+      "templates/shared/husky-pre-commit.sh",
+      "templates/shared/husky-pre-push.sh"
+    ],
+    "ts-server": [
+      "templates/ts-server/eslint.config.mjs",
+      "templates/ts-server/vitest.config.ts",
+      "templates/ts-server/dependency-cruiser.cjs",
+      "templates/ts-server/stryker.config.json",
+      "templates/ts-server/github-actions-ci.yml"
+    ],
+    "react-next": [
+      "templates/react-next/eslint.config.react.mjs",
+      "templates/react-next/vitest.config.ts",
+      "templates/react-next/playwright.config.ts",
+      "templates/react-next/github-actions-ci-ui.yml"
+    ]
+  },
+
+  "install": {
+    "fallback-script": "install.sh",
+    "manual-instructions": "INSTALL.md"
+  }
+}
