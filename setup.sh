@@ -23,6 +23,7 @@ set -euo pipefail
 STACK=""
 SKIP_DEPS=false
 SKIP_AIF=false
+FORCE=""
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(pwd)"
 
@@ -46,6 +47,7 @@ for arg in "$@"; do
     --stack=*)        STACK="${arg#--stack=}" ;;
     --skip-deps)      SKIP_DEPS=true ;;
     --skip-aif-init)  SKIP_AIF=true ;;
+    --force)          FORCE="--force" ;;
     -h|--help)
       head -22 "$0" | sed 's/^# *//'
       exit 0
@@ -120,8 +122,15 @@ fi
 header "Step 2/5 — Applying rules-as-tests overlay"
 
 log "Running install.sh..."
-bash "$PKG_DIR/install.sh" "$PROJECT_DIR" --stack="$STACK" \
-  || fail "install.sh failed"
+# install.sh expects positional STACK as $1 and runs from cwd.
+# Call it from the project dir so $(pwd) resolves correctly.
+if [ -n "$FORCE" ]; then
+  (cd "$PROJECT_DIR" && bash "$PKG_DIR/install.sh" "$STACK" "$FORCE") \
+    || fail "install.sh failed"
+else
+  (cd "$PROJECT_DIR" && bash "$PKG_DIR/install.sh" "$STACK") \
+    || fail "install.sh failed"
+fi
 ok "Overlay applied"
 
 # ───── 5. npm dev dependencies ─────
@@ -191,6 +200,9 @@ header "Step 4/5 — Husky setup"
 
 cd "$PROJECT_DIR"
 
+# Order matters: `husky init` overwrites .husky/pre-commit with a default stub,
+# so it must run BEFORE we copy our own hooks. Otherwise the hooks installed by
+# install.sh get clobbered by husky's defaults.
 if [ ! -d ".husky" ]; then
   log "Initializing Husky..."
   npx husky init || warn "husky init failed — install husky manually"
@@ -198,17 +210,17 @@ else
   warn ".husky already exists, skipping init"
 fi
 
-# Copy our hooks into .husky/
-if [ -f templates/shared/husky-pre-commit.sh ]; then
+# Re-install our hooks from the package (absolute paths — cwd is project root).
+if [ -f "$PKG_DIR/templates/shared/husky-pre-commit.sh" ]; then
   log "Installing pre-commit hook..."
-  cp templates/shared/husky-pre-commit.sh .husky/pre-commit
-  chmod +x .husky/pre-commit
+  cp "$PKG_DIR/templates/shared/husky-pre-commit.sh" "$PROJECT_DIR/.husky/pre-commit"
+  chmod +x "$PROJECT_DIR/.husky/pre-commit"
 fi
 
-if [ -f templates/shared/husky-pre-push.sh ]; then
+if [ -f "$PKG_DIR/templates/shared/husky-pre-push.sh" ]; then
   log "Installing pre-push hook..."
-  cp templates/shared/husky-pre-push.sh .husky/pre-push
-  chmod +x .husky/pre-push
+  cp "$PKG_DIR/templates/shared/husky-pre-push.sh" "$PROJECT_DIR/.husky/pre-push"
+  chmod +x "$PROJECT_DIR/.husky/pre-push"
 fi
 ok "Husky configured"
 

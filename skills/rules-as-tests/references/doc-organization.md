@@ -166,12 +166,16 @@ paths:
 
 ```bash
 # Skills задекларированы vs существуют (фильтр template-маркеров)
-grep -oP "skill \`\K[^\`]+" AGENTS.md | grep -v '^<' | sort -u | while read s; do
-  [ -d ".claude/skills/$s" ] || echo "MISSING: $s"
-done
+# Используем awk вместо grep -oP — портируется на BSD grep (macOS).
+awk 'match($0, /skill `[^`]+`/) { print substr($0, RSTART+7, RLENGTH-8) }' AGENTS.md \
+  | grep -v '^<' | sort -u | while read s; do
+    [ -d ".claude/skills/$s" ] || echo "MISSING: $s"
+  done
 
 # Rules
-grep -oP "\.claude/rules/\K[^\s\`\)]+" AGENTS.md | grep -v '<name\|<glob' | while read r; do
+awk 'match($0, /\.claude\/rules\/[^[:space:]`)]+/) {
+  print substr($0, RSTART+15, RLENGTH-15)
+}' AGENTS.md | grep -v '<name\|<glob' | while read r; do
   [ -f ".claude/rules/$r" ] || echo "MISSING rule: $r"
 done
 

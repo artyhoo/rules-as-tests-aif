@@ -156,57 +156,68 @@ PHASE 5 — Setup verification (~5 min, optional, requires sandbox)
     - If it doesn't catch — the regex is broken
 
 ═══════════════════════════════════════════════════════════════
-PHASE 6 — Known gaps (the package's authors flagged these)
+PHASE 6 — Self-meta-test (does the package's own infra still work?)
 ═══════════════════════════════════════════════════════════════
 
-The package authors noted two TODOs that MUST be verified in this audit.
-Your job in this phase: confirm whether the gap still exists and report it
-as a finding (severity MAJOR if still missing).
+These two artifacts are LOAD-BEARING for the package's "rules as tests"
+thesis applied to itself. They were added in earlier audit cycles. Verify
+they exist AND still work — silent regression here is severity BLOCKER.
 
 21. CI for the package itself (.github/workflows/audit-self.yml).
 
-    The package requires CI for user projects (R11 in RULES.md, audit-ai-docs
-    in github-actions-ci.yml). But does the PACKAGE have CI for itself?
-
     Check:
-    ls .github/workflows/ 2>/dev/null
+    cat .github/workflows/audit-self.yml | grep -E "^  [a-z-]+:$"
 
-    EXPECTED for proper compliance: a workflow that runs AUDIT-CHECKLIST.md
-    Section 1-2 (mechanical checks) on every PR to this repo.
+    EXPECTED: at least three jobs — `mechanical:` (bash/json/dead-links),
+    `rule-to-probe:` (orphan-rule check), `probe-tests:` (runs negative tests).
 
-    If .github/workflows/ doesn't exist or doesn't include self-audit:
-    REPORT as MAJOR finding "Package violates own R11 — no CI for itself"
-    Suggested fix: add .github/workflows/audit-self.yml that runs:
-      - bash syntax check on all .sh files
-      - JSON validity check on all .json files
-      - dead-link check across all .md files
-      - rule-to-probe mapping verification
+    Run the rule-to-probe logic locally to verify it doesn't false-positive:
+
+    fail=0
+    for rules_file in factory/RULES.md factory/RULES.react-next.md; do
+      for r in $(grep -oE "^## R[0-9]+[a-z]?" "$rules_file" | grep -oE "R[0-9]+[a-z]?"); do
+        in_audit=0
+        grep -qE "skip_unless ${r}[a-z]*\b" scripts/*.sh 2>/dev/null && in_audit=1
+        in_manual=0
+        grep -qE "$r.*manual|manual.*$r|$r.*delegated|delegated.*$r" \
+          agents/best-practices-sidecar.md scripts/*.sh 2>/dev/null && in_manual=1
+        [ "$in_audit" -eq 0 ] && [ "$in_manual" -eq 0 ] && { echo "ORPHAN: $r"; fail=1; }
+      done
+    done
+    echo "exit=$fail"
+
+    If file is missing, jobs are missing, or local check reports any ORPHAN
+    or exit≠0 — REPORT as BLOCKER "Self-audit CI broken/missing".
+    Past breakage: regex `R[0-9a-z]+` greedily matched `## Rule maintenance`,
+    and `\b` boundary failed on R16a/R16b sub-probes. Verify both are fixed.
 
 22. Negative tests for audit-ai-docs.sh probes.
 
-    Section 5.4 of AUDIT-CHECKLIST.md and references/self-testing-docs.md
-    state: "every probe should have a matching negative test — without it,
-    the regex can silently break and all probes return PASS forever."
+    Check:
+    bash tests/audit/audit-ai-docs.test.sh
+
+    EXPECTED: exit code 0, summary line "16 pass / 0 fail" (or higher if probes
+    were added). Each test injects a violation in a temp dir, runs the probe
+    with --only=R<N>, asserts the probe catches it.
+
+    If file is missing, exit≠0, or any test FAILs — REPORT as BLOCKER
+    "Probes without working negative tests — silent breakage risk".
+    The probe regex can rot at any time; this is the only thing keeping it honest.
+
+23. Self-application: does the package itself pass its own audit?
 
     Check:
-    ls tests/audit/ 2>/dev/null
-    find . -name "*.negative.sh" -o -name "*audit*test*"
+    bash scripts/audit-ai-docs.sh
+    echo "exit=$?"
 
-    EXPECTED: tests/audit/audit-ai-docs.test.sh that, for each probe R<N>:
-      a) injects an artificial violation
-      b) runs `bash scripts/audit-ai-docs.sh --only=R<N>`
-      c) asserts exit code 1 (probe correctly catches)
-      d) reverts the violation
+    EXPECTED: exit 0, no FAILs (WARNs from D1/D2 are acceptable if AGENTS.md
+    or .mcp.json don't exist at package root — package itself doesn't ship them).
 
-    If no such tests exist:
-    REPORT as MAJOR finding "Probes without negative tests — silent breakage risk"
-    List each probe (R1, R2, R4, R6, R7, R8, R9, D1, D2 in audit-ai-docs.sh,
-    and R12, R14, R15, R16a, R16b, R17, R20 in audit-ai-docs.react-next.sh)
-    that lacks a negative test. Suggest creating tests/audit/ directory with
-    one test per probe.
-
-These two findings are EXPECTED in the first audit. Reporting them confirms
-the audit prompt is working. The fix happens in a follow-up session.
+    If any FAIL appears — REPORT as BLOCKER "Package fails its own audit".
+    Past breakage: leftover negative-test artifacts (src/, AGENTS.md with
+    `phantom-skill`, .mcp.json with `_comment_TODO`) accumulated in the package
+    root and triggered 7 FAILs. These should not be committed; ensure they're
+    not present.
 
 
 

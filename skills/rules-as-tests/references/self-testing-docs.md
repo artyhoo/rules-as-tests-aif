@@ -147,14 +147,16 @@ Procedure для каждого probe:
 # tests/audit-ai-docs.unit.sh
 # Проверка что каждый probe ловит специально внесённое нарушение
 
-test_probe_1() {
+test_probe_R1() {
   # Создать временное нарушение
   cp src/app/actions/example.ts /tmp/example.bak
-  sed -i 's/await requireUser()/\/\/ await requireUser()/' src/app/actions/example.ts
+  sed -i.bak 's/await requireUser()/\/\/ await requireUser()/' src/app/actions/example.ts
 
-  # Запустить только probe 1
-  if ./scripts/audit-ai-docs.sh --only=1 > /dev/null 2>&1; then
-    echo "FAIL: probe 1 should have caught the violation"
+  # Запустить только probe R1.
+  # Важно: имя probe — R<N>, не голое число. audit-ai-docs.sh парсит --only=R1,
+  # сравнение строкой, --only=1 не сматчится ни с одним probe и тест пройдёт ложно.
+  if ./scripts/audit-ai-docs.sh --only=R1 > /dev/null 2>&1; then
+    echo "FAIL: probe R1 should have caught the violation"
     cp /tmp/example.bak src/app/actions/example.ts
     return 1
   fi
@@ -162,7 +164,7 @@ test_probe_1() {
   # Откатить
   cp /tmp/example.bak src/app/actions/example.ts
   rm /tmp/example.bak
-  echo "PASS: probe 1 correctly catches violation"
+  echo "PASS: probe R1 correctly catches violation"
 }
 ```
 

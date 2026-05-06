@@ -29,7 +29,7 @@ For each rule R1–R20 (and any project-specific R*+), run the corresponding aut
 | Rule | Check |
 |---|---|
 | **R1 TypeScript hygiene** | `npx tsc --noEmit && npx eslint <changed files>` |
-| **R2 Validation at boundaries** | grep for `request.body \| request.query \| request.params` access without nearby Zod parse call |
+| **R2 Validation at boundaries** | grep `Schema\.parse\(\|schema\.parse\(` in `src/web/handlers/`, `src/app/actions/`, `src/app/api/` excluding `safeParse` — any match is a violation (handlers must use `.safeParse()`, never `.parse()`) |
 | **R3 Architectural boundaries** | `npx depcruise --validate .dependency-cruiser.cjs <changed files>` |
 | **R4 Tests for new code** | AST scan: every new exported function in diff has matching test file with at least one assertion |
 | **R5 Async correctness** | `npx eslint --rule '@typescript-eslint/no-floating-promises:error' <changed>` |

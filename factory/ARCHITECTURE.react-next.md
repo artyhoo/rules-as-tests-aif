@@ -142,13 +142,14 @@ src/lib/
 | Rule | Enforced by |
 |---|---|
 | No cycles | dependency-cruiser |
-| Server/Client boundary | `server-only`/`client-only` packages + ESLint + `audit-ai-docs.react-next.sh` UI-1, UI-2 |
-| `<Link>` for internal | `@next/next/no-html-link-for-pages` + UI-3 |
-| `<Image>` for images | `@next/next/no-img-element` + UI-4 |
-| `<button>` not `<div onClick>` | `jsx-a11y/no-static-element-interactions` + UI-5 |
-| Component has stories | UI-6 |
-| Server Action has 'use server' + Zod | UI-7 |
-| No `screen.debug()` | `testing-library/no-debugging-utils` + UI-8 |
-| useEffect deps | `react-hooks/exhaustive-deps: 'error'` + UI-9 (heuristic) |
+| Server/Client boundary | `server-only`/`client-only` packages + ESLint + `audit-ai-docs.react-next.sh` probe `R12` |
+| `<Link>` for internal | `@next/next/no-html-link-for-pages` + probe `R16b` |
+| `<Image>` for images | `@next/next/no-img-element` + probe `R16a` |
+| `<button>` not `<div onClick>` | `jsx-a11y/no-static-element-interactions` + probe `R15` |
+| Component has stories | probe `R17` (WARN) |
+| Server Action has 'use server' | probe `R20` |
+| Server Action validates FormData via Zod | probe `R14` |
+| No `screen.debug()` | `testing-library/no-debugging-utils` + probe `R20` (subset) |
+| useEffect deps | `react-hooks/exhaustive-deps: 'error'` (manual review) |
 
 See `.ai-factory/RULES.react-next.md` for R12–R20 and `references/checks-map.md` for the enforcement layer map.

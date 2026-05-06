@@ -28,8 +28,8 @@ Install rules-as-tests-aif into this project. Follow these steps exactly:
 
    This installs:
    - .claude/agents/{best-practices-sidecar,review-sidecar,docs-auditor}.md (overrides)
+   - .claude/skills/rules-as-tests/ — skill + 5 reference files in references/
    - .ai-factory/DESCRIPTION.template.md, ARCHITECTURE.template.md, RULES.md, RULES.react-next.md (if applicable)
-   - .ai-factory/references/ (5 files for the rules-as-tests skill)
    - scripts/audit-ai-docs.sh (or .react-next.sh)
    - Configs in project root: eslint.config.mjs, vitest.config.ts, dependency-cruiser.cjs, stryker.config.json, tsconfig.json, .nvmrc, .lintstagedrc.json
    - .husky/pre-commit, .husky/pre-push
@@ -163,18 +163,21 @@ project/
 │   ├── ARCHITECTURE.md                ← edit this (layer rules)
 │   ├── RULES.md                       ← R1-R11 (review and adjust)
 │   ├── RULES.react-next.md            ← R12-R20 (only react-next)
-│   ├── rules/integration-rules.md     ← only for microservices
-│   └── references/                    ← 5 docs (loaded on-demand)
-│       ├── checks-map.md
-│       ├── overview.md
-│       ├── ai-traps.md
-│       ├── self-testing-docs.md
-│       └── doc-organization.md
-├── .claude/agents/                    ← AIF sub-agents (overridden by us)
-│   ├── best-practices-sidecar.md     ← validates RULES.md after each /aif-implement
-│   ├── review-sidecar.md             ← two-AI review for tautological tests
-│   ├── docs-auditor.md               ← runs audit-ai-docs.sh
-│   └── (other AIF agents untouched)
+│   └── rules/integration-rules.md     ← only for microservices
+├── .claude/
+│   ├── agents/                        ← AIF sub-agents (overridden by us)
+│   │   ├── best-practices-sidecar.md  ← validates RULES.md after each /aif-implement
+│   │   ├── review-sidecar.md          ← two-AI review for tautological tests
+│   │   ├── docs-auditor.md            ← runs audit-ai-docs.sh
+│   │   └── (other AIF agents untouched)
+│   └── skills/rules-as-tests/
+│       ├── SKILL.md                   ← skill, auto-activates on triggers
+│       └── references/                ← 5 docs (loaded on-demand)
+│           ├── checks-map.md
+│           ├── overview.md
+│           ├── ai-traps.md
+│           ├── self-testing-docs.md
+│           └── doc-organization.md
 └── scripts/
     └── audit-ai-docs.sh              ← (or .react-next.sh) — code-vs-docs probes
 ```

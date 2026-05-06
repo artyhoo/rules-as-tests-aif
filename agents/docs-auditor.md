@@ -50,15 +50,20 @@ EXIT=$?
 ### Step 4: Parse output
 
 The audit script outputs lines in the format:
-- `PASS: Rule N` — rule satisfied
-- `FAIL: Rule N: <details>` — code violates the rule
-- `WARN: Rule N: <details>` — soft warning (e.g., decay-watch)
+- `PASS: R<N>: <rule name>` — rule satisfied (e.g. `PASS: R7: Time/randomness injected via Clock/Random`)
+- `FAIL: R<N>: <rule name>` followed by indented violation lines (`file:line: details`)
+- `WARN: D<N>: <rule name> — <details>` — soft warning (e.g., decay-watch, drift)
+
+Probe IDs:
+- `R1`–`R9` map to rules in `.ai-factory/RULES.md`.
+- `R12`, `R14`, `R15`, `R16a`, `R16b`, `R17`, `R20` map to `.ai-factory/RULES.react-next.md`.
+- `D1`, `D2` are drift checks (skill existence, JSON TODOs).
 
 Group findings by status. For each FAIL, identify:
-- Rule number
-- Affected file:line (extracted from probe output)
+- Probe ID (`R<N>` or `D<N>`)
+- Affected file:line (from the indented lines following the FAIL header)
 - Brief explanation
-- Pointer to AGENTS.md rule (which line declares this rule)
+- Pointer to AGENTS.md / RULES.md rule (which line declares this rule)
 
 ### Step 5: Output structured verdict
 
@@ -66,30 +71,30 @@ Group findings by status. For each FAIL, identify:
 ## Code-vs-docs audit (scripts/audit-ai-docs.sh)
 
 ### PASS (5)
-- Rule 1: All Server Actions begin with requireUser()
-- Rule 2: No supabase admin imports outside actions/api
-- Rule 3: redirect() not inside try/catch
-- Rule 5: next.config.ts contains required flags
-- Rule 7: All public hooks have matching .unit.ts test
+- R1: TypeScript hygiene
+- R7: Time/randomness injected via Clock/Random
+- R9: No forbidden imports (lodash, moment, axios, ...)
+- D1: Skills declared in AGENTS.md exist on disk
+- (project probe) Rule X: All Server Actions begin with requireUser()
 
 ### FAIL (2)
-- **Rule 4: webhook handlers must call isHoneypotFilled**
+- **R2: Validation at HTTP boundaries (Zod safeParse, not parse)**
+    - Location: src/app/api/orders/route.ts:24
+    - Reason: uses `OrderSchema.parse(body)` which throws on invalid input
+    - RULES.md rule: R2 — "Every HTTP handler MUST parse request.body through Zod .safeParse()"
+    - Fix: replace with `const result = OrderSchema.safeParse(body); if (!result.success) return Response.json(result.error.issues, { status: 400 })`
+
+- **(project probe) Rule X: webhook handlers must call isHoneypotFilled**
     - Location: src/app/actions/contact.ts:12
     - Reason: handler accepts FormData but does not call isHoneypotFilled
     - AGENTS.md rule: line 47 — "All FormData-receiving actions must validate honeypot before processing"
     - Fix: add `if (await isHoneypotFilled(formData)) return ...` after FormData destructure
 
-- **Rule 6: All Zod parsing in server boundaries uses safeParse()**
-    - Location: src/app/api/orders/route.ts:24
-    - Reason: uses `OrderSchema.parse(body)` which throws on invalid input
-    - AGENTS.md rule: line 89 — "Zod validation at HTTP boundaries must use safeParse() and return 400 on failure"
-    - Fix: replace with `const result = OrderSchema.safeParse(body); if (!result.success) return Response.json(result.error.issues, { status: 400 })`
-
 ### WARN (1)
-- **Rule 9 (decay-watch): role migration overdue**
-    - Reason: deadline 2026-06-01 declared in AGENTS.md, no matching file in supabase/migrations/
-    - AGENTS.md rule: line 124 — "Role migration must land before 2026-06-01"
-    - Action: create the migration or update the deadline
+- **D2 (drift): JSON configs accumulate stale comments**
+    - Location: .mcp.json:8
+    - Reason: contains `_comment_TODO_remove_when_X` key
+    - Action: move TODO to issue tracker, remove key from JSON
 
 ## Verdict
 2 FAIL, 1 WARN — `/aif-verify` blocked.
@@ -114,7 +119,10 @@ After the main `audit-ai-docs.sh` run, also perform:
 ### Skills declared vs existing
 
 ```bash
-grep -oP "skill \`\K[^\`]+" AGENTS.md 2>/dev/null \
+# Portable: works on BSD grep (macOS) and GNU grep. No -P / \K.
+awk 'match($0, /skill `[^`]+`/) {
+  s = substr($0, RSTART+7, RLENGTH-8); print s
+}' AGENTS.md 2>/dev/null \
   | grep -v '^<' | sort -u | while read s; do
     [ -d ".claude/skills/$s" ] || echo "DRIFT: skill '$s' declared in AGENTS.md but missing from .claude/skills/"
   done
@@ -123,7 +131,10 @@ grep -oP "skill \`\K[^\`]+" AGENTS.md 2>/dev/null \
 ### Rules declared vs existing
 
 ```bash
-grep -oP "\.claude/rules/\K[^\s\`\)]+" AGENTS.md 2>/dev/null \
+# Portable: extract paths after `.claude/rules/`.
+awk 'match($0, /\.claude\/rules\/[^[:space:]`)]+/) {
+  print substr($0, RSTART+15, RLENGTH-15)
+}' AGENTS.md 2>/dev/null \
   | grep -v '<name\|<glob' | while read r; do
     [ -f ".claude/rules/$r" ] || echo "DRIFT: rule '$r' declared but missing"
   done

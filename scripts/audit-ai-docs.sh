@@ -64,7 +64,24 @@ skip_unless() {
 # ────────────────────────────────────────────────────────────────────────
 if skip_unless R1; then : ; else
   RULE="R1: TypeScript hygiene (no 'as any', no non-null assertions)"
-  VIOL=$(grep -rEn "\\bas any\\b|[a-zA-Z0-9_\\)\\]]\\!\\." src/ 2>/dev/null \
+  # Portability:
+  #   `\b` (word boundary) is NOT supported by BSD grep (default on macOS),
+  #   so we use POSIX equivalents [^a-zA-Z0-9_] instead.
+  #
+  # Non-null assertion: identifier OR closing bracket, then '!', then a
+  # terminator character that disambiguates it from '!=' / '!=='.
+  # Terminator class is ordered ".,;) [:space:] \]" — leading '.' first,
+  # ']' last with backslash, to avoid bracket-parsing ambiguity in macOS BSD
+  # grep / ugrep (a leading '[' inside another '[' triggers
+  # "invalid collating element" errors).
+  # Earlier version `[a-zA-Z0-9_)\]]!\.` only caught `x!.y`, missing
+  # `func(x!)`, `arr[i!]`, `x! as T`, `x!,`, `x!;`.
+  # Pattern: prefix [<identifier>|`)`|`]`] + `!` + terminator group
+  # Terminator group lists each character literally (`\)` and `\]` for grouping
+  # safety; cannot use a single character class because POSIX requires `]`
+  # to come first inside `[...]` and that conflicts with `[:space:]`).
+  VIOL=$(grep -rEn "(^|[^a-zA-Z0-9_])as any([^a-zA-Z0-9_]|$)|[]a-zA-Z0-9_)]!(\\.|,|;|\\)|\\]|[[:space:]])" src/ 2>/dev/null \
+    | grep -vE "!==|!=([^=]|$)" \
     | grep -v "\\.unit\\.\\|\\.integration\\.\\|\\.audit\\.\\|\\.test\\.\\|\\.spec\\." \
     | grep -v "// audit:exempt" \
     | grep -v "import.*type" || true)
@@ -228,10 +245,12 @@ if skip_unless D1; then : ; else
     warn "$RULE: AGENTS.md not found, skipping"
   else
     VIOL=""
+    # Portable extraction: works on BSD grep (macOS) and GNU grep alike.
+    # Pattern: ` skill `<name>` ` — capture <name> between backticks.
     while read -r s; do
       [ -z "$s" ] && continue
       [ -d ".claude/skills/$s" ] || VIOL="$VIOL"$'\n'"skill '$s' declared in AGENTS.md but missing from .claude/skills/"
-    done < <(grep -oP "skill \`\K[^\`]+" AGENTS.md 2>/dev/null | grep -v '^<' | sort -u)
+    done < <(awk 'match($0, /skill `[^`]+`/) { print substr($0, RSTART+7, RLENGTH-8) }' AGENTS.md 2>/dev/null | grep -v '^<' | sort -u)
 
     if [ -z "$VIOL" ]; then
       pass "$RULE"

@@ -1,0 +1,117 @@
+name: audit-self
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  mechanical:
+    name: Mechanical checks (bash, json, dead links)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bash syntax of all *.sh
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            if ! bash -n "$f" 2>err.log; then
+              echo "::error file=$f::syntax error"
+              cat err.log
+              fail=1
+            fi
+          done < <(find . -name "*.sh" -not -path "./.git/*")
+          exit "$fail"
+
+      - name: JSON validity of all *.json
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" 2>err.log; then
+              echo "::error file=$f::invalid JSON"
+              cat err.log
+              fail=1
+            fi
+          done < <(find . -name "*.json" -not -path "./.git/*" -not -path "./node_modules/*")
+          exit "$fail"
+
+      - name: No file > 500 lines (markdown)
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            n=$(wc -l < "$f")
+            if [ "$n" -gt 500 ]; then
+              echo "::error file=$f::overweight ($n lines, max 500)"
+              fail=1
+            fi
+          done < <(find . -name "*.md" -not -path "./.git/*")
+          exit "$fail"
+
+      - name: Dead-link check (.md → .md)
+        run: |
+          fail=0
+          while IFS= read -r src; do
+            grep -oE '`[^`]*\.md`' "$src" 2>/dev/null | tr -d '`' | sort -u | while read -r ref; do
+              case "$ref" in
+                *.ai-factory/*|*AGENTS.md|*CLAUDE.md|*.template.md|*\<*) continue ;;
+                docs/architecture.md) continue ;;  # used as anti-pattern example
+              esac
+              base=$(basename "$ref")
+              if ! find . -name "$base" -not -path "./.git/*" 2>/dev/null | grep -q .; then
+                echo "::warning file=$src::dead .md reference → $ref"
+              fi
+            done
+          done < <(find . -name "*.md" -not -path "./.git/*")
+
+      - name: Stale path references
+        run: |
+          fail=0
+          if grep -rn "ai-factory-RULES\.md" --include="*.md" --include="*.sh" .; then
+            echo "::error::stale 'ai-factory-RULES.md' reference (renamed to factory/RULES.md)"
+            fail=1
+          fi
+          if grep -rn "best-practices-sidecar\.react\.md" --include="*.md" .; then
+            echo "::error::stale 'best-practices-sidecar.react.md' reference (was inlined)"
+            fail=1
+          fi
+          exit "$fail"
+
+  rule-to-probe:
+    name: Rule-to-probe mapping
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every R-rule has probe / manual / ESLint delegation
+        run: |
+          fail=0
+          for rules_file in factory/RULES.md factory/RULES.react-next.md; do
+            # ^## R<digits>[<lowercase>]?  — matches R1..R20, R16a/R16b; excludes "## Rule maintenance"
+            for r in $(grep -oE "^## R[0-9]+[a-z]?" "$rules_file" | grep -oE "R[0-9]+[a-z]?"); do
+              in_audit=0
+              # skip_unless R<n>[a-z]*  — covers R16 → R16a/R16b sub-probes
+              grep -qE "skip_unless ${r}[a-z]*\b" scripts/*.sh 2>/dev/null && in_audit=1
+              in_manual=0
+              grep -qE "$r.*manual|manual.*$r|$r.*delegated|delegated.*$r" \
+                agents/best-practices-sidecar.md scripts/*.sh 2>/dev/null && in_manual=1
+              if [ "$in_audit" -eq 0 ] && [ "$in_manual" -eq 0 ]; then
+                echo "::error::orphan rule $r — no probe, no manual review note, no delegation"
+                fail=1
+              fi
+            done
+          done
+          exit "$fail"
+
+  probe-tests:
+    name: Negative tests for audit probes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests/audit/audit-ai-docs.test.sh
+        run: |
+          if [ -x tests/audit/audit-ai-docs.test.sh ]; then
+            bash tests/audit/audit-ai-docs.test.sh
+          else
+            echo "::error::tests/audit/audit-ai-docs.test.sh missing or not executable"
+            exit 1
+          fi

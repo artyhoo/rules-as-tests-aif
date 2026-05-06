@@ -11,7 +11,7 @@
 - `'use client'` ставится в начале файла, до импортов.
 - Файлы с `import 'server-only'` не могут быть импортированы из `'use client'` файлов.
 
-**Check:** `audit-ai-docs.react-next.sh` UI-1, UI-2 + ESLint `no-restricted-globals` для Server Components.
+**Check:** `audit-ai-docs.react-next.sh` probe `R12` + ESLint `no-restricted-globals` для Server Components.
 
 ## R13 — Data fetching
 - Server Components: прямые `async`/`await` вызовы (БД, fetch с auth headers).
@@ -20,7 +20,7 @@
 - Никаких `fetch()` напрямую в Client Component без обёртки `useQuery`/`useSWR`.
 - Suspense boundaries вокруг async-границ; `loading.tsx` для маршрутов.
 
-**Check:** AST grep + `audit-ai-docs.react-next.sh` UI-7.
+**Check:** R13 — manual review only (AST grep на использование TanStack Query / SWR).
 
 ## R14 — Forms
 - Все формы — через Server Actions (`'use server'`).
@@ -31,7 +31,7 @@
 - Errors возвращаются, не throw'ятся (Next десериализует).
 - `revalidatePath()` / `revalidateTag()` после мутаций, изменяющих кеш.
 
-**Check:** `audit-ai-docs.react-next.sh` UI-7.
+**Check:** `audit-ai-docs.react-next.sh` probe `R14`.
 
 ## R15 — Accessibility
 - Каждый интерактивный элемент имеет accessible name (aria-label, aria-labelledby или text content).
@@ -41,7 +41,7 @@
 - Все form-поля имеют связанный `<label>`.
 - Динамический контент с `role="alert"` обновляет text при изменении state.
 
-**Check:** ESLint `jsx-a11y/strict` + `audit-ai-docs.react-next.sh` UI-5 + axe в Playwright.
+**Check:** ESLint `jsx-a11y/strict` + `audit-ai-docs.react-next.sh` probe `R15` + axe в Playwright.
 
 ## R16 — Performance
 - `next/image` для всех изображений (никаких `<img>`).
@@ -51,7 +51,7 @@
 - Шрифты через `next/font` (предотвращает FOIT/FOUT).
 - Bundle size monitored (`@next/bundle-analyzer` в CI).
 
-**Check:** ESLint `@next/next/core-web-vitals` + `audit-ai-docs.react-next.sh` UI-3, UI-4.
+**Check:** ESLint `@next/next/core-web-vitals` + `audit-ai-docs.react-next.sh` probes `R16a` (no `<img>`), `R16b` (no `<a href="/...">`).
 
 ## R17 — Тесты компонентов
 - Каждый публичный компонент в `src/shared/ui/` или `src/features/*/ui/` имеет:
@@ -63,7 +63,7 @@
 - `screen.getByRole(...)` с accessible name предпочтительнее `getByTestId(...)`.
 - Никакого `screen.debug()` в коммите.
 
-**Check:** `audit-ai-docs.react-next.sh` UI-6, UI-8 + `eslint-plugin-testing-library` strict.
+**Check:** `audit-ai-docs.react-next.sh` probe `R17` + `eslint-plugin-testing-library` strict.
 
 ## R18 — TanStack Query / SWR
 - Каждый `useQuery`/`useSWR` имеет typed response через Zod-схему (через `.parse()` или `.safeParse()` в `queryFn`).
@@ -91,7 +91,7 @@
 - `revalidatePath()` / `revalidateTag()` после мутаций, изменяющих кеш.
 - Server Actions защищены auth-проверкой (если требуется): первая строка функции — `requireUser()` или эквивалент.
 
-**Check:** `audit-ai-docs.react-next.sh` UI-7 + project-specific probe для auth.
+**Check:** `audit-ai-docs.react-next.sh` probe `R20` + project-specific probe для auth.
 
 ---
 

@@ -2,6 +2,12 @@
 
 > Layer rules and dependency direction. Enforced by `dependency-cruiser`.
 > For React/Next.js projects, see `ARCHITECTURE.react-next.md` instead.
+>
+> **Note on the `.template` suffix:** despite the filename, this file contains
+> no `<PLACEHOLDER>` markers — it's a complete, ready-to-use architecture for
+> the canonical hexagonal/clean server-side TS layout. The `.template` suffix
+> means "drop into `.ai-factory/ARCHITECTURE.md` and override only what your
+> project needs". If your layout matches as-is, just rename to `ARCHITECTURE.md`.
 
 ## Layer structure (hexagonal / clean)
 
@@ -80,10 +86,10 @@ Files without these suffixes are not considered tests — meta-tests will flag a
 |---|---|
 | No cycles | dependency-cruiser |
 | Layer direction | dependency-cruiser |
-| No `as any` | ESLint `@typescript-eslint/no-explicit-any` |
-| No `Date.now()` outside infra | ESLint `no-restricted-syntax` + `audit-ai-docs.sh` probe 3 |
-| No forbidden imports | ESLint `no-restricted-imports` + `audit-ai-docs.sh` probe 5 |
-| OTel span on application functions | `audit-ai-docs.sh` probe 4 |
-| Tests for new public exports | `audit-ai-docs.sh` probe 7 |
+| No `as any` | ESLint `@typescript-eslint/no-explicit-any` + `audit-ai-docs.sh` probe `R1` |
+| No `Date.now()` outside infra | ESLint `no-restricted-syntax` + `audit-ai-docs.sh` probe `R7` |
+| No forbidden imports | ESLint `no-restricted-imports` + `audit-ai-docs.sh` probe `R9` |
+| OTel span on application functions | `audit-ai-docs.sh` probe `R8` |
+| Tests for new public exports | `audit-ai-docs.sh` probe `R4` |
 
 See `.ai-factory/RULES.md` for full list R1–R11 and `references/checks-map.md` for the full enforcement layer map.

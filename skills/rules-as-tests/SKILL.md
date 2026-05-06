@@ -1,6 +1,6 @@
 ---
 name: rules-as-tests
-description: Convert any codebase rule (architectural, naming, dependency, test-quality, contract, SLO) into an executable test that fails the build when violated. Use this skill whenever the user asks about enforcing code quality, fighting AI-generated code drift, setting up linters/tests/CI/pre-commit hooks, designing review processes, mutation testing, contract testing, fitness functions, observability-driven development, SLO-as-code, or any version of "how do I make my codebase resistant to AI agents breaking my conventions". Also trigger on any mention of ArchUnit, Stryker, Pact, dependency-cruiser, AI Factory (aif), Husky, lint-staged, ESLint flat config, Zod validation strategy, or shift-left/shift-right testing. Strongly trigger when the user mentions Claude Code, Cursor, or Copilot writing code that "looks fine but is wrong" — that is the core problem this skill addresses.
+description: Use when treating any codebase rule (architectural, naming, dependency, test-quality, contract, SLO) as an executable test that fails the build when violated, or when the user asks about enforcing code quality, fighting AI-generated code drift, setting up linters/tests/CI/pre-commit hooks, designing review processes, mutation testing, contract testing, fitness functions, observability-driven development, SLO-as-code, or any version of "how do I make my codebase resistant to AI agents breaking my conventions". Also trigger on any mention of ArchUnit, Stryker, Pact, dependency-cruiser, AI Factory (aif), Husky, lint-staged, ESLint flat config, Zod validation strategy, or shift-left/shift-right testing. Strongly trigger when the user mentions Claude Code, Cursor, or Copilot writing code that "looks fine but is wrong" — that is the core problem this skill addresses.
 ---
 
 # Rules as Tests
@@ -48,6 +48,8 @@ Read these references **as needed**, not all at once:
 | `references/checks-map.md` | **Always read first if user is unclear where their question fits.** Map of all 8 enforcement levels (edit-time → production) and what runs where. |
 | `references/overview.md` | Quick refresher of the 5-layer framework with patterns and anti-patterns per layer. |
 | `references/ai-traps.md` | Specifically what AI agents (Claude/Cursor/Copilot) violate most and which rule catches each. Use when user mentions AI-generated code drift. |
+| `references/doc-organization.md` | AGENTS.md hot/cold split, when skill vs rule, drift-detection commands, token economy targets. Use when user asks about AGENTS.md/CLAUDE.md structure or the `.claude/` layout. |
+| `references/self-testing-docs.md` | The `audit-ai-docs.sh` pattern: probe catalog, paired negative-test discipline, three levels of execution (local / pre-push / CI). Use when user is writing or extending an audit script. |
 
 ## Templates ready to copy
 
@@ -55,19 +57,19 @@ Production-ready configs in `templates/`. Copy to a new project and they work:
 
 | File | Purpose |
 |---|---|
-| `templates/eslint.config.mjs` | Server-side TS: typescript-eslint strict + Prettier + custom rules |
-| `templates/eslint.config.react.mjs` | React/Next.js: above + react-hooks + jsx-a11y/strict + @next/next |
-| `templates/tsconfig.json` | Strict TypeScript with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
-| `templates/dependency-cruiser.cjs` | Architectural rules: layering, no-cycles, no-cross-feature-imports |
-| `templates/stryker.config.json` | Mutation testing with incremental mode, thresholds 60/70/85 |
-| `templates/vitest.config.ts` | Test runner with per-module coverage thresholds |
-| `templates/.lintstagedrc.json` | Pre-commit: prettier + eslint --fix on staged only |
-| `templates/husky-pre-commit.sh` | Pre-commit hook entry |
-| `templates/husky-pre-push.sh` | Pre-push hook with upstream-fallback (works on new branches) |
-| `templates/.nvmrc` | Pinned Node version (CI depends on it) |
+| `templates/ts-server/eslint.config.mjs` | Server-side TS: typescript-eslint strict + Prettier + custom rules |
+| `templates/react-next/eslint.config.react.mjs` | React/Next.js: above + react-hooks + jsx-a11y/strict + @next/next |
+| `templates/shared/tsconfig.json` | Strict TypeScript with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
+| `templates/ts-server/dependency-cruiser.cjs` | Architectural rules: layering, no-cycles, no-cross-feature-imports |
+| `templates/ts-server/stryker.config.json` | Mutation testing with incremental mode, thresholds 60/70/85 |
+| `templates/ts-server/vitest.config.ts` (or `templates/react-next/vitest.config.ts`) | Test runner with per-module coverage thresholds |
+| `templates/shared/.lintstagedrc.json` | Pre-commit: prettier + eslint --fix on staged only |
+| `templates/shared/husky-pre-commit.sh` | Pre-commit hook entry |
+| `templates/shared/husky-pre-push.sh` | Pre-push hook with upstream-fallback (works on new branches) |
+| `templates/shared/.nvmrc` | Pinned Node version (CI depends on it) |
 | `factory/RULES.md` | Drop-in for `.ai-factory/RULES.md` — rules R1–R11 |
 | `factory/RULES.react-next.md` | Extension R12–R20 for React/Next.js stack |
-| `templates/github-actions-ci.yml` | Full CI workflow: lint, typecheck, arch, test, mutation incremental |
+| `templates/ts-server/github-actions-ci.yml` (or `templates/react-next/github-actions-ci-ui.yml`) | Full CI workflow: lint, typecheck, arch, test, mutation incremental |
 
 ## Workflow when applying this skill
 
