@@ -57,16 +57,91 @@ For details, see `skills/rules-as-tests/references/`:
 
 ## Installation
 
-Three paths — pick one. Full guide: `INSTALL.md`.
+### Quick start — one command (recommended)
 
 ```bash
-# Path A: AIF extension (when schema lands)
+git clone https://github.com/Yhooi2/rules-as-tests-aif /tmp/rt
+cd /your/project
+bash /tmp/rt/setup.sh --stack=ts-server      # or --stack=react-next
+```
+
+That's it. `setup.sh` handles everything end-to-end:
+
+1. Installs `ai-factory` globally if missing (`npm install -g ai-factory`).
+2. Runs `ai-factory init --agents claude` to create the `.ai-factory/` skeleton.
+3. Overlays this package's content via `install.sh`.
+4. Runs `npm install -D` for ~25 dev dependencies.
+5. Initializes husky and copies pre-commit / pre-push hooks.
+6. Adds 13 npm scripts (`validate`, `audit:docs`, `arch:check`, `test:mutation`, …) to `package.json` via `jq`.
+
+Optional flags:
+- `--skip-aif-init` — skip step 2 (use if AIF is already initialized or you don't want it globally installed).
+- `--skip-deps` — skip step 4 (`npm install`).
+- `--force` — overwrite existing config files.
+
+### What gets installed automatically
+
+After `setup.sh` finishes, your project has:
+
+| Path | Source | Edit needed? |
+|---|---|---|
+| `.claude/skills/rules-as-tests/` | skill + 5 references, on-demand | No — auto-activates in Claude Code |
+| `.claude/agents/best-practices-sidecar.md`, `review-sidecar.md`, `docs-auditor.md` | sub-agents for `/aif-verify` | No |
+| `.ai-factory/RULES.md` | R1-R11 (or +R12-R20 for react-next) | **Yes — review and trim per project** |
+| `.ai-factory/DESCRIPTION.template.md` | template with `<PLACEHOLDERS>` | **Yes — fill in, rename to `DESCRIPTION.md`** |
+| `.ai-factory/ARCHITECTURE.template.md` | drop-in for canonical hexagonal layout | Maybe — rename to `ARCHITECTURE.md` if your layout matches |
+| `AGENTS.md` (root) | from `templates/shared/AGENTS.md.template` | **Yes — review** |
+| `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `stryker.config.json`, `.dependency-cruiser.cjs`, `.lintstagedrc.json`, `.nvmrc` | stack-specific configs | No — work out of the box |
+| `.husky/pre-commit`, `.husky/pre-push` | Husky hooks (lint-staged + typecheck + audit) | No |
+| `.github/workflows/ci.yml` | full CI pipeline (lint, typecheck, arch, tests, mutation) | No — works as-is |
+| `scripts/audit-ai-docs.sh` (and `.react-next.sh`) | code-vs-docs probes | No — extend with project-specific probes if useful |
+| `package.json` scripts | 13 entries via `jq` | No |
+
+**Manual work after install** is only the three project-specific items above (DESCRIPTION placeholders, RULES.md trimming, AGENTS.md review). Typically 5-10 minutes — or zero, if you delegate it to an AI (next section).
+
+### For AI agents — let Claude/Cursor do the install
+
+Paste this into Claude Code, Cursor, or any AI agent with file access in your project's directory:
+
+```
+Install rules-as-tests-aif into this project.
+
+1. Detect stack: `ts-server` (default) or `react-next` (next.config.* present, or
+   "next"/"react" in package.json).
+2. Run: bash /path/to/rules-as-tests-aif/setup.sh --stack=<detected>
+   (clone the repo to /tmp/rt first if not on disk; the package is at
+   github.com/Yhooi2/rules-as-tests-aif — needs SSH/HTTPS access).
+3. After setup completes, do these in sequence and report results:
+   a. Read .ai-factory/DESCRIPTION.template.md, fill in <PROJECT_NAME>,
+      stack details, non-goals based on package.json + README.md +
+      existing src/ structure. Save as .ai-factory/DESCRIPTION.md.
+   b. Read .ai-factory/RULES.md (R1-R11). For each rule, decide: keep,
+      adjust, or remove based on project context. Report decisions to me.
+      Do not commit removals without asking.
+   c. Read AGENTS.md root file, adapt to this project (replace template
+      placeholders with concrete paths and conventions).
+   d. Run `npm run validate` and report any failures.
+   e. Run `npm run audit:docs` and report results.
+4. Stop here. Do not start implementing features.
+```
+
+Full guide for AI-driven install: see [`INSTALL-FOR-AI.md`](INSTALL-FOR-AI.md).
+
+### Alternative paths
+
+If you already have `ai-factory` set up or want partial install:
+
+```bash
+# Path B — only the overlay (you handle ai-factory init + npm yourself):
+bash /tmp/rt/install.sh ts-server     # or react-next; --force to overwrite
+
+# Path A — AIF extension (forward-compat, schema landing soon):
 ai-factory extension add ./rules-as-tests-aif
 
-# Path B: install.sh (works today)
-./rules-as-tests-aif/install.sh ts-server     # or react-next
-
-# Path C: manual cherry-pick — see INSTALL.md §C
+# Path C — cherry-pick configs only (no skill, no sub-agents, no audit):
+cp /tmp/rt/templates/ts-server/eslint.config.mjs .
+cp /tmp/rt/templates/shared/tsconfig.json .
+# ... see INSTALL.md §C
 ```
 
 ## What stack does it support?
@@ -74,7 +149,7 @@ ai-factory extension add ./rules-as-tests-aif
 - **`ts-server`** — Node.js 20.19+ server-only (Fastify, Hono, Express, plain HTTP).
 - **`react-next`** — React 19 + Next.js 15 (App Router) + TypeScript.
 
-Pick during `install.sh` or via `ai-factory extension add` config. Both share base configs (tsconfig, husky, lint-staged, RULES R1–R11). React adds R12–R20 + Storybook + Playwright.
+Pick during `setup.sh` (auto-detected from `next.config.*` / `react` in `package.json`) or pass `--stack=...` explicitly. Both share base configs (tsconfig, husky, lint-staged, RULES R1-R11). React adds R12-R20 + Storybook + Playwright.
 
 ## Forward compatibility note on AIF extensions
 

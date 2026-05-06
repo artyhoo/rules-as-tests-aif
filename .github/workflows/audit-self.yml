@@ -54,7 +54,8 @@ jobs:
           while IFS= read -r src; do
             grep -oE '`[^`]*\.md`' "$src" 2>/dev/null | tr -d '`' | sort -u | while read -r ref; do
               case "$ref" in
-                *.ai-factory/*|*AGENTS.md|*CLAUDE.md|*.template.md|*\<*) continue ;;
+                # AIF convention rename targets (template → final name) — not real files in the repo
+                *.ai-factory/*|*AGENTS.md|*CLAUDE.md|*DESCRIPTION.md|*ARCHITECTURE.md|*.template.md|*\<*) continue ;;
                 docs/architecture.md) continue ;;  # used as anti-pattern example
               esac
               base=$(basename "$ref")
@@ -62,7 +63,8 @@ jobs:
                 echo "::warning file=$src::dead .md reference → $ref"
               fi
             done
-          done < <(find . -name "*.md" -not -path "./.git/*")
+            # historical audit reports may reference suggested filenames / anti-patterns
+          done < <(find . -name "*.md" -not -path "./.git/*" -not -name "audit-results-*.md")
 
       - name: Stale path references
         run: |
