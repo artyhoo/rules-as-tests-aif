@@ -76,22 +76,6 @@ should_skip() {
   return 0
 }
 
-# ─── R2: Validation at HTTP boundaries (parse, not safeParse) ────
-test_R2() {
-  should_skip R2 && return 0
-  local d; d=$(new_workdir); enter "$d"
-  mkdir -p src/web/handlers
-  cat > src/web/handlers/order.ts <<'EOF'
-import { OrderSchema } from "../schemas";
-export const handler = (req: any) => {
-  const body = OrderSchema.parse(req.body);
-  return body;
-};
-EOF
-  assert_fails R2 "$AUDIT_SH"
-  rm -rf "$d"
-}
-
 # ─── R4: Every domain export needs .unit.ts ──────────────────────
 test_R4() {
   should_skip R4 && return 0
@@ -100,30 +84,6 @@ test_R4() {
   printf 'export function greet(name: string) { return "hi " + name; }\n' \
     > src/domain/greet.ts
   assert_fails R4 "$AUDIT_SH"
-  rm -rf "$d"
-}
-
-# ─── R7: Date.now() / Math.random() outside infrastructure ───────
-test_R7() {
-  should_skip R7 && return 0
-  local d; d=$(new_workdir); enter "$d"
-  mkdir -p src/domain
-  printf 'export const ts = Date.now();\n' > src/domain/clock.ts
-  assert_fails R7 "$AUDIT_SH"
-  rm -rf "$d"
-}
-
-# ─── R8: Application function without OTel span ──────────────────
-test_R8() {
-  should_skip R8 && return 0
-  local d; d=$(new_workdir); enter "$d"
-  mkdir -p src/application
-  cat > src/application/order.ts <<'EOF'
-export async function placeOrder(input: unknown) {
-  return { ok: true };
-}
-EOF
-  assert_fails R8 "$AUDIT_SH"
   rm -rf "$d"
 }
 
@@ -236,10 +196,7 @@ EOF
 # ─── Run all ─────────────────────────────────────────────────────
 echo "── Running negative tests for audit probes ──"
 
-test_R2
 test_R4
-test_R7
-test_R8
 test_D1
 test_D2
 test_R12

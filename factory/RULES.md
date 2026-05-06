@@ -20,7 +20,7 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 - Message queue payloads MUST be validated on consume.
 - DB row mappers MUST validate against domain schemas.
 
-**Check:** grep for `Schema.parse(` / `schema.parse(` in `src/web/handlers/`, `src/app/actions/`, `src/app/api/` — any match (other than `.safeParse()`) is a violation. Implemented in `scripts/audit-ai-docs.sh` probe `R2`.
+**Check:** ESLint rule `rules-as-tests/no-unsafe-zod-parse` (path-scoped to handlers/actions/api).
 
 ## R3 — Architectural boundaries
 - Domain code imports only stdlib and Zod.
@@ -59,14 +59,14 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 - No `Math.random()` (except `infrastructure/random/`).
 - No direct `fs`, `http`, `https` imports outside `infrastructure/`.
 
-**Check:** ESLint `no-restricted-syntax` selectors.
+**Check:** ESLint rule `rules-as-tests/no-direct-time-randomness` (allows `src/infrastructure/**`).
 
 ## R8 — Observability
 - Public application commands/queries open an OTel span via the standard helper.
 - Span attributes include: relevant business identifiers and active feature flags.
 - Errors set span status with structured cause, never bare error strings.
 
-**Check:** AST grep for missing span on exported async functions in `application/`.
+**Check:** ESLint rule `rules-as-tests/require-otel-span` (scoped to `src/application/**`).
 
 ## R9 — Imports / dependencies
 - No `lodash`, `moment`, `axios`, `request`, `node-fetch`. Use native fetch, date-fns, Zod.

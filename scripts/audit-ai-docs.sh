@@ -6,13 +6,13 @@
 #
 # Rule mapping:
 #   R1  TypeScript hygiene       → delegated to ESLint (no-explicit-any, no-non-null-assertion)
-#   R2  Validation at boundaries → probe_R2   (HTTP handlers without nearby Zod parse)
+#   R2  Validation at boundaries → delegated to local ESLint rule (rules-as-tests/no-unsafe-zod-parse)
 #   R3  Architectural boundaries → delegated to dependency-cruiser (run separately)
 #   R4  Tests for new code       → probe_R4   (every domain export has matching .unit.ts)
 #   R5  Async correctness        → delegated to ESLint no-floating-promises
 #   R6  Errors                   → delegated to ESLint (no-throw-literal, no-useless-catch)
-#   R7  Time/randomness/IO       → probe_R7   (Date.now / Math.random outside infrastructure)
-#   R8  Observability            → probe_R8   (application functions have OTel span)
+#   R7  Time/randomness/IO       → delegated to local ESLint rule (rules-as-tests/no-direct-time-randomness)
+#   R8  Observability            → delegated to local ESLint rule (rules-as-tests/require-otel-span)
 #   R9  Imports/dependencies     → delegated to ESLint (no-restricted-imports)
 #   R10 Naming                   → manual review only (not formalisable)
 #   R11 CI integrity             → manual review only
@@ -60,24 +60,7 @@ skip_unless() {
 
 # R1: delegated to ESLint rules @typescript-eslint/no-explicit-any + no-non-null-assertion
 
-# ────────────────────────────────────────────────────────────────────────
-# R2 — Validation at boundaries: HTTP handlers parse via Zod safeParse
-# Mapped to .ai-factory/RULES.md R2
-# ────────────────────────────────────────────────────────────────────────
-if skip_unless R2; then : ; else
-  RULE="R2: Validation at HTTP boundaries (Zod safeParse, not parse)"
-  VIOL=$(grep -rEn "Schema\\.parse\\(|schema\\.parse\\(" \
-    src/web/handlers/ src/app/actions/ src/app/api/ 2>/dev/null \
-    | grep -v "safeParse" \
-    | grep -v "// audit:exempt" || true)
-
-  if [ -z "$VIOL" ]; then
-    pass "$RULE"
-  else
-    fail "$RULE"
-    echo "$VIOL" | sed 's/^/    /'
-  fi
-fi
+# R2: delegated to local ESLint rule rules-as-tests/no-unsafe-zod-parse
 
 # ────────────────────────────────────────────────────────────────────────
 # R4 — Tests for new public code: every domain export has .unit.ts
@@ -105,56 +88,9 @@ fi
 
 # R6: delegated to ESLint rules no-throw-literal + @typescript-eslint/no-useless-catch
 
-# ────────────────────────────────────────────────────────────────────────
-# R7 — Time/randomness/IO: no Date.now() / Math.random() outside infrastructure
-# Mapped to .ai-factory/RULES.md R7
-# ────────────────────────────────────────────────────────────────────────
-if skip_unless R7; then : ; else
-  RULE="R7: Time/randomness injected via Clock/Random (no direct Date.now/Math.random)"
-  VIOL=$(grep -rnE "Date\\.now\\(\\)|new Date\\(\\)|Math\\.random\\(\\)" src/ 2>/dev/null \
-    | grep -v "src/infrastructure/clock/\\|src/infrastructure/random/" \
-    | grep -v "\\.unit\\.\\|\\.integration\\.\\|\\.audit\\.\\|\\.test\\.\\|\\.spec\\." \
-    | grep -v "// audit:exempt" || true)
+# R7: delegated to local ESLint rule rules-as-tests/no-direct-time-randomness
 
-  if [ -z "$VIOL" ]; then
-    pass "$RULE"
-  else
-    fail "$RULE"
-    echo "$VIOL" | sed 's/^/    /'
-  fi
-fi
-
-# ────────────────────────────────────────────────────────────────────────
-# R8 — Observability: application functions open OTel span
-# Mapped to .ai-factory/RULES.md R8
-# ────────────────────────────────────────────────────────────────────────
-if skip_unless R8; then : ; else
-  RULE="R8: Application commands/queries open OTel span"
-  VIOL=""
-  if [ -d src/application ]; then
-    for f in $(find src/application -name "*.ts" 2>/dev/null \
-      | grep -v "\\.unit\\.\\|\\.integration\\.\\|\\.audit\\.\\|/ports/" || true); do
-      out=$(awk '
-        /^export async function / {
-          fn=$4; sub(/\(.*/,"",fn); start=NR; has_span=0;
-        }
-        /tracer\.startActiveSpan|withSpan\(|@span/ { has_span=1 }
-        /^}$/ {
-          if(start && !has_span) print FILENAME":"start": "fn" missing OTel span"
-          start=0; has_span=0;
-        }
-      ' FILENAME="$f" "$f")
-      [ -n "$out" ] && VIOL="$VIOL"$'\n'"$out"
-    done
-  fi
-
-  if [ -z "$VIOL" ]; then
-    pass "$RULE"
-  else
-    fail "$RULE"
-    echo "$VIOL" | sed 's/^/    /'
-  fi
-fi
+# R8: delegated to local ESLint rule rules-as-tests/require-otel-span
 
 # R9: delegated to ESLint rule no-restricted-imports (lodash/moment/axios/request/node-fetch)
 

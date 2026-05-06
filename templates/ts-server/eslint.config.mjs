@@ -9,6 +9,7 @@ import vitestPlugin from 'eslint-plugin-vitest';
 import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
 import { defineConfig } from 'eslint/config';
+import customRules from '../shared/eslint-rules/index.ts';
 
 export default defineConfig(
   // 1. Global ignores
@@ -122,6 +123,35 @@ export default defineConfig(
             'Use an injected Random source instead of Math.random() in production code.',
         },
       ],
+    },
+  },
+
+  // 4b. Custom AST rules (R2 / R7 / R8)
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/infrastructure/**/*.{ts,tsx}'],
+    plugins: { 'rules-as-tests': customRules },
+    rules: {
+      'rules-as-tests/no-direct-time-randomness': 'error',
+    },
+  },
+  {
+    files: [
+      'src/web/handlers/**/*.{ts,tsx}',
+      'src/app/actions/**/*.{ts,tsx}',
+      'src/app/api/**/*.{ts,tsx}',
+    ],
+    plugins: { 'rules-as-tests': customRules },
+    rules: {
+      'rules-as-tests/no-unsafe-zod-parse': 'error',
+    },
+  },
+  {
+    files: ['src/application/**/*.{ts,tsx}'],
+    ignores: ['src/application/**/ports/**'],
+    plugins: { 'rules-as-tests': customRules },
+    rules: {
+      'rules-as-tests/require-otel-span': 'error',
     },
   },
 

@@ -29,13 +29,13 @@ For each rule R1–R20 (and any project-specific R*+), run the corresponding aut
 | Rule | Check |
 |---|---|
 | **R1 TypeScript hygiene** | `npx tsc --noEmit && npx eslint <changed files>` |
-| **R2 Validation at boundaries** | grep `Schema\.parse\(\|schema\.parse\(` in `src/web/handlers/`, `src/app/actions/`, `src/app/api/` excluding `safeParse` — any match is a violation (handlers must use `.safeParse()`, never `.parse()`) |
+| **R2 Validation at boundaries** | `npx eslint <changed>` (rule: `rules-as-tests/no-unsafe-zod-parse`) |
 | **R3 Architectural boundaries** | `npx depcruise --validate .dependency-cruiser.cjs <changed files>` |
 | **R4 Tests for new code** | AST scan: every new exported function in diff has matching test file with at least one assertion |
 | **R5 Async correctness** | `npx eslint --rule '@typescript-eslint/no-floating-promises:error' <changed>` |
 | **R6 Errors** | `npx eslint <changed> (rules: no-throw-literal, @typescript-eslint/no-useless-catch)` |
-| **R7 Time/randomness/IO** | grep `Date.now()`, `new Date()`, `Math.random()`, direct `fs/http/https` imports outside `infrastructure/` |
-| **R8 Observability** | AST grep: exported async functions in `application/` open OTel span via standard helper |
+| **R7 Time/randomness/IO** | `npx eslint <changed>` (rule: `rules-as-tests/no-direct-time-randomness`) |
+| **R8 Observability** | `npx eslint <changed>` (rule: `rules-as-tests/require-otel-span`) |
 | **R9 Imports/dependencies** | `grep -E '(from \|import .*[\"'\''])(lodash\|moment\|axios)'` + check `package.json` for new top-level deps |
 | **R10 Naming** | filename matches exported symbol, `*Repository` interface in domain, `*Service` not in domain, `*Controller` only in web/ |
 | **R11 CI integrity** | if `.github/workflows/ci.yml` changed → require explicit rationale + test re-run |

@@ -40,7 +40,7 @@ function functionHasSpan(body: TSESTree.BlockStatement | undefined): boolean {
     // Push child nodes onto stack
     for (const key of Object.keys(node)) {
       if (SKIP_KEYS.has(key)) continue;
-      const value = (node as Record<string, unknown>)[key];
+      const value = (node as unknown as Record<string, unknown>)[key];
       if (!value || typeof value !== 'object') continue;
       if (Array.isArray(value)) {
         for (const child of value) {
