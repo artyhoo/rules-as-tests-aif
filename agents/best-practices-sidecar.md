@@ -33,7 +33,7 @@ For each rule R1–R20 (and any project-specific R*+), run the corresponding aut
 | **R3 Architectural boundaries** | `npx depcruise --validate .dependency-cruiser.cjs <changed files>` |
 | **R4 Tests for new code** | AST scan: every new exported function in diff has matching test file with at least one assertion |
 | **R5 Async correctness** | `npx eslint --rule '@typescript-eslint/no-floating-promises:error' <changed>` |
-| **R6 Errors** | grep `throw '` (string throw), `catch (_)` (empty catch), absence of DomainError/InfraError extends |
+| **R6 Errors** | `npx eslint <changed> (rules: no-throw-literal, @typescript-eslint/no-useless-catch)` |
 | **R7 Time/randomness/IO** | grep `Date.now()`, `new Date()`, `Math.random()`, direct `fs/http/https` imports outside `infrastructure/` |
 | **R8 Observability** | AST grep: exported async functions in `application/` open OTel span via standard helper |
 | **R9 Imports/dependencies** | `grep -E '(from \|import .*[\"'\''])(lodash\|moment\|axios)'` + check `package.json` for new top-level deps |
@@ -95,7 +95,7 @@ When the project uses React/Next.js (detected by `next.config.{js,ts,mjs}` or `p
 | **R13 Data fetching** | client components don't `fetch()` directly without `useQuery`/`useSWR` wrapper |
 | **R14 Forms** | server actions have `'use server'` AND Zod parse on `formData` |
 | **R15 Accessibility** | `npx eslint --rule 'jsx-a11y/no-static-element-interactions:error' <changed>` |
-| **R16 Performance** | grep `<img>` (should be `<Image>`), `<a href="/` (should be `<Link>`) |
+| **R16 Performance** | `npx eslint <changed> (rules: @next/next/no-img-element, @next/next/no-html-link-for-pages)` |
 | **R17 Component tests** | for every new `.tsx` component → matching `.stories.tsx` and `.unit.ts` exist |
 | **R18 TanStack Query** | `useQuery`/`useSWR` calls have typed schema via Zod `.parse()` of response |
 | **R19 Styles** | no CSS-in-JS imports (`styled-components`, `@emotion`) |

@@ -76,16 +76,6 @@ should_skip() {
   return 0
 }
 
-# ─── R1: TypeScript hygiene ──────────────────────────────────────
-test_R1() {
-  should_skip R1 && return 0
-  local d; d=$(new_workdir); enter "$d"
-  mkdir -p src/domain
-  printf 'export const x = (v: any) => v as any;\n' > src/domain/bad.ts
-  assert_fails R1 "$AUDIT_SH"
-  rm -rf "$d"
-}
-
 # ─── R2: Validation at HTTP boundaries (parse, not safeParse) ────
 test_R2() {
   should_skip R2 && return 0
@@ -113,18 +103,6 @@ test_R4() {
   rm -rf "$d"
 }
 
-# ─── R6: No string throws / empty catch ──────────────────────────
-test_R6() {
-  should_skip R6 && return 0
-  local d; d=$(new_workdir); enter "$d"
-  mkdir -p src/lib
-  cat > src/lib/bad.ts <<'EOF'
-export function f() { throw "string thrown"; }
-EOF
-  assert_fails R6 "$AUDIT_SH"
-  rm -rf "$d"
-}
-
 # ─── R7: Date.now() / Math.random() outside infrastructure ───────
 test_R7() {
   should_skip R7 && return 0
@@ -146,16 +124,6 @@ export async function placeOrder(input: unknown) {
 }
 EOF
   assert_fails R8 "$AUDIT_SH"
-  rm -rf "$d"
-}
-
-# ─── R9: Forbidden imports (lodash/moment/axios/...) ─────────────
-test_R9() {
-  should_skip R9 && return 0
-  local d; d=$(new_workdir); enter "$d"
-  mkdir -p src/lib
-  printf 'import _ from "lodash";\nexport const x = _;\n' > src/lib/bad.ts
-  assert_fails R9 "$AUDIT_SH"
   rm -rf "$d"
 }
 
@@ -229,45 +197,6 @@ EOF
   rm -rf "$d"
 }
 
-# ─── R15: <div onClick> ──────────────────────────────────────────
-test_R15() {
-  should_skip R15 && return 0
-  [ -f "$AUDIT_UI_SH" ] || return 0
-  local d; d=$(new_workdir); enter "$d"
-  mkdir -p src/components
-  cat > src/components/Bad.tsx <<'EOF'
-export const Bad = () => <div onClick={() => {}}>click</div>;
-EOF
-  assert_fails R15 "$AUDIT_UI_SH"
-  rm -rf "$d"
-}
-
-# ─── R16a: <img> instead of <Image> ──────────────────────────────
-test_R16a() {
-  should_skip R16a && return 0
-  [ -f "$AUDIT_UI_SH" ] || return 0
-  local d; d=$(new_workdir); enter "$d"
-  mkdir -p src/components
-  cat > src/components/Pic.tsx <<'EOF'
-export const Pic = () => <img src="/x.png" />;
-EOF
-  assert_fails R16a "$AUDIT_UI_SH"
-  rm -rf "$d"
-}
-
-# ─── R16b: <a href="/internal"> instead of <Link> ────────────────
-test_R16b() {
-  should_skip R16b && return 0
-  [ -f "$AUDIT_UI_SH" ] || return 0
-  local d; d=$(new_workdir); enter "$d"
-  mkdir -p src/components
-  cat > src/components/Nav.tsx <<'EOF'
-export const Nav = () => <a href="/about">About</a>;
-EOF
-  assert_fails R16b "$AUDIT_UI_SH"
-  rm -rf "$d"
-}
-
 # ─── R17: Component without .stories.tsx (emits WARN, not FAIL) ──
 test_R17() {
   should_skip R17 && return 0
@@ -307,20 +236,14 @@ EOF
 # ─── Run all ─────────────────────────────────────────────────────
 echo "── Running negative tests for audit probes ──"
 
-test_R1
 test_R2
 test_R4
-test_R6
 test_R7
 test_R8
-test_R9
 test_D1
 test_D2
 test_R12
 test_R14
-test_R15
-test_R16a
-test_R16b
 test_R17
 test_R20
 

@@ -52,7 +52,7 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 - Domain errors extend `DomainError`. Infrastructure errors extend `InfraError`.
 - All HTTP error responses go through the central error mapper.
 
-**Check:** ESLint custom rule + AST grep.
+**Check:** ESLint rules `no-throw-literal` + `@typescript-eslint/no-useless-catch`.
 
 ## R7 — Time, randomness, IO
 - No `Date.now()`, `new Date()`, `performance.now()` in `src/` (except `infrastructure/clock/`).

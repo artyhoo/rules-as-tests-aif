@@ -5,15 +5,15 @@
 # Each probe maps EXPLICITLY to a rule number from .ai-factory/RULES.md.
 #
 # Rule mapping:
-#   R1  TypeScript hygiene       → probe_R1   (greps for `as any`, `!` non-null assertion)
+#   R1  TypeScript hygiene       → delegated to ESLint (no-explicit-any, no-non-null-assertion)
 #   R2  Validation at boundaries → probe_R2   (HTTP handlers without nearby Zod parse)
 #   R3  Architectural boundaries → delegated to dependency-cruiser (run separately)
 #   R4  Tests for new code       → probe_R4   (every domain export has matching .unit.ts)
 #   R5  Async correctness        → delegated to ESLint no-floating-promises
-#   R6  Errors                   → probe_R6   (no `throw 'string'`, no empty catch)
+#   R6  Errors                   → delegated to ESLint (no-throw-literal, no-useless-catch)
 #   R7  Time/randomness/IO       → probe_R7   (Date.now / Math.random outside infrastructure)
 #   R8  Observability            → probe_R8   (application functions have OTel span)
-#   R9  Imports/dependencies     → probe_R9   (no lodash/moment/axios)
+#   R9  Imports/dependencies     → delegated to ESLint (no-restricted-imports)
 #   R10 Naming                   → manual review only (not formalisable)
 #   R11 CI integrity             → manual review only
 #
@@ -58,41 +58,7 @@ skip_unless() {
   return 0
 }
 
-# ────────────────────────────────────────────────────────────────────────
-# R1 — TypeScript hygiene: no `as any`, no `!` non-null assertion
-# Mapped to .ai-factory/RULES.md R1
-# ────────────────────────────────────────────────────────────────────────
-if skip_unless R1; then : ; else
-  RULE="R1: TypeScript hygiene (no 'as any', no non-null assertions)"
-  # Portability:
-  #   `\b` (word boundary) is NOT supported by BSD grep (default on macOS),
-  #   so we use POSIX equivalents [^a-zA-Z0-9_] instead.
-  #
-  # Non-null assertion: identifier OR closing bracket, then '!', then a
-  # terminator character that disambiguates it from '!=' / '!=='.
-  # Terminator class is ordered ".,;) [:space:] \]" — leading '.' first,
-  # ']' last with backslash, to avoid bracket-parsing ambiguity in macOS BSD
-  # grep / ugrep (a leading '[' inside another '[' triggers
-  # "invalid collating element" errors).
-  # Earlier version `[a-zA-Z0-9_)\]]!\.` only caught `x!.y`, missing
-  # `func(x!)`, `arr[i!]`, `x! as T`, `x!,`, `x!;`.
-  # Pattern: prefix [<identifier>|`)`|`]`] + `!` + terminator group
-  # Terminator group lists each character literally (`\)` and `\]` for grouping
-  # safety; cannot use a single character class because POSIX requires `]`
-  # to come first inside `[...]` and that conflicts with `[:space:]`).
-  VIOL=$(grep -rEn "(^|[^a-zA-Z0-9_])as any([^a-zA-Z0-9_]|$)|[]a-zA-Z0-9_)]!(\\.|,|;|\\)|\\]|[[:space:]])" src/ 2>/dev/null \
-    | grep -vE "!==|!=([^=]|$)" \
-    | grep -v "\\.unit\\.\\|\\.integration\\.\\|\\.audit\\.\\|\\.test\\.\\|\\.spec\\." \
-    | grep -v "// audit:exempt" \
-    | grep -v "import.*type" || true)
-
-  if [ -z "$VIOL" ]; then
-    pass "$RULE"
-  else
-    fail "$RULE"
-    echo "$VIOL" | sed 's/^/    /'
-  fi
-fi
+# R1: delegated to ESLint rules @typescript-eslint/no-explicit-any + no-non-null-assertion
 
 # ────────────────────────────────────────────────────────────────────────
 # R2 — Validation at boundaries: HTTP handlers parse via Zod safeParse
@@ -137,32 +103,7 @@ if skip_unless R4; then : ; else
   fi
 fi
 
-# ────────────────────────────────────────────────────────────────────────
-# R6 — Errors: no `throw 'string'`, no empty catch
-# Mapped to .ai-factory/RULES.md R6
-# ────────────────────────────────────────────────────────────────────────
-if skip_unless R6; then : ; else
-  RULE="R6: Error handling (no string throws, no empty catch blocks)"
-  VIOL=""
-
-  # No throw 'literal-string' or throw "literal"
-  STRING_THROWS=$(grep -rnE "throw\\s+['\"\`]" src/ 2>/dev/null \
-    | grep -v "\\.unit\\.\\|\\.integration\\.\\|\\.audit\\." \
-    | grep -v "// audit:exempt" || true)
-  [ -n "$STRING_THROWS" ] && VIOL="$VIOL"$'\n'"String throws:"$'\n'"$STRING_THROWS"
-
-  # Empty catch blocks: catch (...) { }
-  EMPTY_CATCH=$(grep -rnE "catch\\s*\\(.*\\)\\s*\\{\\s*\\}" src/ 2>/dev/null \
-    | grep -v "// audit:exempt" || true)
-  [ -n "$EMPTY_CATCH" ] && VIOL="$VIOL"$'\n'"Empty catches:"$'\n'"$EMPTY_CATCH"
-
-  if [ -z "$VIOL" ]; then
-    pass "$RULE"
-  else
-    fail "$RULE"
-    echo "$VIOL" | sed 's/^/    /'
-  fi
-fi
+# R6: delegated to ESLint rules no-throw-literal + @typescript-eslint/no-useless-catch
 
 # ────────────────────────────────────────────────────────────────────────
 # R7 — Time/randomness/IO: no Date.now() / Math.random() outside infrastructure
@@ -215,22 +156,7 @@ if skip_unless R8; then : ; else
   fi
 fi
 
-# ────────────────────────────────────────────────────────────────────────
-# R9 — Imports: no lodash/moment/axios
-# Mapped to .ai-factory/RULES.md R9
-# ────────────────────────────────────────────────────────────────────────
-if skip_unless R9; then : ; else
-  RULE="R9: No forbidden imports (lodash, moment, axios, request, node-fetch)"
-  VIOL=$(grep -rEn "from ['\"](lodash(/.*)?|moment|axios|request|node-fetch)['\"]" \
-    src/ 2>/dev/null | grep -v "// audit:exempt" || true)
-
-  if [ -z "$VIOL" ]; then
-    pass "$RULE"
-  else
-    fail "$RULE"
-    echo "$VIOL" | sed 's/^/    /'
-  fi
-fi
+# R9: delegated to ESLint rule no-restricted-imports (lodash/moment/axios/request/node-fetch)
 
 # ════════════════════════════════════════════════════════════════════════
 # Drift detection probes (separate from R-rules — these check infrastructure)

@@ -64,6 +64,10 @@ export default defineConfig(
         },
       ],
 
+      // ─── Error handling ─────────────────────────────
+      'no-throw-literal': 'error',
+      '@typescript-eslint/no-useless-catch': 'error',
+
       // ─── Switch / control flow ──────────────────────
       'default-case': 'error',
       'no-fallthrough': 'error',
@@ -84,6 +88,14 @@ export default defineConfig(
             {
               group: ['axios'],
               message: 'Use native fetch.',
+            },
+            {
+              group: ['request', 'request/*'],
+              message: 'request is deprecated. Use native fetch.',
+            },
+            {
+              group: ['node-fetch', 'node-fetch/*'],
+              message: 'Use native fetch (Node 18+).',
             },
           ],
         },

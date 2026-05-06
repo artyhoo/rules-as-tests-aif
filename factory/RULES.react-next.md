@@ -41,7 +41,7 @@
 - Все form-поля имеют связанный `<label>`.
 - Динамический контент с `role="alert"` обновляет text при изменении state.
 
-**Check:** ESLint `jsx-a11y/strict` + `audit-ai-docs.react-next.sh` probe `R15` + axe в Playwright.
+**Check:** ESLint `jsx-a11y/strict` + axe в Playwright.
 
 ## R16 — Performance
 - `next/image` для всех изображений (никаких `<img>`).
@@ -51,7 +51,7 @@
 - Шрифты через `next/font` (предотвращает FOIT/FOUT).
 - Bundle size monitored (`@next/bundle-analyzer` в CI).
 
-**Check:** ESLint `@next/next/core-web-vitals` + `audit-ai-docs.react-next.sh` probes `R16a` (no `<img>`), `R16b` (no `<a href="/...">`).
+**Check:** ESLint `@next/next/no-img-element` + `@next/next/no-html-link-for-pages` (правила core-web-vitals).
 
 ## R17 — Тесты компонентов
 - Каждый публичный компонент в `src/shared/ui/` или `src/features/*/ui/` имеет:

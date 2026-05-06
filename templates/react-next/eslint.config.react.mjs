@@ -55,6 +55,39 @@ export default defineConfig(
       ],
       '@typescript-eslint/prefer-nullish-coalescing': 'error',
       '@typescript-eslint/prefer-optional-chain': 'error',
+      // ─── Error handling ─────────────────────────────
+      'no-throw-literal': 'error',
+      '@typescript-eslint/no-useless-catch': 'error',
+
+      // ─── Forbidden imports (banned dependencies) ────
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['lodash', 'lodash/*'],
+              message: 'Use native methods or lodash-es with tree-shaking.',
+            },
+            {
+              group: ['moment'],
+              message: 'Use date-fns or Temporal instead of moment.',
+            },
+            {
+              group: ['axios'],
+              message: 'Use native fetch.',
+            },
+            {
+              group: ['request', 'request/*'],
+              message: 'request is deprecated. Use native fetch.',
+            },
+            {
+              group: ['node-fetch', 'node-fetch/*'],
+              message: 'Use native fetch (Node 18+).',
+            },
+          ],
+        },
+      ],
+
       'no-restricted-syntax': [
         'error',
         {

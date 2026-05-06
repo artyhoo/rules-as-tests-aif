@@ -8,8 +8,8 @@
 #   R12 Server vs Client          → probe_R12  (use client + server-only imports)
 #   R13 Data fetching             → manual review (TanStack Query usage)
 #   R14 Forms                     → probe_R14  (server actions + Zod safeParse)
-#   R15 Accessibility             → probe_R15  (no <div onClick>)
-#   R16 Performance               → probe_R16a (no <img>) + probe_R16b (no <a href="/...">)
+#   R15 Accessibility             → delegated to ESLint (jsx-a11y/no-static-element-interactions)
+#   R16 Performance               → delegated to ESLint (@next/next/no-img-element + no-html-link-for-pages)
 #   R17 Component tests           → probe_R17  (each component has .stories.tsx)
 #   R18 TanStack Query            → manual review
 #   R19 Styles                    → delegated to dependency-cruiser (no styled-components)
@@ -114,56 +114,9 @@ if skip_unless R14; then : ; else
   fi
 fi
 
-# ────────────────────────────────────────────────────────────────────────
-# R15 — Accessibility: no <div onClick> for interactive elements
-# ────────────────────────────────────────────────────────────────────────
-if skip_unless R15; then : ; else
-  RULE="R15: Accessibility (no <div onClick>; use <button>)"
-  VIOL=$(grep -rEn "<div[^>]*onClick=" src/ 2>/dev/null \
-    | grep -v "// audit:exempt\\|// eslint-disable" || true)
-
-  if [ -z "$VIOL" ]; then
-    pass "$RULE"
-  else
-    fail "$RULE"
-    echo "$VIOL" | sed 's/^/    /'
-  fi
-fi
-
-# ────────────────────────────────────────────────────────────────────────
-# R16a — Performance: use next/image, not <img>
-# ────────────────────────────────────────────────────────────────────────
-if skip_unless R16a; then : ; else
-  RULE="R16a: Performance (use next/image, not <img>)"
-  VIOL=$(grep -rEn "<img\\s" src/ 2>/dev/null \
-    | grep -v "\\.unit\\.\\|\\.test\\.\\|\\.stories\\." \
-    | grep -v "// audit:exempt" || true)
-
-  if [ -z "$VIOL" ]; then
-    pass "$RULE"
-  else
-    fail "$RULE"
-    echo "$VIOL" | sed 's/^/    /'
-  fi
-fi
-
-# ────────────────────────────────────────────────────────────────────────
-# R16b — Performance: use next/link for internal navigation, not <a href>
-# ────────────────────────────────────────────────────────────────────────
-if skip_unless R16b; then : ; else
-  RULE="R16b: Performance (use <Link> for internal links, not <a href>)"
-  VIOL=$(grep -rEn '<a[^>]*href=["'\'']/[^/]' src/ 2>/dev/null \
-    | grep -v 'href="/api/\\|href="//\\|href="https?://' \
-    | grep -v "\\.unit\\.\\|\\.test\\.\\|\\.stories\\." \
-    | grep -v "// audit:exempt" || true)
-
-  if [ -z "$VIOL" ]; then
-    pass "$RULE"
-  else
-    fail "$RULE"
-    echo "$VIOL" | sed 's/^/    /'
-  fi
-fi
+# R15: delegated to ESLint rule jsx-a11y/no-static-element-interactions
+# R16a: delegated to ESLint rule @next/next/no-img-element
+# R16b: delegated to ESLint rule @next/next/no-html-link-for-pages
 
 # ────────────────────────────────────────────────────────────────────────
 # R17 — Component tests: each component has .stories.tsx
