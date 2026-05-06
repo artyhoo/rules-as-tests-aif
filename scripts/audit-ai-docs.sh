@@ -8,7 +8,7 @@
 #   R1  TypeScript hygiene       → delegated to ESLint (no-explicit-any, no-non-null-assertion)
 #   R2  Validation at boundaries → delegated to local ESLint rule (rules-as-tests/no-unsafe-zod-parse)
 #   R3  Architectural boundaries → delegated to dependency-cruiser (run separately)
-#   R4  Tests for new code       → probe_R4   (every domain export has matching .unit.ts)
+#   R4  Tests for new code       → scripts/audit-r4.ts (ts-morph; checks export presence + reference in .unit.ts)
 #   R5  Async correctness        → delegated to ESLint no-floating-promises
 #   R6  Errors                   → delegated to ESLint (no-throw-literal, no-useless-catch)
 #   R7  Time/randomness/IO       → delegated to local ESLint rule (rules-as-tests/no-direct-time-randomness)
@@ -65,24 +65,24 @@ skip_unless() {
 # ────────────────────────────────────────────────────────────────────────
 # R4 — Tests for new public code: every domain export has .unit.ts
 # Mapped to .ai-factory/RULES.md R4
-# Note: ARCHITECTURE.md says tests are co-located with .unit.ts suffix.
+# Implementation: ts-morph script (scripts/audit-r4.ts).
+# Falls back to "skipped" if tooling missing — keeps the script
+# usable in environments without Node/tsx (e.g. fresh setup before npm install).
 # ────────────────────────────────────────────────────────────────────────
 if skip_unless R4; then : ; else
-  RULE="R4: Every public export in src/domain has matching .unit.ts"
-  VIOL=""
-  for f in $(find src/domain -name "*.ts" 2>/dev/null \
-    | grep -v "\\.unit\\.\\|\\.integration\\.\\|\\.audit\\.\\|\\.test\\.\\|index\\.ts" || true); do
-    base=${f%.ts}
-    if grep -qE "^export (function|class|const|async)" "$f" 2>/dev/null; then
-      [ -f "${base}.unit.ts" ] || VIOL="$VIOL"$'\n'"$f → missing ${base}.unit.ts"
-    fi
-  done
-
-  if [ -z "$VIOL" ]; then
-    pass "$RULE"
+  RULE="R4: Every public export in src/domain has matching .unit.ts (ts-morph)"
+  if [ ! -d src/domain ]; then
+    pass "$RULE (skipped: no src/domain)"
+  elif ! command -v npx >/dev/null 2>&1; then
+    warn "$RULE (skipped: npx not found)"
+  elif [ ! -f tsconfig.json ] && [ ! -f node_modules/ts-morph/package.json ]; then
+    warn "$RULE (skipped: no tsconfig.json and ts-morph not installed)"
   else
-    fail "$RULE"
-    echo "$VIOL" | sed 's/^/    /'
+    if npx --no-install tsx scripts/audit-r4.ts 2>&1; then
+      pass "$RULE"
+    else
+      fail "$RULE"
+    fi
   fi
 fi
 

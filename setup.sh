@@ -158,6 +158,8 @@ if [ "$SKIP_DEPS" = false ]; then
     "npm-run-all2@^7.0.0"
     "prettier@^3.4.0"
     "sort-package-json@^2.12.0"
+    "ts-morph@^24.0.0"
+    "tsx@^4.19.0"
     "typescript@^5.7.0"
     "typescript-eslint@^8.59.0"
     "vitest@^4.1.5"

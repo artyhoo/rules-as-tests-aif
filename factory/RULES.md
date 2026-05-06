@@ -37,7 +37,7 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 - For state machines / numeric thresholds: parameterized tests covering boundaries.
 - For pure functions with general invariants: at least one fast-check property.
 
-**Check:** AST meta-test in `tests/meta/` + `vitest related <files>`.
+**Check:** `scripts/audit-r4.ts` (ts-morph) — every export in `src/domain/**/*.ts` has matching `.unit.ts` that references the export name. Plus `vitest related <changed>` for actual test execution.
 
 ## R5 — Async correctness
 - All Promises either `await`ed or explicitly handled with `.catch()`.
