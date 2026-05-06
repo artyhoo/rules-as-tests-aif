@@ -1,0 +1,4 @@
+node_modules/
+.claude/orchestrator-prompts/
+*.log
+.DS_Store
