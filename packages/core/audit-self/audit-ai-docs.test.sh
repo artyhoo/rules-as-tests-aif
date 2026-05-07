@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# tests/audit/audit-ai-docs.test.sh
+# packages/core/audit-self/audit-ai-docs.test.sh
 #
-# Negative tests for every probe in scripts/audit-ai-docs.sh and
-# scripts/audit-ai-docs.react-next.sh.
+# Negative tests for every probe in packages/core/audit-self/audit-ai-docs.sh and
+# packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh.
 #
 # Each test:
 #   1. Spins up a fresh project skeleton in $WORK
@@ -16,17 +16,17 @@
 # references/self-testing-docs.md applied to the package itself.
 #
 # Usage:
-#   bash tests/audit/audit-ai-docs.test.sh
-#   bash tests/audit/audit-ai-docs.test.sh R1     # run a single test
+#   bash packages/core/audit-self/audit-ai-docs.test.sh
+#   bash packages/core/audit-self/audit-ai-docs.test.sh R1     # run a single test
 #
 # Exit codes: 0 — all pass, 1 — at least one assertion failed.
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PKG_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-AUDIT_SH="$PKG_ROOT/scripts/audit-ai-docs.sh"
-AUDIT_UI_SH="$PKG_ROOT/scripts/audit-ai-docs.react-next.sh"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+AUDIT_SH="$SCRIPT_DIR/audit-ai-docs.sh"
+AUDIT_UI_SH="$REPO_ROOT/packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh"
 
 if [ -t 1 ]; then
   RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
@@ -175,7 +175,7 @@ EOF
 #   R12 → no-restricted-globals + no-server-imports-in-client
 #   R14 → require-form-safe-parse
 #   R20 → require-use-server-directive
-# Negative tests for those rules live in templates/shared/eslint-rules/*.test.ts.
+# Negative tests for those rules live in packages/{core,preset-next-15-canonical}/eslint-rules/*.test.ts.
 
 # ─── R17: Component without .stories.tsx (emits WARN, not FAIL) ──
 test_R17() {

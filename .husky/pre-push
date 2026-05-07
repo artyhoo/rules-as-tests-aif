@@ -6,7 +6,7 @@
 # Probes (Decision matrix MUST + SHOULD rows, self-application.md §3):
 #   - actionlint:             on .github/workflows/*.yml
 #   - zizmor:                 on .github/workflows/
-#   - Self-test pipeline:     bash tests/audit/audit-ai-docs.test.sh
+#   - Self-test pipeline:     bash packages/core/audit-self/audit-ai-docs.test.sh
 #   - Manifest render drift:  npx tsx packages/core/render/render-rules.ts --check
 
 set -euo pipefail
@@ -33,10 +33,10 @@ fi
 zizmor --format plain .github/workflows/
 
 # ── 3. Self-test pipeline ─────────────────────────────────────────────────────
-if [ -x tests/audit/audit-ai-docs.test.sh ]; then
-  bash tests/audit/audit-ai-docs.test.sh
+if [ -x packages/core/audit-self/audit-ai-docs.test.sh ]; then
+  bash packages/core/audit-self/audit-ai-docs.test.sh
 else
-  echo "❌ tests/audit/audit-ai-docs.test.sh missing or not executable"
+  echo "❌ packages/core/audit-self/audit-ai-docs.test.sh missing or not executable"
   exit 1
 fi
 

@@ -83,7 +83,7 @@ if (isPrint) {
   process.exit(0);
 }
 
-const targetPath = resolve(REPO_ROOT, 'factory/RULES.md');
+const targetPath = resolve(REPO_ROOT, 'packages/preset-next-15-canonical/RULES.md');
 const targetSrc = readFileSync(targetPath, 'utf8');
 const beginMarker = '<!-- begin: rules-table-generated -->';
 const endMarker = '<!-- end: rules-table-generated -->';
@@ -106,7 +106,7 @@ if (isCheck) {
     process.exit(0);
   }
   console.error('rules-table region drift detected.');
-  console.error('Run: tsx scripts/render-rules.ts');
+  console.error('Run: npx tsx packages/core/render/render-rules.ts');
   process.exit(1);
 }
 

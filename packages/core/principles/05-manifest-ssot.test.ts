@@ -23,7 +23,7 @@ import { execSync } from 'node:child_process';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const MANIFEST_PATH = resolve(HERE, '../manifest/rules-manifest.json');
-const RULES_MD_PATH = resolve(REPO_ROOT, 'factory/RULES.md');
+const RULES_MD_PATH = resolve(REPO_ROOT, 'packages/preset-next-15-canonical/RULES.md');
 const RENDER_SCRIPT = resolve(HERE, '../render/render-rules.ts');
 
 interface RuleEntry {
@@ -51,8 +51,8 @@ function assertRuleIdInRulesMd(id: string, rulesMdContent: string): void {
   // We check for the ID as a standalone token to avoid false positives
   if (!rulesMdContent.includes(id)) {
     throw new Error(
-      `Rule ${id}: not found in factory/RULES.md. ` +
-        'Run `npx tsx scripts/render-rules.ts` to regenerate RULES.md from manifest.',
+      `Rule ${id}: not found in packages/preset-next-15-canonical/RULES.md. ` +
+        'Run `npx tsx packages/core/render/render-rules.ts` to regenerate RULES.md from manifest.',
     );
   }
 }

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const SCRIPT = resolve(HERE, 'detect-applicable-rules.ts');
-const FRAMEWORK = resolve(REPO_ROOT, 'factory');
+const FRAMEWORK = resolve(REPO_ROOT, 'packages/core/manifest');
 
 const TMP = resolve(REPO_ROOT, '.tmp-detect-test');
 

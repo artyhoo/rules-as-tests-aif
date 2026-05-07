@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/audit-ai-docs.sh
+# packages/core/audit-self/audit-ai-docs.sh
 #
 # Code-vs-docs consistency audit for server-side TypeScript projects.
 # Each probe maps EXPLICITLY to a rule number from .ai-factory/RULES.md.
@@ -8,7 +8,7 @@
 #   R1  TypeScript hygiene       → delegated to ESLint (no-explicit-any, no-non-null-assertion)
 #   R2  Validation at boundaries → delegated to local ESLint rule (rules-as-tests/no-unsafe-zod-parse)
 #   R3  Architectural boundaries → delegated to dependency-cruiser (run separately)
-#   R4  Tests for new code       → scripts/audit-r4.ts (ts-morph; checks export presence + reference in .unit.ts)
+#   R4  Tests for new code       → scripts/audit-r4.ts in consumer project (ts-morph; checks export presence + reference in .unit.ts)
 #   R5  Async correctness        → delegated to ESLint no-floating-promises
 #   R6  Errors                   → delegated to ESLint (no-throw-literal, no-useless-catch)
 #   R7  Time/randomness/IO       → delegated to local ESLint rule (rules-as-tests/no-direct-time-randomness)
@@ -65,7 +65,7 @@ skip_unless() {
 # ────────────────────────────────────────────────────────────────────────
 # R4 — Tests for new public code: every domain export has .unit.ts
 # Mapped to .ai-factory/RULES.md R4
-# Implementation: ts-morph script (scripts/audit-r4.ts).
+# Implementation: ts-morph script (scripts/audit-r4.ts in consumer project).
 # Falls back to "skipped" if tooling missing — keeps the script
 # usable in environments without Node/tsx (e.g. fresh setup before npm install).
 # ────────────────────────────────────────────────────────────────────────

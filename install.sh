@@ -10,9 +10,9 @@
 # What it does:
 #   1. Copies skills/  → .claude/skills/rules-as-tests/
 #   2. Copies agents/  → .claude/agents/
-#   3. Copies factory/ → .ai-factory/  (templates: as-is, you fill in placeholders)
-#   4. Copies scripts/ → scripts/      (audit-ai-docs.sh)
-#   5. Copies templates/shared/ + templates/<stack>/ → project root
+#   3. Copies factory templates → .ai-factory/  (templates: as-is, you fill in placeholders)
+#   4. Copies packages/core/audit-self/ + packages/preset-*/audit-self/ → scripts/
+#   5. Copies packages/core/templates/shared/ + packages/preset-*/templates/ → project root
 #
 # Safety: by default never overwrites existing files. Use --force to overwrite.
 # Use --dry-run to preview the plan without touching disk.
@@ -143,46 +143,57 @@ done
 # ─── 3. AI Factory templates ────────────────────────────
 echo "▶ AI Factory templates → .ai-factory/"
 mkdir_safe "$PROJECT_ROOT/.ai-factory/rules"
-copy_safe "$PKG_ROOT/factory/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.template.md"
-copy_safe "$PKG_ROOT/factory/ARCHITECTURE.ts-server.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md"
-copy_safe "$PKG_ROOT/factory/RULES.md" "$PROJECT_ROOT/.ai-factory/RULES.md"
-copy_safe "$PKG_ROOT/factory/rules/integration-rules.md" "$PROJECT_ROOT/.ai-factory/rules/integration-rules.md"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.template.md"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md"
+copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.md" "$PROJECT_ROOT/.ai-factory/RULES.md"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJECT_ROOT/.ai-factory/rules/integration-rules.md"
 if [ "$STACK" = "react-next" ]; then
-  copy_safe "$PKG_ROOT/factory/ARCHITECTURE.react-next.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-next.md"
-  copy_safe "$PKG_ROOT/factory/RULES.react-next.md" "$PROJECT_ROOT/.ai-factory/RULES.react-next.md"
+  copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-next.md"
+  copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.react-next.md" "$PROJECT_ROOT/.ai-factory/RULES.react-next.md"
 fi
 
 # ─── 4. Scripts ─────────────────────────────────────────
 echo "▶ Scripts → scripts/"
 mkdir_safe "$PROJECT_ROOT/scripts"
-copy_safe "$PKG_ROOT/scripts/audit-ai-docs.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.sh"
+copy_safe "$PKG_ROOT/packages/core/audit-self/audit-ai-docs.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.sh" 2>/dev/null || true
 if [ "$STACK" = "react-next" ]; then
-  copy_safe "$PKG_ROOT/scripts/audit-ai-docs.react-next.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh"
+  copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh"
   chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh" 2>/dev/null || true
 fi
 
 # ─── 5. Shared templates ────────────────────────────────
 echo "▶ Shared templates → project root"
-copy_safe "$PKG_ROOT/templates/shared/.nvmrc" "$PROJECT_ROOT/.nvmrc"
-copy_safe "$PKG_ROOT/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json"
-copy_safe "$PKG_ROOT/templates/shared/tsconfig.json" "$PROJECT_ROOT/tsconfig.json"
-copy_safe "$PKG_ROOT/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/.nvmrc" "$PROJECT_ROOT/.nvmrc"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/tsconfig.json" "$PROJECT_ROOT/tsconfig.json"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
 mkdir_safe "$PROJECT_ROOT/.husky"
-copy_safe "$PKG_ROOT/templates/shared/husky-pre-commit.sh" "$PROJECT_ROOT/.husky/pre-commit"
-copy_safe "$PKG_ROOT/templates/shared/husky-pre-push.sh" "$PROJECT_ROOT/.husky/pre-push"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-commit.sh" "$PROJECT_ROOT/.husky/pre-commit"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-push.sh" "$PROJECT_ROOT/.husky/pre-push"
 chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" 2>/dev/null || true
 
 # ─── 5b. Custom ESLint rules plugin (used by eslint.config.mjs) ───
 echo "▶ Custom ESLint rules → eslint-rules-local/"
 mkdir_safe "$PROJECT_ROOT/eslint-rules-local"
-for f in "$PKG_ROOT"/templates/shared/eslint-rules/*.ts; do
+# Generic rules (core): no-direct-time-randomness, no-unsafe-zod-parse, require-otel-span
+for f in "$PKG_ROOT"/packages/core/eslint-rules/*.ts; do
   case "$f" in
     *.test.ts) continue ;;
-    */vitest.config.ts) continue ;;
+    */index.ts) continue ;;
   esac
   copy_safe "$f" "$PROJECT_ROOT/eslint-rules-local/$(basename "$f")"
 done
+if [ "$STACK" = "react-next" ]; then
+  # Stack-specific rules (preset): no-server-imports-in-client, require-form-safe-parse, require-use-server-directive
+  for f in "$PKG_ROOT"/packages/preset-next-15-canonical/eslint-rules/*.ts; do
+    case "$f" in
+      *.test.ts) continue ;;
+      */index.ts) continue ;;
+    esac
+    copy_safe "$f" "$PROJECT_ROOT/eslint-rules-local/$(basename "$f")"
+  done
+fi
 
 # ─── 6. Stack-specific templates ────────────────────────
 echo "▶ Stack-specific templates ($STACK) → project root"
@@ -195,12 +206,12 @@ if [ "$STACK" = "ts-server" ]; then
   copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
   copy_safe "$PKG_ROOT/templates/ts-server/github-actions-ci.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
 elif [ "$STACK" = "react-next" ]; then
-  copy_safe "$PKG_ROOT/templates/react-next/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
-  copy_safe "$PKG_ROOT/templates/react-next/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
-  copy_safe "$PKG_ROOT/templates/react-next/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
+  copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
+  copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+  copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
   # .dependency-cruiser.cjs is generated by setup.sh via 'depcruise --init' (Phase 3)
   copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
-  copy_safe "$PKG_ROOT/templates/react-next/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
+  copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
 fi
 
 # ─── Done ───────────────────────────────────────────────
@@ -224,7 +235,7 @@ fi
 echo ""
 echo "Next steps:"
 echo "  1. Edit .ai-factory/DESCRIPTION.template.md → save as .ai-factory/DESCRIPTION.md"
-echo "  2. Edit .ai-factory/ARCHITECTURE.ts-server.md → save as .ai-factory/ARCHITECTURE.md"
+echo "  2. Edit .ai-factory/ARCHITECTURE.ts-server.md (or ARCHITECTURE.react-next.md) → save as .ai-factory/ARCHITECTURE.md"
 echo "  3. Edit AGENTS.md placeholders to match your project"
 echo "  4. Install required npm dev-deps:"
 echo ""

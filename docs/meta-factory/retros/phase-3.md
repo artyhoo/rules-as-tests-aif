@@ -238,3 +238,48 @@ The `render-rules.test.ts` snapshot in `packages/core/render/__snapshots__/` was
 8. `find packages/ -name 'node_modules' -type d` — expected: 0 results (hoisted to root)
 9. `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/audit-self.yml'))"` — exit 0
 10. `grep -r "scripts/render-rules\|scripts/validate-batch-spec\|--prefix scripts" .husky/ Makefile .github/` — expected: 0 matches (all updated to packages/core paths)
+
+---
+
+## Phase 3.1 Cleanup Addendum (2026-05-08)
+
+**Trigger:** Reviewer REVISE verdict — 6 MAJOR violations (duplicate sources of truth). Old `scripts/`, `factory/`, `templates/`, `tests/audit/` remained as originals after Phase 3 copy, violating Principle 5 (Manifest = SSOT).
+
+**Resolved:**
+
+| # | Violation | Resolution |
+|---|---|---|
+| 1 | `scripts/` not removed | DELETED: `rm -rf scripts/`. `test ! -d scripts/` → PASS |
+| 2 | `factory/` not removed | Contents moved: RULES.md + RULES.react-next.md → `packages/preset-next-15-canonical/`; ARCHITECTURE.ts-server.md + DESCRIPTION.template.md + integration-rules.md → `packages/core/templates/shared/`; ARCHITECTURE.react-next.md → `packages/preset-next-15-canonical/templates/`. DELETED: `rm -rf factory/`. `test ! -d factory/` → PASS |
+| 3 | `templates/shared/eslint-rules/` duplicate | DELETED (canonical copies in packages/). `test ! -d templates/shared/eslint-rules/` → PASS |
+| 4 | `tests/audit/` duplicate | DELETED (canonical in packages/core/audit-self/). `test ! -d tests/audit/` → PASS |
+| 5 | `install.sh` stale paths | Updated 16 paths: factory/* → packages/preset-next-15-canonical/ or packages/core/templates/shared/; templates/shared/* → packages/core/templates/shared/; templates/react-next/* → packages/preset-next-15-canonical/templates/; scripts/audit-ai-docs.sh → packages/core/audit-self/; eslint-rules loop split into core+preset |
+| 6 | `audit-self.yml` stale paths | Updated 4 locations: line 117 (factory/RULES.* → packages/preset-next-15-canonical/RULES.*), line 148/150-153 (tests/audit/audit-ai-docs.test.sh → packages/core/audit-self/audit-ai-docs.test.sh), lines 236+266 (framework-self-install jobs) |
+
+**Additional fixes required during cleanup:**
+- `.husky/pre-push` line 36 — stale `tests/audit/audit-ai-docs.test.sh` → `packages/core/audit-self/audit-ai-docs.test.sh`
+- `packages/core/render/render-rules.ts` — target path `factory/RULES.md` → `packages/preset-next-15-canonical/RULES.md`
+- `packages/core/principles/05-manifest-ssot.test.ts` — `RULES_MD_PATH` `factory/RULES.md` → `packages/preset-next-15-canonical/RULES.md`
+- `packages/core/detector-v0/detect-applicable-rules.test.ts` — FRAMEWORK path `factory` → `packages/core/manifest`
+- `packages/core/audit-self/audit-ai-docs.test.sh` — PKG_ROOT-based paths → SCRIPT_DIR-relative + REPO_ROOT-relative
+- `templates/shared/` and `templates/react-next/` deleted (canonical in packages/; only `templates/ts-server/` kept — Gate 2)
+
+**Block 3 re-verification (post-cleanup):**
+
+| Command | Output |
+|---|---|
+| `make self-audit` | 5 pass / 0 fail + rules-table up-to-date + 24/24 principles |
+| `npm --prefix packages/core test` | 13 test files, 65 tests — all PASS |
+| `npm --prefix packages/preset-next-15-canonical test` | 3 test files, 38 tests — all PASS |
+| `npm --prefix packages/meta-factory run typecheck` | exit 0, no errors |
+| `bash .husky/pre-commit && bash .husky/pre-push` | both exit 0 |
+| `npx madge --circular packages/` | `No circular dependency found!` |
+
+**Self-application invariant:** Principle 5 (Manifest = SSOT) restored. No duplicate sources remain. Single canonical path for every file.
+
+**Trust-but-verify items for orchestrator post-verify (Phase 3.1):**
+1. `test ! -d scripts && test ! -d factory && test ! -d tests/audit && test ! -d templates/shared && test ! -d templates/react-next` — all must pass without "FAIL" output
+2. `npm --prefix packages/core test` — expected: 13 test files, 65 tests pass
+3. `bash .husky/pre-push` — expected: exit 0, includes audit-ai-docs.test.sh 5 pass / 0 fail
+4. `grep -rn "factory/" .github/ .husky/ Makefile packages/ install.sh` — expected: 0 matches on live paths (only comments/docs refs acceptable)
+5. `grep -n "tests/audit" .github/workflows/audit-self.yml .husky/pre-push` — expected: 0 matches

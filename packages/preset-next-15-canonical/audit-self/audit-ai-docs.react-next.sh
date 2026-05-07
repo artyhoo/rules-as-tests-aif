@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/audit-ai-docs.react-next.sh
+# packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh
 #
 # Code-vs-docs consistency audit for React 19 + Next.js 15 App Router projects.
 # Each probe maps EXPLICITLY to a rule from .ai-factory/RULES.react-next.md.

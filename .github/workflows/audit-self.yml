@@ -114,7 +114,7 @@ jobs:
       - name: Every R-rule has probe / manual / ESLint delegation
         run: |
           fail=0
-          for rules_file in factory/RULES.md factory/RULES.react-next.md; do
+          for rules_file in packages/preset-next-15-canonical/RULES.md packages/preset-next-15-canonical/RULES.react-next.md; do
             # ^## R<digits>[<lowercase>]?  — matches R1..R20, R16a/R16b; excludes "## Rule maintenance"
             while IFS= read -r r; do
               in_audit=0
@@ -145,12 +145,12 @@ jobs:
           node-version: '20'
       - name: Install ts-morph and tsx for R4 probe
         run: npm install --silent ts-morph tsx
-      - name: Run tests/audit/audit-ai-docs.test.sh
+      - name: Run packages/core/audit-self/audit-ai-docs.test.sh
         run: |
-          if [ -x tests/audit/audit-ai-docs.test.sh ]; then
-            bash tests/audit/audit-ai-docs.test.sh
+          if [ -x packages/core/audit-self/audit-ai-docs.test.sh ]; then
+            bash packages/core/audit-self/audit-ai-docs.test.sh
           else
-            echo "::error::tests/audit/audit-ai-docs.test.sh missing or not executable"
+            echo "::error::packages/core/audit-self/audit-ai-docs.test.sh missing or not executable"
             exit 1
           fi
 
@@ -233,7 +233,7 @@ jobs:
       - name: Run framework own audits inside fake consumer
         run: |
           cd /tmp/fake-consumer-ts
-          bash "$GITHUB_WORKSPACE/tests/audit/audit-ai-docs.test.sh" || \
+          bash "$GITHUB_WORKSPACE/packages/core/audit-self/audit-ai-docs.test.sh" || \
             { echo "::error::framework audits failed inside tmp consumer (ts-server)"; exit 1; }
 
   framework-self-install-react-next:
@@ -263,5 +263,5 @@ jobs:
       - name: Run framework own audits inside fake consumer
         run: |
           cd /tmp/fake-consumer-rn
-          bash "$GITHUB_WORKSPACE/tests/audit/audit-ai-docs.test.sh" || \
+          bash "$GITHUB_WORKSPACE/packages/core/audit-self/audit-ai-docs.test.sh" || \
             { echo "::error::framework audits failed inside tmp consumer (react-next)"; exit 1; }
