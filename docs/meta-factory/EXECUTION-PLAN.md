@@ -207,6 +207,8 @@ Pages Router REMOVED, async params/searchParams обязательны (Promises
 
 **Phase 0.5 — 2** этому gate'у не предшествовали (предшествуют сейчас retrofit в `aif-comparison.md`). Применяется начиная с Phase 3 retrofit + Phase 4-9.
 
+**Phase 3 retrofit status (2026-05-08):** Step 0 retroactively conducted — see [phase-3-research.md](phase-3-research.md) (matrix + decisions) и [PHASE-3-PROMPT-v0.2.0.md](PHASE-3-PROMPT-v0.2.0.md) (delta prompt). Verdict: **KEEP merged Phase 3 as-is** — все 5 capability reuse decisions validated ex-post; нет capability change worth revert+redo cost. Forward Step 0 triggers documented для Phase 4 (entry), Phase 8 (Changesets adoption), Phase 9+ (pnpm/Nx/Turbo re-evaluation thresholds).
+
 ---
 
 ## 6. План фаз с retrospective gates
