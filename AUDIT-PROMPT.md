@@ -112,7 +112,7 @@ PHASE 3 — Content quality (~15 minutes, requires reading)
     - Generalizable lesson
     - Executable detection rule (or explicitly noted as manual review)
 
-15. Read factory/DESCRIPTION.template.md and ARCHITECTURE.template.md.
+15. Read factory/DESCRIPTION.template.md and ARCHITECTURE.ts-server.md.
     Verify all <PLACEHOLDER> markers are valid YAML/Markdown
     (matched brackets, comments explaining what to fill in).
 

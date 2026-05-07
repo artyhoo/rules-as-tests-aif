@@ -122,7 +122,7 @@ ls templates/ts-server/ templates/react-next/
 
 ### 3.1 Templates have clear placeholders
 
-Read `factory/DESCRIPTION.template.md` and `factory/ARCHITECTURE.template.md`. Verify:
+Read `factory/DESCRIPTION.template.md` and `factory/ARCHITECTURE.ts-server.md`. Verify:
 - All `<PLACEHOLDER>` markers are valid (matched, not hanging brackets)
 - Each placeholder has a comment explaining what to replace it with
 - No real project names or paths leaked (this is generic template)

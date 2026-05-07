@@ -89,7 +89,7 @@ After `setup.sh` finishes, your project has:
 | `.claude/agents/best-practices-sidecar.md`, `review-sidecar.md`, `docs-auditor.md` | sub-agents for `/aif-verify` | No |
 | `.ai-factory/RULES.md` | R1-R11 (or +R12-R20 for react-next) | **Yes — review and trim per project** |
 | `.ai-factory/DESCRIPTION.template.md` | template with `<PLACEHOLDERS>` | **Yes — fill in, rename to `DESCRIPTION.md`** |
-| `.ai-factory/ARCHITECTURE.template.md` | drop-in for canonical hexagonal layout | Maybe — rename to `ARCHITECTURE.md` if your layout matches |
+| `.ai-factory/ARCHITECTURE.ts-server.md` | drop-in for canonical hexagonal layout | Maybe — rename to `ARCHITECTURE.md` if your layout matches |
 | `AGENTS.md` (root) | from `templates/shared/AGENTS.md.template` | **Yes — review** |
 | `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `stryker.config.json`, `.dependency-cruiser.cjs`, `.lintstagedrc.json`, `.nvmrc` | stack-specific configs | No — work out of the box |
 | `.husky/pre-commit`, `.husky/pre-push` | Husky hooks (lint-staged + typecheck + audit) | No |

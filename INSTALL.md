@@ -74,7 +74,7 @@ cp path/to/pkg/agents/*.md .claude/agents/
 ```bash
 mkdir -p .ai-factory/rules
 cp path/to/pkg/factory/DESCRIPTION.template.md .ai-factory/
-cp path/to/pkg/factory/ARCHITECTURE.template.md .ai-factory/
+cp path/to/pkg/factory/ARCHITECTURE.ts-server.md .ai-factory/
 cp path/to/pkg/factory/RULES.md .ai-factory/
 cp path/to/pkg/factory/rules/integration-rules.md .ai-factory/rules/
 
@@ -241,7 +241,7 @@ After install, fill in placeholders in these files:
 
 Replace `<NAME>`, `<Fastify | Hono | Express>`, etc. with your actual project info.
 
-### `.ai-factory/ARCHITECTURE.template.md` → save as `.ai-factory/ARCHITECTURE.md`
+### `.ai-factory/ARCHITECTURE.ts-server.md` → save as `.ai-factory/ARCHITECTURE.md`
 
 Adjust folder structure and dependency rules to match your project.
 
@@ -319,7 +319,7 @@ your-project/
 │   └── agents/                        ← sub-agents for /aif-verify
 ├── .ai-factory/
 │   ├── DESCRIPTION.template.md       ← edit and save as DESCRIPTION.md
-│   ├── ARCHITECTURE.template.md      ← edit and save as ARCHITECTURE.md
+│   ├── ARCHITECTURE.ts-server.md      ← edit and save as ARCHITECTURE.md
 │   ├── RULES.md                      ← R1–R11 rules (already filled)
 │   ├── RULES.react-next.md           ← R12–R20 (UI projects only)
 │   └── rules/integration-rules.md    ← IR1–IR6 (microservices only)

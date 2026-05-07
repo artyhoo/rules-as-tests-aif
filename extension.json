@@ -35,7 +35,7 @@
   "factory": {
     "templates": {
       "DESCRIPTION.md": "factory/DESCRIPTION.template.md",
-      "ARCHITECTURE.md": "factory/ARCHITECTURE.template.md",
+      "ARCHITECTURE.md": "factory/ARCHITECTURE.ts-server.md",
       "RULES.md": "factory/RULES.md"
     },
     "react-next": {

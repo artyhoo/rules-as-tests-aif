@@ -29,7 +29,7 @@ Install rules-as-tests-aif into this project. Follow these steps exactly:
    This installs:
    - .claude/agents/{best-practices-sidecar,review-sidecar,docs-auditor}.md (overrides)
    - .claude/skills/rules-as-tests/ — skill + 5 reference files in references/
-   - .ai-factory/DESCRIPTION.template.md, ARCHITECTURE.template.md, RULES.md, RULES.react-next.md (if applicable)
+   - .ai-factory/DESCRIPTION.template.md, ARCHITECTURE.ts-server.md, RULES.md, RULES.react-next.md (if applicable)
    - scripts/audit-ai-docs.sh (or .react-next.sh)
    - Configs in project root: eslint.config.mjs, vitest.config.ts, dependency-cruiser.cjs, stryker.config.json, tsconfig.json, .nvmrc, .lintstagedrc.json
    - .husky/pre-commit, .husky/pre-push

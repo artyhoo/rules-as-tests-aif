@@ -3,11 +3,7 @@
 > Layer rules and dependency direction. Enforced by `dependency-cruiser`.
 > For React/Next.js projects, see `ARCHITECTURE.react-next.md` instead.
 >
-> **Note on the `.template` suffix:** despite the filename, this file contains
-> no `<PLACEHOLDER>` markers — it's a complete, ready-to-use architecture for
-> the canonical hexagonal/clean server-side TS layout. The `.template` suffix
-> means "drop into `.ai-factory/ARCHITECTURE.md` and override only what your
-> project needs". If your layout matches as-is, just rename to `ARCHITECTURE.md`.
+> Drop into `.ai-factory/ARCHITECTURE.md` and override only what your project needs. For React/Next.js projects, see `ARCHITECTURE.react-next.md`.
 
 ## Layer structure (hexagonal / clean)
 
