@@ -38,6 +38,9 @@ Runs on every `git push`:
 | Security scan | `.github/workflows/` | `zizmor` |
 | Self-test pipeline | `tests/audit/` | `bash tests/audit/audit-ai-docs.test.sh` |
 | Manifest render drift | `factory/rules-manifest.json` ↔ `factory/RULES.md` | `npx tsx scripts/render-rules.ts --check` |
+| Spec discipline | staged `.claude/orchestrator-prompts/*.md` | `npx tsx scripts/validate-batch-spec.ts` (pre-commit soft warn, pre-push hard fail) |
+
+> **Pre-push spec validation requires `gh auth login`** for full SHA verification (action existence + tag↔SHA consistency). Without auth, the check falls back to anonymous gh API (60 req/h limit) and exits with code 2 (treated as pass) on rate-limit. For best CI parity locally, run `gh auth login` once. See `scripts/validate-batch-spec.ts --help`.
 
 ## What if you must bypass
 
