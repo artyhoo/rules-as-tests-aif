@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55  # v5.5.0
         with:
           python-version: '3.12'
       - name: Install zizmor
@@ -42,7 +42,7 @@ jobs:
         continue-on-error: false
       - name: Upload SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@717e230604b28efc38d8b4d3737d0611b16bc19a  # v3.30.0
         with:
           sarif_file: zizmor.sarif
           category: zizmor
