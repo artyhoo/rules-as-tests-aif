@@ -1,0 +1,16 @@
+{
+  "name": "rules-as-tests-aif-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render-rules": "tsx render-rules.ts",
+    "render-rules:check": "tsx render-rules.ts --check",
+    "detect": "tsx detect-applicable-rules.ts",
+    "test": "vitest run --reporter=default"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "ajv": "^8.17.0",
+    "vitest": "^4.1.5"
+  }
+}

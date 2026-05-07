@@ -4,6 +4,41 @@ These rules are checked by `best-practices-sidecar` after every implementation,
 before `/aif-verify` accepts the change. Each rule has a corresponding
 automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verify`.
 
+## Summary table
+
+> Generated from `factory/rules-manifest.json` by `scripts/render-rules.ts`. Do not edit by hand.
+
+<!-- begin: rules-table-generated -->
+| Rule | Stack | Check |
+|---|---|---|
+| **R1 TypeScript hygiene** | ts-server, react-next | `tsc --noEmit && eslint <files>` |
+| **R2 Validation at boundaries** | ts-server, react-next | ESLint `rules-as-tests/no-unsafe-zod-parse` |
+| **R3 Architectural boundaries** | ts-server, react-next | `npm run arch:check` |
+| **R4 Tests for new public code** | ts-server, react-next | `scripts/audit-r4.ts` |
+| **R5 Async correctness** | ts-server, react-next | ESLint `@typescript-eslint/no-floating-promises` |
+| **R6 Errors** | ts-server, react-next | ESLint `no-throw-literal` |
+| **R7 Time, randomness, IO** | ts-server, react-next | ESLint `rules-as-tests/no-direct-time-randomness` |
+| **R8 Observability** | ts-server, react-next | ESLint `rules-as-tests/require-otel-span` |
+| **R9 Imports / dependencies** | ts-server, react-next | ESLint `no-restricted-imports` |
+| **R10 Naming** | ts-server, react-next | Manual review — Naming conventions are too project-specific to formalize reliably; sidecar runs ad-hoc grep on the diff. |
+| **R11 CI integrity** | ts-server, react-next | `.github/workflows/workflow-integrity.yml (actionlint + zizmor + branch-protection-assertion)` |
+| **R12 Server vs Client Components** | react-next | ESLint `rules-as-tests/no-server-imports-in-client` |
+| **R13 Data fetching** | react-next | Manual review — AST grep on TanStack Query / SWR usage; no ESLint rule today. |
+| **R14 Forms** | react-next | ESLint `rules-as-tests/require-form-safe-parse` |
+| **R15 Accessibility** | react-next | ESLint `jsx-a11y/strict` |
+| **R16 Performance** | react-next | ESLint `@next/next/no-img-element` |
+| **R17 Component tests** | react-next | `scripts/audit-ai-docs.react-next.sh` |
+| **R18 TanStack Query / SWR** | react-next | Manual review — AST grep on `useQuery` without `.parse()` in `queryFn` (project-specific). |
+| **R19 Styles** | react-next | `depcruise --validate (blocks styled-components/@emotion)` |
+| **R20 Server Actions** | react-next | ESLint `rules-as-tests/require-use-server-directive` |
+| **IR1 API contracts** | microservices | `CI job: zod-to-openapi diff against published OpenAPI` |
+| **IR2 Consumer-driven contracts (Pact)** | microservices | `CI: pact-publish + pact-verify + can-i-deploy` |
+| **IR3 Event schemas (async messaging)** | microservices | `audit-ai-docs.sh probe — `publish()` calls reference @org/event-schemas` |
+| **IR4 Service-to-service auth** | microservices | `depcruise blocks bare fetch() to internal service URLs` |
+| **IR5 Observability propagation** | microservices | Manual review — Trace propagation is hard to lint; verify in integration tests + Jaeger/Tempo dashboards. |
+| **IR6 Resilience** | microservices | Manual review — Resilience patterns (retry, circuit breaker, timeout) verified by chaos tests in staging. |
+<!-- end: rules-table-generated -->
+
 ## R1 — TypeScript hygiene
 - No `as any` anywhere. If type is genuinely unknown, use `unknown` and narrow.
 - No non-null assertions (`!`). Use type guards or proper narrowing.
