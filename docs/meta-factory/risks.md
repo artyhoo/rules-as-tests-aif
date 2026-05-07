@@ -15,8 +15,12 @@
 | Стоимость токенов | Shared research-cache на уровне организации, обновляется по расписанию |
 | Decay best practices | TTL на кеш + auto-regen при апгрейде версий стэка |
 | Self-bootstrapping recursion | Invariant core минимизирован, покрыт тестами на стабильность; любое изменение core = major bump + regression suite |
-| Сгенерированный AST-код с багами (Path B) | Matrix tests на edge cases, mutation testing, two-AI review, human review checkpoint |
+| Сгенерированный AST-код с багами (Path B) | Matrix tests на edge cases, mutation testing, two-AI review via AIF `review-sidecar`, human review checkpoint |
 | Сломанный регекс/AST правила тихо always-PASS | Парные negative tests + mutation на самих правилах |
 | Регрессия при апгрейде стэка | Canonical examples как regression baseline; diff-режим показывает изменения человеку |
 | L2 Research Agent semantic drift не operationalized (см. [open-questions.md](open-questions.md) §13.7) | Phase 6 deliverable: формальный drift-detector с измеримой метрикой; до этого — manual review при изменении принципов |
 | Bypass через `--no-verify` делает invariant декоративным | Phase 1.A добавляет CI gate на наличие `.husky/` директории + non-empty hooks; локальный bypass не блокируется, но CI fail при отсутствии setup'а |
+| AIF major version breaking changes (v3+) | Pin AIF version в peerDependencies + semver compat tests; migration path Phase 11 |
+| AIF adoption / discontinuation | Rule corpus + manifest остаётся usable standalone; runtime layer migration cost ~2-4 weeks |
+| AIF API contract changes (`aif-gate-result` schema, skill-context format) | Schema validation в CI на reuse points; subscribe AIF release notes |
+| Identity dilution от «plug-in» позиционирования | Marketing positioning: «logical self-application layer» — unique value prop через mutation testing для meta-tests + manifest-as-SSOT (не workflow runtime) |

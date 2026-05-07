@@ -45,7 +45,7 @@
 [install only validated rules]
 ```
 
-Пакет ест свой собственный собачий корм на этапе генерации: его принципы (5 layers, AST > grep, paired negative tests, mutation testing, two-AI review) применяются к LLM-output как фильтр.
+Пакет ест свой собственный собачий корм на этапе генерации: его принципы (5 layers, AST > grep, paired negative tests, mutation testing, two-AI review via AIF `review-sidecar`) применяются к LLM-output как фильтр.
 
 ### 1.3 Зачем именно мета-уровень
 
@@ -53,6 +53,21 @@
 2. **Покрытие стэков** — Remix, Astro, Hono, SvelteKit получают свои фабрики без ручного preset.
 3. **Демонстрация принципа на максимуме** — если фреймворк проповедует «every rule is a test», то и сама генерация правил должна следовать тому же принципу.
 4. **Снижение долговой нагрузки** — не надо вручную поддерживать N preset-ов, отслеживать N changelog-ов, синхронизировать N конфигов.
+
+### 1.4 Позиционирование (added 2026-05-08 after AIF v2.11.0 comparison)
+
+Проект **НЕ parallel framework к AIF**. Проект — **plug-in для AIF runtime**:
+
+- **AIF (lee-to/ai-factory)** — workflow runtime: 30+ skills, slash-команды, sub-agents, `/aif-implement`, `/aif-verify`, `/aif-loop`, `aif-gate-result` JSON contract для cross-skill chaining. **Это решённая задача**, готовая инфраструктура.
+- **rules-as-tests-aif** — rule corpus + enforcement layer + recursive self-application guards. Уникально: mutation testing для meta-tests, manifest-as-SSOT с drift detection, paired bad/good examples per rule.
+
+**Operational implication:**
+- Roadmap Phase 4-9 переоценён: ~30-40% capability покрывается AIF reuse
+- Phase 3 retrofit: integrate AIF skills вместо building parallel orchestration
+- Identity: «logical self-application layer» поверх AIF «workflow self-application»
+- Versioning: coupling к AIF major versions; semver compatibility tracking required (Phase 11)
+
+**Verification source:** [aif-comparison.md](aif-comparison.md) §9 reuse matrix + §10 confirmed differentiators (validator pass 2026-05-08, context7-only constraint).
 
 ---
 

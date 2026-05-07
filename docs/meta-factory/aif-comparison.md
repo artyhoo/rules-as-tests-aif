@@ -106,14 +106,17 @@ EVALUATE runs checks через parallel `Task` agents, aggregate в weighted sc
 - **`aif-evolve` mining:** auto-generates project rules из accumulated fix patches (паттерн «#1 source of bugs in this project — null refs on optional DB relations»)
 - **skill-context override pattern:** universal mechanism для project-level skill customization без переписывания самих skills
 
-### Только в rules-as-tests-aif
+### Только в rules-as-tests-aif (CONFIRMED via validator 2026-05-08)
 
-- **Mutation testing requirement (Phase 2 P4):** anti-tautology guard для самих meta-tests; нет в AIF
-- **Manifest as SSOT + auto-render:** `render-rules --check` ловит drift между manifest и rendered RULES.md; AIF RULES.md = manually appended via `/aif-rules`
-- **5-layer rule corpus** (architecture/meta-tests/spec-by-example/mutation/living-docs) — фиксированная архитектура enforcement, не workflow
-- **Two-AI tautology review** (`review-sidecar` pattern) — independent reviewer pass на тесты
-- **Stack-aware scoping** через `stack: []` field в каждом правиле (vs AIF skill-context)
-- **Paired bad/good examples** в каждом правиле — P2 принцип
+- **Mutation testing requirement (Phase 2 P4):** anti-tautology guard для самих meta-tests; нет в AIF и не нашлось в alternatives (Reflexion, LangGraph evaluator-optimizer, AutoGen — никто не делает «тесты тестов на тавтологию»)
+- **Manifest as SSOT + auto-render:** `render-rules --check` ловит drift между manifest и rendered RULES.md; AIF RULES.md = manually appended via `/aif-rules`. Не нашлось аналогов в context7
+- **Paired bad/good examples** в каждом правиле как first-class schema field — отсутствует в AIF RULE-SCHEMA (только `description` строка) и во всех найденных альтернативах
+- **5-layer rule corpus** (architecture/meta-tests/spec-by-example/mutation/living-docs) — фиксированная taxonomy enforcement (best-practice synthesis, не unique mechanism)
+
+### Convention atop AIF infrastructure (NOT uniquely ours — 2026-05-08 correction)
+
+- **Two-AI tautology review:** `review-sidecar` AIF subagent — прямой analog. AIF имеет `model: sonnet|opus|haiku` field в SKILL.md spec + `context: fork` для isolated subagent. **Anti-bias convention** (different model для review) — наша практика поверх AIF infrastructure, **не fundamental differentiator**. Можно конфигурировать в AIF: `review-sidecar` с `model: opus` когда primary `sonnet`.
+- **Stack-aware scoping:** наш `stack: []` per-rule field более precise (next-15, react-next, ts-server) чем AIF `rules.<area>` (api/frontend/backend), но **разные axes**, не uniqueness. AIF area rules = «scope в проекте», наш stack = «техстек». Orthogonal — можно использовать вместе. Переоценка из initial draft где было сформулировано как unique.
 
 ---
 
@@ -168,6 +171,60 @@ Defer: операционализация в Phase 6 (Research Agent) или 11 
 AIF и rules-as-tests-aif **не конкуренты** — они работают на разных слоях:
 
 - AIF = **workflow runtime** (как делать AI-driven dev), rules как один из inputs
-- rules-as-tests-aif = **enforcement layer** (как гарантировать что AI не наврал), глубокие anti-tautology механизмы
+- rules-as-tests-aif = **enforcement layer + rule corpus** (logical self-application: правила доказывают свою корректность через себя), плагин для AIF runtime
 
 Интеграция через 4 touchpoint'а (§5), convergent rule format упрощает mapping. Initial §13.6 hypothesis верифицирована и расширена. Operationalization Phase 6/11.
+
+---
+
+## §9. Reuse vs build matrix (added 2026-05-08 after independent validator pass)
+
+Validator пас (general-purpose subagent с context7-only constraint) проверил 6 overlap claims + research альтернатив. Findings →
+
+### Strongest reuse candidates (брать готовое, не строить)
+
+| Capability | Готовое решение | Reuse rationale |
+|---|---|---|
+| Cross-skill verdict JSON contract | `aif-gate-result` ([GATE-RESULT-CONTRACT.md](https://github.com/lee-to/ai-factory/blob/2.x/skills/aif-verify/references/GATE-RESULT-CONTRACT.md)) | **Единственный formalized standard** в context7 ландшафте. OPA/Rego = authorization, GitHub status = слишком low-level. Naши retros должны emit его. |
+| Phase task delegation | `/aif-implement` + `implement-coordinator` | Dependency graph + while-loop dispatch. Заменяет ручные `PHASE-N-PROMPT.md`. |
+| Iterative refinement loops | `aif-loop` (PLAN/PRODUCE/PREPARE/EVALUATE/CRITIQUE/REFINE) | Наиболее зрелая реализация. Reflexion / LangGraph менее structured. |
+| Incident → rule generation | `aif-evolve` | Уникальная capability — никто кроме AIF не делает auto-rule generation из patches. |
+| Structured executable check format | `aif-loop` RULE-SCHEMA | Convergent с нашим manifest; JSON-to-JSON conversion тривиален. |
+| Independent reviewer infrastructure | `review-sidecar` + `model: opus` config | Anti-bias convention применяется поверх AIF (не своя инфраструктура). |
+
+### Where AIF + alternatives **insufficient** (наш build)
+
+См. §4 «Только в rules-as-tests-aif» — 4 confirmed differentiators (mutation testing для meta-tests, manifest-SSOT с drift detection, paired bad/good examples, 5-layer taxonomy).
+
+### Phase impact
+
+| Phase | До analysis | После analysis |
+|---|---|---|
+| 3 (split) | Custom monorepo structure | **Pause + retrofit** — context7 research для top monorepo patterns перед resume |
+| 4 (Stack Detector) | Build своё | Research AIF `aif-explore` + skill-context для autodetection logic |
+| 5 (Validator) | Build своё | **Use `aif-loop`** для quality-gated validation; build только validator-specific corpus |
+| 6 (Research Agent) | Build своё | **Use `aif-evolve` pattern**; build только domain-specific strategies |
+| 7 (Synthesizer) | Build своё | Без изменений — uniquely ours |
+| 8 (Acceptance) | Custom CI matrix | **Use `/aif-verify --strict`** для acceptance gate |
+| 9-11 | AIF integration | Уточнить: integration = adopting AIF runtime, не bidirectional bridge |
+
+Estimated reuse savings: **30-40%** оригинального roadmap scope (sizing требует уточнения при Phase 3 retrofit entry).
+
+---
+
+## §10. Confirmed differentiators (validator 2026-05-08)
+
+Что **остаётся уникальным** к проекту после AIF + alternatives research:
+
+1. **Mutation testing of meta-tests** (Phase 2 P4) — anti-tautology guard для самих принципов-тестов. Никто из найденных решений (AIF, Reflexion, LangGraph, AutoGen, CrewAI) не делает «тесты тестов на тавтологию».
+
+2. **Manifest-as-SSOT с auto-render drift detection** (`render-rules --check`) — drift между machine-readable manifest и human-readable RULES.md ловится автоматически. AIF RULES.md = manually appended, нет SSOT.
+
+3. **Paired bad/good examples в каждом правиле** как first-class schema field. AIF RULE-SCHEMA имеет только `description` string. Все найденные альтернативы — single description.
+
+4. **Recursive self-application в трёх формах:**
+   - Principles testing manifest (Phase 2 — strange loop)
+   - Generator reproduces canonical example (Phase 7 — output = input)
+   - Mutation tests of meta-tests (Phase 2 P4 — three levels of self-reference)
+
+Это и есть **actual contribution** проекта — всё остальное (workflow infrastructure, validation runtime, rule storage) — best practices applied / reused from AIF.
