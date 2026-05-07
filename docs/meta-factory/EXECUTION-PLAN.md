@@ -90,7 +90,7 @@ Self-application — **не отдельный шаг**, а cross-cutting invari
 |---|---|---|
 | L0 Invariant Core | Принципы исполнимы как тесты, прогон в pre-commit/pre-push/CI на собственном manifest'е | Author не может закоммитить нарушение принципа |
 | L1 Stack Detector | Детектит сам себя в CI | `setup.sh --stack=$(detect)` идемпотентен на собственном репо |
-| L2 Research | Research собственные docs (`skills/`, `principles.md`, `ai-traps.md`) | Все три источника синхронизированы по semantics |
+| L2 Research | Research собственные docs: `skills/rules-as-tests/SKILL.md` + `references/overview.md` + `references/ai-traps.md` (canonical per [self-application.md](self-application.md) §2) | Все три источника семантически синхронизированы; operationalization TBD Phase 6 per [open-questions.md](open-questions.md) §13.7 |
 | L3 Synthesizer | Regenerate canonical preset, diff с live | Minimal diff |
 | L4 Validator | Прогоняется на `rules-manifest.json`, не только на LLM-output | Каждое существующее правило проходит meta-tests |
 | L5 Installer | Запускается в CI на tmp-dir, результат проходит framework's audits | framework-self-install green |
@@ -492,12 +492,12 @@ Snapshot test в CI.
 
 **Critical:** Planner-Executor pattern. L2 не имеет file write, выдаёт только structured plan. L3 потребляет plan, не сырые docs.
 
-**Self-application clause:** research прогоняется на собственных docs (skills/, principles.md, ai-traps.md) → drift detection.
+**Self-application clause:** research прогоняется на трёх собственных источниках — `skills/rules-as-tests/SKILL.md` + `references/overview.md` + `references/ai-traps.md` → drift detection (canonical per [self-application.md](self-application.md) §2).
 
 **Verification:**
 ```bash
-meta-factory research --self                   # research собственные docs
-meta-factory research --diff principles.md@v0.1 principles.md@HEAD
+meta-factory research --self                                                  # research собственные docs
+meta-factory research --diff skills/rules-as-tests/references/overview.md@v0.1 ...@HEAD
 ```
 
 **Self-reflection:**

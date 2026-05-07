@@ -199,7 +199,7 @@ Self-application — не отдельный шаг, а cross-cutting invariant 
 |---|---|
 | **L0 Invariant Core** | Принципы прогоняются как тесты против собственного `rules-manifest.json` в pre-commit/pre-push/CI |
 | **L1 Stack Detector** | Detector запускается на самом репо в CI; expected output зафиксирован snapshot-тестом |
-| **L2 Research Agent** | Research прогоняется на собственных docs (`skills/`, `principles.md`, `ai-traps.md`) |
+| **L2 Research Agent** | Research прогоняется на `skills/rules-as-tests/{SKILL.md, references/overview.md, references/ai-traps.md}` (entry-point + principles + anti-patterns); operationalization — TBD Phase 6 per [open-questions.md](open-questions.md) §13.7 |
 | **L3 Rule Synthesizer** | Synthesizer регенерирует canonical Next 15, diff ≤5% — детерминирован |
 | **L4 Self-Validator** | Validator прогоняется на `rules-manifest.json` перед каждым CI run |
 | **L5 Installer** | `install.sh` + `setup.sh` запускается в CI на tmp-dir; результат проходит own audits |

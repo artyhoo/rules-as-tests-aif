@@ -83,13 +83,15 @@ AIF — это workflow framework (slash-команды, sub-agents, .ai-factory
 
 ### 13.7 Operationalization L2 semantic drift detection
 
-Acceptance criterion для L2 в [self-application.md](self-application.md) §2: «Все три источника (`skills/`, `principles.md`, `ai-traps.md`) семантически синхронизированы; drift detection возвращает 0 расхождений». Но **что значит «семантически»**? Возможные операционализации:
+Acceptance criterion для L2 в [self-application.md](self-application.md) §2: «Все три источника (`skills/rules-as-tests/SKILL.md`, `references/overview.md`, `references/ai-traps.md`) семантически синхронизированы; drift detection возвращает 0 расхождений». Но **что значит «семантически»**? Возможные операционализации:
 
 - **Symbolic:** одинаковые term'ы (e.g. «MUST» vs «should» — диcyrepancy при demotion'е)
-- **Behavioral:** rule из principles.md проверяется тестом из ai-traps.md → если изменился principle и не изменился test (или наоборот) — drift
+- **Behavioral:** rule из `overview.md` проверяется тестом из `ai-traps.md` → если изменился principle и не изменился test (или наоборот) — drift
 - **Embedding-based:** semantic similarity score; threshold для drift
 
 Решение откладывается до Phase 6. До этого — manual review при любом изменении файлов из этих трёх источников.
+
+> **Filename history (2026-05-07):** ранее три источника описывались как `skills/`, `principles.md`, `ai-traps.md` — но `principles.md` не существовал в репо (phantom file). Phase 1.D resync (per Art's Option A decision) исправил формулировку на реальные filenames; `references/overview.md` играет роль «principles» — содержит детальное описание 5 layers framework. Reviewer flagged это как MAJOR-2; canonical source — [self-application.md](self-application.md) §2.
 
 ### 13.8 Decision matrix expansion rule
 
