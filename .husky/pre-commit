@@ -45,6 +45,19 @@ while IFS= read -r f; do
       fi
       ;;
     *.md)
+      # Exempt: declared-transient artifacts (must contain "transient artifact" in first 20 lines)
+      # Mirrors audit-self.yml mechanical step exempt list.
+      case "$f" in
+        docs/meta-factory/EXECUTION-PLAN.md)
+          if head -20 "$f" | grep -qi "transient artifact"; then
+            : # skip — declared transient, see line 8
+          else
+            echo "❌ $f is in exempt list but lacks 'transient artifact' marker in first 20 lines"
+            fail=1
+          fi
+          continue
+          ;;
+      esac
       lines=$(awk 'END{print NR}' "$f")
       if [ "$lines" -gt 500 ]; then
         echo "❌ Markdown file $f exceeds 500 lines ($lines lines). Split or trim."

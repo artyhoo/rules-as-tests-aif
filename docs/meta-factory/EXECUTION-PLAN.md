@@ -90,7 +90,7 @@ Self-application — **не отдельный шаг**, а cross-cutting invari
 |---|---|---|
 | L0 Invariant Core | Принципы исполнимы как тесты, прогон в pre-commit/pre-push/CI на собственном manifest'е | Author не может закоммитить нарушение принципа |
 | L1 Stack Detector | Детектит сам себя в CI | `setup.sh --stack=$(detect)` идемпотентен на собственном репо |
-| L2 Research | Research собственные docs (principles.md ↔ ai-traps.md ↔ SKILL.md) | Все три источника синхронизированы по semantics |
+| L2 Research | Research собственные docs (`skills/`, `principles.md`, `ai-traps.md`) | Все три источника синхронизированы по semantics |
 | L3 Synthesizer | Regenerate canonical preset, diff с live | Minimal diff |
 | L4 Validator | Прогоняется на `rules-manifest.json`, не только на LLM-output | Каждое существующее правило проходит meta-tests |
 | L5 Installer | Запускается в CI на tmp-dir, результат проходит framework's audits | framework-self-install green |

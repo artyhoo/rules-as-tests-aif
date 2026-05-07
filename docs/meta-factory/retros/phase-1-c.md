@@ -14,6 +14,8 @@
 | Команда | Expected | Actual | Result |
 |---|---|---|---|
 | `cd scripts && npm test` | all pass | 13/13 (3 test files) | ✓ |
+| `wc -l scripts/validate-batch-spec.ts` | — | **366** (retro originally claimed 213; corrected in Phase 1.D MINOR-3 fix) | — |
+| `wc -l scripts/validate-batch-spec.test.ts` | — | **226** (retro originally claimed 178; corrected in Phase 1.D MINOR-3 fix) | — |
 | Positive integration: real SHA `actions/checkout@11bd71901...` | exit 0 | exit 0 | ✓ |
 | Negative integration: zeros SHA | exit 1 | exit 1 with `action.yml not found at SHA 000000...` | ✓ |
 | Negative integration: fabricated rhysd/actionlint SHA from batch-D.md | exit 1 or 2 | exit 1 (action.yml absent — `rhysd/actionlint` is binary tool, not action) | ✓ |
