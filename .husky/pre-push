@@ -49,7 +49,17 @@ else
   exit 1
 fi
 
-# ── 5. Spec discipline (Phase 1.C) — hard fail ────────────────────────────────
+# ── 5. Principles meta-tests (Phase 2) ───────────────────────────────────────
+# Budget: vitest run is fast (~1s for 24 tests). Hard fail on any meta-test failure.
+if command -v npx &>/dev/null; then
+  npm --prefix "$REPO_ROOT/scripts" run test:principles \
+    || { echo "❌ principles meta-tests failed — fix before push"; exit 1; }
+else
+  echo "❌ npx not found. Install Node.js to enable principles meta-tests."
+  exit 1
+fi
+
+# ── 6. Spec discipline (Phase 1.C) — hard fail ────────────────────────────────
 SPEC_FILES=$(git diff origin/main...HEAD --name-only --diff-filter=ACM 2>/dev/null \
   | grep '^\.claude/orchestrator-prompts/.*\.md$' || true)
 if [ -n "$SPEC_FILES" ]; then

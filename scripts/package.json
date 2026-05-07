@@ -8,7 +8,8 @@
     "detect": "tsx detect-applicable-rules.ts",
     "validate-batch-spec": "tsx validate-batch-spec.ts",
     "test:validate-batch-spec": "vitest run validate-batch-spec.test.ts",
-    "test": "vitest run --reporter=default"
+    "test": "vitest run --reporter=default",
+    "test:principles": "vitest run principles/"
   },
   "devDependencies": {
     "tsx": "^4.19.0",
