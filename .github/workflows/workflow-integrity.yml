@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
       - name: Run actionlint
-        uses: rhysd/actionlint@4dde6cc9404f24f0930a25e9d34fc5a4ea22e0eb  # v1.7.12 — pin and bump via Dependabot
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca  # v1.7.12 — pin and bump via Dependabot
         with:
           args: -color
 

@@ -64,7 +64,7 @@ jobs:
               fi
             done
             # historical audit reports may reference suggested filenames / anti-patterns
-          done < <(find . -name "*.md" -not -path "./.git/*" -not -name "audit-results-*.md")
+          done < <(find . -name "*.md" -not -path "./.git/*" -not -name "audit-results-*.md" -not -path "./docs/audits/*")
 
       - name: Stale path references
         run: |
