@@ -15,6 +15,24 @@
 + ESLint `rules-as-tests/no-server-imports-in-client` ('use client' files: forbid imports from
 infrastructure/, config/env, fs, node:fs, node:crypto, node:path).
 
+### Examples
+
+```tsx
+// BAD
+// no 'use client' directive
+export function Counter() {
+  const [n, setN] = useState(0); // useState in Server Component
+}
+```
+
+```tsx
+// GOOD
+'use client';
+export function Counter() {
+  const [n, setN] = useState(0);
+}
+```
+
 ## R13 — Data fetching
 - Server Components: прямые `async`/`await` вызовы (БД, fetch с auth headers).
 - Client-side reads: TanStack Query / SWR с типизированной схемой ответа через Zod `.parse()`.
@@ -23,6 +41,24 @@ infrastructure/, config/env, fs, node:fs, node:crypto, node:path).
 - Suspense boundaries вокруг async-границ; `loading.tsx` для маршрутов.
 
 **Check:** R13 — manual review only (AST grep на использование TanStack Query / SWR).
+
+### Examples
+
+```tsx
+// BAD
+'use client';
+export function Orders() {
+  useEffect(() => { fetch('/api/orders').then(r => r.json()).then(setData); }, []);
+}
+```
+
+```tsx
+// GOOD
+'use client';
+export function Orders() {
+  const { data } = useQuery({ queryKey: ['orders'], queryFn: fetchOrders });
+}
+```
 
 ## R14 — Forms
 - Все формы — через Server Actions (`'use server'`).
@@ -36,6 +72,26 @@ infrastructure/, config/env, fs, node:fs, node:crypto, node:path).
 **Check:** ESLint `rules-as-tests/require-form-safe-parse` (любая функция с параметром
 `FormData` обязана вызывать `.safeParse(...)` в теле).
 
+### Examples
+
+```ts
+// BAD
+'use server';
+export async function submit(fd: FormData) {
+  await save(fd.get('name') as string); // no safeParse
+}
+```
+
+```ts
+// GOOD
+'use server';
+export async function submit(fd: FormData) {
+  const r = Schema.safeParse(Object.fromEntries(fd));
+  if (!r.success) return { ok: false, error: r.error.message };
+  await save(r.data);
+}
+```
+
 ## R15 — Accessibility
 - Каждый интерактивный элемент имеет accessible name (aria-label, aria-labelledby или text content).
 - Все `<button>` имеют `type` (submit, button, reset).
@@ -46,6 +102,20 @@ infrastructure/, config/env, fs, node:fs, node:crypto, node:path).
 
 **Check:** ESLint `jsx-a11y/strict` + axe в Playwright.
 
+### Examples
+
+```tsx
+// BAD
+<div onClick={handleClick}>Click me</div>
+<button>✕</button>
+```
+
+```tsx
+// GOOD
+<button type="button" onClick={handleClick}>Click me</button>
+<button type="button" aria-label="Close">✕</button>
+```
+
 ## R16 — Performance
 - `next/image` для всех изображений (никаких `<img>`).
 - `next/link` для внутренней навигации (никаких `<a href="/internal">`).
@@ -55,6 +125,21 @@ infrastructure/, config/env, fs, node:fs, node:crypto, node:path).
 - Bundle size monitored (`@next/bundle-analyzer` в CI).
 
 **Check:** ESLint `@next/next/no-img-element` + `@next/next/no-html-link-for-pages` (правила core-web-vitals).
+
+### Examples
+
+```tsx
+// BAD
+<img src="/hero.jpg" alt="Hero" />
+<a href="/about">About</a>
+```
+
+```tsx
+// GOOD
+import Image from 'next/image';
+<Image src="/hero.jpg" width={800} height={400} alt="Hero" />
+<Link href="/about">About</Link>
+```
 
 ## R17 — Тесты компонентов
 - Каждый публичный компонент в `src/shared/ui/` или `src/features/*/ui/` имеет:
@@ -68,6 +153,21 @@ infrastructure/, config/env, fs, node:fs, node:crypto, node:path).
 
 **Check:** `audit-ai-docs.react-next.sh` probe `R17` + `eslint-plugin-testing-library` strict.
 
+### Examples
+
+```ts
+// BAD
+// Button.tsx has no Button.stories.tsx or Button.unit.ts
+export function Button({ label }: { label: string }) { return <button>{label}</button>; }
+```
+
+```ts
+// GOOD
+// Button.stories.tsx
+export const Default: Story = { args: { label: 'Submit' } };
+// Button.unit.ts: default render + userEvent click + empty label edge case
+```
+
 ## R18 — TanStack Query / SWR
 - Каждый `useQuery`/`useSWR` имеет typed response через Zod-схему (через `.parse()` или `.safeParse()` в `queryFn`).
 - `queryKey` содержит все параметры, влияющие на запрос.
@@ -77,6 +177,25 @@ infrastructure/, config/env, fs, node:fs, node:crypto, node:path).
 
 **Check:** AST grep на `useQuery` без `.parse()` в `queryFn` (project-specific probe).
 
+### Examples
+
+```ts
+// BAD
+const { data } = useQuery({
+  queryKey: ['orders'],
+  queryFn: () => fetch('/api/orders').then(r => r.json()),
+});
+```
+
+```ts
+// GOOD
+const { data } = useQuery({
+  queryKey: ['orders', userId],
+  queryFn: () => fetch('/api/orders').then(r => r.json()).then(OrderSchema.parse),
+  staleTime: 60_000,
+});
+```
+
 ## R19 — Стили
 - Tailwind utilities — основное.
 - `cn()` helper для conditional classes (clsx + tailwind-merge).
@@ -85,6 +204,20 @@ infrastructure/, config/env, fs, node:fs, node:crypto, node:path).
 - CSS Modules допустимо для encapsulated компонентов с сложными state-зависимыми стилями.
 
 **Check:** `dependency-cruiser` правило blocking `styled-components`/`@emotion`.
+
+### Examples
+
+```tsx
+// BAD
+import styled from 'styled-components';
+const Card = styled.div`padding: 1rem;`;
+```
+
+```tsx
+// GOOD
+import { cn } from '@/lib/utils';
+<div className={cn('p-4', active && 'bg-primary')}>...</div>
+```
 
 ## R20 — Server Actions
 - Декларация `'use server'` в начале файла или в функции.
@@ -96,6 +229,24 @@ infrastructure/, config/env, fs, node:fs, node:crypto, node:path).
 
 **Check:** ESLint `rules-as-tests/require-use-server-directive` (`export async function`
 требует `'use server'` директивы в начале файла) + project-specific probe для auth.
+
+### Examples
+
+```ts
+// BAD
+export async function deleteItem(id: string) {
+  await db.delete(id); // no 'use server'
+}
+```
+
+```ts
+// GOOD
+'use server';
+export async function deleteItem(id: string) {
+  await db.delete(id);
+  revalidatePath('/items');
+}
+```
 
 ---
 
