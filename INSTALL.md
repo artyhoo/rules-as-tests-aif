@@ -4,6 +4,17 @@ Three ways to install. Pick one.
 
 ---
 
+## Step 0 — Get the framework
+
+```bash
+git clone https://github.com/Yhooi2/rules-as-tests-aif /tmp/rules-as-tests-aif
+cd /tmp/rules-as-tests-aif
+```
+
+(Or, when Phase 4 lands: `npm i -D @yhooi2/rules-as-tests-aif`.)
+
+---
+
 ## Path A: AIF extension (recommended once schema lands)
 
 > **Status:** AIF extension format (`extension.json`) is in active development. PR #34 in `lee-to/ai-factory` adds the JSON schema, currently in **Draft**. Until merged and released, this path **may or may not** work depending on your AIF version.

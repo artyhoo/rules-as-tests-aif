@@ -4,6 +4,39 @@
 
 ---
 
+## Step 0 — Get the framework
+
+```bash
+git clone https://github.com/Yhooi2/rules-as-tests-aif /tmp/rules-as-tests-aif
+cd /tmp/rules-as-tests-aif
+```
+
+(Or, when Phase 4 lands: `npm i -D @yhooi2/rules-as-tests-aif`.)
+
+---
+
+## Permissions for the AI agent installing this package
+
+**ALWAYS — proceed without asking the user:**
+- Run `bash install.sh <stack>` and `bash setup.sh <stack>`.
+- Fill `<PLACEHOLDER>` markers in `DESCRIPTION.template.md` and `ARCHITECTURE.ts-server.md`.
+- Run `npm run validate` (or the project's equivalent) and `bash scripts/audit-ai-docs.sh`.
+
+**ASK FIRST — pause and report your reasoning before acting:**
+- Removing or skipping any rule R1–R20 (e.g. R8 OTel because the project doesn't use OpenTelemetry yet).
+- Modifying `factory/RULES.md` or any file under `factory/` after install.
+- Adding a new rule R21+ — propose it in `INSTALL-DECISIONS.md` first.
+- Disabling a probe in `audit-ai-docs.sh`.
+
+**NEVER — refuse if asked, redirect to a senior or to `/aif-rules` discussion:**
+- Edit files under `eslint-rules-local/` (these are vendored copies; edit upstream in `templates/shared/eslint-rules/` and reinstall).
+- Edit generated `RULES.md` if Phase 2's `rules-manifest.json` exists — regenerate via `scripts/render-rules.ts` instead.
+- Pass `--no-verify`, `--no-gpg-sign`, or any hook-skip flag in commits.
+- Push to `main` directly or force-push any shared branch.
+- Add `// audit:exempt` to silence a rule the agent doesn't understand — investigate first.
+
+---
+
 ## Quick install — copy-paste prompt
 
 ```
@@ -181,6 +214,22 @@ project/
 └── scripts/
     └── audit-ai-docs.sh              ← (or .react-next.sh) — code-vs-docs probes
 ```
+
+---
+
+## Expected first-run failures (this is OK)
+
+After `bash install.sh` on a fresh project, these checks **fail intentionally** until you populate the project. Do NOT try to "fix" them by suppressing the rule:
+
+| Command | What fails | Why it's OK | What to do |
+|---|---|---|---|
+| `npm run arch:check` | dependency-cruiser: no `src/domain/` | You haven't built the domain layer yet | Continue with R3 disabled until `src/domain/` exists |
+| `npm run audit:docs` | R4: no `src/domain/**/*.ts` exports | No public exports yet | Re-run after first feature lands |
+| `npm run validate` | typecheck: no `src/index.ts` | Empty src tree | Re-run after first source files |
+| `bash scripts/audit-ai-docs.sh` | R7: no `infrastructure/clock/` | Optional infrastructure | Add when you need time injection |
+| `eslint .` (R8) | `require-otel-span` on async exports without spans | OTel not wired yet | Disable R8 in `INSTALL-DECISIONS.md` if OTel isn't planned |
+
+If a check fails for a reason not in this table — **stop and report**, do not silently disable.
 
 ---
 
