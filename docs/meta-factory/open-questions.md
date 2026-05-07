@@ -98,7 +98,7 @@ AIF — это workflow framework (slash-команды, sub-agents, .ai-factory
 
 Гипотеза: `meta-factory` генерит **в том числе** обновлённые `.ai-factory/RULES.md`, sub-agent prompts (`best-practices-sidecar.md`), AGENTS.md секции. То есть AIF получает stack-aware контент через meta-factory.
 
-Это нужно проработать в отдельном документе `meta-factory-and-aif.md`.
+**Status (2026-05-08):** hypothesis verified против AIF v2.11.0 через context7 MCP — see [aif-comparison.md](aif-comparison.md). Convergent structured-check format (§3); 4 integration touchpoints identified (§5). Operationalization Phase 6 (Research Agent) и Phase 11 (AIF integration).
 
 ### 13.7 Operationalization L2 semantic drift detection
 
