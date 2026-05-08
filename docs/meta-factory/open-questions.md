@@ -240,3 +240,28 @@ per-rule × 26: 78K input · $5/M + 13K output · $25/M = $0.39  + $0.325 = $0.7
 - Documentation locus — `rules-lock.json` reference doc separate from this open-question, or inline in `architecture.md §2.7`?
 
 **Decision deferred** until first additive schema change.
+
+### 13.16 Search-coverage discipline (methodology layer, parallel to §13.10)
+
+**Status:** v1-shipped (Phase 8.8.1, 2026-05-08).
+**Origin:** Phase 9 entry research §4.A1 closed §13.10 entry #2 ROI re-evaluation negative on a 5-candidate context7 sweep; post-merge surfaced AIF `/aif-evolve` and Oh My ClaudeCode family as production-grade analogs in adjacent paradigms (recorded in §13.10 trailer note + commit `f92f60b`). Methodology gap, not a content gap — the recording layer (Phase 8.8 mechanism: SSOT + principle 08 + `Prior-art:` trailer + pre-push hook) was operating correctly; nothing forced the **searching** layer to widen the candidate base before closing a load-bearing «no production analog» claim.
+
+**Phase 8.8.1 v1 ships** as a docs-only methodology layer:
+
+| Layer | Surface | Artifact |
+|---|---|---|
+| Rule | [`.claude/rules/phase-research-coverage.md`](../../.claude/rules/phase-research-coverage.md) | 5-item coverage checklist + 4 self-reflection prompts + 4 anti-patterns |
+| Patches accumulator | [`docs/meta-factory/research-patches/`](research-patches/) | one file per discovered gap; AIF `/aif-evolve` patch format |
+| Discipline-layer SSOT trigger | this entry (§13.16) | when to widen / promote the rule |
+
+**This entry is the SSOT for the discipline-layer gate**, parallel to §13.10 (which is the SSOT for LLM-bearing v2 capability triggers). §13.10 governs *when to build LLM features*; §13.16 governs *when the search-discipline rule itself needs revision*.
+
+**Trigger condition for re-evaluation:**
+
+- **Promote to mandatory pre-Step-1.5 checklist** if the next phase entry research session reports observed false-positive rate >0% (i.e. ≥1 verdict-changing coverage gap surfaces post-merge despite the rule being active). Promotion path: bake the §1 checklist into [EXECUTION-PLAN.md §5.5 Step 1.5](EXECUTION-PLAN.md) as a hard process gate, parallel to the existing SSOT consult.
+- **Widen rule scope** if a tag accumulates on ≥3 patches in `research-patches/` — distillation pass folds the prevention rules into [`.claude/rules/phase-research-coverage.md` §1](../../.claude/rules/phase-research-coverage.md). Threshold mirrors AIF `/aif-evolve` 6/10 heuristic, scaled to our smaller corpus.
+- **Retire** if 3 consecutive phase entry research sessions report observed-zero-FP and no tag accumulates above threshold over the same window. Retirement = collapse the rule into prose guidance in [CLAUDE.md](../../CLAUDE.md) + delete the rule file.
+
+**Verification gate:** the rule applies recursively to itself per Phase 8.8.1 retro §7 — the rule's §1 checklist must, in retrospect, catch the AIF + Oh-My gap that triggered its creation. If self-review fails, the rule is REVISE not GO. (Outcome of the recursive check lives in [retros/phase-8.8.1-coverage-discipline.md](retros/phase-8.8.1-coverage-discipline.md).)
+
+**Closure criteria.** v1 closes when (a) ≥3 phase entry research sessions consume the rule with observed-zero-FP AND (b) no tag accumulates above the distillation threshold over the same window AND (c) no 6th-item candidate is proposed via §2.3 self-reflection. Until then: v1 carries forward, distillation pass at each accumulation threshold.
