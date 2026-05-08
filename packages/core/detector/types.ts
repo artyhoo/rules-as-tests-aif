@@ -24,6 +24,10 @@ export interface DetectionResult {
   weight: 0 | 1 | 2;
   source: string;
   rules: { applicable: string[]; skipped: string[] };
+  /** Standard packages absent from project; fed to Layer 2 (Research Agent). */
+  missing?: string[];
+  /** Detected stack patterns (e.g. 'nextjs-app-router', 'tailwind-v4-css-tokens'); fed to Layer 2/3. */
+  patterns?: string[];
 }
 
 export interface DetectorOptions {

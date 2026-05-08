@@ -9,9 +9,11 @@
 import { resolve } from 'node:path';
 import type { DetectionResult, DetectorOptions } from './types.ts';
 import { readAif } from './read-aif.ts';
-import { readManifest } from './read-manifest.ts';
+import { readManifest, readAllDepsSet } from './read-manifest.ts';
 import { readConfig } from './read-config.ts';
 import { toConfidence } from './confidence.ts';
+import { computeMissing } from './known-packages.ts';
+import { detectPatterns } from './patterns.ts';
 
 export type { DetectionResult, DetectorOptions, Stack, Framework, Runtime } from './types.ts';
 export type { Confidence, Severity, ConfidenceTuple, Priority } from './confidence.ts';
@@ -23,26 +25,34 @@ export function detectStack(
 ): DetectionResult {
   const root = resolve(projectRoot);
 
-  if (!opts.skipAif) {
-    const aif = readAif(root);
-    if (aif) return aif;
-  }
+  const partial = ((): DetectionResult => {
+    if (!opts.skipAif) {
+      const aif = readAif(root);
+      if (aif) return aif;
+    }
 
-  const manifest = readManifest(root);
-  if (manifest) return manifest;
+    const manifest = readManifest(root);
+    if (manifest) return manifest;
 
-  const config = readConfig(root);
-  if (config) return config;
+    const config = readConfig(root);
+    if (config) return config;
 
-  // Nothing matched — emit a low-confidence "unknown" result, source: <empty>.
-  const tuple = toConfidence(5);
+    // Nothing matched — emit a low-confidence "unknown" result, source: <empty>.
+    const tuple = toConfidence(5);
+    return {
+      stack: 'unknown',
+      framework: { name: null, version: null, major: null },
+      runtime: { name: 'node', major: null },
+      ...tuple,
+      source: '',
+      rules: { applicable: [], skipped: [] },
+    };
+  })();
+
   return {
-    stack: 'unknown',
-    framework: { name: null, version: null, major: null },
-    runtime: { name: 'node', major: null },
-    ...tuple,
-    source: '',
-    rules: { applicable: [], skipped: [] },
+    ...partial,
+    patterns: detectPatterns(root),
+    missing: partial.missing ?? computeMissing(readAllDepsSet(root)),
   };
 }
 

@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import type { DetectionResult } from './types.ts';
 import { toConfidence } from './confidence.ts';
 import { extractMajor, extractVersion } from './version-aware.ts';
+import { computeMissing } from './known-packages.ts';
 
 interface PackageJson {
   dependencies?: Record<string, string>;
@@ -23,6 +24,12 @@ function readPkg(projectRoot: string): { pkg: PackageJson; allDeps: Record<strin
   return { pkg, allDeps };
 }
 
+export function readAllDepsSet(projectRoot: string): Set<string> {
+  const result = readPkg(projectRoot);
+  if (!result) return new Set();
+  return new Set(Object.keys(result.allDeps));
+}
+
 export function readManifest(projectRoot: string): DetectionResult | null {
   const result = readPkg(projectRoot);
   if (!result) return null;
@@ -31,6 +38,7 @@ export function readManifest(projectRoot: string): DetectionResult | null {
   const tuple = toConfidence(4);
   const source = 'package.json';
   const baseRules = { applicable: [] as string[], skipped: [] as string[] };
+  const missing = computeMissing(new Set(Object.keys(allDeps)));
 
   if ('next' in allDeps) {
     const range = allDeps.next;
@@ -41,6 +49,7 @@ export function readManifest(projectRoot: string): DetectionResult | null {
       ...tuple,
       source,
       rules: baseRules,
+      missing,
     };
   }
 
@@ -53,6 +62,7 @@ export function readManifest(projectRoot: string): DetectionResult | null {
       ...tuple,
       source,
       rules: baseRules,
+      missing,
     };
   }
 
@@ -64,5 +74,6 @@ export function readManifest(projectRoot: string): DetectionResult | null {
     ...tuple,
     source,
     rules: baseRules,
+    missing,
   };
 }

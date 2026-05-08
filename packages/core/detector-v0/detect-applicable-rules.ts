@@ -1,4 +1,10 @@
 #!/usr/bin/env tsx
+/**
+ * @deprecated Phase 5 entry: detector-v0 is in maintenance-only mode. Consumers
+ * should migrate to v1 (`packages/core/detector/`). v0 retained for backward
+ * compat with R8 (otel rule applicability); will be removed when v1 reaches
+ * R8 parity (Phase 6+ Research Agent integration).
+ */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 

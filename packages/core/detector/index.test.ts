@@ -97,3 +97,71 @@ describe('detectStack — self-application on this repo', () => {
     expect(r.confidence).toBe('medium');
   });
 });
+
+describe('detectStack — missing[] field (v1.1)', () => {
+  beforeEach(() => {
+    rmSync(TMP, { recursive: true, force: true });
+    mkdirSync(TMP, { recursive: true });
+  });
+  afterEach(() => {
+    rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it('package.json with vitest installed → vitest NOT in missing', () => {
+    writePkg({}, { vitest: '^4.1.5' });
+    const r = detectStack(TMP);
+    expect(Array.isArray(r.missing)).toBe(true);
+    expect(r.missing).not.toContain('vitest');
+  });
+
+  it('package.json with none of the known packages → all 5 in missing', () => {
+    writePkg({ next: '^16.0.0' });
+    const r = detectStack(TMP);
+    expect(r.missing).toContain('@opentelemetry/api');
+    expect(r.missing).toContain('@playwright/test');
+    expect(r.missing).toContain('vitest');
+    expect(r.missing).toContain('@storybook/nextjs');
+    expect(r.missing).toContain('tailwindcss');
+  });
+
+  it('empty dir (unknown stack) → missing is an array (not undefined)', () => {
+    const r = detectStack(TMP);
+    expect(Array.isArray(r.missing)).toBe(true);
+  });
+});
+
+describe('detectStack — patterns[] field (v1.1)', () => {
+  beforeEach(() => {
+    rmSync(TMP, { recursive: true, force: true });
+    mkdirSync(TMP, { recursive: true });
+  });
+  afterEach(() => {
+    rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it('empty dir → patterns is an empty array', () => {
+    const r = detectStack(TMP);
+    expect(Array.isArray(r.patterns)).toBe(true);
+    expect(r.patterns).toHaveLength(0);
+  });
+
+  it('dir with app/ → patterns contains nextjs-app-router', () => {
+    mkdirSync(resolve(TMP, 'app'), { recursive: true });
+    writePkg({ next: '^16.0.0' });
+    const r = detectStack(TMP);
+    expect(r.patterns).toContain('nextjs-app-router');
+  });
+
+  it('dir without app/ or pages/ → neither router pattern present', () => {
+    writePkg({ next: '^16.0.0' });
+    const r = detectStack(TMP);
+    expect(r.patterns).not.toContain('nextjs-app-router');
+    expect(r.patterns).not.toContain('nextjs-pages-router');
+  });
+
+  it('patterns field is always present even for unknown stack', () => {
+    const r = detectStack(TMP);
+    expect(r).toHaveProperty('patterns');
+    expect(r).toHaveProperty('missing');
+  });
+});

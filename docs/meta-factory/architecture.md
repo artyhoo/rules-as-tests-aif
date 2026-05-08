@@ -61,6 +61,8 @@ Layer 5 — Installer
 }
 ```
 
+> **v1.1 subset note (2026-05-08):** Detector ships `{stack, framework, runtime, confidence, severity, weight, source, rules, missing, patterns}` per Bundle 4-partial-extended (Phase 5 entry). Fields `language`, `structure`, `router` are v2 backlog. Authoritative current contract: `packages/core/detector/types.ts`. Layer 2 (Research Agent) consumes `missing` + `patterns`.
+
 **Что НЕ делает.** Не принимает решений о правилах. Только наблюдение, факты, без интерпретации.
 
 ### 2.4 Layer 2 — Research Agent

@@ -16,5 +16,13 @@
   "rules": {
     "applicable": [],
     "skipped": []
-  }
+  },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss"
+  ],
+  "patterns": []
 }

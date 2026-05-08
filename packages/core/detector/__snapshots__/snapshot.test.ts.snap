@@ -8,6 +8,14 @@ exports[`detector snapshot — frozen fixture trees > detectStack(aif-skill-cont
     "name": "react",
     "version": "19.0.0",
   },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
   "rules": {
     "applicable": [],
     "skipped": [],
@@ -31,6 +39,14 @@ exports[`detector snapshot — frozen fixture trees > detectStack(next-15) match
     "name": "next",
     "version": "15.4.2",
   },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
   "rules": {
     "applicable": [],
     "skipped": [],
@@ -54,6 +70,14 @@ exports[`detector snapshot — frozen fixture trees > detectStack(next-16) match
     "name": "next",
     "version": "16.0.1",
   },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
   "rules": {
     "applicable": [],
     "skipped": [],
@@ -77,6 +101,14 @@ exports[`detector snapshot — frozen fixture trees > detectStack(no-aif) matche
     "name": "next",
     "version": "16.0.0",
   },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
   "rules": {
     "applicable": [],
     "skipped": [],
@@ -100,6 +132,14 @@ exports[`detector snapshot — frozen fixture trees > detectStack(react-only) ma
     "name": "react",
     "version": "19.0.0",
   },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
   "rules": {
     "applicable": [],
     "skipped": [],
@@ -123,6 +163,14 @@ exports[`detector snapshot — frozen fixture trees > detectStack(ts-server) mat
     "name": null,
     "version": null,
   },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
   "rules": {
     "applicable": [],
     "skipped": [],
@@ -146,6 +194,14 @@ exports[`detector snapshot — frozen fixture trees > detectStack(with-aif) matc
     "name": "next",
     "version": "16.0.0",
   },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
   "rules": {
     "applicable": [],
     "skipped": [],
