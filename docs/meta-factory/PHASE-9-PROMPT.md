@@ -169,7 +169,7 @@ grep -E "calibration.test.ts|data-backed" packages/core/diff/preset-similarity.t
 
 **Commit subject:** `test(diff): A8 — preset-similarity calibration corpus (5 mutants from canonical-v15)`
 
-**Prior-art trailer guidance:** test file likely ≥80 LOC → capability commit per hook detection. Trailer = `Prior-art: skipped — internal calibration corpus, no external analog (similarity metric is hand-rolled per [phase-9-entry-research.md §4.A8](docs/meta-factory/phase-9-entry-research.md); A8 already DEFER-evaluated as no SSOT match).`
+**Prior-art trailer guidance:** test file likely ≥80 LOC → capability commit per hook detection. Trailer = `Prior-art: skipped — internal calibration corpus, no external analog (similarity metric is hand-rolled per phase-9-entry-research.md §4.A8; A8 already DEFER-evaluated as no SSOT match).`
 
 ### T4 — A9: AIF GATE-RESULT-CONTRACT.md schema validation (Phase 11.1 closure tail)
 
