@@ -19,7 +19,7 @@
 
 **Success criterion:** мета-фабрика регенерирует canonical Next 15 preset с diff ≤5%, обновляет его до Next 16 с diff к manual baseline ≤15%, валидирует собственный output набором meta-tests, выведенных из тех же принципов которые она проповедует. **Без self-application весь тезис — пустой**.
 
-> **No-consumers caveat (m4 finding 2026-05-07):** на момент 2026-05-07 у пакета нет downstream consumers. Этот ~4-month plan justified как **proof-of-concept для recursive-self-validation thesis**, не как user-driven roadmap. Priority decisions внутри фаз должны учитывать: «если consumer'ов нет — какие decisions можно отложить до первого реального installation».
+> **No-consumers caveat — UPDATED 2026-05-08 (CLOSED):** на момент 2026-05-07 caveat был валиден (no downstream consumers). На 2026-05-08 — Art = первый реальный consumer, использует framework для собственных проектов. Это меняет priority logic: «если consumer'ов нет — отложить до первого installation» больше **не применимо**. Решения должны нацеливаться на качество production-grade, не minimal proof-of-concept. Recursive-self-validation thesis применяется в полную силу: framework который Art использует у себя обязан проходить свои же gates без исключений «потому что соло». Phase 8 acceptance test включает self-application к Art's real codebase (не только synthetic Next 16 fixture). Phase 8.X self-diagnostics и Phase 8.8 prior-art mechanism — больше не «v2 deferred», а v1 invariants.
 
 ---
 
@@ -634,7 +634,7 @@ Manual baseline: 1-2 дня создание `preset-next-16-manual`. Затем
 
 ---
 
-### Phase 8.8 — Prior-art evaluation mechanism (1 day, документная)
+### Phase 8.8 — Prior-art evaluation mechanism (2-3 дня, документная + минимальная impl для hooks/CI)
 
 > **Trigger:** Phase 8 close (acceptance GO verdict). Sequential, не параллель (Phase 8.X self-diagnostics — отдельный parallel slot per [§6 Phase 8 note](#phase-8)).
 > **Mirror:** [Phase 7.5 pattern](retros/phase-7.5.md) — formalization/process phase, ноль кода.
@@ -643,7 +643,7 @@ Manual baseline: 1-2 дня создание `preset-next-16-manual`. Затем
 
 **Motivation.** Phase 4-7 retros + Phase 7.5 analog research surfaced 3 closest prior-art candidates not in EXECUTION-PLAN.md §3.3 (Autogrep, Netlify framework-info, fitness functions vocabulary). Без structural enforcement каждая будущая фаза рискует skip'нуть consult — text references в shipped docs не gate'ируются, легко missed. Phase 8.8 закрывает gap через 5-уровневую конструкцию (SSOT doc + entry gate + prompt template + commit-trailer convention + periodic refresh).
 
-**Output (full design):** см. dedicated session doc; structure mirrors Phase 7.5 (≈7-8 atomic commits, retro). Brief scope:
+**Output (full design):** см. dedicated session doc; structure mirrors Phase 7.5 (≈8-10 atomic commits, retro). Honest time estimate: 2-3 дня (документная база + Уровень 4c pre-push hook implementation + Уровень 5 CI gate skeleton + recursive validation tests). Brief scope:
 
 - **Уровень 0 — Promote prior-art consult to first-class framework principle.** Add new principle (provisional ID `P-build-vs-reuse`) to `skills/rules-as-tests/references/overview.md` (canonical principles SSOT per [self-application.md §2 row L2](self-application.md)): «before building any new capability or introducing a new dependency, MUST run context7 query for the capability area (≥3 phrasings per §5.5 discipline) AND consult [prior-art-evaluations.md](prior-art-evaluations.md); document results via `Prior-art:` commit trailer or explicit phase-N-research.md citation». Add matching entry to `factory/rules-manifest.json` with `check.type: "manual"` (process rule, not AST-checkable) + executable companion via Уровень 4c pre-push hook. Manifest entry makes the principle catalogued, renderable into RULES.md via existing `render-rules.ts`, and subject to Phase 2 meta-tests on principle drift. This elevates prior-art consult from «process discipline в CONTRIBUTING» to **framework-level invariant** on equal footing с «every rule has executable check» / «AST > grep» / «no tautology». Consumers of the framework inherit it via the same RULES.md emission pipeline.
 - **Уровень 1** — `docs/meta-factory/prior-art-evaluations.md` SSOT (shipped reference, ≤500 lines) — table-driven entries `{Candidate, Capability matched, First seen, Last reviewed, Verdict (ADOPT/DEFER/WATCHLIST/REJECT), Rationale, Trigger to revisit}`. Initial entries: Autogrep, Netlify framework-info, fitness functions, plus what surfaced в Phase 8 capabilities.
@@ -661,6 +661,56 @@ Manual baseline: 1-2 дня создание `preset-next-16-manual`. Затем
 | 6 Уровней as defense-in-depth | каждый уровень ловит свой класс violation failure mode | Уровень 0 (manifest) → render-rules drift detection; Уровень 1 (SSOT data) → "Last reviewed" staleness; Уровень 2 (§5.5 gate) → phase entry «забыл проверить»; Уровень 3 (prompt template) → session-start «не было в context'е»; Уровень 4 (commit hook + trailer) → implementation-time «не задокументировал»; Уровень 5 (periodic refresh + CI gate) → time-decay «новый analog появился, не пересмотрели». Violation must pass all 6 layers undetected to slip through |
 
 Mutation testing (when gate 3 activates Phase 9+ Path B): mutate the pre-push trailer-check (e.g. invert the `Prior-art:` regex) → meta-test on staged-fake-commit MUST fail. Если не fails — meta-test тавтологичен (the test of the test is itself broken).
+
+**Task ordering (resolves chicken-and-egg structurally).** Phase 8.8 commits MUST execute в этом порядке:
+
+1. **T1** — `prior-art-evaluations.md` skeleton: format spec + empty entry table + template для добавления entries. NO entries yet.
+2. **T2** — Add **first entry** в SSOT (Autogrep — closest single analog from 2026-05-08 research). Этот commit body использует `Prior-art:` trailer ссылающийся на 2026-05-08 research session. Commit IS the first instance of trailer convention.
+3. **T3** — Create P-build-vs-reuse principle в `skills/rules-as-tests/references/overview.md` + manifest entry в `factory/rules-manifest.json`. Этот commit body содержит `Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER)` — то есть **сам principle создан через применение этого principle к existing SSOT entry**. Не retroactive — sequenced.
+4. **T4-T5** — Add 2 more initial entries (Netlify framework-info, fitness functions) применяя P-build-vs-reuse через trailer. Each entry-add = self-application instance.
+5. **T6** — §5.5 Step 1.5 mandatory consult gate.
+6. **T7** — `PHASE-ENTRY-PROMPT-TEMPLATE.md` с Task 0.
+7. **T8** — `CLAUDE.md` / `CONTRIBUTING.md` build-vs-reuse invariant + capability commit definition (см. ниже).
+8. **T9** — `.husky/pre-push` extension: capability-commit detection + trailer check (Уровень 4c).
+9. **T10** — Independent meta-test для Gate 4 anti-tautology (см. ниже) + CI integration.
+10. **T11** — Phase 8 retroactive audit + retro + GO verdict.
+
+Sequence гарантирует что P-build-vs-reuse не существует до того как SSOT может его подкрепить evidence'ом. Self-application at creation = T3 commit body (real-time, не post-hoc).
+
+**Capability commit — formal definition.** Pre-push hook (Уровень 4c) detects capability commit via:
+
+```bash
+is_capability_commit() {
+  # 1. New explicit dep в package.json (any workspace)
+  git diff --cached --name-only | grep -qE '(^|/)package\.json$' && \
+    git diff --cached -- '**/package.json' | grep -qE '^\+\s*"[^"]+":\s*"\^?[0-9]' && return 0
+  # 2. New file ≥50 LOC under packages/core/<new-dir>/
+  git diff --cached --name-only --diff-filter=A | \
+    grep -E '^packages/core/[^/]+/[^/]+' | \
+    while read -r f; do [ "$(wc -l < "$f")" -ge 50 ] && exit 0; done && return 0
+  # 3. New file ≥80 LOC anywhere в packages/
+  git diff --cached --name-only --diff-filter=A | \
+    grep -E '^packages/' | \
+    while read -r f; do [ "$(wc -l < "$f")" -ge 80 ] && exit 0; done && return 0
+  return 1
+}
+```
+
+Пороги (50 / 80 LOC) — initial guesses per [§5 numerical thresholds caveat](#section-5). Phase 8.8 retro фиксирует actual false-positive rate after first ≥10 commits; tune accordingly. False-positive >30% → review thresholds, не drop the layer.
+
+**Gate 4 independent meta-test (anti-tautology guard для самого правила).** Файл `tests/principles/p-build-vs-reuse-tautology.test.sh`:
+
+```bash
+# Setup: temp git repo + minimal package.json + .husky/pre-push from framework
+# Test 1 (positive): commit с capability change + Prior-art: trailer → hook exit 0
+# Test 2 (negative): same capability change БЕЗ trailer → hook exit ≠ 0 (warn)
+# Test 3 (mutation): инвертировать regex check в pre-push hook (e.g. require ABSENCE of Prior-art:) → Test 1 must fail
+# Test 4 (mutation): убрать capability-commit detection → Test 2 must fail (false negative caught)
+```
+
+Test 3 + Test 4 = mutation guard. Без них P-build-vs-reuse pre-push hook потенциально тавтологичен (hook есть, но реально ничего не ловит). Эти 4 тесты — independent от pre-push hook'а самого: они инструментируют hook через subprocess в isolated tmpdir, не через self-call.
+
+CI integration: новый job `framework-self-build-vs-reuse` в `audit-self.yml` — depends on `principles-meta-tests`, runs `tests/principles/p-build-vs-reuse-tautology.test.sh`. Failed mutation = CI red.
 
 **Retroactive audit.** Phase 8.8 retro обязана содержать post-hoc consult для каждого build-vs-reuse decision Phase 8 (Next 16 detection, regen diff metric, recipe expansion strategy R12/R14/R20, gate 5 invocation mode). Если retro показывает gap (Phase 8 reinvented existing solution) → document как «Phase 8.8 retroactive finding» + add candidate в SSOT для Phase 9 evaluation.
 
