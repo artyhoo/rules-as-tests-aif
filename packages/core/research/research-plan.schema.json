@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ResearchPlan",
+  "description": "Layer 2 (Research Agent) output. Versioned per framework × pattern.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["framework", "version", "patterns", "missing", "drift"],
+  "properties": {
+    "framework": { "type": ["string", "null"] },
+    "version": { "type": ["string", "null"] },
+    "patterns": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/ResearchEntry" }
+    },
+    "missing": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "drift": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/definitions/DriftReport" }
+      ]
+    }
+  },
+  "definitions": {
+    "Provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "allowlistKey", "fetchedAt"],
+      "properties": {
+        "url": { "type": "string", "format": "uri" },
+        "allowlistKey": { "type": "string" },
+        "fetchedAt": { "type": "string" }
+      }
+    },
+    "ResearchEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "summary", "bestPractices", "antiPatterns", "provenance"],
+      "properties": {
+        "id": { "type": "string" },
+        "summary": { "type": "string" },
+        "bestPractices": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "antiPatterns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "provenance": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Provenance" }
+        },
+        "extras": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "DriftMismatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "detail", "foundIn", "missingIn"],
+      "properties": {
+        "kind": { "enum": ["modal-verb", "term-presence"] },
+        "detail": { "type": "string" },
+        "foundIn": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "missingIn": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "DriftReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sources", "mismatches"],
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "mismatches": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/DriftMismatch" }
+        }
+      }
+    }
+  }
+}
