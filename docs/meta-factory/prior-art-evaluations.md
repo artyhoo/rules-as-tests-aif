@@ -63,6 +63,7 @@ Each entry is a row in the table at §4 below. The row schema:
 |---:|---|---|---|---|---|---|---|
 
 <!-- Entries are appended below this line. Do not edit existing rows in place except for `Last reviewed` updates per §3 step 1; substantive verdict changes are new commits with git history audit. -->
+| 1 | Autogrep (Semgrep + LLM, 2024–2025) | L3 LLM-driven rule generation | 2026-05-08 | 2026-05-08 | DEFER | Closest single analog per ultraview verdict 2026-05-08; context7 lookup 2026-05-08 confirms Semgrep auto-generates rules from CVE / GHSA / Electron release-note feeds (security-only domain). No stack-aware `stack:[]` field, no self-application invariant, no best-practice-doc source signal — fundamentally different problem space (CVE patches → rules vs. framework version-bump docs → rules). Re-evaluate when LLM v2 trigger fires per [open-questions.md §13.10 entry #1](open-questions.md). | LLM v2 trigger fires; OR Phase 9+ entry research surfaces new Autogrep release / Semgrep rule-synthesis-from-docs feature |
 
 ---
 
