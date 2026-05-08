@@ -1,12 +1,11 @@
-// Installer — placeholder (Phase 8)
-// Will extend install.sh logic with workspace-aware installation
-export type InstallOptions = {
-  projectRoot: string;
-  preset: string;
-  force?: boolean;
-  dryRun?: boolean;
-};
+// Installer Layer — re-export from @rules-as-tests/core/installer (Phase 7).
+// Keeps meta-factory the umbrella package; core owns the implementation.
 
-export function install(_options: InstallOptions): void {
-  throw new Error('install: not yet implemented (Phase 8)');
-}
+export {
+  install,
+  type InstallFailure,
+  type InstallOptions,
+  type InstallReport,
+  type InstallStage,
+  type RulesLock,
+} from '@rules-as-tests/core/installer';

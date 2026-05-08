@@ -1,11 +1,9 @@
-// Synthesizer — placeholder (Phase 7)
-// Path A: Conservative synthesis (plugin configuration)
-// Path B: Creative synthesis (Phase 9+)
-export type SynthesisResult = {
-  preset: string;
-  rules: string[];
-};
+// Synthesizer Layer — re-export from @rules-as-tests/core/synthesizer (Phase 6).
+// Keeps meta-factory the umbrella package; core owns the implementation.
 
-export function synthesize(_stackInfo: unknown): SynthesisResult {
-  throw new Error('synthesize: not yet implemented (Phase 7)');
-}
+export {
+  synthesize,
+  type ManifestCheck,
+  type SynthesisPlan,
+  type SynthesizedRule,
+} from '@rules-as-tests/core/synthesizer';

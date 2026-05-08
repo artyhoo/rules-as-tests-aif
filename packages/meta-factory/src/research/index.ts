@@ -1,10 +1,14 @@
-// Research Layer — placeholder (Phase 6)
-// Will use MCP context7 for framework documentation retrieval
-export type ResearchResult = {
-  framework: string;
-  docs: string[];
-};
+// Research Layer — re-export from @rules-as-tests/core/research (Phase 5).
+// Keeps meta-factory the umbrella package; core owns the implementation.
 
-export function researchStack(_framework: string): Promise<ResearchResult> {
-  throw new Error('researchStack: not yet implemented (Phase 6)');
-}
+export {
+  research,
+  validateResearchPlan,
+  ResearchPlanError,
+  type Provenance,
+  type ResearchEntry,
+  type ResearchPlan,
+  type DriftKind,
+  type DriftMismatch,
+  type DriftReport,
+} from '@rules-as-tests/core/research';
