@@ -164,6 +164,30 @@ Decision matrix в [self-application.md](self-application.md) §3 фиксиру
 
 **Decision deferred** until first invocation; tracking shape emerges from real data, not speculation.
 
+#### Gate 5 v2 invocation shape (decided 2026-05-08 Phase 8)
+
+Phase 8 entry research (see [phase-8-research.md §6](phase-8-research.md)) closed the **scoping** decision for gate 5 — the **implementation** is still deferred per [§13.10 entry #4](#1310-llm-v2-trigger-conditions) v2 trigger.
+
+| Dimension | Decision | Rationale |
+|---|---|---|
+| **Invocation mode** | **per-plan** (1 invocation per validate run, full plan in context) | ~3× cheaper than per-rule (~$0.29 vs ~$0.72 at Opus 4.7 list pricing on a 26-rule plan), amortizes system-prompt overhead, ≤8s wall-clock vs ≥30s sequential per-rule |
+| **Model** | **Opus 4.7** | Quality gate (catches semantics gates 1/2/4/6 cannot); $0.15 Opus-vs-Sonnet premium is rounding error vs the §6 «≤$5» Phase 8 budget |
+| **Severity** | **advisory non-blocking** | LLM-driven review carries FP risk; promote to blocking only after [§13.10 entry #4](#1310-llm-v2-trigger-conditions) verification gate fires («false-positive rate <20% on 10+ real PRs») |
+| **Caching** | keyed on `rules-lock.json.sourceFingerprint` (sha256/16) | Lock already carries the fingerprint; rerun only when fingerprint changes — repeated CI runs cut to ~$0 |
+| **Per-run budget** | **<$0.30 typical / <$5 with 10× retries** | 17× headroom under EXECUTION-PLAN.md §6 Phase 8 «cost ≤$5» gate; stop-rule «>$10 ⇒ REVISE» does not fire |
+
+**Cost arithmetic** (Anthropic May 2026 list pricing — Opus 4.7 $5/M input, $25/M output; cached input ≤90% off):
+
+```
+per-plan, cold: 32K input · $5/M + 5K output · $25/M = $0.16 + $0.125 = $0.285
+per-plan, warm: 32K input · $0.50/M + 5K output · $25/M = $0.016 + $0.125 = $0.141
+per-rule × 26: 78K input · $5/M + 13K output · $25/M = $0.39  + $0.325 = $0.715
+```
+
+**Implementation status:** the *invocation shape* is now SSOT; *building* gate 5 is still deferred. Trigger to start build = §13.10 entry #4 v2 condition (Phase 8 cost-scope decision DONE; verification gate FP rate still pending real-PR data).
+
+**Cost-tracking infrastructure** (scoped above as a v2 deliverable per §13.11) is **not** built in Phase 8 — keyed on the same `sourceFingerprint`, but the storage shape (proposal: `<consumerRoot>/.ai-factory/synthesizer-output/llm-cost-log.json`) emerges with the first real invocation, not on speculation.
+
 ### 13.12 Real-corpus validation strategy
 
 **Status:** OPEN, v2 trigger.

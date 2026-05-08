@@ -403,6 +403,19 @@ jobs:
             exit 1
           fi
           echo "✓ fixture-validate snapshot stable (next-16, all 4 REQUIRED gates pass)"
+      - name: Emit aif-gate-result JSON to job summary (Phase 8 — closes Phase 11.1 partial)
+        run: |
+          # Per AIF SKILL.md "Append machine-readable gate result". Orchestrators
+          # downstream of /aif-verify parse this block; emission is non-blocking
+          # and structurally compatible with aif-comparison.md §7 11.1.
+          GATE_RESULT=$(npm --prefix packages/core run validate --silent -- --aif-gate-result "$GITHUB_WORKSPACE")
+          {
+            echo '## aif-gate-result (rules)';
+            echo '```json';
+            echo "$GATE_RESULT";
+            echo '```';
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "✓ aif-gate-result emitted to job summary"
 
   framework-self-install-validated:
     name: Installer v1 — self-application snapshot (L5 invariant)
@@ -442,3 +455,21 @@ jobs:
             exit 1
           fi
           echo "✓ self-install snapshot stable (own repo → tmp consumer, lock + post-validate green)"
+
+  phase-8-canonical-regen-acceptance:
+    name: Phase 8 acceptance — canonical Next 15 regen ≥0.95 similarity
+    runs-on: ubuntu-latest
+    needs: principles-meta-tests
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install workspace deps
+        run: npm install --silent
+      - name: Run canonical regen acceptance test (similarity ≥0.95)
+        run: npm --prefix packages/core test --silent -- tests/acceptance/canonical-regen

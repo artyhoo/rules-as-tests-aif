@@ -126,7 +126,37 @@ Self-application — **не отдельный шаг**, а cross-cutting invari
 
 ### 3.5 Next.js 15 → 16 — реальные breaking changes
 
-Pages Router REMOVED, async params/searchParams обязательны (Promises with await), `middleware.ts → proxy.ts`, Turbopack default, Babel удалён, AMP удалён, `next/image` `objectFit`/`objectPosition` deprecated. Тезис «preset устаревает» эмпирически валиден.
+> **Source-of-truth:** [`vercel/next.js v16.2.2 docs/01-app/02-guides/upgrading/version-16.mdx`](https://github.com/vercel/next.js/blob/v16.2.2/docs/01-app/02-guides/upgrading/version-16.mdx) (verified 2026-05-08 via context7 MCP `/vercel/next.js/v16.2.2` × 4 phrasings, see [phase-8-research.md §2](phase-8-research.md)).
+>
+> **Snapshot history:** v0.1.x carried 7 items (Pages Router, async params, middleware→proxy, Turbopack default, Babel removed, AMP, image-deprecation). Phase 8 entry research found 15 items in `version-16.mdx`; below is the full categorized list. **Recipe-relevant = 13/15** (runtime-only items flagged).
+
+**Structural (3, all recipe-relevant):**
+- `middleware.ts` → `proxy.ts` (export rename, default `nodejs` runtime; edge users may keep `middleware.ts`)
+- `skipMiddlewareUrlNormalize` config option → `skipProxyUrlNormalize`
+- Pages Router fully removed (`pages/` directory is now a migration blocker on Next 16)
+
+**API (5; 4 recipe-relevant, 1 runtime-only):**
+- Sync access to `cookies()`/`headers()`/`draftMode()` — fully removed (await required)
+- Sync access to `params`/`searchParams` in pages, layouts, route handlers — fully removed (await/`React.use()` required)
+- `unstable_cacheLife` / `unstable_cacheTag` graduated to stable APIs
+- `PageProps<'/path/[id]'>` codegen — requires `npx next typegen` after install
+- Server Actions default response cache → `default-no-store` (runtime behavior; **not** source-rule)
+
+**Deprecations (2, both recipe-relevant):**
+- `next/legacy/image` `objectFit` / `objectPosition` props removed — replace with `style`
+- AMP support fully removed (`useAmp`, `amp` config field, page-level `export const config = { amp }`)
+
+**Config (3, all recipe-relevant):**
+- `eslint` option in `next.config.js` removed — wire ESLint via direct `eslint.config.*` instead
+- `experimental.turbopack` → top-level `turbopack` (graduated; Turbopack default for `next dev`)
+- `experimental.swcMinify` + assorted experimental flags graduated or removed
+
+**Runtime (3; 2 recipe-relevant as engine guards, 1 runtime-only):**
+- Node 18 dropped — minimum `20.9.0` (engine guard recipe candidate)
+- TypeScript minimum `5.1.0` (engine guard recipe candidate)
+- Browser support tightened: Chrome/Edge/Firefox 111+, Safari 16.4+ (runtime — **not** source-rule)
+
+**Implication for thesis «preset устаревает».** Empirically validated: 15 breaking changes in one major version, 13 of them require recipe authoring or update. Stop-rule status: snapshot drift is a **planned refresh** task (Task 8.1, this commit), not a Phase 8 REVISE trigger.
 
 ---
 

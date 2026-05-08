@@ -1,7 +1,7 @@
 # Phase 8 Entry Retrospective — Step 0 research close
 
 > **Date:** 2026-05-08
-> **Branch:** `docs/phase-8-entry-research` (forked from `main` HEAD post-PR-#7-merge state — Phase 7.5 close commits c8005c1..c7c7d27)
+> **Branch:** `docs/phase-8-entry-research` — forked from `main` HEAD `a6b8208` (Phase 7 close); Phase 7.5 commits `c8005c1..c7c7d27` landed via PR #7 merge before this branch was forked.
 > **Phase:** 8 entry — Step 0 «Existing solutions research» per [EXECUTION-PLAN.md §5.5](../EXECUTION-PLAN.md). First phase where Step 0 is conducted **ahead of implementation**, not retrofit.
 > **Verdict:** **GO** to Phase 8 implementation session.
 

@@ -14,6 +14,8 @@ export default defineConfig({
       'synthesizer/**/*.test.ts',
       'validator/**/*.test.ts',
       'installer/**/*.test.ts',
+      'diff/**/*.test.ts',
+      'tests/**/*.test.ts',
     ],
   },
 });

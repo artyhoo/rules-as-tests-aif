@@ -12,7 +12,13 @@
 // will add entries here.
 
 import { Linter } from 'eslint';
-import tseslintParser from '@typescript-eslint/parser';
+// Namespace import — @typescript-eslint/parser is CJS and exposes parse/parseForESLint
+// directly on the module object. A default import resolves to a wrapped shape under
+// tsx/Node ESM interop and silently parses TypeScript syntax as JavaScript (e.g. a
+// `: FormData` parameter annotation produces "Unexpected token :"). Phase 8 R14 was
+// the first plugin-rule negative-test with TS-only syntax; the default-import shape
+// only failed on that case, which is why the fixture tests never tripped.
+import * as tseslintParser from '@typescript-eslint/parser';
 import presetPlugin from '@rules-as-tests/preset-next-15-canonical/eslint-rules';
 import type { SynthesisPlan, SynthesizedRule } from '../synthesizer/types.ts';
 import type { GateFailure, GateOutcome } from './types.ts';

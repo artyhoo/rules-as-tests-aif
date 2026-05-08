@@ -1,0 +1,121 @@
+{
+  "framework": "next",
+  "version": "15.4.0",
+  "rules": [
+    {
+      "title": "Forbid server-only imports in `'use client'` files (R12)",
+      "stack": [
+        "react-next"
+      ],
+      "applies-to": [
+        "src/**/*.tsx"
+      ],
+      "check": {
+        "type": "eslint",
+        "rule": "rules-as-tests/no-server-imports-in-client"
+      },
+      "examples": {
+        "bad": "'use client';\nimport fs from 'fs';\nexport const x = 1;",
+        "good": "'use client';\nimport { useState } from 'react';\nexport function C() { return null; }"
+      },
+      "negative-test": {
+        "input": "'use client';\nimport fs from 'fs';\nexport const x = 1;",
+        "expect-violation": "rules-as-tests/no-server-imports-in-client"
+      },
+      "id": "G1",
+      "research": {
+        "entryId": "next-r12-no-server-imports-in-client",
+        "provenance": [
+          {
+            "url": "https://nextjs.org/docs/app/building-your-application/rendering/server-components",
+            "allowlistKey": "next.official",
+            "fetchedAt": "2026-05-08"
+          },
+          {
+            "url": "https://nextjs.org/docs/app/guides/upgrading/version-16",
+            "allowlistKey": "next.official",
+            "fetchedAt": "2026-05-08"
+          }
+        ]
+      }
+    },
+    {
+      "title": "Validate `FormData` parameters via `.safeParse(...)` (R14)",
+      "stack": [
+        "react-next"
+      ],
+      "applies-to": [
+        "src/app/**/*.ts",
+        "src/lib/actions/**/*.ts"
+      ],
+      "check": {
+        "type": "eslint",
+        "rule": "rules-as-tests/require-form-safe-parse"
+      },
+      "examples": {
+        "bad": "export async function action(formData: FormData) {\n        return formData.get('name');\n      }",
+        "good": "export async function action(formData: FormData) {\n       const parsed = schema.safeParse(Object.fromEntries(formData));\n       return parsed;\n     }"
+      },
+      "negative-test": {
+        "input": "export async function action(formData: FormData) {\n        return formData.get('name');\n      }",
+        "expect-violation": "rules-as-tests/require-form-safe-parse"
+      },
+      "id": "G2",
+      "research": {
+        "entryId": "next-r14-require-form-safe-parse",
+        "provenance": [
+          {
+            "url": "https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions-and-mutations",
+            "allowlistKey": "next.official",
+            "fetchedAt": "2026-05-08"
+          },
+          {
+            "url": "https://nextjs.org/docs/app/guides/upgrading/version-16",
+            "allowlistKey": "next.official",
+            "fetchedAt": "2026-05-08"
+          }
+        ]
+      }
+    },
+    {
+      "title": "Server Action files must start with `'use server'` directive (R20)",
+      "stack": [
+        "react-next"
+      ],
+      "applies-to": [
+        "src/app/**/*.ts",
+        "src/lib/actions/**/*.ts"
+      ],
+      "check": {
+        "type": "eslint",
+        "rule": "rules-as-tests/require-use-server-directive"
+      },
+      "examples": {
+        "bad": "export async function action() { return 1; }",
+        "good": "'use server';\nexport async function action() { return 1; }"
+      },
+      "negative-test": {
+        "input": "export async function action() { return 1; }",
+        "expect-violation": "rules-as-tests/require-use-server-directive"
+      },
+      "id": "G3",
+      "research": {
+        "entryId": "next-r20-require-use-server-directive",
+        "provenance": [
+          {
+            "url": "https://nextjs.org/docs/app/api-reference/directives/use-server",
+            "allowlistKey": "next.official",
+            "fetchedAt": "2026-05-08"
+          },
+          {
+            "url": "https://nextjs.org/docs/app/guides/upgrading/version-16",
+            "allowlistKey": "next.official",
+            "fetchedAt": "2026-05-08"
+          }
+        ]
+      }
+    }
+  ],
+  "rulesMd": "<!-- from preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts -->\n## G1 — Forbid server-only imports in `'use client'` files (R12)\n\n**Stack:** react-next  \n**Check:** ESLint `rules-as-tests/no-server-imports-in-client` (preset plugin rule)  \n**Why:** `'use client'` modules execute in the browser. Server-only modules (`node:fs`, `node:crypto`, `node:path`, infrastructure adapters, `config/env`) crash at runtime or break the bundler. Pass server data through props from a parent Server Component instead.\n\n<!-- from preset-next-15-canonical/eslint-rules/require-form-safe-parse.ts -->\n## G2 — Validate `FormData` parameters via `.safeParse(...)` (R14)\n\n**Stack:** react-next  \n**Check:** ESLint `rules-as-tests/require-form-safe-parse` (preset plugin rule)  \n**Why:** Server Actions and form handlers that accept `FormData` are the trust boundary; unvalidated `formData.get('name')` is the most common Server Action footgun. Validate via a Zod schema's `.safeParse(Object.fromEntries(formData))` before reading values.\n\n<!-- from preset-next-15-canonical/eslint-rules/require-use-server-directive.ts -->\n## G3 — Server Action files must start with `'use server'` directive (R20)\n\n**Stack:** react-next  \n**Check:** ESLint `rules-as-tests/require-use-server-directive` (preset plugin rule)  \n**Why:** Without `'use server'` as the first program statement, Next compiles `async function` exports as regular module code — server logic can leak into client bundles or fail to register as a Server Action. The directive must be the very first statement (no imports or side-effects before it).\n",
+  "eslintConfigSnippet": "{\n  \"rules-as-tests/no-server-imports-in-client\": \"error\",\n  \"rules-as-tests/require-form-safe-parse\": \"error\",\n  \"rules-as-tests/require-use-server-directive\": \"error\"\n}"
+}
