@@ -46,9 +46,18 @@ Each entry in [prior-art-evaluations.md](prior-art-evaluations.md) checked again
 - **A1 (vocabulary adjacency) — match [prior-art-evaluations.md#3](prior-art-evaluations.md) (fitness functions, ADOPT VOCABULARY, framework-level meta-test pattern vocabulary).** Vocabulary already adopted in `overview.md L2` per Phase 8.8 T10. If Phase 9 introduces new principle-as-test for LLM gen ROI («fitness function» framing applies to similarity-≥0.95 acceptance gate), reuse the established term. Status: **still applies**, no SSOT edit.
 - **A3, A4, A5, A8, A9 — no match against any existing SSOT entry.** Continue to Step 2/3 in T3 (context7 resolve + ≥3 phrasings query each).
 
-## §4. context7 lookups per unmatched area — see T3 commits
+## §4. context7 lookups (per unmatched area)
 
-Populated in T3: per area not covered by existing SSOT entries, `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` (≥3 phrasings each per Hard Constraint #5). New SSOT entries added in same commit if production-grade analog surfaces.
+### §4.A2 — Autogrep / Semgrep re-evaluation (matches [prior-art-evaluations.md#1](prior-art-evaluations.md))
+
+**context7 lookup (3 phrasings, source `/semgrep/semgrep-docs`):** «automatic rule generation from documentation framework upgrade guides Next.js 16 patterns Autogrep LLM 2026»; «Semgrep rule synthesis from upgrade guide release notes documentation breaking changes 2026 LLM-assisted»; «Semgrep AI assistant generate rules suggest rules from codebase patterns Pro engine deepsemgrep 2026».
+
+**Findings:**
+- **Semgrep Assistant (March 2024 GA, not new since Phase 8.8 SSOT entry):** «leverages AI capabilities to assist users in generating Semgrep rules». Still security-focused (Semgrep core domain); no framework-upgrade-doc source signal; no stack-aware framework taxonomy.
+- **Semgrep Supply Chain** generates upgrade-guidance PRs per dep — different surface from rule synthesis from framework-upgrade docs.
+- **No rule-synthesis-from-docs feature shipped post-2026-05-08.** SSOT #1 trigger «new Autogrep release / Semgrep rule-synthesis-from-docs feature» did NOT fire on this re-check.
+
+**Verdict carry-forward:** [prior-art-evaluations.md#1](prior-art-evaluations.md) DEFER (unchanged). Final §5 row: A2 → DEFER.
 
 ## §5. Build vs reuse matrix + Phase 9 priority — see T4 commit
 
