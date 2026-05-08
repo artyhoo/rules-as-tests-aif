@@ -29,25 +29,13 @@
 - `query-docs /vercel/next.js/v16.2.2` × 4 phrasings: «upgrading from version 15 to 16 breaking changes»; «Pages Router removal AMP Babel async params»; «codemod next/image objectFit Turbopack default removed config flags»; «minimum Node.js version React 19 deprecated config options removed».
 - All 4 returned substantive content from `version-16.mdx`. Source repeatedly cited: `https://github.com/vercel/next.js/blob/v16.2.2/docs/01-app/02-guides/upgrading/version-16.mdx`.
 
-**Findings (≥10 breaking changes, categorized):**
+**Findings (15 breaking changes; recipe-relevant = 13/15):**
 
-| # | Category | Change | Recipe-relevant? |
-|---|---|---|---|
-| 1 | structural | `middleware.ts` → `proxy.ts` rename; `middleware` export → `proxy` | YES — R-new («prefer-proxy-over-middleware») candidate |
-| 2 | structural | `skipMiddlewareUrlNormalize` → `skipProxyUrlNormalize` config flag | YES — config-snippet rule update |
-| 3 | structural | `proxy` runtime is `nodejs` only; edge runtime NOT supported in proxy (keep `middleware.ts` for edge) | YES — guard rule for edge-runtime users |
-| 4 | api | Async Request APIs: `cookies()`, `headers()`, `draftMode()`, `params` (layout/page/route/default/og-image/twitter-image/icon/apple-icon), `searchParams` (page) — **sync access fully removed** | YES — extends existing R12 («await-async-request-apis») coverage |
-| 5 | api | `unstable_cacheLife`, `unstable_cacheTag` → stable (drop `unstable_` prefix) | YES — codemod-grade rule |
-| 6 | deprecation | `next/legacy/image` deprecated; `objectFit` / `objectPosition` props removed → `style`/`className` | YES — R-new («next-image-no-objectFit-prop») |
-| 7 | deprecation | AMP fully removed: `useAmp` hook, `amp` config in `next.config.js`, page-level `export const config = { amp: true }` | YES — 3 sub-rules |
-| 8 | config | `eslint` option **removed** from `next.config.js` | YES — config-snippet rule («no-eslint-in-next-config») |
-| 9 | config | `turbopack` moved from `experimental.turbopack` → top-level `turbopack` | YES — config rule |
-| 10 | config | `experimental.swcMinify`, several other experimental flags graduated/removed (per upgrade-guide §config) | YES — sweep rule |
-| 11 | runtime | Node.js 18 dropped; min **20.9.0** | YES — engine guard rule (package.json check) |
-| 12 | runtime | Min TypeScript **5.1.0** | YES — engine guard rule |
-| 13 | runtime | Browser support: Chrome/Edge/Firefox 111+, Safari 16.4+ | NO — runtime concern, not source-rule |
-| 14 | api | `PageProps<...>` helper requires `npx next typegen` codegen step | YES — install-time check |
-| 15 | api | Server Actions default fetch cache `'default-no-store'` (reaffirms v15 default; v16 spec hardens) | NO — runtime semantic, not source-rule |
+- **Structural (3):** `middleware.ts` → `proxy.ts` (export rename + `nodejs`-only runtime; edge users keep `middleware.ts`); `skipMiddlewareUrlNormalize` → `skipProxyUrlNormalize`. *All recipe-relevant.*
+- **API (5):** sync access to `cookies()`/`headers()`/`draftMode()`/`params`/`searchParams` **fully removed**; `unstable_cacheLife`/`unstable_cacheTag` stabilized; `PageProps<...>` requires `npx next typegen`; Server Actions default `default-no-store` (runtime — not source-rule). *4/5 recipe-relevant.*
+- **Deprecations (2):** `next/legacy/image` (`objectFit`/`objectPosition` removed → `style`); AMP fully removed (`useAmp`, `amp` config, page-level config). *Both recipe-relevant.*
+- **Config (3):** `eslint` option removed from `next.config.js`; `turbopack` graduated `experimental.turbopack` → top-level; `experimental.swcMinify` + assorted experimental flags graduated/removed. *All recipe-relevant.*
+- **Runtime (3):** Node 18 dropped, min **20.9.0**; min TS **5.1.0**; browsers Chrome/Edge/Firefox 111+, Safari 16.4+ (last is runtime — not source-rule). *2/3 recipe-relevant (engine guards).*
 
 **Drift vs EXECUTION-PLAN.md §3.5 snapshot (2026-05-07):** snapshot listed Pages Router, async params, middleware→proxy, Turbopack default, Babel removed, AMP, image-deprecation = 7 items. Findings above add **at minimum** 8 new items (`eslint` config removed, `unstable_cache*` stabilized, `skipProxy*` flag, Node 20.9 min, TS 5.1 min, `experimental.turbopack` → top-level, edge-runtime guard, PageProps codegen). Snapshot is **broadly accurate** in direction; **incomplete** for recipe authoring.
 
@@ -90,16 +78,9 @@ acceptance gate (Phase 8): similarity(P_regen, P_canonical_v15) ≥ 0.95
                            ⟺ diff ≤ 5%
 ```
 
-**Rejected alternatives:**
-- **Raw `deep-diff` change count ÷ total fields** — rejected: weights all field changes equally; severity flip and `emittedAt` timestamp churn would dominate; opaque to debug. Not aligned with «what makes presets equivalent» — rule presence + ESLint-rule-key parity matters more than serialized-field equality.
-- **`expect.toMatchSnapshot()` jest equality** — rejected: forces zero-diff which contradicts §6 Phase 8 acceptance text «≤5%»; brittle to recipe-author re-orderings; would block Phase 8 acceptance on whitespace.
-- **sha256 of canonicalized JSON** — rejected: same brittleness as snapshot but without surfacing *which* component drifted; opaque on failure.
-- **Adopt `json-diff-kit`** — rejected per stop-rule; gain (raw delta array) is small; we still need to author the weighting logic.
+**Rejected alternatives:** raw `deep-diff` change count ÷ total fields (weights every field equally — `emittedAt` churn dominates); `toMatchSnapshot()` (forces zero-diff, contradicts «≤5%»); sha256-of-canonicalized-JSON (opaque on failure); adopting `json-diff-kit` (violates `NO new explicit deps` and still needs the weighting layer).
 
-**Provenance for weights:**
-- 0.40 / 0.40 — rule presence and config keys are the two user-observable surfaces of a preset. Equal weight.
-- 0.20 — glob coverage matters but is downstream of rule presence (a rule with same ID + same key on slightly different glob still mostly matches).
-- These are **initial guesses** per [EXECUTION-PLAN.md §5 numerical-thresholds caveat](EXECUTION-PLAN.md); revisit on Phase 8 retro with actual regen data.
+**Weight provenance:** rule presence and ESLint config keys are the two user-observable preset surfaces (0.40 each); glob coverage is downstream of rule presence (0.20). Initial guesses per [EXECUTION-PLAN.md §5 thresholds caveat](EXECUTION-PLAN.md); revisit on Phase 8 retro.
 
 ---
 
@@ -120,25 +101,9 @@ affected_files: [path]
 suggested_next: {command, reason}
 ```
 
-**Mapping table (current `ValidationReport` + `InstallReport` × `aif-gate-result`):**
+**Mapping (current → AIF, all gaps additive):** `schema_version: 1` constant; `gate: "rules"` constant; `status` = `ok ? "pass" : "fail"` (2-state vs AIF 3-state — `warn` is the only minor gap, non-blocking); `blocking` = `!ok`; `blockers[]` = flatten `gates.{schema,ruleTester,tautology,conflict}.failures` to `{id: gate+ruleId, severity: "error", file: null, summary: reason}`; `affected_files` = `InstallReport.artifacts[]` for L5, `[]` for standalone L4; `suggested_next` derived (`pass → /aif-commit`, `fail → /aif-fix`).
 
-| `aif-gate-result` field | Current source | Gap |
-|---|---|---|
-| `schema_version` | n/a — emit constant `1` | **additive** |
-| `gate` | n/a — emit constant `"rules"` (this framework's gate kind) | **additive** |
-| `status` | `ValidationReport.ok ? "pass" : "fail"` | **minor — current is 2-state, AIF is 3-state** (no `"warn"`) |
-| `blocking` | derived `!ValidationReport.ok` | **none** |
-| `blockers[]` | flatten `gates.{schema,ruleTester,tautology,conflict}.failures` with `{id: ${gate}+${ruleId}, severity: "error", file: null, summary: failure.reason}` | **additive transformation** |
-| `affected_files` | `InstallReport.artifacts[]` (L5 only); `[]` for standalone L4 | **none — L4 has no disk side-effect** |
-| `suggested_next.command` | derived: `pass → /aif-commit`, `fail → /aif-fix` | **none — advisory only** |
-| `suggested_next.reason` | derived: aggregate first 3 blocker summaries | **none** |
-
-**Findings:**
-
-1. **Mapping is purely additive — no breaking change to `ValidationReport`/`InstallReport`.** A new module `packages/core/validator/to-aif-gate-result.ts` (~60 LOC, pure) transforms either report into the contract shape.
-2. **`"warn"` 3rd state gap is non-blocking.** Current 2-state `ok: boolean` covers the «pass | fail» spectrum AIF needs for L4-equivalent enforcement. Optional v1.5 enhancement: add `ValidationReport.severity?: 'error'|'warning'` (default `'error'`) so that future advisory-only gates (e.g. gate 5 review-sidecar) map to `warn`. Captured as Phase 11.1 SSOT input per [aif-comparison.md §7](aif-comparison.md).
-3. **L5 `affected_files` is already accurate.** `InstallReport.artifacts: string[]` lists exactly the files L5 wrote — direct 1:1 mapping.
-4. **Schema-version invariant naturally aligns.** AIF's `schema_version: 1` and `RulesLock.schemaVersion: 1` (per [installer/types.ts:33](../../packages/core/installer/types.ts#L33)) carry the same semantic — independent bump cadence is safe.
+**Findings:** (1) mapping is purely additive — no breaking change to `ValidationReport`/`InstallReport`; new pure module `to-aif-gate-result.ts` (~60 LOC). (2) `warn` 3rd-state gap optionally closed by v1.5 `ValidationReport.severity?: 'error'|'warning'` field, default `'error'` — advisory gates (gate 5) would map to `warn`. (3) `InstallReport.artifacts` is already 1:1 with `affected_files`. (4) AIF `schema_version: 1` and `RulesLock.schemaVersion: 1` carry independent bump cadence — safe.
 
 **Decision:** **Integration cost is LOW. Phase 8 includes the spike.**
 
@@ -150,44 +115,17 @@ suggested_next: {command, reason}
 
 ## §5. C4 — Recipe expansion strategy R12/R14/R20 (HIGH)
 
-**Inputs (no edits made):**
-- [packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts](../../packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts) (R12, 69 LOC, `ImportDeclaration` visitor + `'use client'` 3-line scan + 4-pattern matcher).
-- [packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.ts](../../packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.ts) (R14, 105 LOC).
-- [packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.ts](../../packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.ts) (R20, 76 LOC).
-- Each rule has paired `.test.ts` (72-73 LOC) — RuleTester format with ≥6 invalid + ≥7 valid cases.
-- [packages/preset-next-15-canonical/eslint-rules/index.ts](../../packages/preset-next-15-canonical/eslint-rules/index.ts) exports a flat `plugin: { rules: { 'no-server-imports-in-client', 'require-form-safe-parse', 'require-use-server-directive' } }` — already the right shape for `eslint-plugin` adoption by recipes.
-- [packages/core/synthesizer/recipes/nextjs-app-router.json](../../packages/core/synthesizer/recipes/nextjs-app-router.json) (35 lines) — uses built-in `no-restricted-imports`, single `examples.bad/good` + `negative-test.expect-violation`.
+**Inputs (read, no edits):** R12 [no-server-imports-in-client.ts](../../packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts) 69 LOC, R14 [require-form-safe-parse.ts](../../packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.ts) 105 LOC, R20 [require-use-server-directive.ts](../../packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.ts) 76 LOC. Each rule has paired `.test.ts` (72-73 LOC) with ≥6 invalid + ≥7 valid cases. [eslint-rules/index.ts](../../packages/preset-next-15-canonical/eslint-rules/index.ts) already exports flat `plugin: { rules: {...} }` — directly consumable as ESLint plugin (Phase 7 gate-conflict already loads it). Existing recipes (e.g. [nextjs-app-router.json](../../packages/core/synthesizer/recipes/nextjs-app-router.json)) use **built-in** ESLint rules; R12/R14/R20 are **custom AST rules**.
 
-**Findings:**
+**Findings:** (1) `check.rule: string` already accepts any rule name; switching to plugin-namespaced `rules-as-tests-preset/<rule>` is a string change, no recipe-shape breaking change. (2) Test corpus is rich enough for mechanical lift — pick first invalid → `negative-test.input` + `examples.bad`; first valid → `examples.good`. (3) R12/R14/R20 = 250 LOC stable rules, already pass 38/38 preset tests; no behavioral re-implementation needed.
 
-1. **Existing 3 recipes use built-in ESLint rules** (`no-restricted-imports` etc.). R12/R14/R20 are **custom AST rules**. Recipes need a way to reference custom plugin rules without inlining the rule TS source.
-2. **Recipe shape is extensible without breaking change.** `check.rule: string` already accepts any rule name; switching to a plugin-namespaced ID like `rules-as-tests-preset/no-server-imports-in-client` is purely a string change. `eslintConfigSnippet` already accepts arbitrary keys.
-3. **Plugin export already matches AST-rule plugin convention.** `index.ts` exports `{ rules: { 'name': createdRule } }` — directly consumable as an ESLint plugin. Phase 7 [gate-conflict.ts](../../packages/core/synthesizer/recipes/) already imports it for plugin-rule existence checks.
-4. **Test corpus is rich enough for mechanical lift.** Each `.test.ts` has 6-8 invalid cases × 7+ valid cases. Picking the first invalid as `negative-test.input` + first valid as `examples.good` + first invalid as `examples.bad` is mechanical (~10 min/rule).
-5. **Total complexity is bounded.** R12/R14/R20 source = 69+105+76 = 250 LOC of stable ESLint rules. They already pass 38/38 preset tests per [retros/phase-7.md](retros/phase-7.md). No behavioral re-implementation needed; recipes only **reference** existing rules.
+**Decision:** **Build via mechanical lift** — 3 thin-pointer recipes referencing existing preset plugin rules.
 
-**Decision:** **Build via mechanical lift** (3 new recipes pointing to existing preset plugin rules). Not hand re-author.
+Per-rule recipe shape: `check.rule = "rules-as-tests-preset/<name>"`; `eslintConfigSnippet = { "rules-as-tests-preset/<name>": "error" }`; `examples.bad/good` lifted from `.test.ts` invalid[0]/valid[0]; `negative-test.input` = invalid[0].code; `negative-test.expect-violation` = plugin-namespaced rule name.
 
-**Per-rule recipe template (Phase 8 implementation):**
-```json
-{
-  "patternId": "next-r12-no-server-imports-in-client",
-  "appliesTo": ["next"],
-  "rule": {
-    "title": "...", "stack": ["react-next"],
-    "applies-to": ["src/**/*.tsx", "src/**/*.ts"],
-    "check": { "type": "eslint", "rule": "rules-as-tests-preset/no-server-imports-in-client" },
-    "examples": { "bad": "<from .test.ts invalid[0].code>", "good": "<from .test.ts valid[0]>" },
-    "negative-test": { "input": "<bad>", "expect-violation": "rules-as-tests-preset/no-server-imports-in-client" }
-  },
-  "rulesMdTemplate": "## {{id}} — ...",
-  "eslintConfigSnippet": { "rules-as-tests-preset/no-server-imports-in-client": "error" }
-}
-```
+**Effort estimate:** 3 rules × 10-15 min = ~45 min burn mode. Plus verify `gate-rule-tester.ts` registers preset plugin (likely yes per [retros/phase-7.md reuse 7.4](retros/phase-7.md), `gate-conflict.ts` already does).
 
-**Effort estimate:** 3 rules × 10-15 min/rule = ~45 min in burn mode. Plus minor synthesizer-side adjustment if `gate-rule-tester.ts` does not already register the preset plugin during gate 2 (per [retros/phase-7.md row 7.4](retros/phase-7.md), conflict gate already loads preset plugin — gate 2 likely loads it too; verify in Phase 8 task list).
-
-**Rationale:** mechanical lift preserves provenance (recipes carry inline JSDoc comment `// from preset-next-15-canonical eslint-rules/no-server-imports-in-client.ts:35-69`). Hand re-author would either re-implement AST logic (250 LOC × 3 rules + tests, 4-8h) or duplicate behavior outside the preset (DRY violation; two sources for same rule). Neither is justified for v1; deterministic recipes-as-thin-pointers preserve the «Path A only» invariant per [§6.0](EXECUTION-PLAN.md).
+**Rationale:** mechanical lift preserves provenance via inline `// from preset-next-15-canonical/eslint-rules/<name>.ts` comment. Hand re-author would either duplicate 250 LOC × 3 (DRY violation, two SSOTs) or rewrite outside preset (4-8h cost). Thin-pointer recipes preserve «Path A only» invariant per [§6.0](EXECUTION-PLAN.md).
 
 ---
 
@@ -217,3 +155,45 @@ suggested_next: {command, reason}
 **Phase 8 deliverable scope:** decision documented + cost-tracking shape captured per [open-questions.md §13.11](open-questions.md). Actual gate 5 *implementation* still defers to v2 trigger (per [§13.10 entry #4](open-questions.md)) — this research closes the **scoping** decision, not the build.
 
 ---
+
+## §7. Phase 8 task list (ordered C1 → C4 → C2 → C3 → C5)
+
+Each task ≈ one commit; conventional-commits, English subjects.
+
+#### Task 8.1 — Refresh §3.5 Next 15 → 16 snapshot from `version-16.mdx`
+Sync EXECUTION-PLAN.md §3.5 with the 15-item list from §2 above. Doc-only.
+
+#### Task 8.2 — Lift R12/R14/R20 to recipes (C4)
+Author 3 new recipes under `packages/core/synthesizer/recipes/` referencing `rules-as-tests-preset/<rule>` plugin names. Pull `examples.bad/good` + `negative-test.input` from existing `.test.ts` corpora. Update `gate-rule-tester.ts` if it does not already register the preset plugin during gate 2.
+
+#### Task 8.3 — Build similarity metric module (C2)
+Ship `packages/core/diff/preset-similarity.ts` (≤80 LOC, no deps): jaccard helpers + glob_overlap + weighted score. Tests: synthetic equal/disjoint/partial-overlap fixtures.
+
+#### Task 8.4 — `/aif-verify` integration spike (C3)
+Ship `packages/core/validator/to-aif-gate-result.ts` (≤60 LOC, pure). Wire emission in `framework-self-validate` CI job per [aif-comparison.md §7 Phase 11.1](aif-comparison.md). Closes Phase 11.1 partial.
+
+#### Task 8.5 — Document gate 5 cost-scoping decision (C5)
+Edit [open-questions.md §13.11](open-questions.md) with per-plan + Opus 4.7 + advisory + sourceFingerprint-cached scoping. No implementation.
+
+#### Task 8.6 — Acceptance run: canonical regen + similarity ≥0.95
+Synthesize `preset-next-15-canonical` regen via L2 + L3 + L4 pipeline; compute similarity vs frozen `expected-canonical-v15.json` snapshot; assert ≥0.95. CI job `phase-8-canonical-regen-acceptance`.
+
+#### Task 8.7 — Phase 8 retro + verdict
+Standard retro per §5 + GO/REVISE verdict on Phase 9 entry.
+
+---
+
+## §8. Open questions for Phase 8 implementation session
+
+1. **Gate 2 plugin registration** — does `gate-rule-tester.ts` already register the preset plugin (Phase 7 [reuse 7.4](retros/phase-7.md) implies yes for `gate-conflict.ts`; gate 2 unverified)? Phase 8 first task verifies and patches if needed.
+2. **Glob-overlap implementation cost** — naive «expand globs over a fixture corpus + compare sets» needs a fixture corpus. Pick existing `tests/fixtures/` or build a 20-file representative bundle? Decide at Task 8.3 start.
+3. **Acceptance run reproducibility** — `expected-canonical-v15.json` snapshot must be frozen before Task 8.6 to avoid moving-target. Snapshot at end of Task 8.2 (post-recipe-lift, pre-similarity-build) or at Phase 8 start (pre-Task-8.2)?
+4. **`framework-self-research --llm` v2 trigger overlap** — Phase 8 acceptance is the trigger condition for [open-questions.md §13.10 entry #1](open-questions.md). If acceptance hits a research gap (Next 16 pattern not in curated store), Phase 8 retro must record the trigger fire and flag for Phase 9 v2 entry.
+5. **Snapshot storage shape for cost-tracking** — `rules-lock.json` extension vs separate `gate-5-cache.json`? Defer until Phase 9+ when gate 5 actually ships; Task 8.5 documents both options in §13.11.
+
+---
+
+## §9. Versioning
+
+- **2026-05-08** — Phase 8 entry research close. 5 capability matrix rows + per-capability decisions; verdict in [retros/phase-8-entry.md](retros/phase-8-entry.md). Forked from `main` HEAD post-PR-#7-merge state (Phase 7.5 close commits c8005c1..c7c7d27). Single-session burn mode (Opus 4.7), context7 round-trips on `/vercel/next.js/v16.2.2` × 4, `/lee-to/ai-factory` × 2, library-resolve × 3, WebSearch × 1.
+
