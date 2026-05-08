@@ -1,10 +1,16 @@
-// Stack Detector — placeholder (Phase 4)
-// Will extract logic from setup.sh:82-97 + scripts/detect-applicable-rules.ts
-export type StackInfo = {
-  name: string;
-  version: string | null;
-};
+// Stack Detector — re-export from @rules-as-tests/core/detector (Phase 4).
+// Keeps meta-factory the umbrella package; core owns the implementation.
 
-export function detectStack(_projectRoot: string): StackInfo {
-  throw new Error('detectStack: not yet implemented (Phase 4)');
-}
+export {
+  detectStack,
+  AifSchemaError,
+  type DetectionResult,
+  type DetectorOptions,
+  type Stack,
+  type Framework,
+  type Runtime,
+  type Confidence,
+  type Severity,
+  type ConfidenceTuple,
+  type Priority,
+} from '@rules-as-tests/core/detector';
