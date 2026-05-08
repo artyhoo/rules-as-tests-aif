@@ -224,6 +224,43 @@ Pages Router REMOVED, async params/searchParams обязательны (Promises
 >
 > Rationale: linear data flow `0 → 1 → 2 → 3 → 4 → 5` per [architecture.md §2.1](architecture.md). L4 Validator gates synthesized output — without L2 + L3 there is nothing beyond Phase 2 manifest meta-tests for L4 to validate; running L4 first was inverted from data flow. L5 Installer needs L3 output to install. The Phase descriptions below retain their original headings («Phase 5 — Layer 4 Validator…», etc.) for diff hygiene; **read via the mapping above**, not the headings. Cumulative timeline in §8 unchanged in calendar terms; reordering does not affect total budget.
 
+### §6.0 v1 deterministic stance (locked Phase 4-7)
+
+> **Date:** 2026-05-08 (Phase 7 close).
+> **Scope:** durable, all 5 layers L1-L5. Supersedes the v1+v2 unified phrasing in §6 Phase 5/6/7 descriptions below (Phase 4-9 caveat in §5.5 already flags this drift).
+> **Origin:** four retros (Phase 4/5/6/7) converged on the same architectural decision — ship deterministic-curated v1, defer LLM extension as a strict-superset v2 trigger.
+
+**What shipped deterministic in v1:**
+
+- **L1 Stack Detector** (Phase 4 closed) — file-based detection over `package.json` + lockfile + configs; hand-authored bundle catalog. No LLM. See [retros/phase-4.md](retros/phase-4.md).
+- **L2 Research Agent** (Phase 5 closed) — curated `packages/core/research/store/` JSON entries; `loadResearchPlan` + symbolic drift detection over the 3 canonical sources. No context7 / WebSearch at runtime. See [retros/phase-5.md](retros/phase-5.md).
+- **L3 Rule Synthesizer** (Phase 6 closed) — Path A only, hand-authored recipes (`packages/core/synthesizer/recipes/*.json`); `synthesize(plan)` is a pure JSON-to-SynthesisPlan transform. No LLM «picks from menu» yet. See [retros/phase-6.md](retros/phase-6.md).
+- **L4 Self-Validator** (Phase 7 closed) — gates 1, 2, 4, 6 REQUIRED; gate 3 (mutation) skipped (Path B only); gate 5 (two-AI review) deferred. Pure `validate(plan) → ValidationReport`, no LLM. See [retros/phase-7.md](retros/phase-7.md).
+- **L5 Installer** (Phase 7 closed) — artifact write + `rules-lock.json` + post-validate. No npm deps install / husky / GHA generation in v1. See [retros/phase-7.md](retros/phase-7.md).
+
+**Hard stop-rules from retros (all 4 held through Phase 7):**
+
+1. **NO LLM at runtime in v1** — zero Anthropic SDK / OpenAI / context7 calls in any of L1-L5 hot paths. Research store is curated on disk.
+2. **NO new explicit deps** — only transitive ones (ESLint, TS-ESLint parser, preset plugin); `package.json` diffs are bin entries + scripts + exports.
+3. **NO yargs/commander** — CLIs use `process.argv` parsing (≤60 LOC each).
+4. **NO Path B AST gen** — Phase 9+ trigger; Path A only through Phase 8.
+
+**v2-trigger areas (5, all `OPEN, v2 trigger` per [open-questions.md §13.10](open-questions.md)):**
+
+| # | v2 area | Layer | Trigger condition (authoritative source: §13.10) |
+|---|---|---|---|
+| 1 | LLM-driven research extension (context7 MCP + Anthropic `web_search_20250305` with allowed_domains) | L2 | First real consumer reports a research gap on a non-curated framework |
+| 2 | Path A LLM gen («picks from menu») | L3 | Phase 8 acceptance test passes deterministic; Phase 9 entry research |
+| 3 | Path B AST gen | L3 | Phase 9+; new pattern with no existing ESLint plugin |
+| 4 | Gate 5 (two-AI review via AIF `review-sidecar` `model: opus`) | L4 | Phase 8 cost-scope decision (per-rule vs per-plan; advisory vs blocking) |
+| 5 | Gate 3 (mutation testing via Stryker) | L4 | Path B activation (gate 3 only mutates AST; nothing to mutate in Path A) |
+
+§13.10 is the SSOT for trigger conditions; this list shows names + layer mapping only. v2 areas are **strict supersets** over v1 — v2 activation does not invalidate v1 contracts.
+
+**Cross-references:** [architecture.md §2.4-§2.7](architecture.md), [retros/phase-4.md](retros/phase-4.md), [retros/phase-5.md](retros/phase-5.md), [retros/phase-6.md](retros/phase-6.md), [retros/phase-7.md](retros/phase-7.md), [aif-comparison.md §4](aif-comparison.md), [open-questions.md §13.10](open-questions.md).
+
+---
+
 ### Phase 0.5 — Documentation alignment (1-2 дня)
 
 **Задача:** зафиксировать новое понимание в PROPOSAL.md и создать reference-документ.
