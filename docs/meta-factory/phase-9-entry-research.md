@@ -73,6 +73,20 @@ Each entry in [prior-art-evaluations.md](prior-art-evaluations.md) checked again
 
 **Verdict outcome:** Path A LLM gen has no direct LLM-pick analog in production; the closest is hand-curated plugin pattern (Factory), which we already mirror via `preset-next-15-canonical`. Final §5 row: A1 priority decision in §5 (BUILD only if Phase 9 ROI thesis closes; else DEFER).
 
+### §4.A4 + §4.A9 — Gate 5 build + AIF GATE-RESULT-CONTRACT.md schema (REUSE confirmed; matches [aif-comparison.md §9](aif-comparison.md))
+
+**context7 candidates (3, source `/lee-to/ai-factory` + `/websites/coderabbit_ai`):** AIF query «aif-verify GATE-RESULT-CONTRACT.md schema_version blockers affected_files suggested_next 2026 latest schema»; AIF query «review-sidecar two-AI review advisory blocking model opus configuration cost 2026 false-positive rate»; CodeRabbit resolve only (no formalised gate-result contract surface to compare against AIF's; CodeRabbit is product-side AI review, not contract-emitting infra).
+
+**Findings:**
+- **AIF `/aif-review`** is in production: `Verdict: PASS|WARN|FAIL` + `Blocking findings:` / `Non-blocking notes:` / `Evidence:` (per `subagents/review-sidecar.md`). The sidecar is the implementation surface; `model: opus` is a SPEC-supported override.
+- **AIF `aif-gate-result` schema unchanged** since Phase 8.8 SSOT bootstrap: `schema_version: 1`, `gate: "verify"|"review"|"security"|"rules"`, `status: "pass"|"warn"|"fail"`, `blocking`, `blockers[{id, severity, file, summary}]`, `affected_files[]`, `suggested_next{command, reason}`. Phase 8 Task 8.4 emission shape matches current contract — no breaking changes.
+- **§13.11 Phase 8 scoping decision** (per-plan + Opus + advisory + cached via `sourceFingerprint`) maps directly to AIF surface — implementing Phase 9 gate 5 = wrapping `/aif-review` per the scoped invocation shape.
+- No alternative to AIF surfaced in context7 with comparable formal gate-result contract (CodeRabbit/Greptile are product-side, no spec surface; no SSOT entry warranted).
+
+**Verdict outcome (A4):** REUSE AIF (already in [aif-comparison.md §9](aif-comparison.md)). Phase 9 question: does `<20% FP rate on 10+ real PRs` per [open-questions.md §13.10 entry #4](open-questions.md) require Phase 9 cycle, or wait for more PRs? — decision in §5.
+
+**Verdict outcome (A9):** REUSE — Phase 11.1 closure tail = adding JSON-schema validation step against fetched-fresh AIF contract (small, ~30 LOC `Ajv` or hand-rolled validator). Decision in §5.
+
 ## §5. Build vs reuse matrix + Phase 9 priority — see T4 commit
 
 Populated in T4: final matrix table with verdict (BUILD / REUSE / DEFER / STOP) and Phase 9 priority (P0 / P1 / P2 / OUT) per area.
