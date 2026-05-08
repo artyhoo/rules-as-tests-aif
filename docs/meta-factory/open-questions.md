@@ -147,6 +147,8 @@ Decision matrix в [self-application.md](self-application.md) §3 фиксиру
 
 **Closure criteria.** Each v2 area closes when (a) trigger fires AND (b) verification gate passes for ≥1 real example AND (c) cost model in §13.11 reports a stable per-invocation budget. Until then: deterministic v1 ships.
 
+**Entry #2 — Phase 9 entry coverage gap (recorded post-merge 2026-05-08).** [Phase 9 entry research](phase-9-entry-research.md) (merged via PR #13) closed §13.10 entry #2 ROI re-evaluation **negative** based on 5-candidate context7 coverage (Cursor, Continue.dev, [Factory ESLint Plugin](prior-art-evaluations.md), Cody, Aider — see [phase-9-entry-research.md §4.A1](phase-9-entry-research.md)). Two production-grade candidates with potentially-relevant rule-synthesis surface were NOT checked at the time: **AIF `/aif-evolve`** (LLM-driven rule synthesis from accumulated fix patches in skill-context domain — structurally adjacent paradigm to «LLM picks rules from menu», already an integrated dependency per [aif-comparison.md](aif-comparison.md)) and **Oh My ClaudeCode** family (multi-agent orchestration with autonomous workflows in our exact runtime — `/code-yeongyu/oh-my-openagent`, `/yeachan-heo/oh-my-claudecode`, etc.). Next entry research session that re-opens §13.10 entry #2 **must** include these candidates in the base before any verdict change. The current DEFER stance carries forward; this note records the gap for future-session discipline.
+
 ### 13.11 LLM cost model + tracking
 
 **Status:** OPEN, v2 trigger.
