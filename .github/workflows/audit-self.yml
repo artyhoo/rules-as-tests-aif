@@ -300,3 +300,70 @@ jobs:
             exit 1
           fi
           echo "✓ setup.sh --dry-run idempotent (L1 acceptance a)"
+
+  framework-self-research:
+    name: Research Agent v1 — self-application snapshot (L2 invariant)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install workspace deps (hoists tsx + transitive semver + ajv)
+        run: npm install --silent
+      - name: Run research --self and diff against frozen snapshot
+        run: |
+          ACTUAL=$(npm --prefix packages/core run research --silent -- --self "$GITHUB_WORKSPACE")
+          EXPECTED=$(cat packages/core/research/expected-self-research.json)
+          if ! diff <(echo "$ACTUAL" | jq -S .) <(echo "$EXPECTED" | jq -S .); then
+            echo "::error::research self-application snapshot drift — fix the doc divergence or update packages/core/research/expected-self-research.json"
+            exit 1
+          fi
+          echo "✓ self-research snapshot stable (L2 invariant b)"
+      - name: Drift detection on canonical own-doc sources (L2 invariant a)
+        run: |
+          MISMATCHES=$(npm --prefix packages/core run research --silent -- --self "$GITHUB_WORKSPACE" | jq '.drift.mismatches | length')
+          if [ "$MISMATCHES" != "0" ]; then
+            echo "::error::symbolic drift detected in skills/SKILL.md / references/{overview,ai-traps}.md"
+            npm --prefix packages/core run research --silent -- --self "$GITHUB_WORKSPACE" | jq '.drift.mismatches'
+            exit 1
+          fi
+          echo "✓ zero drift across the 3 canonical self-app sources (L2 invariant a)"
+
+  framework-self-synth:
+    name: Synthesizer v1 — self-application snapshot (L3 invariant a)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install workspace deps
+        run: npm install --silent
+      - name: Synth on own repo and diff against frozen snapshot
+        run: |
+          ACTUAL=$(npm --prefix packages/core run synth --silent -- "$GITHUB_WORKSPACE")
+          EXPECTED=$(cat packages/core/synthesizer/expected-self-synth.json)
+          if ! diff <(echo "$ACTUAL" | jq -S .) <(echo "$EXPECTED" | jq -S .); then
+            echo "::error::synthesizer self-application snapshot drift — fix the regression or update packages/core/synthesizer/expected-self-synth.json"
+            exit 1
+          fi
+          echo "✓ self-synth snapshot stable (own repo, ts-server, no patterns)"
+      - name: Synth on next-16 fixture and diff against frozen snapshot
+        run: |
+          FIXTURE="$GITHUB_WORKSPACE/packages/core/synthesizer/fixtures/next-16-fixture"
+          ACTUAL=$(npm --prefix packages/core run synth --silent -- "$FIXTURE")
+          EXPECTED=$(cat packages/core/synthesizer/expected-fixture-synth.json)
+          if ! diff <(echo "$ACTUAL" | jq -S .) <(echo "$EXPECTED" | jq -S .); then
+            echo "::error::synthesizer fixture snapshot drift — fix the regression or update packages/core/synthesizer/expected-fixture-synth.json"
+            exit 1
+          fi
+          echo "✓ fixture-synth snapshot stable (next-16, 3 rules)"

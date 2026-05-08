@@ -122,6 +122,16 @@ expect(value !== undefined).toBe(true);           // always true for required fi
 - Regression test density: each closed bug → permanent spec test with bug ID in name
 - Tests named `regression: <description> (#INC-1234)` are unmistakable
 
+### 10. Tautological tests (positive without paired negative)
+**Pattern:** AI writes a test that asserts a condition the SUT cannot violate — `expect(x).toBeDefined()` on a non-null typed value, mocks asserted on without behavioral implications, identity comparisons that hold trivially.
+
+**Why:** AI optimizes for green output, not for fault detection. A test that cannot fail is decoration.
+
+**Caught by:**
+- Paired negative tests: every positive case has an explicit paired negative that proves the assertion fails on the bad input. If both pass, the assertion is mute about regressions.
+- Mutation testing on the SUT (Stryker / PIT) — surviving mutants reveal which positive tests don't actually constrain the code.
+- AST meta-test: assertion's compared value must transitively depend on a SUT call, not just literals/types.
+
 ### 10. React/Next-specific violations
 - `<div onClick>` instead of `<button>` → `jsx-a11y/no-static-element-interactions: 'error'`
 - `<a href="/internal">` instead of `<Link>` → `@next/next/no-html-link-for-pages: 'error'`

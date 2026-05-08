@@ -217,6 +217,13 @@ Pages Router REMOVED, async params/searchParams обязательны (Promises
 
 > **Parallelism note (M3 finding 2026-05-07):** Phase 2 (principles meta-tests) и Phase 4 (Stack Detector v1) технически могут стартовать параллельно с Phase 3 (monorepo split): Phase 2 пишет тесты в `tests/principles/` независимо от структуры пакетов; Phase 4 дорабатывает уже-работающий `setup.sh:82-97` + `scripts/detect-applicable-rules.ts` in-place. Phase 3 split лишь определяет финальный shape куда переезжают артефакты. Решение «делать ли параллельно» — **на Phase 1 retrospective** по реальной cognitive-load оценке, не сейчас. Cumulative timeline в §8 оставлен консервативным как upper bound; sequential execution = baseline, parallelism = potential win при подтверждении на Phase 1 retro.
 
+> **Phase 5/6/7 reordering note (2026-05-08, post-Phase-6 close):** boundaries reassigned during burn-mode session, single coherent edit covering Phase 5 + Phase 6 retros:
+>
+> - **Original (v0.1.x):** Phase 5 = L4 Validator, Phase 6 = L2 Research Agent, Phase 7 = L3 Synthesizer + L5 Installer.
+> - **Current (v0.1.2+):** **Phase 5 = L2 Research Agent** (closed, see [retros/phase-5.md](retros/phase-5.md)) → **Phase 6 = L3 Synthesizer Path A only** (closed, see [retros/phase-6.md](retros/phase-6.md)) → **Phase 7 = L4 Validator + L5 Installer** (next).
+>
+> Rationale: linear data flow `0 → 1 → 2 → 3 → 4 → 5` per [architecture.md §2.1](architecture.md). L4 Validator gates synthesized output — without L2 + L3 there is nothing beyond Phase 2 manifest meta-tests for L4 to validate; running L4 first was inverted from data flow. L5 Installer needs L3 output to install. The Phase descriptions below retain their original headings («Phase 5 — Layer 4 Validator…», etc.) for diff hygiene; **read via the mapping above**, not the headings. Cumulative timeline in §8 unchanged in calendar terms; reordering does not affect total budget.
+
 ### Phase 0.5 — Documentation alignment (1-2 дня)
 
 **Задача:** зафиксировать новое понимание в PROPOSAL.md и создать reference-документ.

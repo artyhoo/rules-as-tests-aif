@@ -35,6 +35,7 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 - AST scan: every public production export referenced in at least one test.
 - AST scan: no real network / fs / time imports in `*.test.ts` (only in `*.integration.test.ts`).
 - ESLint rules: `vitest/expect-expect`, `vitest/no-conditional-tests`, `vitest/no-disabled-tests`, `vitest/no-focused-tests`.
+- Paired negative tests: every positive case ships with a paired negative that proves the assertion fails on the bad input. Without the paired negative, a green test is mute about whether it would catch a regression.
 
 **Anti-patterns:**
 - Counting assertion *lines* (parameterized tests, helpers break naive counts) — count *transitive reachability*.

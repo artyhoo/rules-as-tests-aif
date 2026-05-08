@@ -1,0 +1,30 @@
+// Layer 3 Synthesizer (Path A) public types.
+// SynthesizedRule shape is intentionally aligned with manifest's RuleEntry
+// (rules-manifest.schema.json#/definitions/RuleEntry) so generated rules
+// validate identically to manually authored ones — Phase 5 retro Q1 reuse.
+
+import type { Provenance } from '../research/types.ts';
+
+export type ManifestCheck =
+  | { type: 'eslint'; rule: string }
+  | { type: 'command'; command: string }
+  | { type: 'script'; script: string }
+  | { type: 'manual'; rationale?: string };
+
+export interface SynthesizedRule {
+  id: string;
+  title: string;
+  stack: string[];
+  'applies-to'?: string[];
+  check: ManifestCheck;
+  examples: { bad: string; good: string };
+  research: { entryId: string; provenance: Provenance[] };
+}
+
+export interface SynthesisPlan {
+  framework: string | null;
+  version: string | null;
+  rules: SynthesizedRule[];
+  rulesMd: string;
+  eslintConfigSnippet: string;
+}

@@ -1,0 +1,21 @@
+{
+  "id": "tailwind-v3-config",
+  "summary": "Tailwind v3 reads design tokens from `tailwind.config.{js,ts}`. The `content` array declares files scanned for class strings; JIT mode is the default since 3.0.",
+  "bestPractices": [
+    "Declare every source path in `content` — globs that miss files cause silent omission of utility classes.",
+    "Use the `theme.extend` block to add tokens without overriding the default palette/spacing scales.",
+    "Co-locate plugin enablement (`@tailwindcss/forms`, etc.) in the config file, not via imports in CSS."
+  ],
+  "antiPatterns": [
+    "Mutating `tailwind.config.js` exports at runtime — the config is read at build time only.",
+    "Mixing `tailwind.config.js` with v4-style `@theme` CSS tokens — they belong to different major versions.",
+    "Listing `node_modules` paths in `content` without a tight glob — explodes scan time."
+  ],
+  "provenance": [
+    {
+      "url": "https://tailwindcss.com/docs/configuration",
+      "allowlistKey": "tailwind.official",
+      "fetchedAt": "2026-05-08"
+    }
+  ]
+}

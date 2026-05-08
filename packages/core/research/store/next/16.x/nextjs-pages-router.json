@@ -1,0 +1,21 @@
+{
+  "id": "nextjs-pages-router",
+  "summary": "Pages Router is removed in Next.js 16. Detection of `pages/` in a project on Next 16 is a migration blocker — the project must move to App Router before upgrading.",
+  "bestPractices": [
+    "Migrate `pages/` routes to `app/` before upgrading the framework version to 16.",
+    "Run `next-codemod app-dir-migration` to automate the bulk of the layout/route conversion.",
+    "Convert API routes from `pages/api/*` to either `app/api/*/route.ts` or Server Actions."
+  ],
+  "antiPatterns": [
+    "Adding new routes under `pages/` in a project that targets Next 16.",
+    "Treating `pages/` as a long-lived dual-router setup — it is not supported in 16.",
+    "Skipping codemods and migrating by hand for large route trees (high error rate on layouts/getServerSideProps)."
+  ],
+  "provenance": [
+    {
+      "url": "https://nextjs.org/docs/app/guides/upgrading/version-16",
+      "allowlistKey": "next.official",
+      "fetchedAt": "2026-05-08"
+    }
+  ]
+}
