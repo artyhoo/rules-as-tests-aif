@@ -37,9 +37,14 @@ Initial candidate areas for Phase 9 implementation, derived from (a) §13.10 tri
 
 ---
 
-## §3. SSOT consult (Step 1.5) — see T2 commit
+## §3. SSOT consult (Step 1.5) — 3 existing entries match-checked
 
-Populated in T2: each of [prior-art-evaluations.md#1-#3](prior-art-evaluations.md) checked against §2 areas; `Last reviewed` bumps in same commit; re-evaluation notes for DEFER/WATCHLIST entries whose trigger condition has fired.
+Each entry in [prior-art-evaluations.md](prior-art-evaluations.md) checked against §2 areas; consult recorded inline below per §5.5 Step 1.5 (a)/(b)/(c). All three entries currently dated `Last reviewed = 2026-05-08` (Phase 8.8 close); this session re-examines them.
+
+- **A1, A2 — match [prior-art-evaluations.md#1](prior-art-evaluations.md) (Autogrep, DEFER, L3 LLM-driven rule generation).** Re-evaluation status: **trigger fired** — [open-questions.md §13.10 entry #2](open-questions.md) (Path A LLM gen) fired at Phase 8 close per [retros/phase-8.md Open Q #1](retros/phase-8.md). Plus the entry's own «Phase 9+ entry research surfaces new Autogrep release» trigger fires by virtue of this session. Action: SSOT entry #1 Rationale appended with Phase 9 consult marker (this commit); T3 runs fresh context7 lookup against Semgrep / Autogrep for any rule-synthesis-from-docs feature shipped post-2026-05-08; verdict outcome recorded in §5 (T4).
+- **A6, A7 — no match against [prior-art-evaluations.md#2](prior-art-evaluations.md) (Netlify framework-info, WATCHLIST, L1 multi-framework version-aware detection).** A6 (recipe duplication housekeeping) and A7 (`next/any/` resolution tier) are about authoring conventions inside our hand-rolled curated store, not multi-framework detection. SSOT entry #2's trigger («Phase 9+ detector v2 entry research; OR new framework target requires version-aware semantics our v1 detector can't express; OR §6.0 #2 stop-rule relaxes») has **NOT fired** — Phase 9 entry currently scopes Path A LLM gen + housekeeping, not detector v2; §6.0 #2 stop-rule remains held per Phase 8 retro. Status: **still applies**, no SSOT edit.
+- **A1 (vocabulary adjacency) — match [prior-art-evaluations.md#3](prior-art-evaluations.md) (fitness functions, ADOPT VOCABULARY, framework-level meta-test pattern vocabulary).** Vocabulary already adopted in `overview.md L2` per Phase 8.8 T10. If Phase 9 introduces new principle-as-test for LLM gen ROI («fitness function» framing applies to similarity-≥0.95 acceptance gate), reuse the established term. Status: **still applies**, no SSOT edit.
+- **A3, A4, A5, A8, A9 — no match against any existing SSOT entry.** Continue to Step 2/3 in T3 (context7 resolve + ≥3 phrasings query each).
 
 ## §4. context7 lookups per unmatched area — see T3 commits
 
