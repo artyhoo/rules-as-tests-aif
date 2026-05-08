@@ -101,6 +101,28 @@ Each entry in [prior-art-evaluations.md](prior-art-evaluations.md) checked again
 
 **Verdict outcome:** [open-questions.md §13.10 entry #3](open-questions.md) trigger has NOT fired — no Phase 8 pattern lacked an existing ESLint plugin (Phase 8 R12/R14/R20 were rules already in `preset-next-15-canonical/eslint-rules/`, mechanical lift). Final §5 row: A5 → DEFER.
 
+### §4.A3 — LLM-driven research extension (NEW SSOT entry #5)
+
+**context7 query (1 phrasing — substantive result; Hard Constraint #5 floor of 3 applies «если результат пустой»):** «web_search_20250305 tool with allowed_domains constraint live documentation framework lookup TypeScript SDK» against `/anthropics/anthropic-sdk-typescript`.
+
+**Findings:**
+- **`web_search_20250305`** — first-class server tool in Anthropic TypeScript SDK with `allowed_domains` / `blocked_domains` (mutually exclusive), `max_uses` budget cap, `cache_control` for caching, `user_location`, `defer_loading`, stream-compatible. Same spec name referenced in [open-questions.md §13.10 entry #1](open-questions.md).
+- Trigger condition «first real consumer reports gap on non-curated framework, OR Phase 8 acceptance shows curated store insufficient for Next 16 patterns» has NOT fired (Phase 8 closed without curated-store gap per [retros/phase-8.md Open Q #2](retros/phase-8.md)).
+
+**SSOT update:** new entry [#5](prior-art-evaluations.md) (Anthropic `web_search_20250305` with `allowed_domains`, ADOPT WHEN TRIGGERED — production-ready first-party tool, no third-party SDK alternative needed; trigger fires per §13.10 entry #1).
+
+**Verdict outcome:** Trigger ARMED, NOT fired. Phase 9 should NOT pre-build LLM research path; document trigger discipline. Final §5 row: A3 → DEFER.
+
+### §4.A6 / §4.A7 / §4.A8 — housekeeping (analysis-only, no context7 needed)
+
+These three are internal authoring conventions / calibration questions, not capability areas with prior-art analogs:
+
+- **A6 Recipe duplication** (`react-server-components.json` + `next-r12-no-server-imports-in-client.json` both emit same plugin rule): single-source policy decision per [retros/phase-8.md Self-reflection #6](retros/phase-8.md). No external analog — internal de-dup.
+- **A7 `next/any/` resolution tier**: load.ts authoring convention question per [retros/phase-8.md Self-reflection #5](retros/phase-8.md). Trivial code change behind authoring convention answer. No external analog.
+- **A8 Glob-overlap weight calibration** (0.40/0.40/0.20 initial guess from [phase-8-research.md §3](phase-8-research.md)): test-corpus design question per [retros/phase-8.md Self-reflection #6/#9](retros/phase-8.md). First Phase 9 LLM-gen run on divergent plans produces calibration data; no external SSOT entry candidate.
+
+No new SSOT entries; verdicts in §5 are BUILD-internal.
+
 ## §5. Build vs reuse matrix + Phase 9 priority — see T4 commit
 
 Populated in T4: final matrix table with verdict (BUILD / REUSE / DEFER / STOP) and Phase 9 priority (P0 / P1 / P2 / OUT) per area.
