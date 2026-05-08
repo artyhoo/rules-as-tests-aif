@@ -98,6 +98,62 @@ PKG
   git -C "$repo" -c commit.gpgsign=false commit -q "${args[@]}"
 }
 
+# seed_existing_dep: adds an initial commit with a dep so that subsequent
+# bump tests have something to bump (origin/main also fast-forwarded).
+seed_existing_dep() {
+  local repo="$1"
+  cat > "$repo/package.json" <<'PKG'
+{
+  "name": "test",
+  "version": "0.0.0",
+  "dependencies": {
+    "existing-dep": "^1.0.0"
+  }
+}
+PKG
+  git -C "$repo" add package.json
+  git -C "$repo" -c commit.gpgsign=false commit -q -m "seed: existing dep"
+  git -C "$repo" update-ref refs/remotes/origin/main HEAD
+}
+
+# bump_existing_dep: edits the version of an existing dep (no NEW dep).
+# The hook should NOT flag this as a capability commit.
+bump_existing_dep() {
+  local repo="$1"; shift
+  cat > "$repo/package.json" <<'PKG'
+{
+  "name": "test",
+  "version": "0.0.0",
+  "dependencies": {
+    "existing-dep": "^2.0.0"
+  }
+}
+PKG
+  git -C "$repo" add package.json
+  local args=()
+  for msg in "$@"; do args+=("-m" "$msg"); done
+  git -C "$repo" -c commit.gpgsign=false commit -q "${args[@]}"
+}
+
+# add_capability_commit_with_tilde: adds a new dep with tilde-prefix version,
+# exercising the M1 broadened semver prefix support (`~X.Y.Z`).
+add_capability_commit_with_tilde() {
+  local repo="$1"; shift
+  cat > "$repo/package.json" <<'PKG'
+{
+  "name": "test",
+  "version": "0.0.0",
+  "dependencies": {
+    "some-new-dep": "~1.0.0"
+  }
+}
+PKG
+  git -C "$repo" add package.json
+  local args=()
+  for msg in "$@"; do args+=("-m" "$msg"); done
+  git -C "$repo" -c commit.gpgsign=false commit -q "${args[@]}"
+}
+
 # record: print PASS/FAIL counter line.
 record() {
   local outcome="$1" desc="$2"
@@ -219,6 +275,46 @@ test_6_mutation_drop_capability_detection() {
   rm -rf "$repo"
 }
 
+# Test 7 (M2 fix): version bump of an existing dep (no NEW dep) + NO trailer
+# → hook must NOT flag this as a capability commit.
+# Pre-fix: the simple `^\+...` grep matched the bumped `+` line, false-positive
+# capability flag, hook would have demanded a trailer for routine maintenance.
+# Post-fix: pa_is_new_dep_added compares + and - keys; if same key in both,
+# it's a bump (not new), hook lets the commit pass without a trailer.
+test_7_bump_existing_dep_no_trailer_is_not_capability() {
+  local repo
+  repo=$(make_test_repo)
+  seed_existing_dep "$repo"
+  bump_existing_dep "$repo" \
+    "chore: bump existing-dep to 2.0.0" \
+    "No new capability — version bump only. Intentionally no Prior-art trailer."
+  if run_hook "$repo" "$HOOK_FILE"; then
+    record pass "7 — version bump (no new dep) + no trailer → exit 0 (NOT flagged as capability)"
+  else
+    record fail "7 — version bump wrongly flagged as capability commit (M2 regression)"
+  fi
+  rm -rf "$repo"
+}
+
+# Test 8 (M1 fix): new dep with tilde-prefix version (~X.Y.Z) + valid trailer
+# → hook must flag as capability AND accept the trailer. Pre-fix regex was
+# `"\^?[0-9]` (caret or digit start only), missing tilde / range / wildcard.
+# Post-fix regex is `"(\^|~|>=?|<=?|=|[0-9*])`, broader semver-prefix coverage.
+test_8_new_dep_with_tilde_version_caught_with_trailer() {
+  local repo
+  repo=$(make_test_repo)
+  add_capability_commit_with_tilde "$repo" \
+    "feat: add tilde-versioned dep" \
+    "Body." \
+    "Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain)."
+  if run_hook "$repo" "$HOOK_FILE"; then
+    record pass "8 — new dep with tilde version (~1.0.0) + valid trailer → exit 0 (M1 broadened semver coverage works)"
+  else
+    record fail "8 — tilde-versioned new dep + valid trailer wrongly rejected"
+  fi
+  rm -rf "$repo"
+}
+
 # ── Run all ──────────────────────────────────────────────────────────────────
 
 test_1_positive_dep_with_trailer
@@ -227,6 +323,8 @@ test_3_positive_escape_hatch
 test_4_negative_short_escape
 test_5_mutation_invert_trailer_match
 test_6_mutation_drop_capability_detection
+test_7_bump_existing_dep_no_trailer_is_not_capability
+test_8_new_dep_with_tilde_version_caught_with_trailer
 
 printf '\n── Summary ──\n%d pass / %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
