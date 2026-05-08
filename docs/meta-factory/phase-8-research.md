@@ -147,3 +147,46 @@ suggested_next: {command, reason}
 **Rationale:** the mapping is purely structural and ≤60 LOC. Skipping it now means Phase 11.1 must do the same work plus relearn the report shapes. AIF docs explicitly state «*Orchestrators should parse this block for gate results*» — emitting it is the wire format for any future AIF orchestrator-driven CI.
 
 ---
+
+## §5. C4 — Recipe expansion strategy R12/R14/R20 (HIGH)
+
+**Inputs (no edits made):**
+- [packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts](../../packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts) (R12, 69 LOC, `ImportDeclaration` visitor + `'use client'` 3-line scan + 4-pattern matcher).
+- [packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.ts](../../packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.ts) (R14, 105 LOC).
+- [packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.ts](../../packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.ts) (R20, 76 LOC).
+- Each rule has paired `.test.ts` (72-73 LOC) — RuleTester format with ≥6 invalid + ≥7 valid cases.
+- [packages/preset-next-15-canonical/eslint-rules/index.ts](../../packages/preset-next-15-canonical/eslint-rules/index.ts) exports a flat `plugin: { rules: { 'no-server-imports-in-client', 'require-form-safe-parse', 'require-use-server-directive' } }` — already the right shape for `eslint-plugin` adoption by recipes.
+- [packages/core/synthesizer/recipes/nextjs-app-router.json](../../packages/core/synthesizer/recipes/nextjs-app-router.json) (35 lines) — uses built-in `no-restricted-imports`, single `examples.bad/good` + `negative-test.expect-violation`.
+
+**Findings:**
+
+1. **Existing 3 recipes use built-in ESLint rules** (`no-restricted-imports` etc.). R12/R14/R20 are **custom AST rules**. Recipes need a way to reference custom plugin rules without inlining the rule TS source.
+2. **Recipe shape is extensible without breaking change.** `check.rule: string` already accepts any rule name; switching to a plugin-namespaced ID like `rules-as-tests-preset/no-server-imports-in-client` is purely a string change. `eslintConfigSnippet` already accepts arbitrary keys.
+3. **Plugin export already matches AST-rule plugin convention.** `index.ts` exports `{ rules: { 'name': createdRule } }` — directly consumable as an ESLint plugin. Phase 7 [gate-conflict.ts](../../packages/core/synthesizer/recipes/) already imports it for plugin-rule existence checks.
+4. **Test corpus is rich enough for mechanical lift.** Each `.test.ts` has 6-8 invalid cases × 7+ valid cases. Picking the first invalid as `negative-test.input` + first valid as `examples.good` + first invalid as `examples.bad` is mechanical (~10 min/rule).
+5. **Total complexity is bounded.** R12/R14/R20 source = 69+105+76 = 250 LOC of stable ESLint rules. They already pass 38/38 preset tests per [retros/phase-7.md](retros/phase-7.md). No behavioral re-implementation needed; recipes only **reference** existing rules.
+
+**Decision:** **Build via mechanical lift** (3 new recipes pointing to existing preset plugin rules). Not hand re-author.
+
+**Per-rule recipe template (Phase 8 implementation):**
+```json
+{
+  "patternId": "next-r12-no-server-imports-in-client",
+  "appliesTo": ["next"],
+  "rule": {
+    "title": "...", "stack": ["react-next"],
+    "applies-to": ["src/**/*.tsx", "src/**/*.ts"],
+    "check": { "type": "eslint", "rule": "rules-as-tests-preset/no-server-imports-in-client" },
+    "examples": { "bad": "<from .test.ts invalid[0].code>", "good": "<from .test.ts valid[0]>" },
+    "negative-test": { "input": "<bad>", "expect-violation": "rules-as-tests-preset/no-server-imports-in-client" }
+  },
+  "rulesMdTemplate": "## {{id}} — ...",
+  "eslintConfigSnippet": { "rules-as-tests-preset/no-server-imports-in-client": "error" }
+}
+```
+
+**Effort estimate:** 3 rules × 10-15 min/rule = ~45 min in burn mode. Plus minor synthesizer-side adjustment if `gate-rule-tester.ts` does not already register the preset plugin during gate 2 (per [retros/phase-7.md row 7.4](retros/phase-7.md), conflict gate already loads preset plugin — gate 2 likely loads it too; verify in Phase 8 task list).
+
+**Rationale:** mechanical lift preserves provenance (recipes carry inline JSDoc comment `// from preset-next-15-canonical eslint-rules/no-server-imports-in-client.ts:35-69`). Hand re-author would either re-implement AST logic (250 LOC × 3 rules + tests, 4-8h) or duplicate behavior outside the preset (DRY violation; two sources for same rule). Neither is justified for v1; deterministic recipes-as-thin-pointers preserve the «Path A only» invariant per [§6.0](EXECUTION-PLAN.md).
+
+---
