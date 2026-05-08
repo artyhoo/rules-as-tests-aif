@@ -44,7 +44,7 @@ Discovered coverage gaps land as standalone patches under [docs/meta-factory/res
 - **Prevention** — concrete PRIORITY CHECK rule that, if applied earlier, would have caught the gap. This is the load-bearing field; «be more careful» is rejected.
 - **Tags** — ≥1 tag per failure mode (e.g. `#own-stack-blind-spot`, `#semantic-anchor`, `#prompt-list-anchoring`, `#negative-existence-claim`, `#category-sweep-missed`, `#recursive-self-application-gap`, `#scope-not-formal-trigger`, `#trigger-sweep`).
 
-Tags accumulate across patches. When a tag appears on ≥3 patches, distill its Prevention rules into [§1](#1-coverage-methodology-checklist-5-items) — the threshold is the same as AIF's «6/10 patches → priority-check rule» heuristic, scaled to our smaller corpus.
+Tags accumulate across patches. When a tag appears on ≥3 patches, distill its Prevention rules into [§1](#1-coverage-methodology-checklist-6-items) — the threshold is the same as AIF's «6/10 patches → priority-check rule» heuristic, scaled to our smaller corpus.
 
 The AIF `/aif-evolve` precedent is what we mirror: per-incident patch + periodic distillation step + tag-keyed aggregation. Reflexion (Shinn et al.) is the theoretical backdrop — verbal-reinforcement memory across iterations — but `/aif-evolve` is the production-grade implementation we have direct access to and dogfood via the AIF dependency.
 
