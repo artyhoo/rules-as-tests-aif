@@ -123,9 +123,23 @@ These three are internal authoring conventions / calibration questions, not capa
 
 No new SSOT entries; verdicts in §5 are BUILD-internal.
 
-## §5. Build vs reuse matrix + Phase 9 priority — see T4 commit
+## §5. Build vs reuse matrix + Phase 9 priority
 
-Populated in T4: final matrix table with verdict (BUILD / REUSE / DEFER / STOP) and Phase 9 priority (P0 / P1 / P2 / OUT) per area.
+Final matrix per capability area; rationale grounded in §3 (SSOT consult) + §4 (context7 lookups). Verdicts: BUILD = proceed in Phase 9 implementation; REUSE = adopt existing solution; DEFER = stays in WATCHLIST/DEFER, no Phase 9 work; STOP = obsolete. Phase 9 priority: P0 (acceptance gate), P1 (should ship if scope permits), P2 (backlog for Phase 9.X), OUT (drop with refined trigger).
+
+| # | Capability | Existing analog (SSOT #N) | Verdict | Rationale | Phase 9 priority |
+|---|---|---|---|---|---|
+| A1 | Path A LLM gen «picks from menu» | [#4](prior-art-evaluations.md) Factory ESLint Plugin (WATCHLIST) | DEFER | ROI thesis closes **negative** — Factory's 21 hand-rolled rules is the industry pattern at our scale; we already mirror it via `preset-next-15-canonical`. No production tool implements LLM-pick of ESLint rules. LLM-pick adds infra cost (Opus per plan + curated-menu spec + verification gate) without proven benefit at current recipe count (~6-8). | **OUT — refined trigger** |
+| A2 | Autogrep re-evaluation | [#1](prior-art-evaluations.md) Autogrep (DEFER) | DEFER | T3.1 confirmed no rule-synthesis-from-docs feature shipped post-2026-05-08; SSOT #1 verdict carries forward unchanged. | OUT |
+| A3 | LLM-driven research extension | [#5](prior-art-evaluations.md) `web_search_20250305` (ADOPT WHEN TRIGGERED) | DEFER | [open-questions.md §13.10 entry #1](open-questions.md) trigger ARMED not fired — Phase 8 closed without curated-store gap per [retros/phase-8.md Open Q #2](retros/phase-8.md). | OUT |
+| A4 | Gate 5 two-AI review BUILD | [aif-comparison.md §9](aif-comparison.md) (REUSE — AIF `/aif-review`) | DEFER | Building violates [§6.0 #1](EXECUTION-PLAN.md) (NO LLM at runtime in v1) AND [open-questions.md §13.10 entry #4](open-questions.md) verification gate has no real-PR FP-rate data yet. Phase 9 should NOT preemptively change §6.0 per Hard Constraint #8. | **OUT — refined trigger** |
+| A5 | Path B AST gen | toolkit-only (ts-morph / jscodeshift / Comby) | DEFER | [open-questions.md §13.10 entry #3](open-questions.md) trigger NOT fired — no Phase 8 pattern lacked an existing ESLint plugin (R12/R14/R20 were mechanical lifts). | OUT |
+| A6 | Recipe duplication policy (`react-server-components` + `next-r12-no-server-imports-in-client`) | none (internal) | BUILD | Single-source policy decision: collapse to one canonical recipe with detector + named-selection paths. Per [retros/phase-8.md Self-reflection #6](retros/phase-8.md). Doc + recipe consolidation only; no new deps. | **P0** |
+| A7 | `next/any/` resolution tier in load.ts | none (internal) | BUILD | Trivial code change behind authoring convention answer; collapses 15.x ↔ 16.x version-agnostic recipe duplication. Per [retros/phase-8.md Self-reflection #5](retros/phase-8.md). ≤30 LOC + load.ts test extension. | **P1** |
+| A8 | Glob-overlap weight calibration | none (internal) | BUILD | Test-corpus design + run divergent-plan negative tests; calibrate 0.40/0.40/0.20 weights using data, not initial guess. Per [retros/phase-8.md Self-reflection #6/#9](retros/phase-8.md). Adds fixture corpus + calibration test, no deps. | **P1** |
+| A9 | AIF GATE-RESULT-CONTRACT.md schema validation | [aif-comparison.md §9](aif-comparison.md) (REUSE contract) | BUILD | Hand-rolled validator over fetched-fresh AIF contract per [open-questions.md §6.0 #2](EXECUTION-PLAN.md) stop-rule (no Ajv dep). ~30-50 LOC. Closes [Phase 11.1 partial](aif-comparison.md). | **P0** |
+
+**Phase 9 implementation scope (refined):** 4 BUILD areas (A6, A7, A8, A9 — all deterministic, all stop-rule-compliant); 5 DEFER areas (A1-A5, all LLM-bearing). The §13.10 entry #2 ROI re-evaluation that triggered this session **closes negative**: Phase 9 stays deterministic-v1, refines §13.10 entry #2 trigger to «recipe count exceeds N (TBD) AND new framework target requires plugin-menu pattern we don't yet ship», and ships the housekeeping + Phase 11.1 closure tail.
 
 ## §6. Stop-rule audit + cost projection — see T5 commit
 
