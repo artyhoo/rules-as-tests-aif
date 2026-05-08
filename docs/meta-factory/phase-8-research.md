@@ -56,3 +56,49 @@
 **Rationale:** all 15 items came from a single curated source updated alongside the framework — quoting the upgrade guide sentence «*Starting with Next.js 16, synchronous access to request APIs is fully removed*» is more durable than scraping changelog. Stop-rule signal: snapshot drift is **non-blocking** for Phase 8 entry but **mandates a refresh edit to §3.5** during Phase 8 implementation (Task: «sync §3.5 snapshot with version-16.mdx»). Does not REVISE the entry decision.
 
 ---
+
+## §3. C2 — Canonical regen diff metric (CRITICAL)
+
+**Query log:**
+- `resolve-library-id` `deep-diff` → no JS NPM match in top 5 results (returned `csv-diff`, `openapi-diff`, Go/PHP libs).
+- `resolve-library-id` `json-diff` → top 5: `/josephburnett/jd` (Go), `/weichch/system-text-json-jsondiffpatch` (.NET), `/yudai/gojsondiff` (Go), `/rexskz/json-diff-kit` (TS, 4 snippets), `/simonw/csv-diff`. Only `/rexskz/json-diff-kit` is JS/TS.
+- `query-docs /openapitools/openapi-diff` → confirmed pattern: per-change-type weight config (`incompatible.response.enum.increased`, etc.); breaking-change classification rather than scalar score.
+- `query-docs /rexskz/json-diff-kit` → produces raw `DiffResult[]` (added/removed/modified at path); no scoring/weighting; would require a JS dep.
+
+**Findings:**
+
+1. **No NPM library produces a weighted preset-comparison scalar.** Existing libs (`json-diff-kit`, `gojsondiff`) emit raw structural deltas; the consumer must aggregate.
+2. **`openapi-diff` philosophy is the closest analog** — categorize changes (added endpoint = compatible; removed endpoint = breaking; type change = breaking) and decide compatibility from the categories rather than from a generic edit distance.
+3. **Adopting `json-diff-kit` violates [retros/phase-7.md §«NO new explicit deps»](retros/phase-7.md)** stop-rule. Verified gain (raw diff array) is small relative to the cost (new transitive surface, `viewer.css` ship-in cost).
+
+**Decision:** **Build** a small inline metric (≤80 LOC pure TS, no deps), shipped at `packages/core/diff/preset-similarity.ts`. Three-component weighted formula:
+
+```
+similarity(P_synth, P_canon) =
+    0.40 · jaccard( ruleIds(P_synth), ruleIds(P_canon) )
+  + 0.40 · jaccard( eslintKeys(P_synth), eslintKeys(P_canon) )
+  + 0.20 · glob_overlap( appliesTo(P_synth), appliesTo(P_canon) )
+
+where:
+  jaccard(A, B) = |A ∩ B| / |A ∪ B|       ∈ [0, 1]
+  eslintKeys(P) = flat keys of merged eslintConfigSnippet across rules
+  glob_overlap(A, B) = mean over rule pairs of (overlap of resolved file globs)
+                      using minimatch ↦ glob → set (pre-sample fixture corpus)
+                                                                  ∈ [0, 1]
+
+acceptance gate (Phase 8): similarity(P_regen, P_canonical_v15) ≥ 0.95
+                           ⟺ diff ≤ 5%
+```
+
+**Rejected alternatives:**
+- **Raw `deep-diff` change count ÷ total fields** — rejected: weights all field changes equally; severity flip and `emittedAt` timestamp churn would dominate; opaque to debug. Not aligned with «what makes presets equivalent» — rule presence + ESLint-rule-key parity matters more than serialized-field equality.
+- **`expect.toMatchSnapshot()` jest equality** — rejected: forces zero-diff which contradicts §6 Phase 8 acceptance text «≤5%»; brittle to recipe-author re-orderings; would block Phase 8 acceptance on whitespace.
+- **sha256 of canonicalized JSON** — rejected: same brittleness as snapshot but without surfacing *which* component drifted; opaque on failure.
+- **Adopt `json-diff-kit`** — rejected per stop-rule; gain (raw delta array) is small; we still need to author the weighting logic.
+
+**Provenance for weights:**
+- 0.40 / 0.40 — rule presence and config keys are the two user-observable surfaces of a preset. Equal weight.
+- 0.20 — glob coverage matters but is downstream of rule presence (a rule with same ID + same key on slightly different glob still mostly matches).
+- These are **initial guesses** per [EXECUTION-PLAN.md §5 numerical-thresholds caveat](EXECUTION-PLAN.md); revisit on Phase 8 retro with actual regen data.
+
+---
