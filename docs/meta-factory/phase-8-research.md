@@ -102,3 +102,48 @@ acceptance gate (Phase 8): similarity(P_regen, P_canonical_v15) ≥ 0.95
 - These are **initial guesses** per [EXECUTION-PLAN.md §5 numerical-thresholds caveat](EXECUTION-PLAN.md); revisit on Phase 8 retro with actual regen data.
 
 ---
+
+## §4. C3 — `/aif-verify` integration forward-spike (HIGH)
+
+**Query log:**
+- `query-docs /lee-to/ai-factory` «aif-gate-result GATE-RESULT-CONTRACT schema» → returned 5 cited sources: `skills/aif-verify/references/GATE-RESULT-CONTRACT.md`, `docs/quality-gates.md`, `skills/aif-verify/SKILL.md`, plus 2 example blocks in `llms.txt`.
+- Local reads: [packages/core/validator/types.ts](../../packages/core/validator/types.ts) (27 lines), [packages/core/installer/types.ts](../../packages/core/installer/types.ts) (50 lines).
+
+**`aif-gate-result` schema v1 (per AIF):**
+```
+schema_version: 1
+gate: "verify"|"review"|"security"|"rules"
+status: "pass"|"warn"|"fail"
+blocking: boolean
+blockers: [{id, severity: "error"|"warning", file?, summary}]
+affected_files: [path]
+suggested_next: {command, reason}
+```
+
+**Mapping table (current `ValidationReport` + `InstallReport` × `aif-gate-result`):**
+
+| `aif-gate-result` field | Current source | Gap |
+|---|---|---|
+| `schema_version` | n/a — emit constant `1` | **additive** |
+| `gate` | n/a — emit constant `"rules"` (this framework's gate kind) | **additive** |
+| `status` | `ValidationReport.ok ? "pass" : "fail"` | **minor — current is 2-state, AIF is 3-state** (no `"warn"`) |
+| `blocking` | derived `!ValidationReport.ok` | **none** |
+| `blockers[]` | flatten `gates.{schema,ruleTester,tautology,conflict}.failures` with `{id: ${gate}+${ruleId}, severity: "error", file: null, summary: failure.reason}` | **additive transformation** |
+| `affected_files` | `InstallReport.artifacts[]` (L5 only); `[]` for standalone L4 | **none — L4 has no disk side-effect** |
+| `suggested_next.command` | derived: `pass → /aif-commit`, `fail → /aif-fix` | **none — advisory only** |
+| `suggested_next.reason` | derived: aggregate first 3 blocker summaries | **none** |
+
+**Findings:**
+
+1. **Mapping is purely additive — no breaking change to `ValidationReport`/`InstallReport`.** A new module `packages/core/validator/to-aif-gate-result.ts` (~60 LOC, pure) transforms either report into the contract shape.
+2. **`"warn"` 3rd state gap is non-blocking.** Current 2-state `ok: boolean` covers the «pass | fail» spectrum AIF needs for L4-equivalent enforcement. Optional v1.5 enhancement: add `ValidationReport.severity?: 'error'|'warning'` (default `'error'`) so that future advisory-only gates (e.g. gate 5 review-sidecar) map to `warn`. Captured as Phase 11.1 SSOT input per [aif-comparison.md §7](aif-comparison.md).
+3. **L5 `affected_files` is already accurate.** `InstallReport.artifacts: string[]` lists exactly the files L5 wrote — direct 1:1 mapping.
+4. **Schema-version invariant naturally aligns.** AIF's `schema_version: 1` and `RulesLock.schemaVersion: 1` (per [installer/types.ts:33](../../packages/core/installer/types.ts#L33)) carry the same semantic — independent bump cadence is safe.
+
+**Decision:** **Integration cost is LOW. Phase 8 includes the spike.**
+
+**Concrete Phase 8 deliverable:** ship `to-aif-gate-result.ts` + 1 emit point (e.g. `framework-self-validate` CI job appends an `aif-gate-result` JSON block to its log per AIF SKILL.md «Append machine-readable gate result»). Closes [aif-comparison.md §7 Phase 11.1](aif-comparison.md) **partially in Phase 8** rather than Phase 11.
+
+**Rationale:** the mapping is purely structural and ≤60 LOC. Skipping it now means Phase 11.1 must do the same work plus relearn the report shapes. AIF docs explicitly state «*Orchestrators should parse this block for gate results*» — emitting it is the wire format for any future AIF orchestrator-driven CI.
+
+---
