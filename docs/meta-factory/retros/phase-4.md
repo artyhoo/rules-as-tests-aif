@@ -29,7 +29,7 @@ All 10 verification probes from [PHASE-4-PROMPT.md](../PHASE-4-PROMPT.md) §«Ve
 
 ### Self-application criteria from [self-application.md:33](../self-application.md) (L1)
 
-- (a) **`setup.sh --stack=$(detect)` идемпотентен на собственном репо** — verified locally; CI job `framework-self-detect` step "Verify setup.sh --stack=$(detect) --dry-run idempotent" runs the same comparison every push. ✓
+- (a) **`setup.sh --stack=$(detect)` идемпотентен на собственном репо** — two dry-run invocations diff-clean; CI job `framework-self-detect` runs the comparison every push. ⚠️ **Vacuous on this repo** — the husky `cp`/`chmod` blocks at `setup.sh:339,345` gate on `$PKG_DIR/templates/shared/husky-*.sh`, which doesn't exist (templates moved to `packages/core/templates/shared/` in Phase 3.1; see Open question #3). On this repo those branches never fire, so identical dry-run output proves only that *non-husky* steps are idempotent. CI gate is still useful as a regression sentinel (would catch new non-idempotent code), but it does NOT exercise the husky install path until the path bug is fixed in Phase 5 entry.
 - (b) **detector snapshot стабилен ≥3 недели** — frozen `expected-self-detect.json` committed; CI diffs on every push. Stability window starts now (2026-05-08); re-evaluate at Phase 7 entry. ✓ (point-in-time green)
 
 ---
@@ -96,7 +96,7 @@ Net change: 12 new source files in `packages/core/detector/`, 1 frozen snapshot,
 
 | Metric | Target | Actual | Verdict |
 |---|---|---|---|
-| Self-application score | 8/10 | **9/10** — both L1 criteria (a+b) closed, CI gate active, frozen snapshot committed; ‑1 because the long-horizon stability ("≥3 недели") is point-in-time only at retro time | ✓ |
+| Self-application score | 8/10 | **7/10** (recalibrated 2026-05-08 post-review) — CI gate `framework-self-detect` exists, frozen snapshot committed, both L1 criteria nominally pass; **‑2 because L1 (a) is vacuous on this repo** (husky `cp`/`chmod` branches at `setup.sh:339,345` gate on a path that doesn't exist, so dry-run idempotence proves only non-husky steps); **‑1 because long-horizon stability ("≥3 недели") is point-in-time at retro time**. Score returns to 8–9 once Phase 5 entry fixes `setup.sh` templates path. | ⚠️ below target until Phase 5 entry fix |
 | Time-vs-plan ratio | ≤1.5x (≤9 рабочих дней при включённом 4.6) | Single session (≪1 day wall-clock) — orchestrator path bypassed the 6-day arithmetic by going implement-direct rather than 1-PR-per-junior | ✓ (well under) |
 | Tasks 1-5 closed | required | All 5 closed with verified acceptance | ✓ |
 | Snapshot stable | required | 7/7 fixture snapshots + self-detect snapshot — no spontaneous updates needed | ✓ |
@@ -122,7 +122,7 @@ Skipped — Time-vs-plan ratio well under 2x threshold, no snapshot fragility ob
 
 1. **Multi-stack monorepo detection (§13.5)** — current detector returns first hit; for monorepos with mixed react-next + ts-server packages, single emit is wrong. Defer per phase-4-research §6 watch-list. Trigger: first user request for monorepo support OR Phase 9+ entry.
 2. **Tailwind v3/v4 version-aware extension** — extracted as Phase 5+ candidate. Detector currently returns `framework.name` ∈ {next, react, null}; extension to runtime/UI-lib detection (Tailwind, Mantine, Chakra) is straightforward additive scope.
-3. **Pre-existing setup.sh templates path mismatch** (`templates/shared/` → `packages/core/templates/shared/`) discovered during Task 1.5 dry-run testing. Out-of-scope for Phase 4; recommend a small Phase 5 entry-time clean-up commit before any new setup.sh edit.
+3. **Pre-existing setup.sh templates path mismatch** (`templates/shared/` → `packages/core/templates/shared/`) discovered during Task 1.5 dry-run testing. **Promoted from out-of-scope cleanup to Phase 5 entry blocker** by post-review calibration: this bug is the reason L1 (a) idempotence test is vacuous on this repo (see §"Self-application criteria" above and Evaluation row "Self-application score"). Fix `setup.sh:339,345` to point at `$PKG_DIR/packages/core/templates/shared/husky-*.sh` first thing in Phase 5 entry; that promotes self-app score from 7/10 back to 8–9/10 and makes the CI gate actually exercise the husky install path.
 4. **Schema validation for AIF v3+** — current `read-aif.ts` validates canonical h1/h2 heading presence, not full AIF v2.x schema. If AIF v3 changes heading conventions, add a version-aware schema check; subscribe AIF release notes per risks.md row "AIF API contract changes".
 5. **`packages/core` typecheck pre-existing errors** (`probes/audit-r4.ts` ts-morph missing; `render/render-rules.ts` ajv default constructor) — pre-existing, not my regression. Worth a hygiene pass at Phase 5 entry.
 
@@ -131,3 +131,4 @@ Skipped — Time-vs-plan ratio well under 2x threshold, no snapshot fragility ob
 ## Versioning
 
 - **2026-05-08** — Phase 4 close, GO verdict for Phase 5 entry. 7 atomic commits on `chore/phase-4-stack-detector` ahead of merge.
+- **2026-05-08 (post-review)** — calibration pass after independent reviewer (Opus 4.7) verdict "GO with reservations". Self-application score lowered 9 → 7 to reflect M1: L1 (a) idempotence test is vacuous on this repo because pre-existing `setup.sh` husky templates path mismatch makes the husky `cp`/`chmod` branches dead code. Open question #3 promoted to Phase 5 entry blocker. Reviewer's M2 (`architecture.md §2.3` schema drift vs `DetectionResult`) and m1 (`aif-comparison.md §5` touchpoint 4 status sync) deferred to Phase 5 entry hygiene pass; no code change in Phase 4 retro touched. Probes 1–10 still green; verdict remains GO.
