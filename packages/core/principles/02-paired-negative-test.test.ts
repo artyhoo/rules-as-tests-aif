@@ -22,6 +22,10 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MANIFEST_PATH = resolve(HERE, '../manifest/rules-manifest.json');
+const SYNTH_FIXTURE_PATH = resolve(
+  HERE,
+  '../synthesizer/expected-fixture-synth.json',
+);
 
 interface RuleEntry {
   title: string;
@@ -32,10 +36,23 @@ interface RuleEntry {
   [key: string]: unknown;
 }
 
+interface SynthesizedRuleEntry extends RuleEntry {
+  id: string;
+  'negative-test'?: { input: string; 'expect-violation': string };
+}
+
+interface SynthFixture {
+  rules: SynthesizedRuleEntry[];
+}
+
 type Manifest = Record<string, RuleEntry>;
 
 function loadManifest(): Manifest {
   return JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as Manifest;
+}
+
+function loadSynthFixture(): SynthFixture {
+  return JSON.parse(readFileSync(SYNTH_FIXTURE_PATH, 'utf8')) as SynthFixture;
 }
 
 /** Minimum meaningful content length (not just whitespace or a comment marker) */
@@ -106,5 +123,46 @@ describe('Principle 2 — Paired negative test (examples.bad + examples.good)', 
     };
 
     expect(() => assertPrinciple2(firstId, mutated)).toThrow(/tautology/);
+  });
+
+  it('all synthesized rules in expected-fixture-synth.json have non-trivial paired examples [M2]', () => {
+    const fixture = loadSynthFixture();
+    expect(fixture.rules.length).toBeGreaterThan(0);
+    const violations: string[] = [];
+    for (const rule of fixture.rules) {
+      try {
+        assertPrinciple2(rule.id, rule);
+      } catch (err) {
+        violations.push((err as Error).message);
+      }
+    }
+    expect(violations, `Violations:\n${violations.join('\n')}`).toHaveLength(0);
+  });
+
+  it('every eslint-checked synthesized rule has a non-empty negative-test.input distinct from examples.good [M2]', () => {
+    const fixture = loadSynthFixture();
+    const violations: string[] = [];
+    for (const rule of fixture.rules) {
+      if (rule.check.type !== 'eslint') continue;
+      const nt = rule['negative-test'];
+      if (!nt) {
+        violations.push(`${rule.id}: eslint rule has no negative-test`);
+        continue;
+      }
+      if (!nt.input || nt.input.trim().length < MIN_EXAMPLE_LENGTH) {
+        violations.push(`${rule.id}: negative-test.input is empty or trivial`);
+        continue;
+      }
+      if (!nt['expect-violation'] || nt['expect-violation'].trim().length === 0) {
+        violations.push(`${rule.id}: negative-test.expect-violation is empty`);
+        continue;
+      }
+      if (nt.input.trim() === rule.examples.good.trim()) {
+        violations.push(
+          `${rule.id}: negative-test.input is identical to examples.good — tautology (input must violate the rule)`,
+        );
+      }
+    }
+    expect(violations, `Violations:\n${violations.join('\n')}`).toHaveLength(0);
   });
 });

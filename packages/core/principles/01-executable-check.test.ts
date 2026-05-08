@@ -14,6 +14,10 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MANIFEST_PATH = resolve(HERE, '../manifest/rules-manifest.json');
+const SYNTH_FIXTURE_PATH = resolve(
+  HERE,
+  '../synthesizer/expected-fixture-synth.json',
+);
 
 type Check =
   | { type: 'eslint'; rule: string }
@@ -32,8 +36,20 @@ interface RuleEntry {
 
 type Manifest = Record<string, RuleEntry>;
 
+interface SynthesizedRuleEntry extends RuleEntry {
+  id: string;
+}
+
+interface SynthFixture {
+  rules: SynthesizedRuleEntry[];
+}
+
 function loadManifest(): Manifest {
   return JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as Manifest;
+}
+
+function loadSynthFixture(): SynthFixture {
+  return JSON.parse(readFileSync(SYNTH_FIXTURE_PATH, 'utf8')) as SynthFixture;
 }
 
 const VALID_CHECK_TYPES = new Set(['eslint', 'command', 'script', 'manual']);
@@ -103,5 +119,19 @@ describe('Principle 1 — Every rule has executable check', () => {
     };
 
     expect(() => assertPrinciple1(firstId, mutated)).toThrow(/manual.*no rationale/);
+  });
+
+  it('all synthesized rules in expected-fixture-synth.json have a valid check type [M2]', () => {
+    const fixture = loadSynthFixture();
+    expect(fixture.rules.length).toBeGreaterThan(0);
+    const violations: string[] = [];
+    for (const rule of fixture.rules) {
+      try {
+        assertPrinciple1(rule.id, rule);
+      } catch (err) {
+        violations.push((err as Error).message);
+      }
+    }
+    expect(violations, `Violations:\n${violations.join('\n')}`).toHaveLength(0);
   });
 });
