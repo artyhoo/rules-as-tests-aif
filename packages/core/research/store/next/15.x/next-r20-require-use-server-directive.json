@@ -1,0 +1,26 @@
+{
+  "id": "next-r20-require-use-server-directive",
+  "summary": "Files that export `async function` Server Actions must start with the `'use server'` directive on the first program statement. Without the directive, Next.js compiles the function as a regular module export, exposing server code to client bundles or breaking the action invocation contract. This recipe maps to plugin rule `rules-as-tests/require-use-server-directive` (R20).",
+  "bestPractices": [
+    "Place `'use server';` as the very first statement of any file exporting `async function` actions.",
+    "Use a single double-quoted `\"use server\";` form per file — do not mix with `'use client'`.",
+    "Co-locate Server Actions in `app/**/actions.ts` files for visibility."
+  ],
+  "antiPatterns": [
+    "Exporting `async function` from a file with no directive (Next 15 silently ships server code to the client).",
+    "Writing `'use server'` after an import or a side-effect statement (must be first).",
+    "Using `'use server'` and `'use client'` in the same file (mutually exclusive)."
+  ],
+  "provenance": [
+    {
+      "url": "https://nextjs.org/docs/app/api-reference/directives/use-server",
+      "allowlistKey": "next.official",
+      "fetchedAt": "2026-05-08"
+    },
+    {
+      "url": "https://nextjs.org/docs/app/guides/upgrading/version-16",
+      "allowlistKey": "next.official",
+      "fetchedAt": "2026-05-08"
+    }
+  ]
+}

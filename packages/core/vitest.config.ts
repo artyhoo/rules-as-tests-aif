@@ -15,6 +15,7 @@ export default defineConfig({
       'validator/**/*.test.ts',
       'installer/**/*.test.ts',
       'diff/**/*.test.ts',
+      'tests/**/*.test.ts',
     ],
   },
 });
