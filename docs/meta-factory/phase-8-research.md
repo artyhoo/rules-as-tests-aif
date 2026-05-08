@@ -1,0 +1,58 @@
+# Phase 8 — Step 0 entry research (Acceptance Next 15 → 16 + canonical regen ≤5%)
+
+> **Trigger:** [EXECUTION-PLAN.md §5.5](EXECUTION-PLAN.md) — Phase 8 entry gate.
+> **Date:** 2026-05-08.
+> **Method:** context7 MCP queries against `/vercel/next.js/v16.2.2` (upgrade guide), `/lee-to/ai-factory` (review-sidecar + GATE-RESULT contract), local reads of `packages/preset-next-15-canonical/eslint-rules/*` + `packages/core/{validator,installer}/types.ts` + `packages/core/synthesizer/recipes/*.json`. Anthropic pricing via WebSearch (constants only, no auth).
+> **Status:** transient artifact per §5.5 — ≤200 lines; archived after Phase 8 closes.
+> **Question answered:** is Phase 8 implementation scope valid given current state of Next 16 spec, recipe inventory, diff-metric design, AIF gate-result shape, and gate 5 cost envelope?
+
+---
+
+## §1. Capability matrix (5 areas × build/reuse verdict)
+
+| # | Capability | Existing solution found | Convergent design | Verdict |
+|---|---|---|---|---|
+| C1 | Next 15 → 16 breaking changes diff | Vercel `version-16.mdx` upgrade guide (15+ items) — context7 `/vercel/next.js/v16.2.2` | Recipe authoring follows upgrade-guide categories | **Reuse** (consume guide as authoritative) |
+| C2 | Canonical regen diff metric | None as direct OSS lib; `deep-diff`, `fast-deep-equal`, `json-diff` exist but solve raw structural diff, not weighted preset comparison | Hand-author 3-component weighted formula over rule IDs / eslintConfigSnippet keys / appliesTo glob coverage | **Build** (small, ≤80 LOC; transitive `deep-equal` if needed) |
+| C3 | `/aif-verify` integration spike | AIF `aif-gate-result` JSON contract via `/lee-to/ai-factory` | L4 ValidationReport + L5 InstallReport already structurally compatible — additive mapping only | **Reuse** (Phase 8 includes spike — cost low) |
+| C4 | Recipe expansion R12/R14/R20 | Existing 3 rules in `packages/preset-next-15-canonical/eslint-rules/` with paired tests + RuleTester corpus | Mechanical lift — each rule already has positive/negative test cases that map directly to recipe `examples.good/bad` + `negative-test.expect-violation` | **Build via mechanical lift** (not hand re-author) |
+| C5 | Gate 5 (two-AI review) cost-scoping | AIF `review-sidecar` (`model: opus`) sub-agent — context7 `/lee-to/ai-factory` | Per-plan invocation, advisory non-blocking, cached via `rules-lock.json` sourceFingerprint | **Reuse mapping; defer impl past Phase 8** (estimated <$0.50 per Phase 8 acceptance run) |
+
+≥1 reuse decision per §5.5 acceptance: **C1, C3, C5 reuse; C2, C4 build (small / mechanical)**. No red flag of all-build.
+
+---
+
+## §2. C1 — Next 15 → 16 breaking changes diff (CRITICAL)
+
+**Query log:**
+- `mcp__context7__resolve-library-id` `Next.js` → `/vercel/next.js` (versions: …, v15.x, v16.0.3, v16.1.1, v16.2.2)
+- `query-docs /vercel/next.js/v16.2.2` × 4 phrasings: «upgrading from version 15 to 16 breaking changes»; «Pages Router removal AMP Babel async params»; «codemod next/image objectFit Turbopack default removed config flags»; «minimum Node.js version React 19 deprecated config options removed».
+- All 4 returned substantive content from `version-16.mdx`. Source repeatedly cited: `https://github.com/vercel/next.js/blob/v16.2.2/docs/01-app/02-guides/upgrading/version-16.mdx`.
+
+**Findings (≥10 breaking changes, categorized):**
+
+| # | Category | Change | Recipe-relevant? |
+|---|---|---|---|
+| 1 | structural | `middleware.ts` → `proxy.ts` rename; `middleware` export → `proxy` | YES — R-new («prefer-proxy-over-middleware») candidate |
+| 2 | structural | `skipMiddlewareUrlNormalize` → `skipProxyUrlNormalize` config flag | YES — config-snippet rule update |
+| 3 | structural | `proxy` runtime is `nodejs` only; edge runtime NOT supported in proxy (keep `middleware.ts` for edge) | YES — guard rule for edge-runtime users |
+| 4 | api | Async Request APIs: `cookies()`, `headers()`, `draftMode()`, `params` (layout/page/route/default/og-image/twitter-image/icon/apple-icon), `searchParams` (page) — **sync access fully removed** | YES — extends existing R12 («await-async-request-apis») coverage |
+| 5 | api | `unstable_cacheLife`, `unstable_cacheTag` → stable (drop `unstable_` prefix) | YES — codemod-grade rule |
+| 6 | deprecation | `next/legacy/image` deprecated; `objectFit` / `objectPosition` props removed → `style`/`className` | YES — R-new («next-image-no-objectFit-prop») |
+| 7 | deprecation | AMP fully removed: `useAmp` hook, `amp` config in `next.config.js`, page-level `export const config = { amp: true }` | YES — 3 sub-rules |
+| 8 | config | `eslint` option **removed** from `next.config.js` | YES — config-snippet rule («no-eslint-in-next-config») |
+| 9 | config | `turbopack` moved from `experimental.turbopack` → top-level `turbopack` | YES — config rule |
+| 10 | config | `experimental.swcMinify`, several other experimental flags graduated/removed (per upgrade-guide §config) | YES — sweep rule |
+| 11 | runtime | Node.js 18 dropped; min **20.9.0** | YES — engine guard rule (package.json check) |
+| 12 | runtime | Min TypeScript **5.1.0** | YES — engine guard rule |
+| 13 | runtime | Browser support: Chrome/Edge/Firefox 111+, Safari 16.4+ | NO — runtime concern, not source-rule |
+| 14 | api | `PageProps<...>` helper requires `npx next typegen` codegen step | YES — install-time check |
+| 15 | api | Server Actions default fetch cache `'default-no-store'` (reaffirms v15 default; v16 spec hardens) | NO — runtime semantic, not source-rule |
+
+**Drift vs EXECUTION-PLAN.md §3.5 snapshot (2026-05-07):** snapshot listed Pages Router, async params, middleware→proxy, Turbopack default, Babel removed, AMP, image-deprecation = 7 items. Findings above add **at minimum** 8 new items (`eslint` config removed, `unstable_cache*` stabilized, `skipProxy*` flag, Node 20.9 min, TS 5.1 min, `experimental.turbopack` → top-level, edge-runtime guard, PageProps codegen). Snapshot is **broadly accurate** in direction; **incomplete** for recipe authoring.
+
+**Decision:** **Reuse** — `version-16.mdx` is the authoritative diff source. Phase 8 recipe authoring grounds each new recipe in a numbered upgrade-guide section, with cross-reference comment `// from version-16.mdx#<anchor>` per recipe (provenance trail).
+
+**Rationale:** all 15 items came from a single curated source updated alongside the framework — quoting the upgrade guide sentence «*Starting with Next.js 16, synchronous access to request APIs is fully removed*» is more durable than scraping changelog. Stop-rule signal: snapshot drift is **non-blocking** for Phase 8 entry but **mandates a refresh edit to §3.5** during Phase 8 implementation (Task: «sync §3.5 snapshot with version-16.mdx»). Does not REVISE the entry decision.
+
+---
