@@ -652,6 +652,16 @@ Manual baseline: 1-2 дня создание `preset-next-16-manual`. Затем
 - **Уровень 4** — process invariant в `CLAUDE.md` / `CONTRIBUTING.md`: build-vs-reuse mandatory check + `Prior-art:` commit trailer convention для capability commits + pre-push WARN hook (новый dep / новый module ≥50 LOC без trailer).
 - **Уровень 5** — periodic staleness refresh routine spec (impl Phase 8.X+ tooling); CI gate `framework-prior-art-staleness` (Phase 8.X+ as well).
 
+**Recursive self-validation (P-build-vs-reuse must validate itself).** Per central thesis (recursive principles validation, see [aif-comparison.md §10 differentiator #4](aif-comparison.md)), новое правило подвергается тем же gates что и любое другое правило manifest'а. Three forms of recursion:
+
+| Recursion form | Mechanism | Status for P-build-vs-reuse |
+|---|---|---|
+| L4 6-gate validation | gate-by-gate per Phase 7 [retros/phase-7.md](retros/phase-7.md) L4 triage | Gate 1 (schema) ✓ — manifest entry conforms; Gate 2 (rule-tester) n/a — `check.type=manual` (G2 Pages-Router precedent); Gate 3 (mutation) n/a v1 — Path B only; **Gate 4 (tautology) ✓ MUST** — executable companion (Уровень 4c pre-push hook) обязан fire'ить при violation; meta-test: stage commit без `Prior-art:` trailer + new dep → hook warns; без рабочего companion = decorative/tautological; Gate 5 (two-AI review) DEFER per [§13.10 entry #4](open-questions.md); Gate 6 (cross-rule conflict) ✓ — verify no contradiction с existing principles |
+| Self-application at creation | принцип требует consult prior-art перед building → новая capability в Phase 8.8 (т.е. сам principle) тоже consulted | Chicken-and-egg: prior-art-evaluations.md рождается в той же session. **Resolution:** 2026-05-08 analog research session (которая surfaced Autogrep / Netlify framework-info / fitness functions) IS the consult evidence; документируется в Phase 8.8 retro как «self-application at-creation evidence» entry. Strongest form recursion — правило про prior-art consult самой создано через prior-art consult |
+| 6 Уровней as defense-in-depth | каждый уровень ловит свой класс violation failure mode | Уровень 0 (manifest) → render-rules drift detection; Уровень 1 (SSOT data) → "Last reviewed" staleness; Уровень 2 (§5.5 gate) → phase entry «забыл проверить»; Уровень 3 (prompt template) → session-start «не было в context'е»; Уровень 4 (commit hook + trailer) → implementation-time «не задокументировал»; Уровень 5 (periodic refresh + CI gate) → time-decay «новый analog появился, не пересмотрели». Violation must pass all 6 layers undetected to slip through |
+
+Mutation testing (when gate 3 activates Phase 9+ Path B): mutate the pre-push trailer-check (e.g. invert the `Prior-art:` regex) → meta-test on staged-fake-commit MUST fail. Если не fails — meta-test тавтологичен (the test of the test is itself broken).
+
 **Retroactive audit.** Phase 8.8 retro обязана содержать post-hoc consult для каждого build-vs-reuse decision Phase 8 (Next 16 detection, regen diff metric, recipe expansion strategy R12/R14/R20, gate 5 invocation mode). Если retro показывает gap (Phase 8 reinvented existing solution) → document как «Phase 8.8 retroactive finding» + add candidate в SSOT для Phase 9 evaluation.
 
 **Acceptance:**
@@ -659,6 +669,8 @@ Manual baseline: 1-2 дня создание `preset-next-16-manual`. Затем
 - §5.5 Step 1.5 added; phase-N-research.md template requires consult evidence
 - CLAUDE.md / CONTRIBUTING.md document `Prior-art:` trailer convention
 - Pre-push hook warns на capability commits без trailer
+- **P-build-vs-reuse passes applicable L4 gates** (1, 4, 6 ✓ MUST; 2, 3 n/a justified; 5 DEFER) — verified via Phase 7 validator
+- **Self-application at-creation evidence** documented in retro (2026-05-08 analog research session)
 - Phase 8 retroactive audit completed; gaps (если есть) документированы
 - `retros/phase-8.8.md` written; **Verdict: GO к Phase 9 entry**
 
