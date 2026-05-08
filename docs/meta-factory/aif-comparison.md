@@ -129,7 +129,7 @@ EVALUATE runs checks через parallel `Task` agents, aggregate в weighted sc
 | `/aif-rules-check` | `.ai-factory/RULES.md` flat list (downgrade projection из manifest) | Advisory (LLM judge) |
 | `/aif-verify` | hooks/CI commands из manifest `check.type=command\|script` | Hard (toolchain) |
 | `/aif-loop` rules | JSON conversion манифеста → AIF RULE-SCHEMA format | Structured executable |
-| `/aif-fix`, `/aif-architecture`, etc. | `.ai-factory/skill-context/<skill>/SKILL.md` — stack overrides | Per-skill customization |
+| `/aif-fix`, `/aif-architecture`, etc. | `.ai-factory/skill-context/<skill>/SKILL.md` — stack overrides | Per-skill customization — **✓ closed Phase 4** (commit `b5e16b7`, see [retros/phase-4.md](retros/phase-4.md) Reuse posture #4.6) |
 
 Convergent rule format (§2 ↔ rules-manifest.json) делает touchpoint 3 **тривиально mapping'ся** — JSON-to-JSON конвертер, не семантический rewrite.
 
