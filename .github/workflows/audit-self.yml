@@ -187,6 +187,8 @@ jobs:
         run: npm install --prefix packages/core --silent
       - name: Run principles meta-tests
         run: npm --prefix packages/core run test:principles
+      - name: Run prior-art trailer hook anti-tautology test (Phase 8.8 T9)
+        run: bash tests/hooks/prior-art-trailer-hook.test.sh
 
   enforce-husky-presence:
     name: Verify .husky/ hooks exist and are non-trivial

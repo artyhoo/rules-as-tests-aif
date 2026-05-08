@@ -234,7 +234,7 @@ Validator пас (general-purpose subagent с context7-only constraint) пров
 | Cross-skill verdict JSON contract | `aif-gate-result` ([GATE-RESULT-CONTRACT.md](https://github.com/lee-to/ai-factory/blob/2.x/skills/aif-verify/references/GATE-RESULT-CONTRACT.md)) | **Единственный formalized standard** в context7 ландшафте. OPA/Rego = authorization, GitHub status = слишком low-level. Naши retros должны emit его. |
 | Phase task delegation | `/aif-implement` + `implement-coordinator` | Dependency graph + while-loop dispatch. Заменяет ручные `PHASE-N-PROMPT.md`. |
 | Iterative refinement loops | `aif-loop` (PLAN/PRODUCE/PREPARE/EVALUATE/CRITIQUE/REFINE) | Наиболее зрелая реализация. Reflexion / LangGraph менее structured. |
-| Incident → rule generation | `aif-evolve` | Уникальная capability — никто кроме AIF не делает auto-rule generation из patches. |
+| Incident → rule generation | `aif-evolve` | Уникальная capability — никто кроме AIF не делает auto-rule generation из patches. **Phase 8.8 cross-ref (added 2026-05-08):** complementary, не replacement. `aif-evolve` auto-generates project rules из patches — incident-derived, high-volume, post-fix lifecycle. Phase 8.8 prior-art mechanism ([prior-art-evaluations.md](prior-art-evaluations.md) + [§5.5 Step 1.5](EXECUTION-PLAN.md) consult gate + `Prior-art:` trailer per [CONTRIBUTING.md](../../CONTRIBUTING.md)) is the manual analog: curated, low-volume, pre-build lifecycle. Different signal sources (CVE/incident patches vs. capability-area research), different lifecycle stages. Re-evaluate integration when LLM v2 trigger fires per [open-questions.md §13.10 entry #1](open-questions.md). |
 | Structured executable check format | `aif-loop` RULE-SCHEMA | Convergent с нашим manifest; JSON-to-JSON conversion тривиален. |
 | Independent reviewer infrastructure | `review-sidecar` + `model: opus` config | Anti-bias convention применяется поверх AIF (не своя инфраструктура). |
 
@@ -272,5 +272,7 @@ Estimated reuse savings: **30-40%** оригинального roadmap scope (si
    - Principles testing manifest (Phase 2 — strange loop)
    - Generator reproduces canonical example (Phase 7 — output = input)
    - Mutation tests of meta-tests (Phase 2 P4 — three levels of self-reference)
+
+   **Phase 8.8 note (2026-05-08):** the prior-art evaluation mechanism (principle 08 + SSOT + commit trailer + pre-push hook anti-tautology test) is itself recursive — it applies to its own implementation, with Phase 8.8 commits T2-T11 carrying `Prior-art:` trailers. It does **not** introduce a fourth form: it operates within the existing three forms — form #1 (principles testing the manifest is generalised by principle 08 testing the SSOT) and form #3 (the T9 anti-tautology test of the T8 hook is a mutation test of a meta-test, applied to the bash/process surface rather than the TypeScript/manifest surface). The «split design» (artifact validation + process discipline + SSOT) operates within existing axes; the recursion thesis stays at three forms.
 
 Это и есть **actual contribution** проекта — всё остальное (workflow infrastructure, validation runtime, rule storage) — best practices applied / reused from AIF.

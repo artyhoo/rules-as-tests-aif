@@ -223,10 +223,11 @@ Self-application — **не отдельный шаг**, а cross-cutting invari
 **Step 0 «Existing solutions research»** — обязательный gate перед implementation планированием:
 
 1. **List capability areas** Phase покроет (3-7 distinct capabilities)
-2. **Resolve candidates** через `mcp__context7__resolve-library-id` для каждой capability — AIF + 2-4 top alternatives в той же домене
-3. **Specific queries** через `mcp__context7__query-docs` по target functionality (не general terms; itera 3 phrasings минимум если результат пустой)
-4. **Build matrix** `{capability} × {existing solution} × {convergent design}` — записывается в `docs/meta-factory/phase-N-research.md` (transient artifact, ≤200 строк)
-5. **Go/no-go per capability:** для каждой — explicit rationale «build vs reuse» с цитатой из context7 result
+2. **Step 1.5 — Consult prior-art-evaluations.md** (mandatory, gating). Для каждой capability area из Step 1 — проверить [prior-art-evaluations.md](prior-art-evaluations.md) SSOT на совпадения с «Capability matched». Если найдено: (a) обновить «Last reviewed» date в entry в том же commit'е что и phase research; (b) включить candidate в Step 5 matrix с current verdict + rationale; (c) если verdict = `DEFER` / `WATCHLIST` — explicit re-evaluation note в matrix: «still applies» / «trigger condition fires now» / «new evidence». Если совпадений нет — продолжать к Step 2 Resolve candidates; новый candidate, обнаруженный там, добавляется в SSOT в том же commit'е что и phase research (per [prior-art-evaluations.md §3](prior-art-evaluations.md)). **Acceptance:** phase-N-research.md cites all matched prior-art entries by ID format `[prior-art-evaluations.md#N]`; «Last reviewed» dates touched in same commit (verified via `git log -p` в phase retro). Numbering note: this step keeps the «1.5» label per [Phase 8.8 prompt T6](retros/phase-8.8.md) intent — inserted between «List capability areas» and «Resolve candidates»; the renumbered Resolve / Specific queries / Build matrix / Go-no-go items below were items 2-5 pre-Phase-8.8 and are now 3-6 to make room.
+3. **Resolve candidates** через `mcp__context7__resolve-library-id` для каждой capability — AIF + 2-4 top alternatives в той же домене
+4. **Specific queries** через `mcp__context7__query-docs` по target functionality (не general terms; itera 3 phrasings минимум если результат пустой)
+5. **Build matrix** `{capability} × {existing solution} × {convergent design}` — записывается в `docs/meta-factory/phase-N-research.md` (transient artifact, ≤200 строк); matrix references prior-art entries from Step 1.5 by ID
+6. **Go/no-go per capability:** для каждой — explicit rationale «build vs reuse» с цитатой из context7 result + reference к prior-art-evaluations.md entry если applicable
 
 **Hard constraints:**
 - **No git clone / gh api** для external libraries — только context7 (per memory rule установленному 2026-05-08).

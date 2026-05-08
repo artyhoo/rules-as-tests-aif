@@ -27,6 +27,8 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 
 ## Layer 2 — Meta-tests (tests *about* the test suite)
 
+> **Vocabulary alignment (Phase 8.8 T5 ADOPT VOCABULARY, [prior-art-evaluations.md#3](../../../docs/meta-factory/prior-art-evaluations.md)):** the L2 meta-test pattern shipped in this framework's Phase 2 (`packages/core/principles/01-08*.test.ts`) corresponds to **fitness functions** in evolutionary architecture vocabulary (Ford / Parsons / Kua, *Building Evolutionary Architectures*, 2017 / 2nd ed. 2023). A fitness function is an automated test for an architectural property (here: invariants on the rule manifest itself); the «principles-as-tests» framing in this repo is a domain-specific instance of that pattern. Both terms describe the same artifact — readers familiar with evolutionary architecture map to our principles directly.
+
 **Enforces:** test-suite structural quality — every test asserts, no conditionals in tests, public methods have tests, no real I/O in unit tests.
 
 **Top patterns:**
