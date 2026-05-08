@@ -190,3 +190,30 @@ suggested_next: {command, reason}
 **Rationale:** mechanical lift preserves provenance (recipes carry inline JSDoc comment `// from preset-next-15-canonical eslint-rules/no-server-imports-in-client.ts:35-69`). Hand re-author would either re-implement AST logic (250 LOC × 3 rules + tests, 4-8h) or duplicate behavior outside the preset (DRY violation; two sources for same rule). Neither is justified for v1; deterministic recipes-as-thin-pointers preserve the «Path A only» invariant per [§6.0](EXECUTION-PLAN.md).
 
 ---
+
+## §6. C5 — Gate 5 two-AI review cost-scoping (MEDIUM)
+
+**Query log:** `query-docs /lee-to/ai-factory` «review-sidecar configuration model opus override two-AI review cost» → confirmed `subagents/review-sidecar.md` shape (read-only, bounded scope, never edits/clarifies; `model: opus` is a subagent extension field per `SPECIFICATION.md`). Anthropic pricing (May 2026, via WebSearch): Opus 4.7 $5/M input / $25/M output; Sonnet 4.6 $3/M input / $15/M output; prompt-caching ≤90% savings; batch 50% savings.
+
+**Cost models compared (Phase 8 acceptance = 26 rules × canonical regen):**
+
+| Mode | Input tokens | Output tokens | Cost per run | Latency |
+|---|---|---|---|---|
+| Per-rule (26 invocations) | 3K × 26 = 78K | 0.5K × 26 = 13K | 78K · $5/M + 13K · $25/M = $0.39 + $0.325 = **$0.72** | sequential ≥30s; parallel ≤10s |
+| Per-plan (1 invocation) | full plan ~30K + system 2K = 32K | 5K | 32K · $5/M + 5K · $25/M = $0.16 + $0.125 = **$0.29** | ≤8s |
+| Per-plan + caching (warm) | 32K with 90% cached | 5K | 0.1·$0.16 + $0.125 = **$0.14** | ≤8s |
+| Per-rule + Sonnet 4.6 | 78K + 13K | | 78K · $3/M + 13K · $15/M = $0.234 + $0.195 = **$0.43** | as above |
+
+**Decision:** **Per-plan + Opus 4.7 + advisory non-blocking + cached via `rules-lock.json.sourceFingerprint`.**
+
+**Rationale:**
+1. **Per-plan is ~3× cheaper than per-rule** at equal model — fewer invocations amortize the system-prompt / context overhead.
+2. **Opus over Sonnet for review** — gate 5 is the *quality* gate (catches semantics that gates 1/2/4/6 can't). The `$0.15` premium over Sonnet is a rounding error vs. the Phase 8 `≤$5` budget per [EXECUTION-PLAN.md §6 Phase 8](EXECUTION-PLAN.md).
+3. **Advisory non-blocking** — gate 5 was deferred from L4 v1 [retros/phase-7.md gate 5 row](retros/phase-7.md) precisely because LLM-driven review carries false-positive risk. Advisory in Phase 8; promote to blocking only after [open-questions.md §13.10 v2 entry #4](open-questions.md) verification gate hits «false-positive rate <20% on 10+ real PRs».
+4. **Caching via `sourceFingerprint`** — `rules-lock.json` already carries `sourceFingerprint: sha256/16`. Reuse: gate 5 stores `{fingerprint, verdict, timestamp}`; rerun only when fingerprint changes. Cuts repeated CI runs to ~$0.
+
+**Phase 8 dollar estimate:** **<$0.30 per acceptance run; <$5 even with 10× retries.** No revision to §6 Phase 8 «cost ≤$5» verdict gate. Stop-rule «>$10 ⇒ REVISE» does not fire.
+
+**Phase 8 deliverable scope:** decision documented + cost-tracking shape captured per [open-questions.md §13.11](open-questions.md). Actual gate 5 *implementation* still defers to v2 trigger (per [§13.10 entry #4](open-questions.md)) — this research closes the **scoping** decision, not the build.
+
+---
