@@ -4,6 +4,7 @@
 // Installer (L5) consumes ValidationReport.ok before writing to disk.
 
 import type { SynthesisPlan } from '../synthesizer/types.ts';
+import { runConflictGate } from './gate-conflict.ts';
 import { runRuleTesterGate } from './gate-rule-tester.ts';
 import { runSchemaGate } from './gate-schema.ts';
 import { runTautologyGate } from './gate-tautology.ts';
@@ -19,7 +20,7 @@ export function validate(plan: SynthesisPlan): ValidationReport {
   const downstreamSkipped = schema.status === 'fail';
   const ruleTester = downstreamSkipped ? SKIPPED : runRuleTesterGate(plan);
   const tautology = downstreamSkipped ? SKIPPED : runTautologyGate(plan);
-  const conflict: GateOutcome = SKIPPED;
+  const conflict = downstreamSkipped ? SKIPPED : runConflictGate(plan);
 
   const ok =
     schema.status !== 'fail' &&
