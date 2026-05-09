@@ -2,6 +2,9 @@
 
 > Source: PROPOSAL.md §13 (split в Phase 1.D, 2026-05-07)
 > Companion: [PROPOSAL.md](PROPOSAL.md) (overview)
+>
+> **Authoritative for:** unresolved design questions registry in §13.x format (each entry: Status / Origin / Why deferred / Trigger condition for revisit / Cross-references). Append-only; entries are not deleted, only updated with status transitions.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Resolved questions migrate to retros; this file holds open ones only.
 
 ---
 

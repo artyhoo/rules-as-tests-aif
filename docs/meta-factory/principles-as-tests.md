@@ -4,6 +4,9 @@
 > **Scope:** principles testable against `factory/rules-manifest.json` without Phase 3+ infrastructure
 > **Test location:** `scripts/principles/` (vitest, picked up by `npm test` in scripts/)
 > **Run:** `npm --prefix scripts run test:principles`
+>
+> **Authoritative for:** principle catalog (P1-P8+) with source references per principle, mutation-style verification expectations, known exceptions per principle.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Test implementation lives in [packages/core/principles/](../../packages/core/principles/); this file is the prose catalog.
 
 ---
 

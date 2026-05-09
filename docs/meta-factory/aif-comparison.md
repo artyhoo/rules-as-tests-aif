@@ -4,6 +4,9 @@
 > **AIF version:** 2.11.0 (npm `ai-factory`, repo [lee-to/ai-factory](https://github.com/lee-to/ai-factory)).
 > **Status:** research output. Operationalization deferred to Phase 6 (Research Agent) and Phase 11 (AIF integration) per [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §6.
 > **Source-of-truth rule:** все findings сверены через `mcp__context7__query-docs` против AIF docs, не через git clone (per memory rule on external library research).
+>
+> **Authoritative for:** AIF v2.11.0 capability matching against this project's roadmap, integration analysis, reuse decisions per Phase 11 backlog (§7).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). AIF deep alignment decision (Option I) — deferred per [open-questions.md §13.18](open-questions.md).
 
 ---
 

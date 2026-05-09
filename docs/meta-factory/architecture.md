@@ -2,6 +2,9 @@
 
 > Source: PROPOSAL.md §2 + §3 (split в Phase 1.D, 2026-05-07)
 > Companion: [PROPOSAL.md](PROPOSAL.md) (overview)
+>
+> **Authoritative for:** 6-layer architecture description (L0 Invariant Core → L5 Installer), data flow between layers, Path A vs Path B synthesis paths, v1 deterministic stance per layer.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Phase scope and acceptance criteria — see [EXECUTION-PLAN.md](EXECUTION-PLAN.md).
 
 ---
 

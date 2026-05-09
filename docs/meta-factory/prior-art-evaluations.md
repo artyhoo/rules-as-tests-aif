@@ -7,6 +7,9 @@
 > **Consult gate:** [EXECUTION-PLAN.md §5.5 Step 1.5](EXECUTION-PLAN.md) — mandatory pre-build review (added Phase 8.8 T6).
 > **Process discipline:** [CONTRIBUTING.md](../../CONTRIBUTING.md) + `Prior-art:` commit trailer convention (added Phase 8.8 T7).
 > **Principle:** [`packages/core/principles/08-prior-art-cited.test.ts`](../../packages/core/principles/08-prior-art-cited.test.ts) validates that capability claims in research files cite entries in this file by ID (added Phase 8.8 T3).
+>
+> **Authoritative for:** build-vs-reuse SSOT register (entry table §4) + entry schema (§1) + verdict semantics (§2) + entry-add procedure (§3) + staleness policy (§5).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Recursive enforcement of Prior-art trailer in commits — see [.husky/pre-push](../../.husky/pre-push) hook + [CLAUDE.md](../../CLAUDE.md) trailer-syntax section.
 
 ---
 

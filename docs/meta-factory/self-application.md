@@ -3,6 +3,9 @@
 > **Тип:** Reference-документ (shipped, не transient). Живёт после закрытия Phase 1.
 > **Аудитория:** будущие фреш-сессии, контрибьюторы, оркестраторы Phase 2+.
 > **Связи:** [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §3.1, §3.2, §7 | [PROPOSAL.md](PROPOSAL.md) §2.2, §6 | [../audits/2026-05-07-self-application-gap.md](../audits/2026-05-07-self-application-gap.md) | [../audits/2026-05-06.md](../audits/2026-05-06.md)
+>
+> **Authoritative for:** self-application invariant table per L0-L5 layer + Spec discipline; Decision matrix Phase 1 (Decision matrix expansion lives in [open-questions.md §13.8](open-questions.md)); acceptance criteria per layer for closure of self-application gap.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Recursive self-application is a *quality signal* (GCC bootstrap precedent), not the goal — historical framing in this file as «central thesis» predates the 2026-05-09 goal-hierarchy fix.
 
 ---
 
