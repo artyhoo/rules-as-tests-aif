@@ -4,6 +4,9 @@
 > Базовые R1–R11 применяются ко всем проектам и описаны в `RULES.md`.
 > Эти правила проверяются `best-practices-sidecar` после каждого `/aif-implement`,
 > и `audit-ai-docs.react-next.sh` после `/aif-verify`.
+>
+> **Authoritative for:** R12–R20 rule extension for React 19 + Next.js 15 (consumer-customisable per preset).
+> **NOT authoritative for:** project goal — see consumer's README.md.
 
 ## R12 — Server vs Client Components
 - Компоненты по умолчанию Server. `'use client'` только если используется one of: `useState`, `useEffect`, `useReducer`, `useRef`, `useCallback`, `useMemo`, обработчик событий, browser API.
