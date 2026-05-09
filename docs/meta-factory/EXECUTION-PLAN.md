@@ -5,21 +5,24 @@
 > **Source:** обсуждение между Art и AI, итерации 1-7
 > **Companion:** `docs/meta-factory/PROPOSAL.md` (architecture), `docs/meta-factory/ORCHESTRATOR-START-PROMPT.md` (запускающий промпт)
 >
+> **Authoritative for:** phase scope, sequencing, acceptance criteria, operational decisions.
+> **NOT authoritative for:** project goal, methodology, design invariants — see [README.md#why-this-exists](../../README.md#why-this-exists). §1 below is a pointer, not a goal-bearing section.
+>
 > **Этот файл — transient artifact**. Живёт пока план не выполнен; после релиза 1.0 — архивируется в `docs/audits/`. Размер может превысить 500-строчный лимит, действующий для shipped framework docs (RULES.md и т.д.).
 
 ---
 
-## 1. Цель проекта (north star)
+## 1. Цель проекта
 
-**Рекурсивное применение собственного главного тезиса.**
+> **Pointer (2026-05-09 goal-hierarchy fix):** project goal, methodology, and design invariants are owned by [README.md#why-this-exists](../../README.md#why-this-exists). This §1 is a pointer + operational acceptance criteria; it does **not** redefine the goal. Earlier framing of recursive self-application as «north star» drifted from README and was corrected — see [retros/goal-hierarchy-restructure.md](retros/) (post-merge) and the [research report](../../tmp-not-tracked) for analysis.
 
-Текущий пакет декларирует «documents lie; tests don't». Мета-уровень — следующий шаг: «preset-ы устаревают, принципы — нет». Опираться на принципы вместо preset-ов = тот же сдвиг от документов к тестам, только на уровень выше.
+**Operational restatement (do not edit unless README changes):**
 
-Если получится — пакет становится не «ещё одним шаблоном», а **живой системой**, остающейся релевантной по мере смены стеков. Это ровно тот principle: **best documentation is working code**.
+- **Goal** — AI agents can't silently bypass undocumented conventions; every codified rule fails CI on violation.
+- **Methodology** — generate enforcement rules from principles (presets устаревают, принципы — нет). Recursive self-application = quality signal (GCC bootstrap precedent), **not** the goal. Re-elevation to «north star» in any phase doc = drift; surface as a coverage-gap patch under [research-patches/](research-patches/).
+- **Operational acceptance criterion (this plan):** мета-фабрика регенерирует canonical Next 15 preset с diff ≤5%, обновляет его до Next 16 с diff к manual baseline ≤15%, валидирует собственный output набором meta-tests, выведенных из тех же принципов которые она проповедует. This is *how we know the methodology works on the way to the user-facing goal* — not the goal itself.
 
-**Success criterion:** мета-фабрика регенерирует canonical Next 15 preset с diff ≤5%, обновляет его до Next 16 с diff к manual baseline ≤15%, валидирует собственный output набором meta-tests, выведенных из тех же принципов которые она проповедует. **Без self-application весь тезис — пустой**.
-
-> **No-consumers caveat (m4 finding 2026-05-07):** на момент 2026-05-07 у пакета нет downstream consumers. Этот ~4-month plan justified как **proof-of-concept для recursive-self-validation thesis**, не как user-driven roadmap. Priority decisions внутри фаз должны учитывать: «если consumer'ов нет — какие decisions можно отложить до первого реального installation».
+> **No-consumers caveat (m4 finding 2026-05-07):** на момент 2026-05-07 у пакета нет downstream consumers. Этот ~4-month plan justified как initial proof of methodology — generates rules from principles such that recursive self-application is satisfied. Priority decisions внутри фаз должны учитывать: «если consumer'ов нет — какие decisions можно отложить до первого реального installation». User-value goal (per README) remains primary; methodology validation is a quality gate on the path to the goal.
 
 ---
 
