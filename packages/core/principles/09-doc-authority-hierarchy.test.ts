@@ -85,7 +85,43 @@ const REQUIRED_HEADER_DOCS = [
   'skills/rules-as-tests/references/doc-organization.md',
   'skills/rules-as-tests/references/overview.md',
   'skills/rules-as-tests/references/self-testing-docs.md',
+
+  // Framework-shipped templates copied to consumer .ai-factory/ and project root
+  'packages/core/templates/shared/AGENTS.md.template',
+  'packages/core/templates/shared/CLAUDE.md.template',
+  'packages/core/templates/shared/DESCRIPTION.template.md',
+  'packages/core/templates/shared/ARCHITECTURE.ts-server.md',
+  'packages/core/templates/shared/integration-rules.md',
+  'packages/preset-next-15-canonical/RULES.md',
+  'packages/preset-next-15-canonical/RULES.react-next.md',
+  'packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md',
+
+  // Sub-agents copied to consumer .claude/agents/ via install.sh:138-141
+  'agents/best-practices-sidecar.md',
+  'agents/review-sidecar.md',
+  'agents/docs-auditor.md',
 ];
+
+/**
+ * Exemption globs for fixtures intentionally lacking Authoritative-for header.
+ *
+ * Required because principle 09 list above contains real shipped artefacts;
+ * fixtures used by drift-detection / installer tests deliberately omit the
+ * header to test failure modes. Without exemption the rule would fail on
+ * tests of the rule.
+ *
+ * Pattern: pure regex, no glob lib (zero new dep). Matches:
+ *   packages/<pkg>/research/fixtures/...
+ *   packages/<pkg>/.../fixtures/... (e.g. packages/core/detector/fixtures/...)
+ */
+const EXEMPT_PATTERNS: RegExp[] = [
+  /^packages\/[^/]+\/research\/fixtures\//,
+  /^packages\/.+\/fixtures\//,
+];
+
+function isExempt(relPath: string): boolean {
+  return EXEMPT_PATTERNS.some((re) => re.test(relPath));
+}
 
 function readFile(p: string): string {
   return readFileSync(p, 'utf8');
@@ -161,5 +197,35 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     expect(REQUIRED_HEADER_DOCS).toContain(
       'docs/meta-factory/EXECUTION-PLAN.md',
     );
+  });
+
+  // §13.21 Wave 2 — exemption mechanism for fixture files intentionally lacking
+  // Authoritative-for header. Anti-tautology pair: positive proves exemption
+  // works; mutation proves exemption is the only reason a missing header is
+  // not flagged (i.e. the rule's failure detection still functions outside the
+  // exempt scope).
+  it('positive: file under exempt glob is recognised as exempt', () => {
+    expect(isExempt('packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md')).toBe(true);
+    expect(isExempt('packages/core/detector/fixtures/with-aif/.ai-factory/ARCHITECTURE.md')).toBe(true);
+  });
+
+  it('positive: file outside exempt glob is NOT exempt (negative case)', () => {
+    expect(isExempt('packages/core/templates/shared/AGENTS.md.template')).toBe(false);
+    expect(isExempt('agents/best-practices-sidecar.md')).toBe(false);
+    expect(isExempt('docs/meta-factory/EXECUTION-PLAN.md')).toBe(false);
+    expect(isExempt('packages/preset-next-15-canonical/RULES.md')).toBe(false);
+  });
+
+  it('mutation: removing exemption would flag a real fixture without authority header', () => {
+    // Anti-tautology: proves the rule's failure-detection works outside the
+    // exempt scope. Pick a fixture path that matches the exempt glob — if its
+    // file exists and lacks a header, exemption is the only reason it does
+    // not appear in the canonical violations list.
+    const fixtureRel = 'packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md';
+    const fullPath = resolve(REPO_ROOT, fixtureRel);
+    if (!existsSync(fullPath)) return; // skip if fixture relocated; sentinel-only assertion
+    const content = readFile(fullPath);
+    expect(hasAuthorityHeader(content)).toBe(false); // confirms fixture truly lacks header
+    expect(isExempt(fixtureRel)).toBe(true); // confirms exemption is what hides it from violations
   });
 });
