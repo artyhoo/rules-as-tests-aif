@@ -1,9 +1,10 @@
 // Curated research store loader: deterministic, semver-aware.
-// Layout: store/<framework>/<major>.x/<patternId>.json + store/shared/<patternId>.json
+// Layout: store/<framework>/<major>.x/<patternId>.json + store/<framework>/any/<patternId>.json + store/shared/<patternId>.json
 // Resolution priority:
 //   1. store/<framework>/<major>.x/<patternId>.json   — exact major
 //   2. store/<framework>/<major-1>.x/<patternId>.json — single-major fallback
-//   3. store/shared/<patternId>.json                  — version-agnostic
+//   3. store/<framework>/any/<patternId>.json         — version-agnostic per-framework
+//   4. store/shared/<patternId>.json                  — version-agnostic cross-framework
 // Each loaded entry is validated against research-plan.schema.json#/definitions/ResearchEntry.
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -60,6 +61,7 @@ function candidatePaths(
         );
       }
     }
+    paths.push(resolve(STORE_ROOT, framework, 'any', `${patternId}.json`));
   }
   paths.push(resolve(STORE_ROOT, 'shared', `${patternId}.json`));
   return paths;
