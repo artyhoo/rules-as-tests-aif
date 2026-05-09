@@ -24,6 +24,11 @@ After install, your project has:
 
 ## Why this exists
 
+> **Authoritative for:** project goal, methodology, design invariants.
+> Other docs (`docs/meta-factory/EXECUTION-PLAN.md`, `docs/meta-factory/PROPOSAL.md`, `CLAUDE.md`) subordinate to this section for these definitions. They remain authoritative for their own scope (operational plan, design history, AI-tooling conventions) but cannot redefine the project's goal.
+
+### Goal (user-facing)
+
 AI agents (Claude, Cursor, Copilot, Aider) write plausible-looking code that **reliably violates undocumented conventions**. Without enforced rules:
 - `as any` and `!` non-null assertions multiply.
 - Tests pass because they're tautological (`expect(x).toBeDefined()` for typed values).
@@ -31,6 +36,20 @@ AI agents (Claude, Cursor, Copilot, Aider) write plausible-looking code that **r
 - Conventions in `CLAUDE.md` are forgotten within 3 sessions.
 
 This package operationalizes the principle: **every rule that governs your codebase is an executable test that fails the build when violated**. AI cannot silently bypass what fails CI.
+
+### Methodology
+
+Generate enforcement rules from principles, not from copy-pasted presets. Presets become stale as stacks evolve (Next 14 → 15 → 16 in 18 months); principles age more slowly.
+
+The framework validates itself with its own logic — **recursive self-application**. Same precedent as GCC three-stage bootstrap or `rustc` compiling itself: a quality signal that the framework's own claims hold up under its own scrutiny. *Quality signal, not the goal.*
+
+### What must not break (invariants)
+
+- **Build-vs-reuse discipline** — prior-art consult before any capability commit. SSOT: `docs/meta-factory/prior-art-evaluations.md`. Enforcement: `Prior-art:` commit trailer + pre-push hook.
+- **Recursive self-application** — `make self-audit` green = the framework's own conventions don't drift.
+- **Search-coverage discipline** — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing. Rule: `.claude/rules/phase-research-coverage.md`.
+
+If recursive self-application breaks, the framework becomes documentation that lies about itself — exactly the failure mode it claims to prevent.
 
 ## The 5-layer framework
 
