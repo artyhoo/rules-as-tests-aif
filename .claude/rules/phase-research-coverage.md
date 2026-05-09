@@ -9,6 +9,9 @@ paths:
 
 # Phase research coverage — searching discipline
 
+> **Authoritative for:** searching-layer discipline rule — §1 6-item coverage methodology checklist, §2 self-reflection prompts for retros, §3 research-patches/ accumulator format (mirrors AIF /aif-evolve), §4 named anti-patterns for fast pattern-match.
+> **NOT authoritative for:** project goal — see [../../README.md#why-this-exists](../../README.md#why-this-exists). Recording-layer discipline (Prior-art trailer + SSOT + principle 08) — see [CLAUDE.md `Build-vs-reuse invariant`](../../CLAUDE.md). Discipline-layer SSOT (re-evaluation triggers for this rule) — see [open-questions.md §13.16](../../docs/meta-factory/open-questions.md).
+
 Phase 8.8 mechanism (SSOT + principle 08 + `Prior-art:` trailer + pre-push hook) formalises **recording**: every claim cites prior art, every capability commit carries provenance. Phase 8.8.1 adds the **searching** layer on top: a rule + patch loop that catches false-negative coverage gaps before they ship as load-bearing claims.
 
 The rule is invoked at the surfaces declared in `paths:` above — entry research files, the SSOT, and the `research-patches/` accumulator. It is consumed by phase research sessions before closing any [EXECUTION-PLAN.md §5.5](../../docs/meta-factory/EXECUTION-PLAN.md) Step 1.5 lookup, and by retros writing the Self-reflection block.

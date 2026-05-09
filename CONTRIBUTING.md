@@ -1,5 +1,8 @@
 # Contributing to rules-as-tests-aif
 
+> **Authoritative for:** contributor workflow — local setup (hooks installation), what pre-commit / pre-push hooks check, capability-commit definition + Prior-art trailer convention, bypass policy.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](README.md#why-this-exists). AI-tooling conventions (read-first, Artifact Ownership Contract) — see [CLAUDE.md](CLAUDE.md).
+
 ## Local setup
 
 Clone the repo, then run once:

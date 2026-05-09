@@ -2,6 +2,9 @@
 
 > Paste the prompt below into your AI agent. It will install rules-as-tests-aif on top of AI Factory in your current project, with full transparency about what it's doing.
 
+> **Authoritative for:** AI-driven installation prompt + per-step actions the AI agent must take + transparency expectations (what to report, what to ask for confirmation before).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](README.md#why-this-exists). Human-driven installation — see [INSTALL.md](INSTALL.md).
+
 ---
 
 ## Step 0 — Get the framework

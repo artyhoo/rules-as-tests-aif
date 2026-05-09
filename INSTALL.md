@@ -1,5 +1,8 @@
 # Installation guide — rules-as-tests-aif
 
+> **Authoritative for:** human-driven installation paths (A/B/C), per-path step-by-step instructions, version verification procedure, post-install validation steps.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](README.md#why-this-exists). AI-driven installation — see [INSTALL-FOR-AI.md](INSTALL-FOR-AI.md). Quick start (recommended path) — see [README.md#installation](README.md#installation).
+
 Three ways to install. Pick one.
 
 ---
