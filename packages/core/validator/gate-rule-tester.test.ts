@@ -47,7 +47,7 @@ describe('L4 gate 2 — rule-tester roundtrip', () => {
       plan({
         patterns: [
           entry('nextjs-app-router'),
-          entry('react-server-components'),
+          entry('next-r12-no-server-imports-in-client'),
         ],
       }),
     );
@@ -62,7 +62,7 @@ describe('L4 gate 2 — rule-tester roundtrip', () => {
         patterns: [
           entry('nextjs-app-router'),
           entry('nextjs-pages-router'),
-          entry('react-server-components'),
+          entry('next-r12-no-server-imports-in-client'),
         ],
       }),
     );

@@ -2,6 +2,14 @@
 // Per phase-8-research.md §3: weighted score over rule presence (0.40),
 // ESLint config keys (0.40), and applies-to glob coverage (0.20). Acceptance
 // threshold for Phase 8 canonical regen is 0.95 (≤5% diff).
+//
+// Calibration corpus `preset-similarity.calibration.test.ts` (Phase 9 A8) serves
+// as **regression guard** for the weights formula — 5 mutants × 3 dimensions
+// verify the formula behaves as designed. Statistical calibration of
+// `0.40/0.40/0.20` values requires real divergent-plan data per
+// docs/meta-factory/retros/phase-8.md Self-reflection #9; the corpus does NOT
+// validate the weight values themselves. Tweaks to W_* require updating the
+// corpus's expected-score column.
 
 import type { SynthesisPlan } from '../synthesizer/types.ts';
 

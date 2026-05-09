@@ -40,7 +40,7 @@ describe('L4 gate 6 — cross-rule conflict', () => {
         patterns: [
           entry('nextjs-app-router'),
           entry('nextjs-pages-router'),
-          entry('react-server-components'),
+          entry('next-r12-no-server-imports-in-client'),
         ],
       }),
     );

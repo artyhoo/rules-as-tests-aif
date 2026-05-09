@@ -44,7 +44,7 @@ describe('validate — pure aggregator over 4 REQUIRED gates', () => {
         patterns: [
           entry('nextjs-app-router'),
           entry('nextjs-pages-router'),
-          entry('react-server-components'),
+          entry('next-r12-no-server-imports-in-client'),
         ],
       }),
     );

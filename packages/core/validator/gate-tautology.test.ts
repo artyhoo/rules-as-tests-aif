@@ -47,7 +47,7 @@ describe('L4 gate 4 — tautology check (negative-corpus)', () => {
         patterns: [
           entry('nextjs-app-router'),
           entry('nextjs-pages-router'),
-          entry('react-server-components'),
+          entry('next-r12-no-server-imports-in-client'),
         ],
       }),
     );

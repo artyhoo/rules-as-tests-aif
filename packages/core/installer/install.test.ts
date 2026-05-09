@@ -55,7 +55,7 @@ describe('install — L5 v1 consumer disk write', () => {
         patterns: [
           entry('nextjs-app-router'),
           entry('nextjs-pages-router'),
-          entry('react-server-components'),
+          entry('next-r12-no-server-imports-in-client'),
         ],
       }),
     );

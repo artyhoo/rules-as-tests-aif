@@ -32,9 +32,9 @@ describe('synthesize — self-application snapshot stability (L3 invariant a)', 
     expect(plan).toEqual(expected);
     expect(plan.rules.map((r) => r.id)).toEqual(['G1', 'G2', 'G3']);
     expect(plan.rules.map((r) => r.research.entryId)).toEqual([
+      'next-r12-no-server-imports-in-client',
       'nextjs-app-router',
       'nextjs-pages-router',
-      'react-server-components',
     ]);
   });
 });

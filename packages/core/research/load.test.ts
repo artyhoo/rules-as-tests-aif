@@ -49,8 +49,8 @@ describe('loadEntries — semver-aware research store lookup', () => {
       'react-server-components',
     ]);
     expect(entries.map((e) => e.id)).toEqual([
+      'next-r12-no-server-imports-in-client',
       'nextjs-app-router',
-      'react-server-components',
       'tailwind-v4-css-tokens',
     ]);
   });
@@ -61,6 +61,22 @@ describe('loadEntries — semver-aware research store lookup', () => {
       'nextjs-app-router',
     ]);
     expect(entries.map((e) => e.id)).toEqual(['tailwind-v3-config']);
+  });
+
+  it('resolves next/any/ tier for r12 when version is 15.4.0', () => {
+    const entries = loadEntries('next', '15.4.0', [
+      'next-r12-no-server-imports-in-client',
+    ]);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].id).toBe('next-r12-no-server-imports-in-client');
+  });
+
+  it('resolves next/any/ tier for r12 when version is 14.0.0 (older major, no major-1 fallback hit)', () => {
+    const entries = loadEntries('next', '14.0.0', [
+      'next-r12-no-server-imports-in-client',
+    ]);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].id).toBe('next-r12-no-server-imports-in-client');
   });
 });
 

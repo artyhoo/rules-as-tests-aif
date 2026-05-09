@@ -50,7 +50,7 @@ describe('synthesize — pure recipe lookup + composition', () => {
         patterns: [
           entry('nextjs-app-router'),
           entry('nextjs-pages-router'),
-          entry('react-server-components'),
+          entry('next-r12-no-server-imports-in-client'),
         ],
       }),
     );
@@ -58,7 +58,7 @@ describe('synthesize — pure recipe lookup + composition', () => {
     expect(result.rules.map((r) => r.research.entryId)).toEqual([
       'nextjs-app-router',
       'nextjs-pages-router',
-      'react-server-components',
+      'next-r12-no-server-imports-in-client',
     ]);
   });
 
@@ -100,7 +100,7 @@ describe('synthesize — pure recipe lookup + composition', () => {
       plan({
         patterns: [
           entry('nextjs-app-router'),
-          entry('react-server-components'),
+          entry('next-r12-no-server-imports-in-client'),
         ],
       }),
     );

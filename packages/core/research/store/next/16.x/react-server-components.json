@@ -1,5 +1,5 @@
 {
-  "id": "react-server-components",
+  "id": "next-r12-no-server-imports-in-client",
   "summary": "React Server Components (RSC) execute on the server by default in App Router. Client components opt in with `'use client'`. Crossing the boundary requires serializable props.",
   "bestPractices": [
     "Mark client components with `'use client'` at the top of the file; never inside a function.",

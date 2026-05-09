@@ -175,7 +175,7 @@ Defer: операционализация в Phase 6 (Research Agent) или 11 
 
 #### 11.1 — `aif-gate-result` emission from L4 + L5
 
-> **Status (2026-05-08):** **PARTIAL CLOSE in Phase 8.** L4 wire format shipped via [packages/core/validator/to-aif-gate-result.ts](../../packages/core/validator/to-aif-gate-result.ts) (`fromValidationReport`, `fromInstallReport`); CLI flag `--aif-gate-result` and `framework-self-validate` job summary emission landed in audit-self.yml. Remaining 11.1 work: schema validation against a freshly-fetched AIF GATE-RESULT-CONTRACT.md (deferred until first real consumer or AIF version bump invalidates snapshot).
+> **Status (2026-05-09):** **CLOSED in Phase 9 A9.** L4 wire format shipped via [packages/core/validator/to-aif-gate-result.ts](../../packages/core/validator/to-aif-gate-result.ts) (`fromValidationReport`, `fromInstallReport`); CLI flag `--aif-gate-result` and `framework-self-validate` job summary emission landed in audit-self.yml (Phase 8). Schema validation closed via hand-rolled validator [`packages/core/validator/aif-gate-result-schema.ts`](../../packages/core/validator/aif-gate-result-schema.ts) + pinned snapshot [`aif-gate-result-schema.snapshot.md`](../../packages/core/validator/aif-gate-result-schema.snapshot.md) (Phase 9 A9, context7 fetch 2026-05-09). Re-fetch on Phase 11+ entry research per snapshot header.
 
 **Scope.** Emit `aif-gate-result` JSON shape from L4 `ValidationReport` and L5 `InstallReport`. Shape per AIF GATE-RESULT-CONTRACT.md (resolve via `mcp__context7__query-docs` against `/lee-to/ai-factory` at Phase 11 entry — schema may have evolved past current snapshot).
 
@@ -183,7 +183,7 @@ Defer: операционализация в Phase 6 (Research Agent) или 11 
 - L4 `validate(plan)` returns `ValidationReport` with optional `aifGateResult` field matching AIF schema. — **closed Phase 8** via pure `fromValidationReport` mapping (additive; no breaking change to ValidationReport).
 - L5 `install(plan, opts)` returns `InstallReport` with optional `aifGateResult` field. — **closed Phase 8** via pure `fromInstallReport` mapping; postValidation falls back to preValidation; artifacts → affected_files.
 - Round-trip: parse L4/L5 output → AIF gate result → AIF consumer (`/aif-implement` dispatcher) accepts without parse error. — **wire format shipped Phase 8**; live `/aif-implement` consumption deferred to first AIF integration.
-- Schema validation against AIF GATE-RESULT-CONTRACT.md schema (fetched fresh via context7). — **deferred** to Phase 11 entry (snapshot may drift; refetch needed at integration time).
+- Schema validation against AIF GATE-RESULT-CONTRACT.md schema (fetched fresh via context7). — **closed Phase 9 A9 (2026-05-09)** via hand-rolled validator [`packages/core/validator/aif-gate-result-schema.ts`](../../packages/core/validator/aif-gate-result-schema.ts) + pinned snapshot [`aif-gate-result-schema.snapshot.md`](../../packages/core/validator/aif-gate-result-schema.snapshot.md). Re-fetch on Phase 11+ entry research per snapshot header.
 
 #### 11.2 — `/aif-loop` RULE-SCHEMA convertor
 
