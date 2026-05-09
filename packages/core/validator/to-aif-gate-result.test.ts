@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InstallReport } from '../installer/types.ts';
+import { validateAifGateResult } from './aif-gate-result-schema.ts';
 import { fromInstallReport, fromValidationReport } from './to-aif-gate-result.ts';
 import type { ValidationReport } from './types.ts';
 
@@ -93,5 +94,58 @@ describe('fromInstallReport', () => {
     expect(r.status).toBe('fail');
     expect(r.blockers).toHaveLength(2);
     expect(r.suggested_next.command).toBe('/aif-fix');
+  });
+});
+
+describe('A9: emit-path validation via validateAifGateResult', () => {
+  it('A9: fromValidationReport output passes validateAifGateResult', () => {
+    const result = fromValidationReport(PASS_REPORT);
+    const validation = validateAifGateResult(result);
+    expect(validation.ok).toBe(true);
+    expect(validation.errors).toEqual([]);
+  });
+
+  it('A9: fromInstallReport output passes validateAifGateResult', () => {
+    const installReport: InstallReport = {
+      ok: true,
+      installed: true,
+      artifacts: ['/tmp/x/.ai-factory/synthesizer-output/rules-lock.json',
+                  '/tmp/x/.ai-factory/synthesizer-output/RULES.md'],
+      preValidation: PASS_REPORT,
+      postValidation: PASS_REPORT,
+      failures: [],
+    };
+    const result = fromInstallReport(installReport);
+    const validation = validateAifGateResult(result);
+    expect(validation.ok).toBe(true);
+    expect(validation.errors).toEqual([]);
+  });
+
+  it('A9: fromValidationReport fail-path output passes validateAifGateResult', () => {
+    const result = fromValidationReport(FAIL_REPORT);
+    const validation = validateAifGateResult(result);
+    expect(validation.ok).toBe(true);
+    expect(validation.errors).toEqual([]);
+  });
+
+  it('A9 negative: bad schema_version → validateAifGateResult rejects', () => {
+    const result = { ...fromValidationReport(PASS_REPORT), schema_version: 2 };
+    const validation = validateAifGateResult(result);
+    expect(validation.ok).toBe(false);
+    expect(validation.errors.some((e) => e.includes('schema_version'))).toBe(true);
+  });
+
+  it('A9 negative: bad gate value → validateAifGateResult rejects', () => {
+    const result = { ...fromValidationReport(PASS_REPORT), gate: 'unknown-gate' };
+    const validation = validateAifGateResult(result);
+    expect(validation.ok).toBe(false);
+    expect(validation.errors.some((e) => e.includes('gate'))).toBe(true);
+  });
+
+  it('A9 negative: missing affected_files → validateAifGateResult rejects', () => {
+    const { affected_files: _af, ...result } = fromValidationReport(PASS_REPORT);
+    const validation = validateAifGateResult(result);
+    expect(validation.ok).toBe(false);
+    expect(validation.errors.some((e) => e.includes('affected_files'))).toBe(true);
   });
 });
