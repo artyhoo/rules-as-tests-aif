@@ -2,7 +2,9 @@
 
 > **Trigger:** every session start, before any other action.
 > **Why:** persists project goal + invariants across context compaction. Implements AIF Step 0 / Cline re-read pattern — more robust than CLAUDE.md compaction-block which depends on compactor cooperation.
-> **Authority:** this file is **operational**. It re-states goal/invariants for AI sessions but does not redefine them. [README.md#why-this-exists](../README.md#why-this-exists) is canonical.
+>
+> **Authoritative for:** operational restatement of project goal + invariants for AI session start; reading order; reviewer drift-prevention check.
+> **NOT authoritative for:** project goal, methodology, design invariants — see [README.md#why-this-exists](../README.md#why-this-exists). This file's goal section delegates upward — it cannot drift because it is a pointer.
 
 ## Goal (do not redefine)
 
