@@ -417,3 +417,32 @@ This is feature scope (Phase 9.x or 10.x), not goal-hierarchy fix. Shipping L3 i
 4. Self-review patch under [`research-patches/`](research-patches/) demonstrating pre-push hook catches the `local-push-bypasses-CI` failure mode.
 
 **Cross-references:** [`.claude/rules/phase-research-coverage.md §1.7`](../../.claude/rules/phase-research-coverage.md) (rule); [`.claude/skills/self-reflection/SKILL.md`](../../.claude/skills/self-reflection/SKILL.md) (layer 2); [`.github/workflows/discipline-self-check.yml`](../../.github/workflows/discipline-self-check.yml) (layer 3); [`research-patches/2026-05-09-recommendation-skips-own-discipline.md`](research-patches/2026-05-09-recommendation-skips-own-discipline.md) (bootstrap exemplar).
+
+### 13.24 Candidate H7 + H8 anti-pattern distillation into §4 catalog (deferred — H8 sample-size threshold already met)
+
+**Status:** deferred 2026-05-09 (Wave 0.5 close). Tracker entry for «next-session work» referenced in [research-patches/2026-05-09-§13.21-l3-self-review.md](research-patches/2026-05-09-§13.21-l3-self-review.md) and [PR #20 description Process retrospective](https://github.com/Yhooi2/rules-as-tests-aif/pull/20). Without this entry, follow-up work would have lived only as prose in those artefacts — same shape as H8 sub-case (b) «meta-commentary lags primary content», hence the explicit registration here.
+
+**Origin:** two candidate anti-patterns surfaced during Wave 0.5 work, both as sub-patterns of `#recursive-self-application-gap`:
+
+- **H7 «skill consumption blindness»** — project-internal skill (e.g. [.claude/skills/self-reflection/](../../.claude/skills/self-reflection/SKILL.md)) carries auto-trigger description with keywords matching the drafting context, yet skill is not engaged because the draftsman's attention frame doesn't load skill descriptions; auto-trigger requires the harness or operator to surface the skill explicitly. **Sample size: 1/3** (one occurrence in Wave 0.5 v1 drafting). Threshold not yet met.
+- **H8 «discipline-application scope blindness»** — discipline applied to explicit object-under-review (a plan / recommendation / self-review patch), but **not** extended to (a) self-commentary about that object, (b) meta-commentary that lags primary-content updates, (c) claims accepted from collaborators (handover notes, reviewer findings) that propagate into edits. **Sample size: 3/3 named occurrences + 2 additional sub-case (b) instances within Wave 0.5 itself** — see [self-review.md §«H8 escalation list»](research-patches/2026-05-09-§13.21-l3-self-review.md) for the named occurrences and PR #20 retrospective for the additional sub-case (b) instances. Threshold met per [phase-research-coverage.md §3 aggregation](../../.claude/rules/phase-research-coverage.md) (3-patch threshold mirroring AIF `/aif-evolve`).
+
+**Why deferred:** Wave 0.5 acceptance criteria explicitly «Out of scope: Promotion of candidate to §4 anti-pattern catalog». Wave 0.5 deliverable = revision + self-review only; distillation is separate work (research-patch documenting promotion + §4 entry + `forward-checklist.md` Layer 6 extension + optional executable meta-test). Bundling distillation into Wave 0.5 would have conflated «document the gap» (Wave 0.5 scope) with «operationalise the rule» (this entry's scope) — bad atomicity.
+
+**Trigger condition for revisit:**
+
+- **H8** — already met. Distillation can start at any next session that has bandwidth for rule-extension work; recommend pairing with Wave 1-4 reviewer cycles since H8 is most likely to recur during multi-surface implementation work.
+- **H7** — second OR third occurrence in subsequent sessions, OR when a new L3-style multi-surface plan is drafted (whichever first). H7 distillation may be paired with H8 distillation if H7 reaches threshold concurrently.
+
+**Promotion path when triggered:**
+
+1. New research-patch under [`research-patches/`](research-patches/) documenting the promotion: one entry per anti-pattern (or combined if H7+H8 promoted concurrently). Includes occurrence list with file:line refs and sub-case enumeration.
+2. Append entries to [`.claude/rules/phase-research-coverage.md §4` anti-pattern catalog](../../.claude/rules/phase-research-coverage.md) — for H8, three sub-cases (a/b/c) per current pattern definition in [self-review.md §H8](research-patches/2026-05-09-§13.21-l3-self-review.md).
+3. Extend [`.claude/skills/self-reflection/references/forward-checklist.md`](../../.claude/skills/self-reflection/references/forward-checklist.md) Layer 6 «verify before stating» with explicit sub-case (c) probe: «check declarative-not-literal phrasing in self-referencing meta-commentary». Anti-tautology check: forbid hard-coded counts/enumerations in meta-sections that describe primary content.
+4. **Optional** — meta-test in [`packages/core/principles/`](../../packages/core/principles/) that catches literal hardcoded counts/SHAs in meta-commentary docs (e.g. regex on `research-patches/*` + `EXECUTION-PLAN.md` for «N commits», numbered SHA enumerations outside test fixtures). Executable form per project thesis «documents lie; tests don't».
+5. Update [`.claude/skills/self-reflection/SKILL.md`](../../.claude/skills/self-reflection/SKILL.md) anti-pattern enumeration to mention promoted-from-candidate names.
+6. Optionally extend [`.claude/skills/self-reflection/references/anti-patterns-with-examples.md`](../../.claude/skills/self-reflection/references/anti-patterns-with-examples.md) with Wave 0.5 occurrences as case studies.
+
+**Out of scope for this entry:** the actual distillation work (lives in next-session research-patch); design of meta-test specifics (literal-count detection regex, scope predicates); decision of whether to extend §1.7 sub-rule numbering vs add §1.8 (depends on cardinality of distilled patterns).
+
+**Cross-references:** [research-patches/2026-05-09-§13.21-l3-self-review.md](research-patches/2026-05-09-§13.21-l3-self-review.md) §«H7 candidate observation» + §«H8 update» — sample data + sub-case enumeration; [research-patches/2026-05-09-§13.21-l3-revision.md](research-patches/2026-05-09-§13.21-l3-revision.md) — second-occurrence exemplar of §1.7 (parent rule); [PR #20 «Process retrospective» section](https://github.com/Yhooi2/rules-as-tests-aif/pull/20) — narrative context for additional sub-case (b) instances; [`.claude/rules/phase-research-coverage.md §3 aggregation`](../../.claude/rules/phase-research-coverage.md) — 3-patch threshold mechanism.
