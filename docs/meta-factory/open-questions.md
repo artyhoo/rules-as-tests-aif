@@ -362,3 +362,27 @@ This is feature scope (Phase 9.x or 10.x), not goal-hierarchy fix. Shipping L3 i
 5. Document the consumer-side convention in `INSTALL-FOR-AI.md` so AI agents installing the framework understand that consumer's `README.md` is the goal source for the consumer project.
 
 **Cross-references:** [.claude/rules/doc-authority-hierarchy.md §2](../../.claude/rules/doc-authority-hierarchy.md) «Not required for: generated user-facing docs» exemption; [packages/core/principles/09-doc-authority-hierarchy.test.ts](../../packages/core/principles/09-doc-authority-hierarchy.test.ts) canonical list (will widen at L3 trigger); [README.md](../../README.md) §«What gets installed automatically» enumerates shipped surfaces.
+
+### 13.22 Own-conventions evolution mechanism — fold into L2 Research Agent (Phase 5+)
+
+**Status:** v1-shipped (Phase A baseline 2026-05-09: SSOT entries #6-#10 + research-patches `adopted-pattern-drift` tag). Promotion to L2 Research Agent integration deferred until Phase 5+ ships.
+**Origin:** goal-hierarchy follow-up research 2026-05-09 (`/tmp/own-conventions-evolution-research.md`) — Option E (Hybrid). Q4 finding: novel territory — no surveyed OSS project does meta-research on own adopted conventions. Q2 finding: industry-wide gap on prose-convention drift detection. Filling the gap from scratch = open research problem; cheaper to ride existing infrastructure when it ships.
+
+**v1 baseline (this branch):**
+- 5 SSOT entries (#6 Arc42, #7 AGENTS.md, #8 AIF Step 0, #9 Cline Memory Bank, #10 matklad) with velocity tags.
+- 180-day staleness policy from `prior-art-evaluations.md` §5 applies to SLOW/STABLE entries; tighter explicit cadence per FAST/UNCERTAIN entries (90-day) in their `Trigger to revisit` lines.
+- `adopted-pattern-drift` tag in `research-patches/` (per `.claude/rules/phase-research-coverage.md` §4 anti-pattern taxonomy) for incident-driven recording.
+
+**Trigger condition for revisit:**
+- L2 Research Agent ships (Phase 5 closes per [EXECUTION-PLAN.md §6](EXECUTION-PLAN.md)) — extension is natural at that point.
+- ≥2 `adopted-pattern-drift` tag patches accumulate in `research-patches/` — pattern signal that incident-driven mechanism is bearing weight, fold into systematic.
+- Real consumer reports drift between framework's adopted convention and downstream stack (currently 0 consumers per no-consumers caveat).
+
+**Promotion path when triggered:**
+1. L2 Research target list extended: research own-conventions parallel to user-stacks. Source list = SSOT entries #6-#10 (and any new adopted-pattern entries by then).
+2. Diff-mode at version-bump events: when AIF / AGENTS.md / Cline ships a new version, L2 fetches current pattern via context7, compares to last-cached pattern in research-cache, surfaces diff as `research-patches/` entry.
+3. CI integration: weekly cron job (or per-phase-entry sweep) running L2 own-conventions check; staleness flags become CI warnings.
+
+**Out of scope for v1:** continuous polling (Option C — over-engineered for 1-3 maintainer scale, conflicts with own §6.0 #2 build-vs-reuse discipline); custom drift-detection tool (open research problem, disproportionate cost for one class of drift).
+
+**Cross-references:** [`.claude/rules/phase-research-coverage.md` §4 anti-patterns](../../.claude/rules/phase-research-coverage.md) — `adopted-pattern-drift` tag added in same branch; [`prior-art-evaluations.md` §5 staleness policy](prior-art-evaluations.md) — extends to entries #6-#10; [open-questions.md §13.16](open-questions.md) — discipline-layer SSOT (parallel cadence-trigger pattern).
