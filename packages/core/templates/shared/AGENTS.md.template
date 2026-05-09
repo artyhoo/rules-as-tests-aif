@@ -2,6 +2,9 @@
 
 > Read this file at the start of every session. It points to the source of truth for project rules and workflow.
 > Universal format read by Claude Code (CLAUDE.md fallback), Codex CLI, Cursor, Windsurf, Roo Code, and others.
+>
+> **Authoritative for:** AI-agent session-context format and pointer structure for consumer projects.
+> **NOT authoritative for:** project goal — see consumer's README.md.
 
 ## What this project is
 
