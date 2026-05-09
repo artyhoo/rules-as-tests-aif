@@ -276,6 +276,10 @@ Self-application — **не отдельный шаг**, а cross-cutting invari
 
 1. **NO LLM at runtime in v1** — zero Anthropic SDK / OpenAI / context7 calls in any of L1-L5 hot paths. Research store is curated on disk.
 2. **NO new explicit deps** — only transitive ones (ESLint, TS-ESLint parser, preset plugin); `package.json` diffs are bin entries + scripts + exports.
+
+   > **Supersede 2026-05-09 (goal-hierarchy fix).** Under the user-value goal as restated in [README.md#why-this-exists](../../README.md#why-this-exists), the trigger changes from absolute «no new deps» to evaluative: *does the hand-rolled version create friction for users vs. a widely-adopted, well-maintained alternative?* If yes — adopt with `Prior-art:` trailer + SSOT entry update. If no — keep hand-rolled. Original absolute rule retained above as historical record per AWS ADR practice; new evaluative trigger applies forward.
+   >
+   > **No automatic unblock.** Existing [prior-art-evaluations.md](prior-art-evaluations.md) WATCHLIST/DEFER entries (#1 Autogrep, #2 Netlify CLI, #4 Factory ESLint Plugin, #5 Anthropic web_search) carry forward their existing primary blockers — the supersede unblocks NONE automatically. Each needs separate re-evaluation under the new trigger; Phase 9.x retro is the natural cadence.
 3. **NO yargs/commander** — CLIs use `process.argv` parsing (≤60 LOC each).
 4. **NO Path B AST gen** — Phase 9+ trigger; Path A only through Phase 8.
 
