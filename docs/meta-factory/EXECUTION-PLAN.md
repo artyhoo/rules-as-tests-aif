@@ -14,7 +14,7 @@
 
 ## 1. Цель проекта
 
-> **Pointer (2026-05-09 goal-hierarchy fix):** project goal, methodology, and design invariants are owned by [README.md#why-this-exists](../../README.md#why-this-exists). This §1 is a pointer + operational acceptance criteria; it does **not** redefine the goal. Earlier framing of recursive self-application as «north star» drifted from README and was corrected — see [retros/goal-hierarchy-restructure.md](retros/) (post-merge) and the [research report](../../tmp-not-tracked) for analysis.
+> **Pointer (2026-05-09 goal-hierarchy fix):** project goal, methodology, and design invariants are owned by [README.md#why-this-exists](../../README.md#why-this-exists). This §1 is a pointer + operational acceptance criteria; it does **not** redefine the goal. Earlier framing of recursive self-application as «north star» drifted from README; the corrected hierarchy and Artifact Ownership Contract live in [README.md#why-this-exists](../../README.md#why-this-exists), [.claude/session-bootstrap.md](../../.claude/session-bootstrap.md), and [CLAUDE.md `Artifact Ownership Contract`](../../CLAUDE.md). Restructure rationale: see commits on branch `docs/goal-hierarchy-restructure`.
 
 **Operational restatement (do not edit unless README changes):**
 
