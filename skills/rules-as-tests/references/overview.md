@@ -2,6 +2,9 @@
 
 Compact reference for the framework. Read when you need a quick refresher of what each layer enforces and the anti-patterns to avoid.
 
+> **Authoritative for:** 5-layer framework reference (Architecture / Meta-tests / Specification by Example / Mutation testing / Living docs) with per-layer enforcement patterns and anti-patterns.
+> **NOT authoritative for:** framework's project goal — see [../../../README.md#why-this-exists](../../../README.md#why-this-exists). Where each level runs (edit-time → production timing) — see [checks-map.md](checks-map.md). AI-specific traps — see [ai-traps.md](ai-traps.md).
+
 ---
 
 ## Layer 1 — Architecture Tests / Fitness Functions
