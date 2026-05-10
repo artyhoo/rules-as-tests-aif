@@ -291,104 +291,70 @@ Phase 1 Action 1 score stands: **PARTIAL** (loaded reliably but no trigger fired
 
 ## §3 Mechanism-by-mechanism evaluation
 
-| Mechanism | Observed effectiveness | What it catches | What slips through |
+| Mechanism | Effectiveness | Catches | Slips through |
 |---|---|---|---|
-| **CLAUDE.md auto-load `Project goal pointer`** | **Partial** — works for goal recall as paraphrase, fails for taxonomy completeness | Direct goal-phrase questions get correct semantic answer (Probe 1 PASS-revised) | (a) the phrase is itself an undocumented synthesis; if README drifts, this layer drifts silently. (b) does NOT link to README's 5-layer framework, leaving an AI's mental model of «framework structure» distorted (Probe 6 FAIL). (c) Step 0 instruction registers as descriptive only (Probe 2 FAIL) |
-| **AGENTS.md template** (consumer-side only — `install.sh:215`; not in repo perspective) | **Cannot evaluate from repo** — content review only. Template content has stronger cold-start hook («Read this file at the start of every session») than CLAUDE.md's «At session start, read…» (descriptive). Imperative mood is a measurably different opener; whether consumer-side AIs honour it is **out of scope** of this self-audit | (Cannot measure — no consumer install observed) | (Cannot measure here) |
-| **README.md `Why this exists` defensive language («Quality signal, not the goal.»)** | **Effective when read** | Demotes recursive-self-application explicitly (line 44). My Phase 1 answer correctly demoted methodology because the same demotion was mirrored in CLAUDE.md auto-load | Only works on AIs that actually read README. AIs working from CLAUDE.md alone benefit only because CLAUDE.md mirrors the demotion — a one-time-correct mirror, not enforcement |
-| **`.claude/session-bootstrap.md` (Step 0 pattern)** | **Convention without enforcement** | When read, provides clean Reading-order list, invariants snapshot, drift-prevention Mermaid (Probe 4-style content) | Not actually opened by harness-baseline AI (Probe 2 FAIL). The «Trigger: every session start, before any other action» line at the top is a hope, not a hook. Harness has no mechanism to make this fire reliably |
-| **Authoritative-for headers** (canonical doc list at [`packages/core/principles/09-doc-authority-hierarchy.test.ts`](../../../packages/core/principles/09-doc-authority-hierarchy.test.ts) `REQUIRED_HEADER_DOCS`) | **Effective when read** | EXECUTION-PLAN.md opening blockquote correctly drift-blocks the «north star» mention (Probe 4 PASS) — but only because the §1 Pointer reinforces the header. Header alone is weaker | Header is in a blockquote AT TOP; readers entering mid-file (e.g. searching for a section) bypass it. Only enforces when the file is opened from the beginning. Principle 09 enforces *presence* of headers but not *reading* of them |
-| **Auto-memory** (`MEMORY.md` index + per-entry files) | **Loaded reliably; trigger-fidelity unverifiable from single session** | Memory entries are present in system prompt (verified by introspection). Survives compaction by structural placement | Entries are passively informative, not actively triggering. No mechanism re-surfaces «hey, the trigger condition you wrote 30 turns ago just matched» when relevant context appears later in conversation. Per-entry file bodies are NOT in baseline — only the index is |
-| **self-reflection skill auto-trigger keyword list** | **Brittle keyword-match** | Synthetic prompts hand-built from the keyword list trigger (positive control) | (a) Natural rule-introducing prose using «policy», «guideline», «standardise», «enforce», «check», «from now on» evades the trigger. (b) Tokens «meta», «recursive», «recommend», «process» over-fire on routine work. The mechanism cannot distinguish keyword-match from semantic intent (Probe 3 PARTIAL) |
-| **doc-authority-hierarchy rule §4 anti-patterns** | **Conventional, not enforced beyond principle 09 test** | Principle 09 enforces header presence on canonical doc list. §4 anti-patterns serve as review-checklist text | §4 anti-patterns themselves are prose; surfacing them at violation time depends on a reviewer cycle invoking them. No automated check fires «hey, this commit looks like #operational-doc-redefines-goal» |
+| **CLAUDE.md auto-load `Project goal pointer`** | **Partial** | Direct goal-phrase recall (Probe 1 PASS-revised, semantic) | Phrase itself is an undocumented synthesis (silent drift if README diverges); does not link README's 5-layer taxonomy → Probe 6 FAIL; Step 0 line registers as descriptive → Probe 2 FAIL |
+| **AGENTS.md template** (`install.sh:215`, consumer-side only) | **Out of repo scope** | Content review: imperative «Read this file at the start of every session» is stronger than CLAUDE.md's descriptive «At session start, read…» | Cannot measure from repo perspective — needs separate consumer-side audit |
+| **README §«Quality signal, not the goal»** | **Effective when read** | Methodology demotion (line 44), mirrored in CLAUDE.md so even harness-baseline AI inherits it | Only because of mirror — no enforcement that mirror stays in sync |
+| **`.claude/session-bootstrap.md` (Step 0)** | **Convention, no enforcement** | When opened: clean reading-order, invariants table, drift-prevention Mermaid | Harness-baseline AI does not open it (Probe 2 FAIL). «Trigger: every session start» is a hope, not a hook |
+| **Authoritative-for headers** ([principle 09](../../../packages/core/principles/09-doc-authority-hierarchy.test.ts) `REQUIRED_HEADER_DOCS`) | **Effective when read in full** | EXECUTION-PLAN's «north star» line reads as historical-corrected because of header + §1 Pointer combo (Probe 4 PASS) | Header is top-blockquote; mid-file entry bypasses it. Principle 09 checks presence, not reading |
+| **Auto-memory** (`MEMORY.md` index) | **Loaded; trigger-fidelity unverified** | Index entries present in system prompt; survives compaction by structural placement | Passively informative, not actively triggering. Per-entry bodies are NOT in baseline — index only |
+| **self-reflection skill auto-trigger** | **Brittle keyword-match** | Positive controls (synthetic prompts) | False-negatives on natural prose («policy»/«guideline»/«enforce»/«from now on»); over-trigger on common tokens («meta»/«recursive»/«recommend»/«process») — Probe 3 PARTIAL |
+| **doc-authority-hierarchy §4 anti-patterns** | **Prose-only, no automated check** | Principle 09 catches header *presence* | Anti-patterns themselves are review-checklist text; no commit-time check «this commit looks like #operational-doc-redefines-goal» |
 
-**Summary of evaluation:** the AI-doc layer has **strong content** (correct demotions, explicit pointers, Authoritative-for headers, drift-prevention Mermaid) but **weak activation**. Most mechanisms are descriptive convention that depend on the AI to:
-
-- voluntarily open files Step 0 says to open
-- voluntarily read full file rather than skim
-- semantically distinguish «meta» the keyword from «meta-discipline» the project concept
-- cross-link CLAUDE.md taxonomies with README taxonomies the AI was never told to consult
-
-When all of those happen, the layer works (Probe 1 revised PARTIAL, Probe 4 PASS). When any fails, the layer is silent (Probe 2 FAIL, Probe 6 FAIL).
+**Summary:** content is strong (correct demotions, explicit pointers, drift-prevention Mermaid); activation is weak. Most mechanisms depend on the AI to voluntarily open Step-0 files, read in full, semantically distinguish «meta» (keyword) from «meta-discipline» (concept), and cross-link CLAUDE.md taxonomies with README taxonomies it was never told to consult. When all hold, layer works (Probe 1 revised PARTIAL, Probe 4 PASS). When any fails, layer is silent (Probe 2 FAIL, Probe 6 FAIL).
 
 ---
 
 ## §4 Concrete improvement proposals
 
-Each proposal lists: cost (LOW / MEDIUM / HIGH), benefit (drift modes mitigated D1/D2/D3/D4 or extension), and ranking. Ranked by benefit-per-cost ratio.
+Ranked by benefit-per-cost. Cost: LOW / MEDIUM / HIGH.
 
-### P-1 — `UserPromptSubmit` hook injecting session-bootstrap.md content (HIGH benefit / LOW cost)
+### P-1 — `UserPromptSubmit` hook injecting session-bootstrap.md (HIGH / LOW)
 
-**Mechanism:** add a `UserPromptSubmit` hook in repo `.claude/settings.json` that on the **first** user prompt of a session injects `<system-reminder>` containing `.claude/session-bootstrap.md` content (or its essential excerpts: goal, methodology demotion, invariants table, reading order).
+`.claude/settings.json` hook that on **first** user prompt of session injects `<system-reminder>` containing session-bootstrap.md essentials (goal, methodology demotion, invariants, reading order). Hooks cannot force a file *read*, but **can inject content** so it lands in context regardless of intent — directly closes Probe 2 FAIL.
 
-**Why it works (where Step 0 fails):** Claude Code hooks cannot **force** an AI to read a file, but they **can inject content into the system-prompt-equivalent layer** so it lands in context regardless of the AI's intent or attention. Probe 2 FAIL is precisely the gap this closes.
+Caveats: needs «first-prompt-only» state-tracking to avoid every-turn duplication; risk of duplicate goal phrase across CLAUDE.md + injected text (resolve by making session-bootstrap content CLAUDE.md-disjoint). Repo-perspective only — consumer-side AGENTS.md template already has imperative «Read this file…»; effectiveness measurable only via separate consumer-side audit.
 
-**Caveats:**
-- Hook needs to be «first prompt of session only» to avoid duplicating context every turn (state tracking via session-id file).
-- Risk of duplication with project CLAUDE.md if both files repeat the goal phrase — fix by having session-bootstrap.md contain content CLAUDE.md does not.
-- Repo perspective only (this `.claude/settings.json` is repo-internal). For consumer-side: AGENTS.md already has imperative «Read this file…» — measure whether it works in a separate consumer-side audit.
+**Rank 1.** Closes Probe 2 FAIL; structurally helps Probe 6 if injection includes 5-layer link.
 
-**Ranking: 1.** Highest benefit-per-cost — directly closes Probe 2 FAIL and structurally improves Probe 6 (if injected content includes a link to README's 5-layer framework section).
+### P-2 — CLAUDE.md links to README 5-layer framework + disambiguation (HIGH / LOW)
 
-### P-2 — CLAUDE.md links to README's 5-layer framework section (HIGH benefit / LOW cost)
+Add to CLAUDE.md «Project goal pointer» or new «Framework structure» pointer: «Framework taxonomy: [README.md#the-5-layer-framework](README.md#the-5-layer-framework). Do NOT confuse with the 3-layer recursive self-application enforcement table below.» Companion update in [doc-authority-hierarchy.md](../../../.claude/rules/doc-authority-hierarchy.md) parallel-disciplines list (same disambiguation).
 
-**Mechanism:** add a one-line link in CLAUDE.md's «Project goal pointer» or a new «Framework structure» pointer: «Framework taxonomy: see [README.md#the-5-layer-framework](README.md#the-5-layer-framework). Do NOT confuse with the 3-layer recursive self-application enforcement table below.»
+Caveat: bare link without «do not confuse» prose is weaker — disambiguation is load-bearing.
 
-**Why it works:** Probe 6 FAIL was caused by CLAUDE.md auto-load being the *only* taxonomy source the harness-baseline AI saw. A link plus an explicit «do not confuse» note prevents synthesis-by-conflation.
+**Rank 2.** Closes Probe 6 FAIL at minimal edit cost.
 
-**Caveats:**
-- Link without «do not confuse» note is weaker — link existence does not ensure click-through. The disambiguation prose is the load-bearing part.
-- Needs companion update in [.claude/rules/doc-authority-hierarchy.md](../../../.claude/rules/doc-authority-hierarchy.md) parallel-disciplines list with same disambiguation, since that was the other source of my Phase 1 confusion.
+### P-3 — Goal-phrase verbatim-sync check (MEDIUM / LOW)
 
-**Ranking: 2.** Closes the largest probe failure (Probe 6 FAIL) at minimal edit cost.
+New probe `D3 — goal phrase parity` in [packages/core/audit-self/audit-ai-docs.sh](../../../packages/core/audit-self/audit-ai-docs.sh): extract canonical phrase from README `Why this exists` (regex anchored on `### Goal (user-facing)` heading); substring-match in CLAUDE.md `Project goal pointer` + `.claude/session-bootstrap.md` `Goal` blocks; FAIL on divergence.
 
-### P-3 — Goal phrase verbatim-sync check (MEDIUM benefit / LOW cost)
+Caveat: risk of brittle verbatim coupling — mitigated by extracting a specifically-marked phrase from README (surrounding prose may vary). Implementation MEDIUM — bash regex multi-file is delicate; could shell to node.
 
-**Mechanism:** new probe in [packages/core/audit-self/audit-ai-docs.sh](../../../packages/core/audit-self/audit-ai-docs.sh) (proposed name `D3 — goal phrase parity`) that:
-1. Extracts canonical goal phrase from README.md `Why this exists` section by deterministic pattern (e.g. first sentence after «### Goal (user-facing)» that contains «AI» and ends with period).
-2. Verifies the **same phrase** (exact substring match) appears in CLAUDE.md `Project goal pointer` and `.claude/session-bootstrap.md` `Goal` section.
-3. FAIL if any of the three diverges.
+**Rank 3.** Targets a finding no current mechanism catches (Probe 1 revised PARTIAL).
 
-**Why it works:** Probe 1 revised PARTIAL surfaced a real drift surface — operational docs hold a synthesis paraphrase that has no automated tie to README. This probe forces verbatim parity OR explicit acknowledgement of intentional paraphrase (e.g. via a pre-defined «paraphrase line» allowlist in the script).
+### P-4 — Self-reflection skill keyword tuning (MEDIUM / LOW)
 
-**Caveats:**
-- Risk: forcing verbatim sync may make README harder to edit (every wording tweak forces 3-file update). Mitigation: probe checks for a *canonical phrase* extracted from a specifically-marked block in README, not the whole sentence — README's surrounding prose can vary.
-- Implementation difficulty MEDIUM — `audit-ai-docs.sh` is bash; multi-file regex with anchored extraction needs care. Could shell out to `node` for robustness.
+Edit `.claude/skills/self-reflection/SKILL.md` triggers:
+- **Add (close false-negatives):** «policy», «guideline», «standardise», «enforce», «check», «from now on», «every X must», «going forward», «должны/обязаны».
+- **Narrow (close false-positives):** replace bare «meta» → «meta-rule» / «meta-test» / «meta-discipline»; bare «recursive» → «recursive self-application» / «recursive enforcement»; bare «recommend» → «I recommend introducing» / «recommend a rule».
 
-**Ranking: 3.** Specifically targets a finding that current mechanisms cannot catch.
+Caveat: keyword-match is structurally brittle; semantic-intent classifier would outperform — out of scope for §4. Verification cost MEDIUM (mental corpus replay both directions).
 
-### P-4 — Self-reflection skill keyword expansion + scope-narrowing (MEDIUM benefit / LOW cost)
+**Rank 4.** Extension-probe target; weaker evidence than direct-drift fixes.
 
-**Mechanism:** edit `.claude/skills/self-reflection/SKILL.md` trigger keyword list:
+### P-5 — Goal phrase on first non-blockquote line of README (LOW / LOW)
 
-- **Add (false-negative fixes):** «policy», «guideline», «standardise», «enforce», «check», «from now on», «every X must», «going forward», «должны/обязаны».
-- **Remove or scope-narrow (false-positive fixes):** instead of bare «meta», use «meta-rule» / «meta-test» / «meta-discipline»; instead of bare «recursive», use «recursive self-application» / «recursive enforcement»; instead of bare «recommend», use «I recommend introducing» / «recommend a rule».
+Restructure so goal phrase appears as the first non-blockquote, non-title line — readers landing in README hit it before any subordinate content.
 
-**Why it works:** Probe 3 PARTIAL surfaced both false-negative and false-positive failure modes; the keyword set is a single dial that needs tuning in both directions.
+Caveat: README currently opens with «What this package gives you» (consumer-onboarding); change shifts primary audience signal. Helps only AIs that ARE reading README — Probe 1 baseline AI did not.
 
-**Caveats:**
-- Keyword-match is intrinsically brittle — even after tuning, semantic intent classification will outperform keyword matching. A future improvement is to replace keyword auto-trigger with a small classifier prompt; out of scope for §4.
-- Cost is LOW (edit to one file) but verification cost MEDIUM (need to run the skill mentally on a corpus of historic prompts to check both directions).
+**Rank 5.** Real but smaller.
 
-**Ranking: 4.** Targeted at extension probe (P3); lower confidence than direct-drift fixes above.
+### P-6 — Visual / structural cues in shipped templates (DEFERRED)
 
-### P-5 — Goal phrase on first non-blockquote line of README (LOW benefit / LOW cost)
-
-**Mechanism:** restructure README so the goal phrase «AI cannot silently bypass what fails CI» (or the operational synthesis if maintainers prefer that) appears as the **first non-blockquote, non-title line**, before any subordinate content.
-
-**Why it works:** structurally puts the goal where any reader (human or AI) opening the file lands first, regardless of section navigation.
-
-**Caveats:**
-- README currently leads with «What this package gives you» (consumer-onboarding) — moving the goal there changes README's primary audience signal.
-- Lower benefit than P-1/P-2 because it only helps AIs that ARE reading README. Probe 1 baseline AI never opened README at all.
-
-**Ranking: 5.** Real but smaller improvement.
-
-### P-6 — Visual / structural cues in shipped templates that resist drift (DEFERRED — out of scope)
-
-The audit prompt mentions «visual / structural cues in shipped templates that resist drift better» as an example improvement. From this self-audit's evidence (repo-perspective) I cannot evaluate consumer-side template effectiveness. Surfacing as a candidate for the **separate consumer-side audit** the prompt anticipates.
-
-**Ranking: deferred.**
+Audit prompt example. Self-audit (repo-perspective) cannot evaluate consumer-side template behaviour. Surfaced for separate consumer-side audit. **Ranking: deferred.**
 
 ---
 
@@ -415,57 +381,39 @@ Per audit spec: which proposals can become probes in [packages/core/audit-self/a
 
 ## §6 Open decisions
 
-For each improvement: ship-now / defer-with-trigger / out-of-scope. Each multi-choice with options.
+Each improvement → ship-now / defer-with-trigger / out-of-scope. Mandate of Wave 6: observation only; ship decisions belong to a separate orchestrator session. Recommendations below identify the audit's preferred ship-target for each item assuming mandate is lifted.
 
 ### D-1 — `UserPromptSubmit` hook (P-1)
+- **A:** ship hook in repo `.claude/settings.json`. — *audit's preferred*
+- **B:** defer until next concrete drift incident.
+- **C:** out of scope (Wave 6 mandate). — *Recommendation under mandate*
 
-- **Option A:** ship hook in repo `.claude/settings.json` injecting session-bootstrap.md content on first prompt.
-- **Option B:** defer — surfaced as candidate but no concrete demand; add when next concrete drift incident occurs.
-- **Option C:** out of scope — Wave 6 is observation-only by mandate; ship decision belongs to a separate orchestrator session.
+### D-2 — CLAUDE.md → README 5-layer link + disambiguation (P-2)
+- **A:** ship (~5-line CLAUDE.md edit + companion in doc-authority-hierarchy.md). — *audit's preferred*
+- **B:** bundle with next CLAUDE.md edit pass.
+- **C:** out of scope. — *Recommendation under mandate*
 
-**Recommendation: Option C with annotation that A is the audit's preferred ship-target.** This audit's mandate is «no implementation»; orchestrator session decides actual ship.
+### D-3 — Deterministic probes D3-D7 in `audit-ai-docs.sh` (P-1/P-2/P-3/P-4/P-5)
+- **A:** ship all 5 + propagate to consumer `scripts/audit-ai-docs.sh` (`install.sh:203`).
+- **B:** ship D3 + D4 only (target observed FAILs); defer D5-D7 with trigger «next AI-doc drift incident». — *audit's preferred*
+- **C:** convert to review-checklist text only.
+- **D:** out of scope. — *Recommendation under mandate*
 
-### D-2 — CLAUDE.md links README 5-layer framework + disambiguation note (P-2)
+### D-4 — Self-reflection keyword tuning (P-4)
+- **A:** ship expansion + narrowing in one edit.
+- **B:** corpus-replay first; ship only on evidence of net improvement.
+- **C:** defer with trigger «next over/under-trigger incident reported». — *audit's preferred*
+- **D:** out of scope. — *Recommendation under mandate*
 
-- **Option A:** ship — small edit to CLAUDE.md, ~5 lines.
-- **Option B:** defer until next CLAUDE.md edit pass — bundle with other authority-pointer changes.
-- **Option C:** out of scope.
+### D-5 — Consumer-side audit (Wave 7 candidate)
+- **A:** schedule as Wave 7 — install setup.sh on tmp project, run cold-start probes. — *audit's preferred & Recommendation*
+- **B:** fold into an existing wave.
+- **C:** defer indefinitely.
 
-**Recommendation: Option C** (mandate again). A is preferred ship-target; cost is trivial.
-
-### D-3 — D3-D7 deterministic probes added to `audit-ai-docs.sh` (P-3, P-2, P-1, P-4, P-5)
-
-- **Option A:** ship all 5 D-probes in one PR; add to consumer-side `scripts/audit-ai-docs.sh` (after `install.sh:203` copy) too.
-- **Option B:** ship D3 + D4 only (parity + 5-layer link) — these target observed FAILs; defer D5/D6/D7 with trigger «next AI-doc-layer drift incident».
-- **Option C:** ship none; convert to documented review-checklist items only.
-- **Option D:** out of scope.
-
-**Recommendation: Option D** (mandate). B is preferred ship-target if mandate were lifted — D3 + D4 directly address the strongest probe failures (Probe 1-revised + Probe 6) without expanding scope of `audit-ai-docs.sh` more than necessary.
-
-### D-4 — Self-reflection skill keyword tuning (P-4)
-
-- **Option A:** ship keyword expansion + narrowing in one edit to `.claude/skills/self-reflection/SKILL.md`.
-- **Option B:** corpus-replay first (run skill mentally over historic chats), only ship after evidence of net improvement.
-- **Option C:** defer with trigger «next over-trigger or under-trigger incident reported».
-- **Option D:** out of scope.
-
-**Recommendation: Option D** (mandate). C is preferred ship-target — this is an extension-probe finding; weaker evidence base than direct-drift fixes.
-
-### D-5 — Consumer-side audit (separate from this Wave 6)
-
-- **Option A:** schedule consumer-side AI-doc audit as Wave 7 (or as a separate task) — install repo's setup.sh on a tmp project, then run cold-start probes.
-- **Option B:** add a consumer-side cold-start audit as a section of an existing wave.
-- **Option C:** defer indefinitely.
-
-**Recommendation: Option A.** Repo perspective and consumer perspective have different mechanisms (AGENTS.md template vs CLAUDE.md auto-load); both need cold-audit coverage but cannot share a single session.
-
-### D-6 — LLM-judge advisory probes (L-1, L-2, L-3)
-
-- **Option A:** prototype L-1 only as a pilot, score on N=5 fresh sessions, evaluate before shipping the others.
-- **Option B:** defer all three with trigger «D3-D7 probes prove insufficient over 6 months» OR «3 cross-doc semantic-drift incidents within 12 months».
-- **Option C:** out of scope.
-
-**Recommendation: Option B** with explicit trigger conditions. LLM-judge probes are expensive (Claude API call per probe per CI run); should not ship without strong demand evidence.
+### D-6 — LLM-judge advisory probes (L-1/L-2/L-3)
+- **A:** pilot L-1 only on N=5 fresh sessions before shipping others.
+- **B:** defer all three with trigger «D3-D7 insufficient over 6 months» OR «3 cross-doc semantic-drift incidents in 12 months». — *Recommendation*
+- **C:** out of scope.
 
 ---
 
