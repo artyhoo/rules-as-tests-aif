@@ -339,7 +339,7 @@ per-rule × 26: 78K input · $5/M + 13K output · $25/M = $0.39  + $0.325 = $0.7
 
 ### 13.21 Doc-authority discipline applied to generated user-facing docs (deferred L3)
 
-**Status:** deferred 2026-05-09. Recorded during goal-hierarchy follow-up (L1 + L2 shipped this branch; L3 = generated docs scope).
+**Status:** closed 2026-05-10 by [research-patches/2026-05-09-§13.21-l3-revision.md](research-patches/2026-05-09-§13.21-l3-revision.md) — Wave 1 (PR #21) + Wave 2 (PR #22) + Wave 3 (PR #23) + Wave 4 (PR #24) all merged on `main`. Original L1 + L2 in-branch context preserved in the revision plan.
 **Origin:** L1 of the goal-hierarchy follow-up shipped `.claude/rules/doc-authority-hierarchy.md` (rule) + `packages/core/principles/09-doc-authority-hierarchy.test.ts` (executable principle). L2 audited all project-internal docs and added Authoritative-for headers to 30 canonical authority-bearing docs. **L3** — applying the same discipline to docs the framework GENERATES for consumer projects — is feature work, not docs-restructure.
 
 **Why deferred:** L3 requires changes across multiple shipped surfaces:
