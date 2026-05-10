@@ -42,6 +42,51 @@ if [ "$PKG_ROOT" = "$PROJECT_ROOT" ]; then
   exit 1
 fi
 
+# ─── Pre-install: verify shipped artefacts carry Authoritative-for headers ──
+# Author-side fail-loud check (Wave 3 of §13.21 closure, see
+# docs/meta-factory/research-patches/2026-05-09-§13.21-l3-revision.md).
+# Mirrors the canonical list at
+# packages/core/principles/09-doc-authority-hierarchy.test.ts
+# (REQUIRED_HEADER_DOCS Wave 2 entries — 11 shipped surfaces).
+# Runs in --dry-run too, so preview also catches drift between PR-side
+# (principle 09 CI) and release-time copy. Positioned before package.json
+# check + stack picker so framework-author drift fails fastest, before any
+# interactive prompt.
+SHIPPED_DOCS=(
+  "packages/core/templates/shared/AGENTS.md.template"
+  "packages/core/templates/shared/CLAUDE.md.template"
+  "packages/core/templates/shared/DESCRIPTION.template.md"
+  "packages/core/templates/shared/ARCHITECTURE.ts-server.md"
+  "packages/core/templates/shared/integration-rules.md"
+  "packages/preset-next-15-canonical/RULES.md"
+  "packages/preset-next-15-canonical/RULES.react-next.md"
+  "packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md"
+  "agents/best-practices-sidecar.md"
+  "agents/review-sidecar.md"
+  "agents/docs-auditor.md"
+)
+echo "▶ Verifying shipped artefacts carry Authoritative-for headers"
+verify_fail=0
+for rel in "${SHIPPED_DOCS[@]}"; do
+  abs="$PKG_ROOT/$rel"
+  if [ ! -f "$abs" ]; then
+    echo "  ❌ FAIL: $rel missing from package (expected at $abs)" >&2
+    verify_fail=1
+    continue
+  fi
+  if ! grep -qE '^> \*\*Authoritative for:\*\*' "$abs"; then
+    echo "  ❌ FAIL: $rel missing Authoritative-for header (see .claude/rules/doc-authority-hierarchy.md §3)" >&2
+    verify_fail=1
+  fi
+done
+if [ "$verify_fail" -ne 0 ]; then
+  echo "" >&2
+  echo "Aborting install: shipped artefacts failed Authoritative-for header verification." >&2
+  echo "This is a framework-author bug; principle 09 CI should also be red." >&2
+  exit 1
+fi
+echo "  ✓ all ${#SHIPPED_DOCS[@]} shipped artefacts carry valid headers"
+
 # Must be a project (has package.json) — but in dry-run we just warn so the user can preview.
 if [ ! -f "$PROJECT_ROOT/package.json" ]; then
   if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -114,49 +159,6 @@ chmod_safe() {
   fi
   chmod "$@"
 }
-
-# ─── Pre-install: verify shipped artefacts carry Authoritative-for headers ──
-# Author-side fail-loud check (Wave 3 of §13.21 closure, see
-# docs/meta-factory/research-patches/2026-05-09-§13.21-l3-revision.md).
-# Mirrors the canonical list at
-# packages/core/principles/09-doc-authority-hierarchy.test.ts
-# (REQUIRED_HEADER_DOCS Wave 2 entries — 11 shipped surfaces).
-# Runs in --dry-run too, so preview also catches drift between PR-side
-# (principle 09 CI) and release-time copy.
-SHIPPED_DOCS=(
-  "packages/core/templates/shared/AGENTS.md.template"
-  "packages/core/templates/shared/CLAUDE.md.template"
-  "packages/core/templates/shared/DESCRIPTION.template.md"
-  "packages/core/templates/shared/ARCHITECTURE.ts-server.md"
-  "packages/core/templates/shared/integration-rules.md"
-  "packages/preset-next-15-canonical/RULES.md"
-  "packages/preset-next-15-canonical/RULES.react-next.md"
-  "packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md"
-  "agents/best-practices-sidecar.md"
-  "agents/review-sidecar.md"
-  "agents/docs-auditor.md"
-)
-echo "▶ Verifying shipped artefacts carry Authoritative-for headers"
-verify_fail=0
-for rel in "${SHIPPED_DOCS[@]}"; do
-  abs="$PKG_ROOT/$rel"
-  if [ ! -f "$abs" ]; then
-    echo "  ❌ FAIL: $rel missing from package (expected at $abs)" >&2
-    verify_fail=1
-    continue
-  fi
-  if ! grep -qE '^> \*\*Authoritative for:\*\*' "$abs"; then
-    echo "  ❌ FAIL: $rel missing Authoritative-for header (see .claude/rules/doc-authority-hierarchy.md §3)" >&2
-    verify_fail=1
-  fi
-done
-if [ "$verify_fail" -ne 0 ]; then
-  echo "" >&2
-  echo "Aborting install: shipped artefacts failed Authoritative-for header verification." >&2
-  echo "This is a framework-author bug; principle 09 CI should also be red." >&2
-  exit 1
-fi
-echo "  ✓ all ${#SHIPPED_DOCS[@]} shipped artefacts carry valid headers"
 
 # ─── 1. Skills ──────────────────────────────────────────
 echo "▶ Skills → .claude/skills/"
