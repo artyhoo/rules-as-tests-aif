@@ -260,6 +260,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
       WAVE_2_PREFIXES.some((pref) => p.startsWith(pref)),
     );
 
+    expect(installShipped).toHaveLength(11);
     expect(new Set(installShipped)).toEqual(new Set(wave2Subset));
   });
 });
