@@ -446,3 +446,41 @@ This is feature scope (Phase 9.x or 10.x), not goal-hierarchy fix. Shipping L3 i
 **Out of scope for this entry:** the actual distillation work (lives in next-session research-patch); design of meta-test specifics (literal-count detection regex, scope predicates); decision of whether to extend §1.7 sub-rule numbering vs add §1.8 (depends on cardinality of distilled patterns).
 
 **Cross-references:** [research-patches/2026-05-09-§13.21-l3-self-review.md](research-patches/2026-05-09-§13.21-l3-self-review.md) §«H7 candidate observation» + §«H8 update» — sample data + sub-case enumeration; [research-patches/2026-05-09-§13.21-l3-revision.md](research-patches/2026-05-09-§13.21-l3-revision.md) — second-occurrence exemplar of §1.7 (parent rule); [PR #20 «Process retrospective» section](https://github.com/Yhooi2/rules-as-tests-aif/pull/20) — narrative context for additional sub-case (b) instances; [`.claude/rules/phase-research-coverage.md §3 aggregation`](../../.claude/rules/phase-research-coverage.md) — 3-patch threshold mechanism.
+
+### 13.25 Project-Aware Tool Bootstrapping (armed — Wave 5 research)
+
+**Status:** armed 2026-05-10. Surfaced in chat between user and assistant as alternative to push-based MCP delivery via `install.sh`. Captured for systematic investigation in a dedicated Wave 5 research session before any implementation.
+
+**Origin:** user-stated frame (verbatim, do not paraphrase):
+
+> При онбординге проекта AI самостоятельно анализирует его стек и зависимости, исследует какие MCP серверы и скиллы существуют и подходят под проект, затем предлагает пользователю список для подтверждения. Пользователь сам решает что устанавливать. При появлении новых зависимостей процесс повторяется инкрементально.
+
+Six rules:
+
+1. **Анализ.** При первом знакомстве с проектом — изучи структуру, файлы зависимостей и конфигурации. Определи стек, внешние сервисы и процессы которые использует проект.
+2. **Подбор инструментов.** Исследуй какие MCP серверы и скиллы существуют для обнаруженного стека. Приоритет — официальные, активно поддерживаемые, популярные. Для каждого инструмента должно быть конкретное обоснование: что именно в проекте требует его использования.
+3. **Предложение.** Покажи пользователю список одним блоком с обоснованием каждого пункта. Не устанавливай ничего без явного подтверждения — подключение MCP это решение пользователя.
+4. **Экономия токенов.** MCP подключается только когда реально нужен в текущей задаче, не постоянно. Скиллы предпочтительнее MCP там где задача не требует живого доступа к внешнему сервису — они загружаются по требованию и не занимают контекст постоянно.
+5. **Инкрементальность.** Если в процессе работы обнаруживается новая зависимость или сервис которого не было при онбординге — предложи соответствующий инструмент по той же схеме.
+6. **Память.** Фиксируй что уже предложено и что пользователь отклонил — не предлагай повторно.
+
+**Open structural questions** (need investigation, not yet decisions):
+
+- **Layering**: where does this rule live? `AGENTS.md.template` bullet / standalone skill / measurable check in `audit-ai-docs.sh`?
+- **Memory persistence**: in-session vs file-based (committed vs gitignored vs override-pattern)?
+- **«No install without confirmation»**: hard rule vs configurable (strict / bulk-approve / trust-mode)?
+- **Recursive bootstrap**: context7 itself is the most likely first recommendation — this very session needed it. How does the tool propose itself when it's the precondition for proposing? GCC stage1 / `rustc` self-host analogy.
+
+**Why deferred (not implemented inline):** the proposal touches at least four discipline-bearing surfaces (build-vs-reuse SSOT, doc-authority, skill ecosystem, install.sh contract). Inline implementation without prior-art consult would risk both `#own-stack-blind-spot` (treating context7 / AIF Step 0 / Cursor MCP-discovery as inert) and `#recommendation-skips-own-discipline` (proposing a discipline change that itself bypasses §1.7 forward+backward checks). Wave 5 research session is the gated path.
+
+**Trigger condition for revisit:** Wave 5 research session draft per [`.claude/orchestrator-prompts/wave-5-tool-bootstrapping/research.md`](../../.claude/orchestrator-prompts/wave-5-tool-bootstrapping/research.md) (gitignored — operator-side prompt). The research-patch landing the findings will reference this entry as its anchor per [`phase-research-coverage.md §3`](../../.claude/rules/phase-research-coverage.md) («one file per gap»).
+
+**Promotion path when triggered:**
+
+1. Research session produces `research-patches/2026-05-10-§13.25-tool-bootstrapping-research.md` per its dedicated prompt — covers feature-level build-vs-reuse (O0), trigger sweep (O0.1), MCP/skill inventory (§1-§2), prior art (§3), persistence (§4), token economy (§5), confirmation UX (§6), recursive bootstrap (§7), adversarial failure modes (§8), synthesis (§9), SSOT proposals (§10), open decisions (§11), implementation outline (§12), §1.7 compliance checks (§13).
+2. Review session (separate prompt) closes open decisions in §11; chooses concrete option per axis.
+3. Orchestrator session implements per §12 sub-wave breakdown; lands SSOT entries from §10 in `prior-art-evaluations.md` in same atomic commits as capability artefacts.
+
+**Out of scope for this entry:** the research itself (lives in dedicated Wave 5 research session); decision-making (lives in review session); implementation (lives in orchestrator session).
+
+**Cross-references:** [`.claude/orchestrator-prompts/wave-5-tool-bootstrapping/research.md`](../../.claude/orchestrator-prompts/wave-5-tool-bootstrapping/research.md) (operator-side prompt for the research session, gitignored); §13.18 (AIF deep alignment — potential cascade overlap on Step 0 / dynamic discovery); §13.22 (own-conventions evolution → L2 Research Agent — potential cascade overlap on memory + incremental sweep).
