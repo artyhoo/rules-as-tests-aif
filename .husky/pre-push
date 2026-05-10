@@ -59,11 +59,18 @@ else
   exit 1
 fi
 
-# ── 6. Spec discipline (Phase 1.C) — hard fail ────────────────────────────────
+# ── 6. Spec discipline (Phase 1.C) — dormant defensive guard ─────────────────
+# Phase 1.C original spec assumed `.claude/orchestrator-prompts/` was tracked
+# (incident: fake `rhysd/actionlint@<fake-sha>` in batch-D.md). Directory is
+# now gitignored intentionally — operator-side prompts contain session-specific
+# context not for upstream. Result: this block is dormant on the main path,
+# fires only as defensive guard if someone force-adds an orchestrator-prompt
+# file past gitignore. Real operator-side discipline requires non-git
+# enforcement — see open-questions.md §13.28 (armed Phase 11+ work).
 SPEC_FILES=$(git diff origin/main...HEAD --name-only --diff-filter=ACM 2>/dev/null \
   | grep '^\.claude/orchestrator-prompts/.*\.md$' || true)
 if [ -n "$SPEC_FILES" ]; then
-  echo "Validating modified orchestrator-prompts in this push..."
+  echo "Validating force-added orchestrator-prompts in this push..."
   # shellcheck disable=SC2086
   npx tsx "$REPO_ROOT/packages/core/spec-validation/validate-batch-spec.ts" $SPEC_FILES \
     || { echo "❌ spec-validate findings — fix before push"; exit 1; }

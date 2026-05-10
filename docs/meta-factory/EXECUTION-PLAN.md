@@ -464,6 +464,8 @@ git reset HEAD~1 --hard
 - Self-application score: 9/10
 - Risk: gh api зависит от auth token — fallback для контрибьюторов без `gh auth login`?
 
+> **2026-05-10 reconciliation note:** Phase 1.C was implemented in [`.husky/pre-push`](../../.husky/pre-push) §6 block, BUT `.claude/orchestrator-prompts/` was subsequently gitignored (rationale: operator-side prompts hold session-specific context not for upstream). This makes the hook block dormant on the main path — fires only as defensive guard for force-added files past gitignore. Discipline mechanism formally exists but is structurally bypassed. Tracked as [open-questions §13.28](open-questions.md) with default closure path: non-git `make validate-prompts` target (advisory). Surface as Phase 11+ work after Wave 5 + Wave 6 close.
+
 #### Phase 1 итоговая retrospective
 
 Composite retro в `docs/meta-factory/retros/phase-1.md`. Главное: **появился ли local enforcement, который перехватывает классы ошибок из self-application gap document'а**? Если хоть один класс не покрыт — fix перед Phase 2.
