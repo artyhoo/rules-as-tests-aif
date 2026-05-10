@@ -125,6 +125,8 @@ Decision matrix в [self-application.md](self-application.md) §3 фиксиру
 
 Решение принять при добавлении 10-го layer'а; до этого — текущая matrix фиксирована.
 
+**2026-05-10 trigger note:** [§13.27](#1327-functional-test-for-shipped-ai-briefing-templates-armed--phase-11-work) + [§13.28](#1328-operator-side-discipline-gap--non-git-validation-path-armed--phase-11-work) close jointly with this entry under **Wave 7** (prompts in `.claude/orchestrator-prompts/wave-7-hot-checks-joint-closure/`, gitignored). Scope: hot-checks for code+docs, harness-level hooks as potential 5th lifecycle stage. Detailed in Wave 7 research.md.
+
 ### 13.9 Bypass через `--no-verify` — структурное решение
 
 Локальный pre-commit / pre-push не блокирует автора который запускает `git commit --no-verify`. Без mitigation invariant декоративен.
@@ -484,3 +486,15 @@ Six rules:
 **Out of scope for this entry:** the research itself (lives in dedicated Wave 5 research session); decision-making (lives in review session); implementation (lives in orchestrator session).
 
 **Cross-references:** [`.claude/orchestrator-prompts/wave-5-tool-bootstrapping/research.md`](../../.claude/orchestrator-prompts/wave-5-tool-bootstrapping/research.md) (operator-side prompt for the research session, gitignored); §13.18 (AIF deep alignment — potential cascade overlap on Step 0 / dynamic discovery); §13.22 (own-conventions evolution → L2 Research Agent — potential cascade overlap on memory + incremental sweep).
+
+### 13.26 AI-doc effectiveness in cold-start context (in-flight — Wave 6 audit)
+
+In-flight 2026-05-10. Phase 1 deliverable in [research-patches/2026-05-10-ai-doc-effectiveness-cold-audit.md](research-patches/2026-05-10-ai-doc-effectiveness-cold-audit.md); Phase 2 + §4 improvements pending. Origin: post-Wave-2 reviewer-Opus described 4 drift moments (methodology elevation, taxonomy mixing, memory-mode goal-without-README, Step 0 skip) caught by user pushback. Trigger: Wave 6 Phase 2 + review per [`cold-audit.md`](../../.claude/orchestrator-prompts/wave-6-ai-doc-cold-audit/cold-audit.md). Cross-refs: §13.21 (parent doc-authority); §13.25 (Wave 5 sequencing); §13.28 (operator-side gap).
+
+### 13.27 Functional test for shipped AI-briefing templates (armed — Phase 11+ work)
+
+Armed 2026-05-10. Joint closure with §13.28 + §13.8 under **Wave 7** (prompts in `.claude/orchestrator-prompts/wave-7-hot-checks-joint-closure/`, gitignored); gated on Wave 5+6 close. Origin: §13.21 closure extended principle 09 to shipped templates (header presence) but not functional fitness — does `AGENTS.md.template` actually anchor a consumer AI when rendered? Why deferred: smoke-test infrastructure (render harness + mock consumer + adapted cold-audit probes P1/P4/P6) is Phase 11+ scope. Cross-refs: §13.21 (parent); §13.26 (own AI-doc audit; this extends to consumer artefacts); [§13.28](#1328-operator-side-discipline-gap--non-git-validation-path-armed--phase-11-work) (joint sibling); [§13.8](#138-decision-matrix-expansion-rule) (matrix expansion).
+
+### 13.28 Operator-side discipline gap — non-git validation path (armed — Phase 11+ work)
+
+Armed 2026-05-10. Joint closure with §13.27 + §13.8 under **Wave 7** (prompts in `.claude/orchestrator-prompts/wave-7-hot-checks-joint-closure/`, gitignored); gated on Wave 5+6 close. Sample-size 1 ([cold-audit.md:32-36](../../.claude/orchestrator-prompts/wave-6-ai-doc-cold-audit/cold-audit.md) — 6 drafting bugs caught by sceptic-pass); 2nd incident promotes per §13.21 H8 precedent. Origin: Phase 1.C shipped `validate-batch-spec.ts` for `.claude/orchestrator-prompts/*.md` ([.husky/pre-push §6](../../.husky/pre-push)); directory gitignored — hook dormant on main path. Closure paths (default A+B): (A) `make validate-prompts` fs-walk advisory; (B) harness-hook (Claude Code PostToolUse) hot channel; (C) un-gitignore — rejected 2026-05-10. Detailed scope in Wave 7 research.md. Cross-refs: [.husky/pre-push §6](../../.husky/pre-push); [EXECUTION-PLAN Batch 1.C](EXECUTION-PLAN.md); [§13.8](#138-decision-matrix-expansion-rule); §13.21 (sample-size precedent); §13.23 (4th-layer ladder); [§13.27](#1327-functional-test-for-shipped-ai-briefing-templates-armed--phase-11-work) (joint sibling); §13.26 (Wave 6 prompt was 1st incident).
