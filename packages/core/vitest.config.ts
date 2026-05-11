@@ -16,6 +16,7 @@ export default defineConfig({
       'installer/**/*.test.ts',
       'diff/**/*.test.ts',
       'tests/**/*.test.ts',
+      'audit-self/**/*.audit.ts',
     ],
   },
 });
