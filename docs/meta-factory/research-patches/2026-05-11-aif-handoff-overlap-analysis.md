@@ -3,6 +3,7 @@
 > **Scope:** research mandate 2026-05-11 — overlap analysis между AIF v2.x Handoff coordinator и нашими 7 «handoff»-семейными primitives (P1-P7).
 > **Authoritative for:** evidence + verdicts на borrow candidates. NOT authoritative for: implementation decision (orchestrator Stage 3); project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists); AIF deep alignment Option I — see [open-questions.md §13.18](../open-questions.md).
 > **Stage:** 1 of 3 (research → independent review → decision).
+> **Revised 2026-05-11 per Stage 2 reviewer findings (MAJOR-1 + MAJOR-2 + 5× MINOR; verdicts unchanged).**
 
 ---
 
@@ -109,22 +110,31 @@ Labels: **OVL** = OVERLAP (winner in parens), **ORT** = ORTHOGONAL, **INV** = IN
 
 | AIF Feature | P1 | P2 | P3 | P4 | P5 | P6 | P7 |
 |---|---|---|---|---|---|---|---|
-| C1 `HANDOFF_MODE` fork | ORT | ORT | ORT | OVL(ours) | ORT | ORT | ORT |
-| S1 `handoff_sync_status` | ORT | INV | ORT | ORT | ORT | ORT | ORT |
-| S2 `handoff_push_plan` | OVL(AIF) | OVL(equiv) | ORT | ORT | ORT | ORT | ORT |
-| A1 plan annotation | ORT | ORT | ORT | ORT | ORT | OVL(ours) | OVL(ours) |
+| C1 `HANDOFF_MODE` fork | ORT | ORT | ORT | ORT | ORT | ORT | ORT |
+| C2 top-level agent req. | ORT | ORT | ORT | ORT | OVL(ours) | ORT | ORT |
 | C3 External DB ownership | ORT | ORT | INV | ORT | ORT | ORT | ORT |
+| S1 `handoff_sync_status` | ORT | ORT | ORT | ORT | ORT | ORT | ORT |
+| S2 `handoff_push_plan` | OVL(AIF) | OVL(equiv) | ORT | ORT | ORT | ORT | ORT |
+| S3 Artifact Ownership | ORT | ORT | ORT | ORT | ORT | ORT | ORT |
+| A1 plan annotation | ORT | ORT | ORT | ORT | ORT | OVL(ours) | OVL(ours) |
 
 **Cell rationale (non-ORT cells only):**
 
-**C1 × P4 OVL(ours):** Both implement config-driven mode fork for orchestrator behavior. AIF: `HANDOFF_MODE=1`
-suppresses interactivity, delegates to external coordinator. Ours: Mode A/B selects inline Agent vs. file-prompt
-Sonnet. Winner = ours: covers model-selection + context-isolation in one primitive; AIF fork is integration-mode
-only, not model economics.
+**C1 × P4 ORT:** Both are config-driven mode forks at surface vocabulary, but solve different problem classes:
+AIF C1 = external-system integration suppression; наш P4 = model-quota + context-isolation. Same `mode fork`
+lexeme, different functions per #pattern-matching-on-name. (MAJOR-2 variant A downgrade from OVL.)
 
-**S1 × P2 INV:** Both communicate state transitions across phase/context boundaries. AIF: push-based (skill calls
-`handoff_sync_status` MCP to coordinator, explicit status+timestamp). P2: pull-based (next wave reads previous
-wave's output files from git). INVERSE mechanism on same problem.
+**C2 × P5 OVL(ours):** AIF C2 requires top-level agent sessions (`claude --agent`) to enable subagent-spawning.
+P5 requires independent session per review (new session prevents bias propagation). Both enforce session-topology
+constraints for correctness of multi-agent workflow. Winner = ours: P5 is a methodological discipline enforced
+via skill docs; C2 is a runtime capability constraint. Different mechanisms, but functional parallel on
+«session boundary matters for correctness».
+
+**S3 × P3 ORT:** Name match is direct (both called «Artifact Ownership Contract»), but enforcement layers differ.
+AIF S3 = runtime skill read-only artifact ownership (skills skip writes to paths.rules_file / paths.research in
+HANDOFF_MODE=1). Ours P3 = git-level commit ownership table (cross-owner edit = atomic commit + rationale).
+Different persistence granularities: AIF = runtime file-path restrictions; ours = commit-level audit trail.
+Same ownership principle, incompatible enforcement layers — ORT on implementation.
 
 **S2 × P1 OVL(AIF):** Both transfer artifact content across context boundaries. AIF: continuous `handoff_push_plan`
 (each checklist update, MCP tool, structured). P1: one-shot file-prompt transfer (markdown file, human-mediated).
@@ -137,8 +147,9 @@ differ in timing (continuous vs. one-shot) and direction (AI→external vs. AI�
 
 **A1 × P6 OVL(ours):** Both link artifacts to their originating scope via inline markers. AIF: `<!-- handoff:task:<id> -->`
 in plan file → links to Handoff task. P6: `Prior-art:` commit trailer → links capability commit to SSOT entry.
-Winner = ours: git-native, auditable, machine-enforced via pre-push hook + principle 08 test; AIF annotation is
-HTML comment with no enforcement gate.
+AIF A1 has runtime enforcement only in `HANDOFF_MODE=1` (mandatory if `HANDOFF_TASK_ID` present per §1 A1);
+no git-level enforcement. Ours P6 has git-level pre-push + principle test + commit trailer — broader enforcement
+scope. Winner = ours for the auditable-trail dimension; AIF wins for runtime API contract enforcement.
 
 **A1 × P7 OVL(ours):** Both annotate work artifacts with provenance markers. AIF: first-line task ID annotation.
 P7: frontmatter `> Scope:` + date slug in research patches. Winner = ours: richer provenance (date + topic +
@@ -155,9 +166,9 @@ Same ownership principle, incompatible backends.
 
 | AIF primitive | Наша nearest analog | Borrow verdict | Rationale | SSOT entry needed? |
 |---|---|---|---|---|
-| C1 `HANDOFF_MODE` env-var fork | P4 Mode A/B | DEFER | Env-var fork more automation-portable than file-prompt Mode B; could inform `ORCHESTRATOR_MODE=autonomous` for CI-triggered orchestration. Trigger to revisit: first automation pipeline requiring non-interactive orchestrator, OR Mode B file-prompt proves fragile across terminal sessions. | YES |
+| C1 `HANDOFF_MODE` env-var fork | P4 Mode A/B | DEFER | Env-var fork more automation-portable than file-prompt Mode B; could inform `ORCHESTRATOR_MODE=autonomous` for CI-triggered orchestration. Trigger to revisit: ≥2 reviewer-reported file-prompt session-loss incidents in one quarter logged in research-patches/ under tag `#mode-b-fragility`; OR orchestrator session lifecycle docs upgrade explicitly describes Mode B failure mode. | YES |
 | S1 paused:true/false semantic | P5 reviewer independent-context | DEFER | `paused:true` on "review" status explicitly encodes «human review required before continuing». Our workflow has implicit pause points but no machine-readable pause state. Trigger to revisit: when we formalize a state machine for wave workflow (Phase 11+, or wave count >10). | YES |
-| A1 `<!-- handoff:task -->` annotation | P6 `Prior-art:` trailer + P7 frontmatter Scope | ADAPT | Machine-parseable first-line annotation. Adaptation: `<!-- scope:§N -->` as first line of research patches → enables automated trigger sweeps (§1.6) replacing grep-on-prose. Modifications needed: (1) `§N` syntax not UUID; (2) scope to research-patches only; (3) enforcement check in `packages/core/principles/`. Executable check after adoption: `grep -c "^<!-- scope:§" docs/meta-factory/research-patches/*.md` equals patch count; CI probe in `audit-self.yml` verifies annotation on each patch. | YES |
+| A1 `<!-- handoff:task -->` annotation | P6 `Prior-art:` trailer + P7 frontmatter Scope | ADAPT | Machine-parseable first-line annotation. Adaptation: `<!-- scope:§N -->` as first line of research patches → enables automated trigger sweeps (§1.6) replacing grep-on-prose. Modifications needed: (1) `§N` syntax not UUID; (2) scope to research-patches only; (3) enforcement check in `packages/core/principles/`. Executable check: `exit code 1 if grep -c "^<!-- scope:§" docs/meta-factory/research-patches/*.md != $(ls docs/meta-factory/research-patches/*.md \| grep -v README.md \| wc -l)`, stderr: `«patch <path> missing scope annotation»`. Backward sweep impact: ~24 existing research patches require retrofitting annotation atomically with CI gate at Stage 3 ADAPT GO — Stage 3 orchestrator conducts sweep, not Stage 1.5. | YES |
 | C3 External DB ownership | P3 Artifact Ownership Contract | REJECT | Why not: AIF coordinator owns DB writes for mutable task state — incompatible with git-as-SSOT invariant. Introducing external mutable DB breaks the property that all state changes are auditable via `git log` (README.md invariant 1: build-vs-reuse discipline; implicit: git as sole audit trail). Our P3 achieves equivalent ownership goals via git commits + atomic-commit-with-rationale requirement. | NO |
 
 ---
@@ -210,9 +221,9 @@ Handoff-side full state machine.
 
 | ID | Candidate | Capability matched | First seen | Verdict | Rationale (≥120 chars) | Trigger to revisit / Why not |
 |---|---|---|---|---|---|---|
-| #<TBD-A> | AIF Handoff `HANDOFF_MODE` env-var fork (lee-to/ai-factory v2.x, `skills/aif-implement/SKILL.md`) | Env-var driven mode fork for orchestrator: autonomous (no MCP calls) vs. interactive (inline MCP sync) | 2026-05-11 | DEFER | `HANDOFF_MODE=1` suppresses interactivity and delegates status management to external system — more automation-portable than our file-prompt Mode B. Different purpose: external-system integration vs. model-quota management (C1×P4 OVERLAP, winner=ours). DEFER pending first automation pipeline requiring non-interactive orchestrator. | First automation pipeline (CI-triggered orchestration) where Mode B file-prompt proves fragile; OR project adopts Handoff as task management (Phase 11+) |
-| #<TBD-B> | AIF Handoff `paused:true/false` semantic (lee-to/ai-factory v2.x, `handoff_sync_status` tool) | Explicit machine-readable pause-for-human-review primitive in workflow state transitions | 2026-05-11 | DEFER | `paused:true` on `"review"` status encodes «human review required before AI continues» machine-readably. Our workflow has implicit pause points (P5 reviewer gate, orchestrator decision) but no machine-readable pause state. DEFER pending wave state machine formalization. Useful primitive for Phase 11+ wave orchestration. | Wave count >10 requiring formal state machine; OR Phase 11+ automation where implicit pause is insufficient for reliable reviewer gate enforcement |
-| #<TBD-C> | AIF `<!-- handoff:task:<id> -->` first-line plan annotation (lee-to/ai-factory v2.x, `skills/aif-plan/SKILL.md`) | Machine-parseable artifact-to-scope linking via first-line HTML comment annotation in work files | 2026-05-11 | ADAPT | Annotation pattern `<!-- handoff:task:<id> -->` links plan files to task IDs machine-parseably (A1×P6 OVERLAP, winner=ours for audit-trail; ADAPT for research patches). Adaptation: `<!-- scope:§N -->` as first line of research patches enables automated §1.6 trigger sweeps replacing prose grep. Modifications: §N syntax not UUID; scope to research-patches only; enforcement in principles. | §1.6 trigger sweep volume >20 armed entries where grep-on-prose becomes brittle; OR Phase 11+ tooling requires machine-linked patch→trigger cross-reference |
+| #<TBD-A> | AIF Handoff `HANDOFF_MODE` env-var fork (lee-to/ai-factory v2.x, `skills/aif-implement/SKILL.md`) | Env-var driven mode fork for orchestrator: autonomous (no MCP calls) vs. interactive (inline MCP sync) | 2026-05-11 | DEFER | `HANDOFF_MODE=1` suppresses interactivity and delegates status management to external system — more automation-portable than our file-prompt Mode B. Different purpose: external-system integration vs. model-quota management (C1×P4 ORT per MAJOR-2 variant A). DEFER pending first automation pipeline requiring non-interactive orchestrator. | ≥2 reviewer-reported file-prompt session-loss incidents in one quarter logged under `#mode-b-fragility`; OR orchestrator session lifecycle docs upgrade explicitly describes Mode B failure mode; OR Wave 5 §13.25 implementation surfaces these MCPs as discoverable candidates |
+| #<TBD-B> | AIF Handoff `paused:true/false` semantic (lee-to/ai-factory v2.x, `handoff_sync_status` tool) | Explicit machine-readable pause-for-human-review primitive in workflow state transitions | 2026-05-11 | DEFER | `paused:true` on `"review"` status encodes «human review required before AI continues» machine-readably. Our workflow has implicit pause points (P5 reviewer gate, orchestrator decision) but no machine-readable pause state. DEFER pending wave state machine formalization. Useful primitive for Phase 11+ wave orchestration. | Wave count >10 requiring formal state machine; OR Phase 11+ automation where implicit pause is insufficient for reliable reviewer gate enforcement; OR Wave 5 §13.25 implementation surfaces these MCPs as discoverable candidates |
+| #<TBD-C> | AIF `<!-- handoff:task:<id> -->` first-line plan annotation (lee-to/ai-factory v2.x, `skills/aif-plan/SKILL.md`) | Machine-parseable artifact-to-scope linking via first-line HTML comment annotation in work files | 2026-05-11 | ADAPT | Annotation pattern `<!-- handoff:task:<id> -->` links plan files to task IDs machine-parseably (A1×P6 OVL, winner=ours for audit-trail; ADAPT for research patches). Adaptation: `<!-- scope:§N -->` as first line of research patches enables automated §1.6 trigger sweeps replacing prose grep. Modifications: §N syntax not UUID; scope to research-patches only; enforcement in principles. | Stage 3 backward-sweep prerequisite: aif-handoff-A1-annotation adoption requires sweep of all existing research-patches atomically with CI gate; §1.6 trigger sweep volume >20 armed entries where grep-on-prose becomes brittle |
 
 ---
 
@@ -252,3 +263,6 @@ No principle test, no pre-push hook, no CLAUDE.md rule added here.
 - AIF `implement-coordinator` dependency graph + parallel worker dispatch (adjacent to orchestrator Mode A
   parallel workers, but outside handoff-family scope) — logged as Phase 11+ integration point per
   `aif-comparison.md §7 subtask 11.2`.
+- §13.25 — AIF Handoff MCPs (`handoff_sync_status`, `handoff_push_plan`) — potential discoverable candidates
+  at Wave 5 §13.25 Project-Aware Tool Bootstrapping implementation; not fired, logged.
+- §13.22 — Handoff API drift surveillance relevant at DEFER verdict implementation; not fired, logged.
