@@ -201,7 +201,9 @@ if skip_unless D4; then : ; else
   elif [ ! -f .ai-factory/tool-decisions.md ]; then
     warn "$RULE — .ai-factory/tool-decisions.md missing; run setup.sh or /tool-bootstrapping to seed"
   else
-    # Compare mtimes: if package.json is strictly newer → stale
+    # Compare mtimes: if package.json is strictly newer → stale.
+    # Asymmetric stat-failure fallbacks (PKG=0, DEC=1) ensure PKG_MTIME ≤ DEC_MTIME
+    # when either stat fails, so a stat error never produces a false stale WARN.
     PKG_MTIME=$(stat -c %Y package.json 2>/dev/null || stat -f %m package.json 2>/dev/null || echo 0)
     DEC_MTIME=$(stat -c %Y .ai-factory/tool-decisions.md 2>/dev/null || stat -f %m .ai-factory/tool-decisions.md 2>/dev/null || echo 1)
     if [ "$PKG_MTIME" -gt "$DEC_MTIME" ]; then

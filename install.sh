@@ -47,7 +47,7 @@ fi
 # docs/meta-factory/research-patches/2026-05-09-§13.21-l3-revision.md).
 # Mirrors the canonical list at
 # packages/core/principles/09-doc-authority-hierarchy.test.ts
-# (REQUIRED_HEADER_DOCS Wave 2 entries — 11 shipped surfaces).
+# (REQUIRED_HEADER_DOCS Wave 2 + Wave 5.1 entries — 13 shipped surfaces).
 # Runs in --dry-run too, so preview also catches drift between PR-side
 # (principle 09 CI) and release-time copy. Positioned before package.json
 # check + stack picker so framework-author drift fails fastest, before any
@@ -64,6 +64,8 @@ SHIPPED_DOCS=(
   "agents/best-practices-sidecar.md"
   "agents/review-sidecar.md"
   "agents/docs-auditor.md"
+  "skills/tool-bootstrapping/SKILL.md"
+  "skills/tool-bootstrapping/references/decision-format.md"
 )
 echo "▶ Verifying shipped artefacts carry Authoritative-for headers"
 verify_fail=0
