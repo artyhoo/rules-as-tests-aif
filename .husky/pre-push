@@ -8,6 +8,7 @@
 #   - zizmor:                 on .github/workflows/
 #   - Self-test pipeline:     bash packages/core/audit-self/audit-ai-docs.test.sh
 #   - Manifest render drift:  npx tsx packages/core/render/render-rules.ts --check
+#   - lychee offline:         on changed *.md (no network; --offline flag)
 
 set -euo pipefail
 
@@ -222,6 +223,25 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
     printf 'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n'
     printf 'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n\n'
     exit 1
+  fi
+fi
+
+# ── 8. lychee offline link check on changed *.md ─────────────────────────────
+# Checks local file references (anchors, relative paths) in Markdown files
+# changed vs origin/main. Network requests are disabled (--offline) — this
+# catches broken relative links and missing anchors without CI latency.
+# If lychee is not in PATH, warn and continue (opt-in; install instructions below).
+#   Install: cargo install lychee   OR   brew install lychee   (macOS)
+CHANGED_MD=$(git diff --name-only "origin/main..HEAD" --diff-filter=ACMR 2>/dev/null \
+  | grep -E '\.md$' || true)
+if [ -n "$CHANGED_MD" ]; then
+  if command -v lychee &>/dev/null; then
+    # shellcheck disable=SC2086
+    lychee --offline --no-progress $CHANGED_MD \
+      || { echo "❌ lychee found broken links in changed Markdown files — fix before push"; exit 1; }
+  else
+    echo "⚠ lychee not found in PATH — offline link check skipped."
+    echo "  Install: cargo install lychee   OR   brew install lychee"
   fi
 fi
 
