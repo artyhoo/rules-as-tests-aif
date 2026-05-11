@@ -24,6 +24,7 @@
   "scripts": {
     "test": "vitest run --reporter=default",
     "test:principles": "vitest run principles/",
+    "test:template-render": "vitest run audit-self/template-render.audit.ts",
     "typecheck": "tsc --noEmit",
     "render-rules": "tsx render/render-rules.ts",
     "render-rules:check": "tsx render/render-rules.ts --check",

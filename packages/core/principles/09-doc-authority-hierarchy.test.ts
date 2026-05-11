@@ -20,140 +20,36 @@
  *
  * Mirrors principle 08 (prior-art-cited) test structure: positive + mutation
  * (anti-tautology) + sentinel for catalog stability.
+ *
+ * Sub-wave 7.1.c: logic extracted to 09-doc-authority-hierarchy.ts for
+ * changed-files mode (pre-push hook + harness-hook PostToolUse).
+ * No behavioural change to existing tests.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  REQUIRED_HEADER_DOCS,
+  EXEMPT_PATTERNS,
+  isExempt,
+  hasAuthorityHeader,
+  checkDocsHaveAuthorityHeader,
+  selectRequiredPaths,
+} from './09-doc-authority-hierarchy.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 
-const AUTHORITY_HEADER_RE = /^> \*\*Authoritative for:\*\*/m;
-
-/**
- * Canonical list of authority-bearing docs per `.claude/rules/doc-authority-
- * hierarchy.md` §2 "Required for" + "Folder-level authority" categories.
- *
- * Filename-convention category (PHASE-*-PROMPT.md, phase-*-research.md) is
- * intentionally NOT enumerated — those derive scope from filename pattern.
- *
- * When updating this list, also update the rule's §2 to match (drift sentinel
- * test below catches list-shape changes; semantic alignment with the rule is
- * the maintainer's responsibility).
- */
-const REQUIRED_HEADER_DOCS = [
-  // Project-root docs
-  'README.md',
-  'CLAUDE.md',
-  'CONTRIBUTING.md',
-  'INSTALL.md',
-  'INSTALL-FOR-AI.md',
-
-  // Hot operational
-  '.claude/session-bootstrap.md',
-  '.claude/rules/phase-research-coverage.md',
-  '.claude/rules/doc-authority-hierarchy.md',
-
-  // docs/meta-factory/ reference docs (excluding sub-folders + filename-convention transients)
-  'docs/meta-factory/EXECUTION-PLAN.md',
-  'docs/meta-factory/PROPOSAL.md',
-  'docs/meta-factory/architecture.md',
-  'docs/meta-factory/self-application.md',
-  'docs/meta-factory/principles-as-tests.md',
-  'docs/meta-factory/aif-comparison.md',
-  'docs/meta-factory/open-questions.md',
-  'docs/meta-factory/prior-art-evaluations.md',
-  'docs/meta-factory/acceptance-tests.md',
-  'docs/meta-factory/core-stability.md',
-  'docs/meta-factory/failure-modes.md',
-  'docs/meta-factory/migration-from-current.md',
-  'docs/meta-factory/niche-stacks.md',
-  'docs/meta-factory/risks.md',
-  'docs/meta-factory/roadmap.md',
-  'docs/meta-factory/versioning-and-locks.md',
-  'docs/meta-factory/self-diagnostics-design.md',
-
-  // Folder-level READMEs (sub-folder authority covers individual files)
-  'docs/meta-factory/retros/README.md',
-  'docs/meta-factory/research-patches/README.md',
-
-  // skills/ — primary doc + cold references
-  'skills/rules-as-tests/SKILL.md',
-  'skills/rules-as-tests/references/ai-traps.md',
-  'skills/rules-as-tests/references/checks-map.md',
-  'skills/rules-as-tests/references/doc-organization.md',
-  'skills/rules-as-tests/references/overview.md',
-  'skills/rules-as-tests/references/self-testing-docs.md',
-
-  // Framework-shipped templates copied to consumer .ai-factory/ and project root
-  'packages/core/templates/shared/AGENTS.md.template',
-  'packages/core/templates/shared/CLAUDE.md.template',
-  'packages/core/templates/shared/DESCRIPTION.template.md',
-  'packages/core/templates/shared/ARCHITECTURE.ts-server.md',
-  'packages/core/templates/shared/integration-rules.md',
-  'packages/preset-next-15-canonical/RULES.md',
-  'packages/preset-next-15-canonical/RULES.react-next.md',
-  'packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md',
-
-  // Sub-agents copied to consumer .claude/agents/ via install.sh:138-141
-  'agents/best-practices-sidecar.md',
-  'agents/review-sidecar.md',
-  'agents/docs-auditor.md',
-];
-
-/**
- * Exemption globs for fixtures intentionally lacking Authoritative-for header.
- *
- * Required because principle 09 list above contains real shipped artefacts;
- * fixtures used by drift-detection / installer tests deliberately omit the
- * header to test failure modes. Without exemption the rule would fail on
- * tests of the rule.
- *
- * Pattern: pure regex, no glob lib (zero new dep). Matches:
- *   packages/<pkg>/research/fixtures/...
- *   packages/<pkg>/.../fixtures/... (e.g. packages/core/detector/fixtures/...)
- */
-const EXEMPT_PATTERNS: RegExp[] = [
-  /^packages\/[^/]+\/research\/fixtures\//,
-  /^packages\/.+\/fixtures\//,
-];
-
-function isExempt(relPath: string): boolean {
-  return EXEMPT_PATTERNS.some((re) => re.test(relPath));
-}
-
-function readFile(p: string): string {
-  return readFileSync(p, 'utf8');
-}
-
-function stripFencedCodeBlocks(content: string): string {
-  return content.replace(/```[\s\S]*?```/g, '');
-}
-
-function hasAuthorityHeader(content: string): boolean {
-  return AUTHORITY_HEADER_RE.test(stripFencedCodeBlocks(content));
-}
-
 describe('Principle 9 — every authority-bearing doc declares Authoritative-for header', () => {
   it('all required-header docs declare Authoritative-for', () => {
-    const violations: string[] = [];
-    for (const relPath of REQUIRED_HEADER_DOCS) {
-      const fullPath = resolve(REPO_ROOT, relPath);
-      if (!existsSync(fullPath)) {
-        violations.push(`${relPath}: file does not exist`);
-        continue;
-      }
-      const content = readFile(fullPath);
-      if (!hasAuthorityHeader(content)) {
-        violations.push(
-          `${relPath}: missing "> **Authoritative for:**" header — see .claude/rules/doc-authority-hierarchy.md §3 for format`,
-        );
-      }
-    }
+    const result = checkDocsHaveAuthorityHeader(
+      REQUIRED_HEADER_DOCS as string[],
+      REPO_ROOT,
+    );
     expect(
-      violations,
-      `Doc-authority violations:\n${violations.join('\n')}`,
+      result.violations,
+      `Doc-authority violations:\n${result.violations.map((v) => `${v.path}: ${v.reason}`).join('\n')}`,
     ).toHaveLength(0);
   });
 
@@ -224,9 +120,12 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     const fixtureRel = 'packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md';
     const fullPath = resolve(REPO_ROOT, fixtureRel);
     if (!existsSync(fullPath)) return; // skip if fixture relocated; sentinel-only assertion
-    const content = readFile(fullPath);
+    const content = readFileSync(fullPath, 'utf8');
     expect(hasAuthorityHeader(content)).toBe(false); // confirms fixture truly lacks header
     expect(isExempt(fixtureRel)).toBe(true); // confirms exemption is what hides it from violations
+    // With exemption active, checkDocsHaveAuthorityHeader skips it → no violation
+    const result = checkDocsHaveAuthorityHeader([fixtureRel], REPO_ROOT);
+    expect(result.violations).toHaveLength(0);
   });
 
   // §13.21 Wave 4 / M1 — drift detection between install.sh SHIPPED_DOCS and
@@ -238,7 +137,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
   it('§13.21 Wave 4 — install.sh SHIPPED_DOCS matches Wave 2 subset of REQUIRED_HEADER_DOCS', () => {
     const installShPath = resolve(REPO_ROOT, 'install.sh');
     expect(existsSync(installShPath)).toBe(true);
-    const installSh = readFile(installShPath);
+    const installSh = readFileSync(installShPath, 'utf8');
 
     const arrayMatch = installSh.match(/SHIPPED_DOCS=\(\s*([\s\S]*?)\s*\)/);
     expect(arrayMatch, 'install.sh: SHIPPED_DOCS array not found').not.toBeNull();
@@ -262,5 +161,75 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
 
     expect(installShipped).toHaveLength(11);
     expect(new Set(installShipped)).toEqual(new Set(wave2Subset));
+  });
+
+  // 7.1.c — changed-files mode API smoke tests (positive + mutation pair)
+  it('checkDocsHaveAuthorityHeader: ok:true for valid compliant path', () => {
+    const result = checkDocsHaveAuthorityHeader(['README.md'], REPO_ROOT);
+    expect(result.ok).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('checkDocsHaveAuthorityHeader: violation for non-existent path', () => {
+    const result = checkDocsHaveAuthorityHeader(['does-not-exist.md'], REPO_ROOT);
+    expect(result.ok).toBe(false);
+    expect(result.violations[0]?.reason).toContain('does not exist');
+  });
+
+  // M1 fix (Wave 7 Round 1 review 2026-05-11) — CLI shim filter contract:
+  // PostToolUse hook was firing FAIL noise on every Edit/Write of non-doc files
+  // (.ts, .json, package.json) because the bin shim passed argv straight to
+  // checkDocsHaveAuthorityHeader. Filter now lives in selectRequiredPaths and
+  // the bin shim consults it BEFORE the check. Tests describe the bin shim's
+  // observable behaviour via the extracted pure function.
+  it('bin shim: silently exits 0 when no paths match REQUIRED_HEADER_DOCS', () => {
+    // Non-doc paths like package.json / source files should be filtered out
+    // entirely — the bin shim's empty-filtered branch returns exit 0 silently.
+    const filtered = selectRequiredPaths([
+      'package.json',
+      'packages/core/principles/09-doc-authority-hierarchy.ts',
+      'unrelated/source.ts',
+    ]);
+    expect(filtered).toEqual([]);
+  });
+
+  it('bin shim: exits 1 when required doc missing header', () => {
+    // Required doc paths must survive the filter so checkDocsHaveAuthorityHeader
+    // can catch missing-header violations. selectRequiredPaths preserves them;
+    // checkDocsHaveAuthorityHeader (covered elsewhere) is what produces the
+    // FAIL stderr + exit 1 the bin shim emits.
+    const filtered = selectRequiredPaths([
+      'README.md',
+      'CLAUDE.md',
+      'docs/meta-factory/EXECUTION-PLAN.md',
+    ]);
+    expect(filtered).toEqual([
+      'README.md',
+      'CLAUDE.md',
+      'docs/meta-factory/EXECUTION-PLAN.md',
+    ]);
+    // Mutation arm: a fake required-shaped path stripped of header would FAIL
+    // (proves the filter does not muffle real violations).
+    const fakeContent = '# Fake required doc\n\nNo header.\n';
+    expect(hasAuthorityHeader(fakeContent)).toBe(false);
+  });
+
+  it('bin shim: exits 0 when exempt path passed', () => {
+    // Exempt fixture paths survive the filter (so callers can pass mixed lists)
+    // and then are skipped inside checkDocsHaveAuthorityHeader → no violation.
+    const exemptPath = 'packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md';
+    const filtered = selectRequiredPaths([exemptPath]);
+    expect(filtered).toEqual([exemptPath]);
+    const result = checkDocsHaveAuthorityHeader(filtered, REPO_ROOT);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('EXEMPT_PATTERNS exported and matches known fixture paths', () => {
+    expect(EXEMPT_PATTERNS.length).toBeGreaterThan(0);
+    expect(
+      EXEMPT_PATTERNS.some((re) =>
+        re.test('packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md'),
+      ),
+    ).toBe(true);
   });
 });

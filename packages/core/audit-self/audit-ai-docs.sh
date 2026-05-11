@@ -20,6 +20,7 @@
 # Drift checks (separate from R-rules):
 #   D1 Skills declared exist     → probe_D1
 #   D2 No TODO in JSON configs   → probe_D2
+#   D3 Goal-phrase parity        → probe_D3 (sub-wave 7.1.d)
 #
 # Exit codes:
 #   0 — all probes PASS (WARN allowed)
@@ -136,6 +137,48 @@ if skip_unless D2; then : ; else
   else
     warn "$RULE — JSON configs accumulate stale comments"
     echo "$VIOL" | sed 's/^/    /'
+  fi
+fi
+
+# ────────────────────────────────────────────────────────────────────────
+# D3 — Goal-phrase parity: canonical phrase present in downstream goal-bearing docs
+# Source: Wave 6 D-3 SHIP-B (added sub-wave 7.1.d, 2026-05-11)
+#
+# Canonical goal phrase (README.md §Goal):
+#   "AI agents can't silently bypass undocumented conventions"
+#   Synonym: "AI cannot silently bypass what fails CI"
+#
+# Checked downstream docs (enumerated explicitly — not regex-matched globally):
+#   .claude/session-bootstrap.md  — operational restatement (must carry goal)
+#   CLAUDE.md                     — AI-tooling conventions (must carry goal pointer)
+#
+# SSOT entry: prior-art-evaluations.md#16 (verdict BUILD — no production analog
+# for doc-vs-doc goal-phrase parity check; see 7.1.d context7 sweep).
+# ────────────────────────────────────────────────────────────────────────
+if skip_unless D3; then : ; else
+  RULE="D3 (drift): canonical goal phrase present in downstream goal-bearing docs"
+  CANON_PHRASE="AI agents can't silently bypass undocumented conventions"
+  CANON_ALT="AI cannot silently bypass what fails CI"
+  DOWNSTREAM_DOCS=(
+    ".claude/session-bootstrap.md"
+    "CLAUDE.md"
+  )
+  D3_VIOL=""
+  for doc in "${DOWNSTREAM_DOCS[@]}"; do
+    if [ ! -f "$doc" ]; then
+      D3_VIOL="$D3_VIOL"$'\n'"  $doc: file not found"
+      continue
+    fi
+    if ! grep -qF "$CANON_PHRASE" "$doc" && ! grep -qF "$CANON_ALT" "$doc"; then
+      D3_VIOL="$D3_VIOL"$'\n'"  $doc: missing canonical goal phrase or synonym"
+    fi
+  done
+
+  if [ -z "$D3_VIOL" ]; then
+    pass "$RULE"
+  else
+    fail "$RULE"
+    echo "$D3_VIOL"
   fi
 fi
 

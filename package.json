@@ -5,5 +5,8 @@
   "scripts": {
     "test": "npm test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "^0.17.0"
   }
 }

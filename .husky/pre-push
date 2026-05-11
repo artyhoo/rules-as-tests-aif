@@ -8,6 +8,7 @@
 #   - zizmor:                 on .github/workflows/
 #   - Self-test pipeline:     bash packages/core/audit-self/audit-ai-docs.test.sh
 #   - Manifest render drift:  npx tsx packages/core/render/render-rules.ts --check
+#   - lychee offline:         on changed *.md (no network; --offline flag)
 
 set -euo pipefail
 
@@ -222,6 +223,133 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
     printf 'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n'
     printf 'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n\n'
     exit 1
+  fi
+
+  # ── 9. §1.7 discipline trailer check ─────────────────────────────────────────
+  # Enforces §1.7 forward+backward check trailer on commits introducing or
+  # extending rules / principles / disciplines (per .claude/rules/phase-research-
+  # coverage.md §1.7). Push-time gate; commit-time would force trailer onto every
+  # WIP commit. Default mode: warn-only for 30 days post-ship (D1 calibration).
+  #
+  # §1.7 allow-list (D3): commit subjects starting with one of the prefixes below
+  # bypass the §1.7 check (they are doc-only or already-disciplined surfaces):
+  #   docs(research-patches):  chore(snapshot-regen):  chore(prior-art-update):
+  # Maintenance: when a new safe prefix emerges, update this list AND the regex below.
+  #
+  # TODO 2026-06-10: flip default to S17_WARN_ONLY=false; promote enforcement.
+
+  S17_WARN_ONLY="${S17_WARN_ONLY:-true}"
+  S17_ALLOWLIST_RE='^(docs\(research-patches\)|chore\(snapshot-regen\)|chore\(prior-art-update\)):'
+
+  s17_is_discipline_introducing() {
+    local sha="$1" subject changed_files rule_paths
+    subject=$(git show -s --format=%s "$sha")
+    # D3 allow-list bypass
+    if printf '%s' "$subject" | grep -qE "$S17_ALLOWLIST_RE"; then
+      return 1
+    fi
+    # File-glob predicate
+    changed_files=$(git diff-tree --no-commit-id --name-only -r "$sha" 2>/dev/null || true)
+    printf '%s\n' "$changed_files" \
+      | grep -qE '^(\.claude/rules/[^/]+\.md|packages/core/principles/[^/]+\.test\.ts|\.claude/skills/[^/]+/SKILL\.md)$' \
+      || return 1
+    # Section-marker content predicate (new ## § heading OR new top-level export const)
+    rule_paths=$(printf '%s\n' "$changed_files" \
+      | grep -E '^(\.claude/rules/|packages/core/principles/|\.claude/skills/)' || true)
+    [ -n "$rule_paths" ] || return 1
+    # shellcheck disable=SC2086
+    LC_ALL=en_US.UTF-8 git show "$sha" -- $rule_paths 2>/dev/null \
+      | LC_ALL=en_US.UTF-8 grep -qE '^\+(## §|export const [A-Z_]+: )' \
+      || return 1
+    return 0
+  }
+
+  s17_check_trailer() {
+    local sha="$1" body line payload bs_payload word word_lc all_placeholder
+    body=$(git show -s --format=%B "$sha")
+    # Bootstrap exemption B1
+    if LC_ALL=en_US.UTF-8 printf '%s\n' "$body" \
+        | LC_ALL=en_US.UTF-8 grep -qE '^§1\.7 Bootstrap:'; then
+      bs_payload=$(LC_ALL=en_US.UTF-8 printf '%s\n' "$body" \
+        | LC_ALL=en_US.UTF-8 grep -E '^§1\.7 Bootstrap:' | head -1 \
+        | sed 's/^§1\.7 Bootstrap:[[:space:]]*//')
+      if [ "${#bs_payload}" -ge 20 ]; then
+        all_placeholder=1
+        for word in $bs_payload; do
+          word_lc=$(printf '%s' "$word" | tr '[:upper:]' '[:lower:]' | tr -d '[:punct:]')
+          case "$word_lc" in
+            todo|later|na|tbd|fixme|placeholder|"") ;;
+            *) all_placeholder=0; break ;;
+          esac
+        done
+        [ "$all_placeholder" = "0" ] && return 0
+      fi
+    fi
+    # Standard §1.7 trailer
+    while IFS= read -r line; do
+      case "$line" in
+        "§1.7:"*)
+          payload="${line#§1.7:}"
+          payload="${payload# }"
+          [ "${#payload}" -ge 40 ] || continue
+          all_placeholder=1
+          for word in $payload; do
+            word_lc=$(printf '%s' "$word" | tr '[:upper:]' '[:lower:]' | tr -d '[:punct:]')
+            case "$word_lc" in
+              todo|later|na|tbd|fixme|placeholder|"") ;;
+              *) all_placeholder=0; break ;;
+            esac
+          done
+          [ "$all_placeholder" = "0" ] && return 0
+          ;;
+      esac
+    done <<< "$body"
+    printf '%s' "no valid §1.7: trailer (or bootstrap)"
+    return 1
+  }
+
+  S17_FAILURES=""
+  for sha in $COMMITS; do
+    if s17_is_discipline_introducing "$sha"; then
+      err=""
+      if ! err=$(s17_check_trailer "$sha"); then
+        S17_FAILURES="${S17_FAILURES}  ${sha:0:10}  ${err}\n"
+      fi
+    fi
+  done
+
+  if [ -n "$S17_FAILURES" ]; then
+    if [ "$S17_WARN_ONLY" = "true" ]; then
+      printf '\n⚠ §1.7 trailer missing or invalid on rule-introducing commit(s):\n'
+      printf '%b' "$S17_FAILURES"
+      printf '\nCalibration window: warn-only through 2026-06-10 (30 days from ship). Set S17_WARN_ONLY=false to enforce locally.\n'
+      printf 'Fix: add `§1.7: forward-check applied — …; backward-check sweep — …` to commit body.\n\n'
+    else
+      printf '\n❌ §1.7 trailer missing or invalid on rule-introducing commit(s):\n'
+      printf '%b' "$S17_FAILURES"
+      printf '\nFix: add `§1.7: forward-check applied — …; backward-check sweep — …` to commit body.\n'
+      printf 'Bootstrap exemption: `§1.7 Bootstrap: <reason>` (≥20 chars rationale).\n\n'
+      exit 1
+    fi
+  fi
+fi
+
+# ── 8. lychee offline link check on changed *.md ─────────────────────────────
+# Checks local file references (anchors, relative paths) in Markdown files
+# changed vs origin/main. Network requests are disabled (--offline) — this
+# catches broken relative links and missing anchors without CI latency.
+# If lychee is not in PATH, warn and continue (opt-in; install instructions below).
+#   Install: cargo install lychee   OR   brew install lychee   (macOS)
+CHANGED_MD=$(git diff --name-only "origin/main..HEAD" --diff-filter=ACMR 2>/dev/null \
+  | grep -E '\.md$' || true)
+if [ -n "$CHANGED_MD" ]; then
+  if command -v lychee &>/dev/null; then
+    # shellcheck disable=SC2086
+    lychee --offline --no-progress $CHANGED_MD \
+      || { echo "❌ lychee found broken links in changed Markdown files — fix before push"; exit 1; }
+  else
+    echo "⚠ lychee not found in PATH — offline link check skipped."
+    echo "  Install: cargo install lychee   OR   brew install lychee"
   fi
 fi
 

@@ -1,5 +1,6 @@
 node_modules/
-.claude/orchestrator-prompts/
+.claude/orchestrator-prompts/*
+!.claude/orchestrator-prompts/README.md
 *.log
 .DS_Store
 *.tgz

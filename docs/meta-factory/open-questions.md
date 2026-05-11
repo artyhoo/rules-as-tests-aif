@@ -15,7 +15,7 @@
 Как именно сегментировать паттерны в research? «Server Actions» — один паттерн или семь подпаттернов (return type, FormData, revalidatePath, error handling, ...)?
 
 Гипотеза: иерархия в `research-cache.json`:
-```
+```text
 next/16.2.1/
   app-router/
     server-actions/
@@ -125,7 +125,7 @@ Decision matrix в [self-application.md](self-application.md) §3 фиксиру
 
 Решение принять при добавлении 10-го layer'а; до этого — текущая matrix фиксирована.
 
-**2026-05-10 trigger note:** [§13.27](#1327-functional-test-for-shipped-ai-briefing-templates-armed--phase-11-work) + [§13.28](#1328-operator-side-discipline-gap--non-git-validation-path-armed--phase-11-work) close jointly with this entry under **Wave 7** (prompts in `.claude/orchestrator-prompts/wave-7-hot-checks-joint-closure/`, gitignored). Scope: hot-checks for code+docs, harness-level hooks as potential 5th lifecycle stage. Detailed in Wave 7 research.md.
+**2026-05-10 trigger note:** [§13.27](#1327-functional-test-for-shipped-ai-briefing-templates-armed--phase-11-work) + [§13.28](#1328-operator-side-discipline-gap--non-git-validation-path-armed--phase-11-work) close jointly with this entry under **Wave 7** (prompts in `.claude/orchestrator-prompts/wave-7-hot-checks-joint-closure/`, gitignored). Scope: hot-checks for code+docs, harness-level hooks as potential 5th lifecycle stage. Detailed in Wave 7 research.md. **2026-05-11 update:** dogfooded by Wave 7 sub-wave 7.5.a — 9 rows added citing 4-criteria gate verdict per row (see [self-application.md §3](self-application.md)); status remains open as running mechanism trigger.
 
 ### 13.9 Bypass через `--no-verify` — структурное решение
 
@@ -187,7 +187,7 @@ Phase 8 entry research (see [phase-8-research.md §6](phase-8-research.md)) clos
 
 **Cost arithmetic** (Anthropic May 2026 list pricing — Opus 4.7 $5/M input, $25/M output; cached input ≤90% off):
 
-```
+```text
 per-plan, cold: 32K input · $5/M + 5K output · $25/M = $0.16 + $0.125 = $0.285
 per-plan, warm: 32K input · $0.50/M + 5K output · $25/M = $0.016 + $0.125 = $0.141
 per-rule × 26: 78K input · $5/M + 13K output · $25/M = $0.39  + $0.325 = $0.715
@@ -391,9 +391,9 @@ This is feature scope (Phase 9.x or 10.x), not goal-hierarchy fix. Shipping L3 i
 
 **Cross-references:** [`.claude/rules/phase-research-coverage.md` §4 anti-patterns](../../.claude/rules/phase-research-coverage.md) — `adopted-pattern-drift` tag added in same branch; [`prior-art-evaluations.md` §5 staleness policy](prior-art-evaluations.md) — extends to entries #6-#10; [open-questions.md §13.16](open-questions.md) — discipline-layer SSOT (parallel cadence-trigger pattern).
 
-### 13.23 Pre-push hook layer for §1.7 — deferred (4th layer of enforcement ladder)
+### 13.23 Pre-push hook layer for §1.7 — closed by Wave 7
 
-**Status:** deferred 2026-05-09. Recorded during §1.7 introduction (commit `2f00e76`).
+**Status:** closed 2026-05-11. `.husky/pre-push` section 9 (`s17_check_trailer()`, commit `8982fde`); warn-only calibration 2026-05-11→2026-06-10. _Deferred 2026-05-09 per `2f00e76`._
 **Origin:** [`.claude/rules/phase-research-coverage.md §1.7`](../../.claude/rules/phase-research-coverage.md) introduced 4-layer enforcement ladder for `#recommendation-skips-own-discipline`: (1) process rule, (2) [`.claude/skills/self-reflection/`](../../.claude/skills/self-reflection/SKILL.md) assistant-side trigger, (3) [`.github/workflows/discipline-self-check.yml`](../../.github/workflows/discipline-self-check.yml) build-side PR-description gate, (4) `.husky/pre-push` per-commit trailer check. Layers 1-3 ship in branch `process/recommendation-self-discipline`; layer 4 deferred — see «Why deferred».
 
 **Why deferred:** per-commit `Forward-check`/`Backward-check` trailer enforcement is a non-trivial design problem unresolved at bootstrap:
@@ -491,10 +491,10 @@ Six rules:
 
 Closed 2026-05-10. Two-deliverable artefact pair: [research-patches/2026-05-10-ai-doc-effectiveness-cold-audit.md](research-patches/2026-05-10-ai-doc-effectiveness-cold-audit.md) (Phase 1 + Phase 2 audit + §4 improvements + §8 honest meta-assessment, frozen post-merge) and [research-patches/2026-05-10-wave-6-review-verdicts.md](research-patches/2026-05-10-wave-6-review-verdicts.md) (§6 D-1..D-6 verdicts + §7 P-3 capability-gate correction MAJOR-1 + Wave 7 feeders + Wave 5 downstream notes). Verdicts: D-1 DEFER→Wave 7, D-2 SHIP indep., D-3 SHIP indep. (NOT mechanical capability commit per MAJOR-1; consult is discipline-recommended), D-4 DEFER, D-5 SHIP→Wave 7 (absorbed in §13.27 O4, no scope expansion), D-6 DEFER. Origin: post-Wave-2 reviewer-Opus described 4 drift moments (methodology elevation; taxonomy mixing; memory-mode goal-without-README; Step 0 skip); audit Phase 1 reproduced D2+D4 in own first-phase work (§8 self-meta). Wave 7 joint closure (§13.27+§13.28+§13.8) next per reversed sequence (commit 5d3d9c0); D-1 → §13.8 Decision-matrix lifecycle-stage row; D-5 → §13.27/O4 probe adaptation (P1/P4/P6 translate; P2/P3/P5 session-local). Cross-refs: §13.21 (parent doc-authority); §13.25 (Wave 5 sequencing); §13.27+§13.28+§13.8 (Wave 7 absorbing D-1+D-5).
 
-### 13.27 Functional test for shipped AI-briefing templates (armed — Phase 11+ work)
+### 13.27 Functional test for shipped AI-briefing templates — closed by Wave 7
 
-Armed 2026-05-10. Joint closure with §13.28 + §13.8 under **Wave 7** (prompts in `.claude/orchestrator-prompts/wave-7-hot-checks-joint-closure/`, gitignored); gated on Wave 6 close. Wave 7 runs BEFORE Wave 5 implementation (sequence reversed 2026-05-10 — Wave 7 infrastructure benefits Wave 5). Origin: §13.21 closure extended principle 09 to shipped templates (header presence) but not functional fitness — does `AGENTS.md.template` actually anchor a consumer AI when rendered? Why deferred: smoke-test infrastructure (render harness + mock consumer + adapted cold-audit probes P1/P4/P6) is Phase 11+ scope. Cross-refs: §13.21 (parent); §13.26 (own AI-doc audit; this extends to consumer artefacts); [§13.28](#1328-operator-side-discipline-gap--non-git-validation-path-armed--phase-11-work) (joint sibling); [§13.8](#138-decision-matrix-expansion-rule) (matrix expansion).
+Closed 2026-05-10/11 by sub-wave 7.3 (deterministic CI gate `framework-self-template-render`, commits `f528586`/`29e62d8`/`5afabad`) + 7.3.f (local advisory skill `template-audit`, commit `115b8ec`). LLM-judge re-evaluation trigger per Decision 3: promote LLM-judge → CI when deterministic PASS rate <80% over 30 consecutive days OR Anthropic Claude Code subscription expands to CI compute. _Armed 2026-05-10. Joint closure with §13.28+§13.8 under Wave 7; gated on Wave 6 close. Origin: §13.21 extended principle 09 to shipped templates (header presence) but not functional fitness. Cross-refs: §13.21; §13.26; §13.28 (joint sibling); §13.8 (matrix expansion)._
 
-### 13.28 Operator-side discipline gap — non-git validation path (armed — Phase 11+ work)
+### 13.28 Operator-side discipline gap — non-git validation path — closed by Wave 7
 
-Armed 2026-05-10. Joint closure with §13.27 + §13.8 under **Wave 7** (prompts in `.claude/orchestrator-prompts/wave-7-hot-checks-joint-closure/`, gitignored); gated on Wave 6 close. Wave 7 runs BEFORE Wave 5 implementation (sequence reversed 2026-05-10). Sample-size 1 ([cold-audit.md:32-36](../../.claude/orchestrator-prompts/wave-6-ai-doc-cold-audit/cold-audit.md) — 6 drafting bugs caught by sceptic-pass); 2nd incident promotes per §13.21 H8 precedent. Origin: Phase 1.C shipped `validate-batch-spec.ts` for `.claude/orchestrator-prompts/*.md` ([.husky/pre-push §6](../../.husky/pre-push)); directory gitignored — hook dormant on main path. Closure paths (default A+B): (A) `make validate-prompts` fs-walk advisory; (B) harness-hook (Claude Code PostToolUse) hot channel; (C) un-gitignore — rejected 2026-05-10. Detailed scope in Wave 7 research.md. Cross-refs: [.husky/pre-push §6](../../.husky/pre-push); [EXECUTION-PLAN Batch 1.C](EXECUTION-PLAN.md); [§13.8](#138-decision-matrix-expansion-rule); §13.21 (sample-size precedent); §13.23 (4th-layer ladder); [§13.27](#1327-functional-test-for-shipped-ai-briefing-templates-armed--phase-11-work) (joint sibling); §13.26 (Wave 6 prompt was 1st incident).
+Closed 2026-05-10/11 by sub-wave 7.4.a (`make validate-prompts`, commit `a008255`) + 7.2.b (PostToolUse harness-hook, commit `2e43874`). Both paths A+B per Decision 5; path C (un-gitignore) rejected 2026-05-10. _Armed 2026-05-10. Joint closure with §13.27+§13.8 under Wave 7; gated on Wave 6 close. Sample-size 1 (Wave 6 cold-audit: 6 drafting bugs caught by sceptic-pass); 2nd incident promotes per §13.21 H8. Origin: validate-batch-spec.ts shipped for orchestrator-prompts but directory gitignored — hook dormant. Cross-refs: .husky/pre-push §6; EXECUTION-PLAN Batch 1.C; §13.8; §13.21; §13.23; §13.27 (joint sibling); §13.26._

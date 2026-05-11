@@ -1,0 +1,7 @@
+{
+  "name": "@rules-as-tests/lint-config",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Shared markdownlint structural config for rules-as-tests-aif workspace",
+  "files": ["markdownlint.json", "README.md"]
+}

@@ -8,6 +8,7 @@
 #   - JSON validity:    python3 json.load on changed *.json
 #   - YAML validity:    python3 yaml.safe_load on changed *.yml/*.yaml
 #   - Markdown ≤500 lines: awk on changed *.md
+#   - markdownlint-cli2:   structural rules on staged *.md (sub-wave 7.1.a)
 
 set -euo pipefail
 
@@ -66,6 +67,18 @@ while IFS= read -r f; do
       ;;
   esac
 done <<< "$CHANGED"
+
+# ── markdownlint-cli2 on staged *.md (structural rules) ─────────────────────
+#   Runs after the per-file loop so line-count failures are already recorded.
+#   Uses ACMR diff-filter (includes renames) to catch moved docs with violations.
+STAGED_MD=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null | grep -E '\.md$' || true)
+if [ -n "$STAGED_MD" ]; then
+  if command -v npx &>/dev/null; then
+    # shellcheck disable=SC2086
+    npx markdownlint-cli2 $STAGED_MD \
+      || { echo "❌ markdownlint-cli2 violations — fix before commit"; fail=1; }
+  fi
+fi
 
 # ── Spec discipline (Phase 1.C) — soft warn for staged orchestrator-prompts ──
 SPEC_FILES=$(echo "$CHANGED" | grep '^\.claude/orchestrator-prompts/.*\.md$' || true)

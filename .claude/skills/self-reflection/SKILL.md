@@ -91,6 +91,19 @@ Five prompts from [`phase-research-coverage.md §2`](../../rules/phase-research-
 
 Examples with case studies (PR #16, defer-until-pain, L3 research): [references/anti-patterns-with-examples.md](references/anti-patterns-with-examples.md).
 
+## §1.7 enforcement layers
+
+4 active layers as of Wave 7 sub-wave 7.6.c (2026-05-11). Previously: 3 active + 1 deferred (pre-push trailer check). §13.23 closure shipped layer 4.
+
+| Layer | Surface | Mechanism | Status |
+|---|---|---|---|
+| 1 — Rule prose | [`.claude/rules/phase-research-coverage.md §1.7`](../../rules/phase-research-coverage.md) | Documents the forward+backward check requirement; defines scope and output contract | **Active** |
+| 2 — Skill auto-trigger | This SKILL.md (frontmatter `description`) | Claude Code auto-loads skill on keywords `правило`, `principle`, `discipline`, etc.; operationalises the forward+backward check protocol | **Active** |
+| 3 — CI workflow | [`.github/workflows/discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml) | PR-description gate: checks that PRs introducing discipline-bearing artefacts include `### Forward-check applied` + `### Backward-check applied` sections | **Active** |
+| 4 — Pre-push hook | [`.husky/pre-push` section 9](../../../.husky/pre-push) | Push-time trailer check: commits that add a `## §` heading to rule/principles/skills files must carry `§1.7:` trailer (C4 scope predicate + D1 warn-only calibration window through 2026-06-10) | **Active** (shipped Wave 7 7.6.c) |
+
+See [open-questions.md §13.23](../../../docs/meta-factory/open-questions.md) for the original deferral rationale and closure decision.
+
 ## How this skill itself complies with §1.7
 
 - **Forward-check applied:** R1-R20 N/A (no TS code in this skill); principle 09 — this skill primary doc carries `Authoritative-for` header above; capability-commit gate — `.claude/skills/` outside `packages/` scope per CLAUDE.md hook definition → not capability commit, escape-hatch trailer required (rationale: skill creation, no new capability per CLAUDE.md hook definition); SSOT — references AIF `/aif-evolve` (entry #8) + Cline Memory Bank pattern (entry #9), both already registered; trigger sweep — applied during research, no §13.x cascade; doc-authority — header present, references will too.
