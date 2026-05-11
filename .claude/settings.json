@@ -19,6 +19,15 @@
             "command": "bash .claude/hooks/validate-prompt.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-doc-authority.sh"
+          }
+        ]
       }
     ]
   }
