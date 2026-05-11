@@ -122,7 +122,7 @@ After `setup.sh` finishes, your project has:
 
 Paste this into Claude Code, Cursor, or any AI agent with file access in your project's directory:
 
-```
+```text
 Install rules-as-tests-aif into this project.
 
 1. Detect stack: `ts-server` (default) or `react-next` (next.config.* present, or

@@ -170,6 +170,22 @@ EOF
   rm -rf "$d"
 }
 
+# ─── D3: Canonical goal phrase absent from downstream doc (fails, not warns) ───
+# D3 emits FAIL (exit 1) when either downstream doc lacks the canonical phrase.
+# Fixture: session-bootstrap.md carries the phrase; CLAUDE.md does not → violation.
+test_D3() {
+  should_skip D3 && return 0
+  local d; d=$(new_workdir); enter "$d"
+  mkdir -p .claude
+  # Satisfies the session-bootstrap.md check — canonical phrase present
+  printf "# Session bootstrap\n\nAI agents can't silently bypass undocumented conventions\n" \
+    > .claude/session-bootstrap.md
+  # CLAUDE.md stripped of canonical phrase or synonym → triggers D3 FAIL
+  printf '# Claude Guide\n\nSome content without the goal phrase.\n' > CLAUDE.md
+  assert_fails D3 "$AUDIT_SH"
+  rm -rf "$d"
+}
+
 # ─── D4: tool-decisions.md staleness (warns, not fails) ──────────────
 # D4 emits WARN when .ai-factory/tool-decisions.md is absent despite package.json.
 # Checks exit 0 (WARN does not fail) + "WARN" in output.
@@ -226,6 +242,7 @@ test_R4
 test_R4_partial
 test_D1
 test_D2
+test_D3
 test_D4
 test_R17
 
