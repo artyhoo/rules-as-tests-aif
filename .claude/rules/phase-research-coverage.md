@@ -16,7 +16,7 @@ Phase 8.8 mechanism (SSOT + principle 08 + `Prior-art:` trailer + pre-push hook)
 
 The rule is invoked at the surfaces declared in `paths:` above — entry research files, the SSOT, and the `research-patches/` accumulator. It is consumed by phase research sessions before closing any [EXECUTION-PLAN.md §5.5](../../docs/meta-factory/EXECUTION-PLAN.md) Step 1.5 lookup, and by retros writing the Self-reflection block.
 
-## §1 Coverage methodology checklist (7 items)
+## §1 Coverage methodology checklist (9 items)
 
 Apply before closing any «N candidates checked → no production analog» claim. Failing any single item → the negative-existence verdict is **provisional**, not load-bearing.
 
@@ -31,6 +31,28 @@ Apply before closing any «N candidates checked → no production analog» claim
     - **Backward-check (new rule applied to all existing artefacts).** Complete sweep of artefacts under the new rule's scope — not the §1.5 floor of «3-5 examples» but the *complete* set. Exemption mechanism (glob or sentinel) explicit. Exemption itself has a meta-test (positive: exemption preserves intent; mutation: removing exemption breaks intent).
     - **Self-reflexive trigger.** §1.7 applies to itself — every new discipline-bearing artefact ships with a *self-review patch* under [research-patches/](../../docs/meta-factory/research-patches/) following the T7 template ([2026-05-09-self-review-audit.md](../../docs/meta-factory/research-patches/2026-05-09-self-review-audit.md)) — walks the proposed rule through §1.1-§1.7 and through §2.1-§2.5, verifying it would have caught the very gap that motivated its creation.
    *(Distilled from [recommendation-skips-own-discipline patch](../../docs/meta-factory/research-patches/2026-05-09-recommendation-skips-own-discipline.md) — 2026-05-09 incident: research session on L3 generated-docs discipline produced a recommendation that itself failed forward+backward checks across 6 distinct existing disciplines; gap surfaced only via reviewer pushback, not via existing §1.1-§1.6.)*
+
+### §1.8 Hook surface smoke-test (introduced 2026-05-11, Wave 7 review M1)
+
+For every commit touching `.claude/hooks/*.sh` or any pre-push hook section, run a smoke-test with a path that the hook is intended to skip:
+
+```bash
+echo '{"tool_input":{"file_path":"'"$(pwd)"'/package.json"}}' \
+  | bash .claude/hooks/<hook-name>.sh; echo "exit=$?"
+```
+
+Expected: `exit=0`, no stderr. If the hook produces `exit=1` or stderr on a path outside its intended scope, the hook is leaking beyond its filter — fail the review, file as M-grade finding. Discovered when [Wave 7 Round 1 audit](../../docs/meta-factory/research-patches/2026-05-11-wave-7-round1-review.md) Domain 4 declared «hooks all correct» without running this probe, missing a CLI shim regression that surfaced FAIL noise on every Edit/Write of non-doc files (closed by M1 fix 2026-05-11).
+
+### §1.9 SSOT citation existence-check (introduced 2026-05-11, Wave 7 review M2)
+
+For every commit body containing a positive `Prior-art: prior-art-evaluations.md#N` trailer (NOT the `Prior-art: skipped — …` escape hatch), verify that entry #N exists in the SSOT at audit time:
+
+```bash
+grep -nE "^\| *${N} *\|" docs/meta-factory/prior-art-evaluations.md \
+  || echo "ID #${N} missing from SSOT — capability cites non-existent entry"
+```
+
+Expected: matching row present. Verifying *trailer presence* is NOT the same as verifying the *SSOT entry exists*. [CLAUDE.md](../../CLAUDE.md) «add a new SSOT entry … in the same commit as the capability artifact» means the cited ID must be landed by-or-before the citing commit. Discovered when [Wave 7 Round 1 audit](../../docs/meta-factory/research-patches/2026-05-11-wave-7-round1-review.md) Domain 8 reported «#17 ✓; #22 ✓» by trailer presence alone, missing two non-existent entries (closed by M2 fix 2026-05-11).
 
 ## §2 Self-reflection prompts (retro Self-reflection block)
 

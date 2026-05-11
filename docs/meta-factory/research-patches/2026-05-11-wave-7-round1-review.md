@@ -100,3 +100,54 @@ ATTN: 7.6.b GO [F1] means sub-wave 7.6.c is unblocked and should be launched as 
 5. **[ATTN — orchestrator action] Launch 7.6.c** — 7.6.b GO [F1] clears the STOP condition. Sub-wave 7.6.c (extend `.husky/pre-push` §1.7 trailer check + update self-reflection skill + open-questions §13.23) may proceed.
 
 6. **[NOTE] 91f5f1d hook acceptance** — confirm pre-push hook accepted the escape-hatch rationale on that commit or was not yet installed at commit time. No remediation needed either way; just document.
+
+---
+
+## Reviewer errata — 2026-05-11 (cold-start reviewer correction)
+
+Findings revised after independent cold-start review verdict 2026-05-11
+([same-folder] 2026-05-11-wave-7-round1-cold-review.md OR inline cited in
+docs/meta-factory/retros/ depending on where the cold-review patch
+landed — orchestrator to confirm final location at PR time).
+
+### Issue 4 (settings.json UserPromptSubmit nesting) — DEBUNKED
+
+This audit flagged the `[{hooks:[{type,command}]}]` structure as
+«non-standard extra nesting» and marked pre-PR verification as MUST.
+Empirically verified by cold-start reviewer (and by this very session's
+UserPromptSubmit hook digest, which fires on every prompt): the structure
+is the standard Claude Code v0.10+ shape. **No action required.** Pre-PR
+verification item removed.
+
+### Domain 8 (Capability commit compliance) — re-classified PASS → WARN
+
+Original verdict: «80ef1d9 → #17 ✓; f528586 → #22 ✓.» Method gap:
+verified `Prior-art:` trailer presence, did NOT verify that the cited
+SSOT entry ID exists in `prior-art-evaluations.md`. Cold-start reviewer
+caught both #17 and #22 as non-existent at audit time. Forward-fixed in
+commit «feat(prior-art): M2 — forward-add SSOT entries #17 + #22 …»
+which lands #17 and #22 same-commit-style for in-flight Wave 7 work.
+
+### Domain 4 (Hook script correctness) — re-classified PASS → WARN
+
+Original verdict: «hook scripts all correct.» Method gap: no
+empirical smoke-test with non-matching paths. The PostToolUse hook
+`check-doc-authority.sh` was firing FAIL noise on every Edit/Write of
+non-doc files (`.ts`, `.json`, etc.) — root cause in
+`09-doc-authority-hierarchy.bin.ts` argv handling, no filter to
+`REQUIRED_HEADER_DOCS`. Fixed in commit «fix(principles): M1 — filter
+CLI paths to REQUIRED_HEADER_DOCS …».
+
+### Issue 6 (m9) — vitest invocation path NOTE
+
+Cold-start reviewer surfaced: invoking
+`npx vitest run packages/core/audit-self/template-render.audit.ts`
+from the repo root reports «No test files found» because vitest config
+lives under `packages/core/`. CI-correct invocation is
+`npm --prefix packages/core run test:template-render` (or equivalent
+workspace-scoped command). NOTE severity — no Round 3 commit-level
+fix; document the correct invocation in operator-facing notes
+(packages/core/README.md if applicable, or PR description) at PR time.
+Captured here so future reviewer smoke-tests use the right form per
+§1.8 hook smoke-test rule (i.e. the smoke-test command itself must be
+workspace-aware when probing workspace-scoped tests).
