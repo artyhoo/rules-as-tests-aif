@@ -1,3 +1,4 @@
+<!-- scope:wave-7 -->
 # Wave 7 — Hot checks + harness-hooks + doc-linting joint-closure research
 
 > **Authoritative for:** §13.27 + §13.28 + §13.8 expansion research findings (2026-05-10 snapshot); O0/O0.1 gate results; SSOT entry proposals (§8); review-session decision list (§9); Decision-matrix row proposals (§10); implementation outline (§11); §1.7 forward+backward checks for proposed «hot-checks + harness-hooks + doc-linting» discipline expansion (§12).

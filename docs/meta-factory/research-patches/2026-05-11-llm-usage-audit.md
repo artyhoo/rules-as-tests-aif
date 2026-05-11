@@ -1,3 +1,4 @@
+<!-- scope:methodology -->
 # LLM usage audit — full map (current + planned + speculative)
 
 > **Authoritative for:** complete inventory of LLM touchpoints in rules-as-tests-aif project (2026-05-11 snapshot); cost classification per touchpoint per «Claude Code subscription bundle» vs «paid API» distinction; synthesis recommendations for «no-paid» constraint regime.

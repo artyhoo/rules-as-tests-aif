@@ -1,3 +1,4 @@
+<!-- scope:methodology -->
 # §13.x non-cascade trigger sweep — 2026-05-08
 
 > Companion artifact to T5.5 (Phase 8.8.1 addendum). Push-based health check on the 12 non-cascade open-questions §13.x triggers. Mirror of AIF `/aif-evolve` patch loop, but at *trigger-state* granularity rather than *gap-incident* granularity.

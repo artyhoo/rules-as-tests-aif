@@ -1,3 +1,4 @@
+<!-- scope:wave-7 -->
 ---
 # Wave 7 Decision Matrix — §1.7 Backward-Check Self-Review Patch
 

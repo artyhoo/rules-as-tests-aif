@@ -1,3 +1,4 @@
+<!-- scope:§13.21 -->
 # §13.26 Wave 6 review verdicts + §7 P-3 capability-gate correction
 
 > **Authoritative for:** Wave 6 review verdicts (§6 D-1..D-6 of parent audit) + §7 P-3 capability-gate correction (MAJOR-1). Date snapshot 2026-05-10.
@@ -109,7 +110,7 @@ The parent audit §7 row condition «*Capability commit IF probes total ≥80 LO
 
 ## §4 REPORT
 
-```
+```text
 Session: Wave 6 review (§6 D-1..D-6)
 Parent audit: docs/meta-factory/research-patches/2026-05-10-ai-doc-effectiveness-cold-audit.md (497 lines, frozen post-merge)
 Verdicts: D-1:DEFER-B(→Wave-7) D-2:SHIP-A D-3:SHIP-B D-4:DEFER-C D-5:SHIP-A(→Wave-7) D-6:DEFER-B
@@ -170,7 +171,7 @@ This patch IS a discipline-bearing artefact (it claims authority over verdicts +
 
 ## §6 ATTN
 
-```
+```text
 ATTN: none.
 
 Source-prompt ATTN «STOP if D-3 SHIP path cannot satisfy Prior-art consult» from [wave-6-review.md L86-87](../../.claude/orchestrator-prompts/wave-6-ai-doc-cold-audit/wave-6-review.md) does NOT fire as ship-blocker per MAJOR-1 correction (§2 of this patch). Discipline-recommended consult is good practice; if context7 surfaces production-grade analog, SSOT verdict becomes WATCHLIST/DEFER (not BUILD), but D-3 ship is not blocked because pre-push hook does not gate Modified-status commits.

@@ -1,3 +1,4 @@
+<!-- scope:aif-handoff-mandate -->
 # AIF Handoff coordinator overlap analysis — prior-art research
 
 > **Scope:** research mandate 2026-05-11 — overlap analysis между AIF v2.x Handoff coordinator и нашими 7 «handoff»-семейными primitives (P1-P7).

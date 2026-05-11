@@ -1,3 +1,4 @@
+<!-- scope:methodology -->
 # T7 self-review — recursive application of the rule to its triggering gap
 
 > Verification artifact for Phase 8.8.1 hard constraint #5 (apply principle to itself). Walks the original [Phase 9 entry research §4.A1](../phase-9-entry-research.md) lookup through the [`.claude/rules/phase-research-coverage.md` §1](../../../.claude/rules/phase-research-coverage.md) checklist; verifies whether the rule, had it been active before Phase 9 entry T3.2, would have caught the AIF `/aif-evolve` + Oh My ClaudeCode coverage gap recorded in commit `f92f60b`.

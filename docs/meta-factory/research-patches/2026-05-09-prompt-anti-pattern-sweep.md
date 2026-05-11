@@ -1,3 +1,4 @@
+<!-- scope:methodology -->
 # 2026-05-09 prompt anti-pattern sweep — `#operational-doc-redefines-goal` in filename-exempt prompts
 
 > Verification artifact for PR #16 reviewer's MINOR finding: the goal-hierarchy restructure (PR #16) added [`.claude/rules/doc-authority-hierarchy.md`](../../../.claude/rules/doc-authority-hierarchy.md) with §2 «Required for» / «Folder-level authority» / «Filename-convention authority» categories. The L2 audit pass added Authoritative-for headers to 30+ docs in the «Required for» + «Folder-level» categories, but did NOT sweep the «Filename-convention authority» category (transient `*-PROMPT.md` files) for §4 anti-patterns. Two of nine prompt files contained live `#operational-doc-redefines-goal` violations.

@@ -1,3 +1,4 @@
+<!-- scope:methodology -->
 # Recommendation skips own discipline — meta-cognitive blindspot
 
 > Scope: 2026-05-09 incident — L3 generated-docs research recommendation. New anti-pattern `#recommendation-skips-own-discipline` + new checklist item §1.7 in [`phase-research-coverage.md`](../../../.claude/rules/phase-research-coverage.md).

@@ -89,6 +89,19 @@ jobs:
             # historical audit reports may reference suggested filenames / anti-patterns
           done < <(find . -name "*.md" -not -path "./.git/*" -not -name "audit-results-*.md" -not -path "./docs/audits/*")
 
+      - name: Research patch scope annotations
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            [[ "$(basename "$f")" == "README.md" ]] && continue
+            first=$(head -1 "$f")
+            if [[ "$first" != "<!-- scope:"* ]]; then
+              echo "::error file=$f::missing <!-- scope:... --> annotation on first line"
+              fail=1
+            fi
+          done < <(find docs/meta-factory/research-patches -maxdepth 1 -name "*.md")
+          exit "$fail"
+
       - name: Stale path references
         run: |
           fail=0

@@ -1,3 +1,4 @@
+<!-- scope:wave-7 -->
 # Wave 7 — Review verdicts (joint closure §13.27 + §13.28 + §13.8)
 
 > **Authoritative for:** Wave 7 review verdicts on parent research patch [2026-05-10-wave-7-hot-checks-joint-closure-research.md](2026-05-10-wave-7-hot-checks-joint-closure-research.md) — §1 dimension scoring (8 dims per review prompt), §2 closure of §9 open decisions (7 items), §3 sub-wave outline confirmation, §4 §1.7 forward+backward independent re-check, §5 ATTN escalations.
@@ -153,7 +154,7 @@ This review patch itself is a discipline-bearing artefact (verdicts shape Wave 7
 
 ## §6 Verdict block (review-prompt format — REVISED 2026-05-10b)
 
-```
+```text
 Verdict: GO
 Confidence: high
 

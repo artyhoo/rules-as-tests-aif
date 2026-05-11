@@ -1,3 +1,4 @@
+<!-- scope:phase-8.8 -->
 # Patch 2026-05-08 — AIF `/aif-evolve` + Oh My ClaudeCode coverage gap
 
 ## Problem

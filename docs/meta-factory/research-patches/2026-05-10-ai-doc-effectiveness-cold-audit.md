@@ -1,3 +1,4 @@
+<!-- scope:§13.21 -->
 # §13.26 AI-doc effectiveness — cold-context audit
 
 > **Authoritative for:** §13.26 audit findings (date snapshot).

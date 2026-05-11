@@ -1,3 +1,4 @@
+<!-- scope:wave-7 -->
 # Wave 7 Round 1 — Implementation review
 
 > **Authoritative for:** Wave 7 Round 1 (sub-waves 7.1/7.2/7.3/7.6.a) implementation audit — domain scores and GO/REVISE per domain. **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
