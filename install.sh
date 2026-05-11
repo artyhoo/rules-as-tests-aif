@@ -177,6 +177,20 @@ else
   cp -r "$PKG_ROOT/skills/rules-as-tests" "$PROJECT_ROOT/.claude/skills/rules-as-tests"
   echo "  ✓ .claude/skills/rules-as-tests/"
 fi
+if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--force" ]; then
+  SKIPPED+=("$PROJECT_ROOT/.claude/skills/tool-bootstrapping")
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would skip: .claude/skills/tool-bootstrapping (exists)"
+  else
+    echo "  ⊝ .claude/skills/tool-bootstrapping (exists — skipping)"
+  fi
+elif [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "  [dry-run] would copy: $PKG_ROOT/skills/tool-bootstrapping → $PROJECT_ROOT/.claude/skills/tool-bootstrapping"
+else
+  rm -rf "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
+  cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
+  echo "  ✓ .claude/skills/tool-bootstrapping/"
+fi
 
 # ─── 2. Sub-agents ──────────────────────────────────────
 echo "▶ Sub-agents → .claude/agents/"

@@ -1,0 +1,27 @@
+---
+deps-hash: <pending — populated on first tool-bootstrap run>
+last-bootstrap: <YYYY-MM-DD>
+aif-version: <e.g. 2.1.0>
+---
+
+<!-- Copy this file to .ai-factory/tool-decisions.md in your project root and commit it.
+     Run AIF /aif to populate the first bootstrap; the UserPromptSubmit hook (Wave 5.3)
+     will then track deps-hash changes automatically. -->
+
+## Accepted
+
+| Tool | Type | Accepted | Rationale |
+|---|---|---|---|
+| context7 | MCP | auto | setup.sh baseline — installed unconditionally as recursive bootstrap stage 1 |
+| github-mcp | MCP | YYYY-MM-DD | Replace with actual rationale: which project workflow requires this tool |
+
+## Rejected
+
+| Tool | Type | Rejected | Reason | Re-eval trigger |
+|---|---|---|---|---|
+| _none yet_ | — | — | — | — |
+
+## Pending review
+
+<!-- Add tools proposed by AIF /aif but not yet decided, or tools due for re-evaluation. -->
+<!-- Format: - <tool-name>: <reason for pending> -->

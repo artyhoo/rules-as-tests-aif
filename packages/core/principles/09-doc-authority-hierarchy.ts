@@ -67,6 +67,12 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'skills/rules-as-tests/references/doc-organization.md',
   'skills/rules-as-tests/references/overview.md',
   'skills/rules-as-tests/references/self-testing-docs.md',
+  'skills/tool-bootstrapping/SKILL.md',
+  'skills/tool-bootstrapping/references/decision-format.md',
+
+  // .claude/skills/ — project-internal skill primary + cold references (Wave 5.1)
+  '.claude/skills/tool-bootstrapping/SKILL.md',
+  '.claude/skills/tool-bootstrapping/references/decision-format.md',
 
   // Framework-shipped templates copied to consumer .ai-factory/ and project root
   'packages/core/templates/shared/AGENTS.md.template',
