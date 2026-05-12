@@ -1,0 +1,158 @@
+# AI laziness traps — discipline rule
+
+> **Authoritative for:** ai-laziness-traps discipline rule — §1 problem this solves, §2 canonical trap catalogue, §3 kickoff-author obligations (cite + extend, no blanket reference), §4 anti-patterns, §5 promotion / retirement triggers.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Companion to research-discipline rule — see [phase-research-coverage.md](phase-research-coverage.md).
+
+> **Origin:** 2026-05-12. Wave 9 kickoff (`§13.31`) §6 enumerated 11 «AI laziness traps» specific to that R-phase. During Phase 10 (`§13.32`) scoping the maintainer surfaced that the trap catalogue is **structurally project-wide** — any R-phase, audit, or open-ended investigation by an AI session faces the same failure modes (sampling shallow, declaring victory at floor depth, pattern-matching the prompt instead of reasoning against it). Drift-waiting-to-happen if each kickoff re-invents its own list. Hoisted to project rule with self-defending mechanism: kickoffs must cite + extend, not blanket-reference.
+
+This rule formalises **AI-laziness countermeasures** as a project invariant, parallel to:
+- code-level discipline (R1-R20 lint rules)
+- decision-level discipline (Prior-art trailers + SSOT)
+- research-level discipline ([phase-research-coverage.md](phase-research-coverage.md))
+- doc-authority-level discipline ([doc-authority-hierarchy.md](doc-authority-hierarchy.md))
+
+The rule applies to **any AI session running an R-phase, audit, sample-based investigation, decision-register exercise, doc-creation / doc-revision of a discipline-bearing artefact (`README.md`, `CLAUDE.md`, `INSTALL-FOR-AI.md`, `.claude/rules/*.md`, `.claude/skills/*/SKILL.md`, `agents/*.md`, kickoff or research-patch authoring), or other open-ended task whose output is bounded only by «when do I stop».** It does NOT apply to mechanical edits with explicit done-criteria (e.g. «replace X with Y in file Z»).
+
+**Especially load-bearing for doc-creation:** documentation has no executable tests on prose substance, only structural checks (principle 09 = header presence). All traps apply with extra weight — particularly T11 (designing without prior-art check on doc patterns like ADR/MADR), T12 (skipping literature sweep because «I know docs-as-code»), T15 (the doc itself never self-applies its own framing), T16 (adopting external doc-architecture pattern by name without verifying problem-class match — e.g. claiming ADR style without doing the ADR discipline).
+
+## §1 Problem this solves
+
+AI agents under time pressure (their own session quota, perceived user impatience, or absence of an external done-check) reliably converge to **path of least resistance**: producing the shape of the expected output without performing the underlying work. The failure mode is well-documented in the project — `#discipline-theatre` antipattern (`§13.29`, Wave 8) — and applies recursively to audits of `#discipline-theatre` itself (Wave 9).
+
+The general rule: **any AI task whose stopping criterion is «when I'm done» rather than «when an external check passes» will under-shoot the actual stopping point.** Confidence: very high, validated across 4 documented incidents in Waves 5-8 plus the entire `#discipline-theatre` taxonomy.
+
+The fix is **operationalising the laziness traps and forcing kickoff authors to instantiate them**, not just reference them generically.
+
+## §2 Canonical trap catalogue
+
+These are the traps observed in this project plus structurally similar ones from external research (AI-agent specification gaming, AI code-review compliance drift). Each trap has: trigger pattern, what an AI will be tempted to do, concrete countermeasure.
+
+### T1 — «Looked at 3 examples, all clean, category done»
+
+Trigger: sampling-based audit with no explicit depth floor.
+Tempted output: «sampled 3 surfaces, all substantive, category clean».
+Counter: sampling **floor = 5**; recommended depth ≥20. If first 3 look clean, that is a **sampling artifact**, not a finding. Continue to depth.
+
+### T2 — «My methodology would catch theatre, so I don't need to run it»
+
+Trigger: open-ended audit where designing the method is satisfying.
+Tempted output: «my proposed methodology covers X, Y, Z — sufficient».
+Counter: designing ≠ auditing. Auditing requires running the methodology against actual surfaces and reporting findings. If you find yourself writing «would detect» in §findings, replace with concrete invocation + concrete output.
+
+### T3 — «Plausible-looking finding without verification»
+
+Trigger: time pressure + reasoning-from-context-summaries.
+Tempted output: «PR #N's Forward-check cites `foo.ts:42` which I assume evidences principle 02» — without opening the file.
+Counter: every finding must have ONE of: (a) command + output, (b) file:line citation + the line's actual content, (c) explicit `INCONCLUSIVE-needs-LLM` or `INCONCLUSIVE-needs-human` if you cannot verify mechanically. **No prose-only findings.**
+
+### T4 — Closing R-phase prematurely
+
+Trigger: progress feels sufficient; output looks comprehensive.
+Tempted output: «N categories enumerated, M surfaces sampled per category — handing off».
+Counter: R-phase output must hit ALL declared sections. **Adversarial counter-prompt at the CATEGORY level** («what category did I miss?») is the discipline-applying-to-itself check; skipping it means having already failed.
+
+### T5 — Bundling implementation findings into research phase
+
+Trigger: «I notice an obvious fix while auditing, let me just apply it».
+Tempted output: edits to source files during R-phase.
+Counter: R-phase output is a Markdown doc. If you open `Edit` on a source file during R-phase, stop. Add finding to research output, propose mechanism in §closure-proposals, leave the fix to I-phase.
+
+### T6 — Self-reporting «high confidence»
+
+Trigger: REPORT format expects a Confidence field.
+Tempted output: «Confidence: high» as a syntactic-presence check.
+Counter: Replace «high» with explicit predicates: «Confidence: 7/20 surfaces verified mechanically; 13/20 require LLM-judge follow-up. Coverage = 35%. Calibration: NONE — first run of this methodology, expect false-positive rate ≥20% until 2nd run.»
+
+### T7 — Following the prompt literally instead of reasoning adversarially
+
+Trigger: prompts have structure that AI can pattern-match to and tick boxes.
+Tempted output: «adversarial check applied — no missed categories» (without actually running the adversarial check).
+Counter: when reaching adversarial counter-prompt sections, **write the actual counter-prompt and run it**. If it surfaces nothing, that is itself suspicious — rephrase and run again.
+
+### T8 — Asking the maintainer to avoid doing the work
+
+Trigger: easy escape via «should I include X or is that out of scope?»
+Tempted output: clarifying questions whose answers are already in the kickoff.
+Counter: if the question's answer is in the kickoff, don't ask. If the answer requires real judgment from the maintainer, ask **once at review-phase, batched** with other decisions.
+
+### T9 — Sampling the EASY surfaces
+
+Trigger: convenience-recent stratification.
+Tempted output: sample 20 most-recent items where the discipline is already active.
+Counter: explicit stratification — document sampling strategy. Sample across the historical window where the discipline was NOT yet active (that is where theatre concentrates). Random-uniform from full population beats convenience-recent.
+
+### T10 — Reporting completeness based on what you LOOKED at, not what EXISTS
+
+Trigger: no upfront population enumeration.
+Tempted output: «sampled 20 in C5, found 4 theatre cases» — without knowing population size.
+Counter: §population-enumeration BEFORE §sampling. Order matters. Without enumeration, sampling claims are meaningless.
+
+### T11 — Designing custom solution without checking external prior art
+
+Trigger: writing «I propose mechanism X» without prior-art check.
+Tempted output: detailed proposal for a custom script/probe/gate that duplicates an existing production-grade tool.
+Counter: §5.1 §6 of any audit kickoff requires **build-vs-reuse SSOT consult + context7 ≥3 phrasings + WebSearch on the problem-domain term** before any «I propose…». If you find yourself proposing a mechanism without external search, stop and search first.
+
+### T12 — Skipping the literature sweep because «I already know the area»
+
+Trigger: AI confident from training data.
+Tempted output: «I'm familiar with mutation testing; Stryker is what we want — no need to web-search».
+Counter: training-data knowledge has a cutoff date and is **systematically biased toward well-documented tools**. Active research areas (specification gaming, AI compliance drift) update fast and have non-obvious entries. WebSearch at the moment of proposing, not from memory.
+
+### T13 — Treating ADOPTED items as zero-work
+
+Trigger: «we adopted this from AIF, so it's externally validated, no audit needed».
+Tempted output: skipping audit of ADOPTED-MECHANISM items entirely.
+Counter: the **upstream source itself may be context7-only validated**. For each ADOPTED item, audit must confirm: (a) upstream had external evidence for the pattern, OR (b) escalate item to OWN-BUILD-class audit depth.
+
+### T14 — Conflating «no findings» with «no theatre»
+
+Trigger: audit returns clean results.
+Tempted output: «category clean → no follow-up needed».
+Counter: clean audit AND high coverage → category is plausibly clean. Clean audit AND low coverage → finding is «coverage insufficient to conclude», not «category clean». Distinguish in the output.
+
+### T15 — Self-application skipped
+
+Trigger: «this rule/audit/methodology is about X, not about itself».
+Tempted output: applying the discipline to user code only, never to the audit's own artefacts.
+Counter: project invariant #2 («recursive self-application green»). Every audit must include §self-application — «did this audit run on itself? what would auditing this audit look like?» — and produce a finding.
+
+### T16 — Pattern-matching-on-name (adopted-tool-wrong-problem)
+
+Trigger: ADOPTED or ADAPTED item with a familiar-sounding name; AI assumes the upstream pattern solves the same problem class we have.
+Tempted output: «we adopted Stryker → mutation testing covered», «we adopted AIF Step 0 → session anchoring covered» — without verifying that **our problem class matches what upstream was designed for**.
+Concrete shape: driving nails with a screwdriver / screwing screws with a hammer — the tool is real and well-built, but it's the wrong tool for our actual problem because someone matched names instead of functions.
+Counter: for every ADOPTED-MECHANISM or ADAPTED item, write explicitly: **«Upstream problem class: X. Our problem class: Y. Match? evidence: …»**. If X and Y differ, the upstream validation does NOT transfer — escalate to OWN-BUILD-class audit. This is the `#pattern-matching-on-name` antipattern in operational form (see [phase-research-coverage.md §4](phase-research-coverage.md) candidates; documented in [`prior-art-evaluations.md` AIF Handoff overlap analysis](../../docs/meta-factory/prior-art-evaluations.md) entries #27/#28).
+
+## §3 Obligations on kickoff authors
+
+A kickoff document (R-phase brief, audit prompt, multi-session umbrella doc) that delegates work to an AI session MUST:
+
+1. **Cite this rule explicitly** in its §6 (or equivalent «AI traps» section): `See [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md)`.
+2. **Enumerate which T-numbers apply** to its specific R-phase by listing them: `Active traps for this R-phase: T1, T3, T4, T7, T11, T13, T15`. Justification one-liner per trap is encouraged but not mandatory.
+3. **Add ≥1 domain-specific trap** that is NOT in the canonical catalogue but is structurally possible in this R-phase's context. Domain-specific traps should be labelled with the wave/phase identifier: `T-Wave9-A — «when auditing trailer truthfulness, AI tempted to grep for citation-syntax presence rather than verify cited line evidences claim»`.
+
+Blanket reference («see ai-laziness-traps.md» without enumeration or domain extension) is **insufficient and itself a form of T7 (pattern-matching the prompt instead of reasoning against it)**. Linters can be added later if violation rate justifies; for now this is a prose-discipline check at review time.
+
+## §4 Anti-patterns
+
+- **`#trap-catalogue-blanket-reference`** — kickoff cites this rule but does not enumerate T-numbers or add domain-specific traps. Treats the catalogue as decoration, not discipline. Counter: review-phase rejection.
+- **`#trap-list-grew-without-pruning`** — every wave adds 3-5 new traps; catalogue grows to 50+ items; future sessions ignore the bloat. Counter: §5 retirement policy.
+- **`#self-protection-omitted`** — kickoff includes T1-T14 but not T15 (self-application). The audit never audits itself. Counter: T15 is **mandatory** for any R-phase using this rule; not opt-in.
+- **`#trap-stated-but-not-enforced`** — kickoff cites traps in §AI-traps section but the methodology in §rest-of-document does not embed countermeasures (e.g. mentions T10 «enumerate population first» but methodology section skips population enumeration). Counter: review-phase cross-check.
+- **`#reading-traps-doesnt-mean-applying-them`** — AI reads §2 trap list, recognises it as «pattern-match advice», then proceeds to fall into the listed traps anyway. The rule itself is subject to its own T7. Counter: methodology requires concrete instantiation of countermeasures (e.g. «§4 finding format requires file:line citation per T3») rather than narrative «be careful about T3».
+
+## §5 Promotion / retirement triggers
+
+- **New trap promotion to canonical catalogue (§2):** when 2+ wave-specific T-additions describe structurally the same failure mode, abstract and add to §2. Wave-specific T-XXX deprecates.
+- **Trap retirement:** if a T-N has not been cited as active in any kickoff for 4+ consecutive waves AND no incident has fired matching it, demote to «archived» section (preserve for history, do not require enumeration).
+- **Catalogue split:** if §2 exceeds 25 entries, split by domain (e.g. audit-specific vs. implementation-specific). Avoid bloat-by-accretion.
+- **Companion principle test promotion:** if rule violation rate (kickoffs without proper T-enumeration) reaches ≥3 incidents in 6 months, add `packages/core/principles/11-ai-laziness-traps.test.ts` — mechanical check on kickoff files under `.claude/orchestrator-prompts/*/kickoff.md` for the required citation + enumeration syntax.
+
+## See also
+
+- [.claude/orchestrator-prompts/wave-9-discipline-theatre-audit/kickoff.md §6](../orchestrator-prompts/wave-9-discipline-theatre-audit/kickoff.md) — origin instance; the in-flight kickoff inlines T1-T11. Future kickoffs reference this rule instead.
+- [phase-research-coverage.md](phase-research-coverage.md) — companion rule on research-discipline scope (overlapping concerns: R-phase output requirements, search-coverage 6-item checklist).
+- [doc-authority-hierarchy.md](doc-authority-hierarchy.md) — parallel discipline rule pattern (authority + scope statements per doc).
+- [open-questions.md §13.31](../../docs/meta-factory/open-questions.md) — Wave 9 umbrella driving §2 catalogue origin.
+- [open-questions.md §13.32](../../docs/meta-factory/open-questions.md) — Phase 10 umbrella; classification discipline `OWN-BUILD` / `ADAPTED` / `ADOPTED-MECHANISM` / `ADOPTED-VOCABULARY` / `REJECTED` interacts with T11 (don't sweep what's externally validated) + T13 (don't trust ADOPTED without confirming upstream evidence).
