@@ -113,4 +113,4 @@ Individual files in such folders inherit folder authority and do **not** need th
 - [CLAUDE.md `Artifact Ownership Contract`](../../CLAUDE.md) — read-only / read-write boundaries per agent class.
 - [docs/meta-factory/closed-questions.md §13.21](../../docs/meta-factory/closed-questions.md) — generated-doc compliance trigger (deferred L3 work; closed 2026-05-10, archived).
 - [docs/meta-factory/closed-questions.md](../../docs/meta-factory/closed-questions.md) — archive of closed §13.x entries (added 2026-05-12).
-- [.claude/rules/phase-research-coverage.md §4 anti-patterns](phase-research-coverage.md) — `#recursive-self-application-gap` parent anti-pattern category.
+- [.claude/rules/phase-research-coverage.md §4 anti-patterns](phase-research-coverage.md) — `#recursive-self-application-gap` related anti-pattern in the focus-tunnel family.

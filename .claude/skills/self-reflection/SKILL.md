@@ -83,10 +83,11 @@ Five prompts from [`phase-research-coverage.md §2`](../../rules/phase-research-
 
 ## Anti-patterns
 
-10 named anti-patterns in [`phase-research-coverage.md §4`](../../rules/phase-research-coverage.md). Three most relevant to this skill:
+12 named anti-patterns in [`phase-research-coverage.md §4`](../../rules/phase-research-coverage.md). Most relevant to this skill:
 
+- **`#discipline-application-scope-blindness`** — discipline applied to explicit object-under-review but not extended to (a) self-commentary, (b) meta-commentary that lags primary content, (c) claims from collaborators accepted without verification. Sibling of `#recursive-self-application-gap` in the focus-tunnel family (spatial dimension). Promoted from candidate Wave 8 (§13.24).
 - **`#recommendation-skips-own-discipline`** — the parent anti-pattern this skill mitigates.
-- **`#recursive-self-application-gap`** — discipline applied bottom-up to outputs, not top-down to design.
+- **`#recursive-self-application-gap`** — discipline applied bottom-up to outputs, not top-down to design. Sibling of `#discipline-application-scope-blindness` (temporal dimension of focus-tunnel family).
 - **`#trigger-sweep`** — armed-but-not-fired §13.x triggers; surfaces during forward-check item 5.
 
 Examples with case studies (PR #16, defer-until-pain, L3 research): [references/anti-patterns-with-examples.md](references/anti-patterns-with-examples.md).
