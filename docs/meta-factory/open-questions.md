@@ -140,7 +140,7 @@ Decision matrix в [self-application.md](self-application.md) §3 фиксиру
 | 1 | LLM-driven research extension (context7 MCP + Anthropic `web_search_20250305` with allowed_domains) | L2 | First real consumer reports a research gap on a non-curated framework, OR Phase 8 acceptance shows curated store insufficient for Next 16 patterns | New gate: `framework-self-research --llm` returns drift = 0 against curated baseline + cost ≤$0.10 per `research --self` invocation |
 | 2 | Path A LLM gen («picks from menu» — LLM selects existing ESLint plugins / configures options) | L3 | Phase 8 acceptance test passes deterministic; Phase 9 entry research validates ROI (closed negative 2026-05-08, [phase-9-entry-research.md §5 row A1](phase-9-entry-research.md)). **Next re-evaluation:** recipe count exceeds 15 (3× post-A6 baseline of ~5) AND ≥3 framework targets concurrently shipped (e.g. Next + Remix + SvelteKit) require per-framework rule namespace selection AND no single hand-curated preset fits all recipe surfaces. | Two-AI review (gate 5) + cost ≤$1 per generated rule + diff with hand-authored ≤10% |
 | 3 | Path B AST gen (LLM writes ESLint rule TypeScript source) | L3 | Phase 9+ entry; new pattern with no existing ESLint plugin | Mutation testing (gate 3) green + paired bad/good corpus passes + human-review checkpoint before commit |
-| 4 | Gate 5 — two-AI review via AIF `review-sidecar` (`model: opus` override) | L4 | Phase 8 cost-scope decision (per-rule vs per-plan; advisory vs blocking; integration vs reimplementation) | Cost tracked per §13.11 + false-positive rate <20% on 10+ real PRs |
+| 4 | Gate 5 — two-AI review via AI-agnostic sub-agent (read by active AI session on Max subscription, no CI API billing; `agents/compliance-verifier.md` = Wave 8.1b instance of pattern) | L4 | Re-armed under no-paid-LLM-in-CI policy (Wave 8.1b); Phase 8 cost-scope decisions DONE. Implementation deferred pending FP verification. | false-positive rate <20% on 10+ real PRs |
 | 5 | Gate 3 — mutation testing via Stryker | L4 | Path B activation (gate 3 only mutates AST; nothing to mutate in Path A) | Stryker score ≥80% on Path B rules + runtime ≤5 min per CI run |
 
 **Closure criteria.** Each v2 area closes when (a) trigger fires AND (b) verification gate passes for ≥1 real example AND (c) cost model in §13.11 reports a stable per-invocation budget. Until then: deterministic v1 ships.
@@ -166,27 +166,23 @@ Decision matrix в [self-application.md](self-application.md) §3 фиксиру
 
 **Decision deferred** until first invocation; tracking shape emerges from real data, not speculation.
 
-#### Gate 5 v2 invocation shape (decided 2026-05-08 Phase 8)
+#### Gate 5 v2 invocation shape (decided 2026-05-08 Phase 8; re-armed 2026-05-12)
+
+> **Re-armed under no-paid-LLM-in-CI policy (Wave 8.1b, 2026-05-12).** Original design assumed API billing via AIF `review-sidecar` (`model: opus` override) — conflicts with project policy (see `agents/compliance-verifier.md`: «This file is NOT a GitHub Action; it makes no LLM API call; it bills no tokens beyond your existing subscription»). Re-armed: AI-agnostic sub-agent prompt file read by the **active AI session** on Claude Code Max subscription. No CI API billing. Cost arithmetic below is superseded.
 
 Phase 8 entry research (see [phase-8-research.md §6](phase-8-research.md)) closed the **scoping** decision for gate 5 — the **implementation** is still deferred per [§13.10 entry #4](#1310-llm-v2-trigger-conditions) v2 trigger.
 
 | Dimension | Decision | Rationale |
 |---|---|---|
-| **Invocation mode** | **per-plan** (1 invocation per validate run, full plan in context) | ~3× cheaper than per-rule (~$0.29 vs ~$0.72 at Opus 4.7 list pricing on a 26-rule plan), amortizes system-prompt overhead, ≤8s wall-clock vs ≥30s sequential per-rule |
-| **Model** | **Opus 4.7** | Quality gate (catches semantics gates 1/2/4/6 cannot); $0.15 Opus-vs-Sonnet premium is rounding error vs the §6 «≤$5» Phase 8 budget |
-| **Severity** | **advisory non-blocking** | LLM-driven review carries FP risk; promote to blocking only after [§13.10 entry #4](#1310-llm-v2-trigger-conditions) verification gate fires («false-positive rate <20% on 10+ real PRs») |
-| **Caching** | keyed on `rules-lock.json.sourceFingerprint` (sha256/16) | Lock already carries the fingerprint; rerun only when fingerprint changes — repeated CI runs cut to ~$0 |
-| **Per-run budget** | **<$0.30 typical / <$5 with 10× retries** | 17× headroom under EXECUTION-PLAN.md §6 Phase 8 «cost ≤$5» gate; stop-rule «>$10 ⇒ REVISE» does not fire |
+| **Invocation mode** | **per-plan** (1 invocation per validate run, full plan in context) | Amortizes context overhead; decision preserved from Phase 8 scoping |
+| **Model** | **active session's model** (no API override; Max subscription) | No-paid-LLM-in-CI policy (Wave 8.1b). Original Opus 4.7 API billing analysis superseded. |
+| **Severity** | **advisory non-blocking** | AI-session-driven review carries FP risk; promote to blocking only after [§13.10 entry #4](#1310-llm-v2-trigger-conditions) verification gate fires («false-positive rate <20% on 10+ real PRs») |
+| **Caching** | keyed on `rules-lock.json.sourceFingerprint` (sha256/16) | Lock already carries the fingerprint; rerun only when fingerprint changes |
+| **Per-run budget** | **N/A** — Max subscription, no CI API billing | Supersedes original <$0.30 / <$5 estimates. §13.11 cost-tracking not needed for Gate 5 under AI-agnostic pattern. |
 
-**Cost arithmetic** (Anthropic May 2026 list pricing — Opus 4.7 $5/M input, $25/M output; cached input ≤90% off):
+**Cost arithmetic** (Phase 8 original — superseded by AI-agnostic re-arming): original Opus 4.7 API billing estimates no longer apply. CI cost = $0 (Max subscription). §13.11 cost-tracking infrastructure remains relevant for other v2 areas (rows 1–3 in §13.10 table) if those reach build-trigger.
 
-```text
-per-plan, cold: 32K input · $5/M + 5K output · $25/M = $0.16 + $0.125 = $0.285
-per-plan, warm: 32K input · $0.50/M + 5K output · $25/M = $0.016 + $0.125 = $0.141
-per-rule × 26: 78K input · $5/M + 13K output · $25/M = $0.39  + $0.325 = $0.715
-```
-
-**Implementation status:** the *invocation shape* is now SSOT; *building* gate 5 is still deferred. Trigger to start build = §13.10 entry #4 v2 condition (Phase 8 cost-scope decision DONE; verification gate FP rate still pending real-PR data).
+**Implementation status:** invocation shape updated to AI-agnostic pattern (Wave 8.1b re-arming); *building* gate 5 still deferred. Trigger to start build = §13.10 entry #4 v2 condition (Phase 8 cost-scope decisions DONE; no-paid-LLM re-arming DONE; verification gate FP rate still pending real-PR data).
 
 **Cost-tracking infrastructure** (scoped above as a v2 deliverable per §13.11) is **not** built in Phase 8 — keyed on the same `sourceFingerprint`, but the storage shape (proposal: `<consumerRoot>/.ai-factory/synthesizer-output/llm-cost-log.json`) emerges with the first real invocation, not on speculation.
 
