@@ -70,7 +70,7 @@ Group findings by status. For each FAIL, identify:
 
 ### Step 5: Output structured verdict
 
-```
+```markdown
 ## Code-vs-docs audit (scripts/audit-ai-docs.sh)
 
 ### PASS (5)
@@ -105,7 +105,7 @@ Fix the failures above. Address or postpone the WARN explicitly.
 ```
 
 If all PASS:
-```
+```markdown
 ## Code-vs-docs audit
 All N probes passed (or N PASS, M WARN — non-blocking).
 

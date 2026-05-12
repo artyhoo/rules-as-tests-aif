@@ -13,7 +13,7 @@
 ## Principle 1 — Every rule has executable check
 
 **Source:** [overview.md](../../skills/rules-as-tests/references/overview.md) Layer 2
-  + [ai-traps.md](../../skills/rules-as-tests/references/ai-traps.md) §8
++ [ai-traps.md](../../skills/rules-as-tests/references/ai-traps.md) §8
   ("rules without measurable check decay")
 
 **Test file:** [scripts/principles/01-executable-check.test.ts](../../scripts/principles/01-executable-check.test.ts)
@@ -105,9 +105,9 @@
 **Pass criterion:** No rule has a structurally tautological manifest entry.
 
 **Mutation tests:**
-  - Sets `check.command = "true"` → throws "no-op"
-  - Sets `policy = rule.title` → throws "policy field is identical to title"
-  - Sets `examples.bad = examples.good` → throws "tautological example pair"
+- Sets `check.command = "true"` → throws "no-op"
+- Sets `policy = rule.title` → throws "policy field is identical to title"
+- Sets `examples.bad = examples.good` → throws "tautological example pair"
 
 **Currently passing:** 26/26 rules
 
@@ -164,10 +164,10 @@
   is acceptable).
 
 **Mutation tests:**
-  - Sets policy = "Consider using safer alternatives where possible. Recommended if feasible."
-    (no hard language) → throws "soft-obligation language"
-  - Sets policy = "MUST use Zod. Recommended to also add logging where possible."
-    (both) → does NOT throw (correct: hard counterpart exempts soft)
+- Sets policy = "Consider using safer alternatives where possible. Recommended if feasible."
+  (no hard language) → throws "soft-obligation language"
+- Sets policy = "MUST use Zod. Recommended to also add logging where possible."
+  (both) → does NOT throw (correct: hard counterpart exempts soft)
 
 **Currently passing:** 26/26 rules (21 automated-check rules all use hard language)
 
@@ -193,9 +193,9 @@
   YAML patterns (`# `, `- `, `key: `), GitHub Actions keywords, `@version` refs.
 
 **Mutation tests:**
-  - Sets `examples.bad = ""` → throws "examples.bad is empty"
-  - Sets `examples.bad = "This is wrong because it violates the rule"` → throws "prose"
-  - Sets `examples.good = "This is the correct approach following best practices"` → throws "prose"
+- Sets `examples.bad = ""` → throws "examples.bad is empty"
+- Sets `examples.bad = "This is wrong because it violates the rule"` → throws "prose"
+- Sets `examples.good = "This is the correct approach following best practices"` → throws "prose"
 
 **Currently passing:** 26/26 rules
 

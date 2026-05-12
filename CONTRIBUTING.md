@@ -130,13 +130,13 @@ a new SSOT entry in the same commit** — with `Verdict` / `Rationale` /
 
 In the commit message body, after the blank line following the subject:
 
-```
+```text
 Prior-art: <narrative referencing prior-art-evaluations.md#<ID>, or escape hatch>
 ```
 
 Positive forms (one or more lines, each starts with `Prior-art:`):
 
-```
+```text
 Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).
 Prior-art: prior-art-evaluations.md#3 (fitness functions vocabulary adoption).
 ```
@@ -145,7 +145,7 @@ Escape hatch (for capability-shaped commits that intentionally skip the
 consult — e.g. you've already cited the SSOT in an earlier commit of the
 same series, or the «capability» surface area is one the hook over-flags):
 
-```
+```text
 Prior-art: skipped — refactor only, no new capability
 ```
 

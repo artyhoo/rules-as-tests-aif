@@ -58,7 +58,7 @@ If `audit:docs` fails — that's a separate category of failure (docs-vs-code dr
 
 _Policy: `.parse()` is forbidden in `src/web/handlers/`, `src/app/actions/`, `src/app/api/`. Use `.safeParse()` and branch on `.success`._
 
-```
+```markdown
 ## Verdict
 - R1 TypeScript hygiene: PASS
 - R2 Validation at boundaries: FAIL
@@ -85,7 +85,7 @@ Fix violations above and re-run /aif-verify.
 ```
 
 If all PASS:
-```
+```markdown
 ## Final
 N PASS / 0 FAIL — VERDICT: ALL RULES SATISFIED.
 ```

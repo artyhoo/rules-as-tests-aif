@@ -135,7 +135,7 @@ When reviewing `.tsx`/`.jsx` diff:
 
 For each issue, output:
 
-```
+```markdown
 ## Severity: BLOCKER | MAJOR | MINOR
 - File: src/features/checkout/PriceSummary.unit.ts:34
 - What I saw: `expect(result).toBeDefined()` after `result = calculatePrice(items)`
@@ -152,7 +152,7 @@ Severity rules:
 
 ## Final verdict
 
-```
+```markdown
 ## Two-AI Review Summary
 - BLOCKER: 1
 - MAJOR: 3
@@ -163,7 +163,7 @@ BLOCK MERGE — fix BLOCKER before proceeding.
 ```
 
 If clean:
-```
+```markdown
 ## Two-AI Review Summary
 - 0 issues found.
 
