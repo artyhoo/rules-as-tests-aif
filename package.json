@@ -8,6 +8,6 @@
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
-    "markdownlint-cli2": "^0.17.0"
+    "markdownlint-cli2": "^0.22.1"
   }
 }
