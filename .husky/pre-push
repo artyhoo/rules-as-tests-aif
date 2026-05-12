@@ -40,6 +40,12 @@ else
   echo "❌ packages/core/audit-self/audit-ai-docs.test.sh missing or not executable"
   exit 1
 fi
+if [ -x packages/core/audit-self/pre-push.test.sh ]; then
+  bash packages/core/audit-self/pre-push.test.sh
+else
+  echo "❌ packages/core/audit-self/pre-push.test.sh missing or not executable"
+  exit 1
+fi
 
 # ── 4. Manifest render drift ──────────────────────────────────────────────────
 # --check flag verified to exist in packages/core/render/render-rules.ts
@@ -236,9 +242,18 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
   #   docs(research-patches):  chore(snapshot-regen):  chore(prior-art-update):
   # Maintenance: when a new safe prefix emerges, update this list AND the regex below.
   #
+  # Substance arm (Wave 8.3): s17_check_trailer() additionally verifies that a
+  # valid §1.7: trailer contains ≥1 file:line citation ([^[:space:]]+\.[a-z]+:[0-9]+).
+  # Generic stubs («Checked all rules — compliant») pass the length+placeholder
+  # check but lack structural evidence; the substance arm returns exit 2 to
+  # distinguish substance failures from missing-trailer failures (exit 1).
+  # S17_SUBSTANCE_WARN_ONLY matures independently from S17_WARN_ONLY so the
+  # substance arm can be calibrated without flipping the presence gate.
   # TODO 2026-06-10: flip default to S17_WARN_ONLY=false; promote enforcement.
+  # TODO 2026-06-10: flip default to S17_SUBSTANCE_WARN_ONLY=false; promote substance enforcement.
 
   S17_WARN_ONLY="${S17_WARN_ONLY:-true}"
+  S17_SUBSTANCE_WARN_ONLY="${S17_SUBSTANCE_WARN_ONLY:-true}"
   S17_ALLOWLIST_RE='^(docs\(research-patches\)|chore\(snapshot-regen\)|chore\(prior-art-update\)):'
 
   s17_is_discipline_introducing() {
@@ -300,7 +315,16 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
               *) all_placeholder=0; break ;;
             esac
           done
-          [ "$all_placeholder" = "0" ] && return 0
+          if [ "$all_placeholder" = "0" ]; then
+            # Substance arm (Wave 8.3): require ≥1 file:line citation.
+            # Pattern: non-whitespace chars, a dot, lowercase extension, colon, digits.
+            # Examples: packages/core/principles/02.test.ts:82  .claude/rules/foo.md:10
+            if printf '%s' "$payload" | grep -qE '[^[:space:]]+\.[a-z]+:[0-9]+'; then
+              return 0
+            fi
+            printf '%s' "§1.7: trailer present but lacks file:line citation (substance check — Wave 8.3)"
+            return 2
+          fi
           ;;
       esac
     done <<< "$body"
@@ -309,11 +333,15 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
   }
 
   S17_FAILURES=""
+  S17_SUBSTANCE_FAILURES=""
   for sha in $COMMITS; do
     if s17_is_discipline_introducing "$sha"; then
-      err=""
-      if ! err=$(s17_check_trailer "$sha"); then
+      err=""; rc=0
+      err=$(s17_check_trailer "$sha" 2>&1) || rc=$?
+      if [ "$rc" -eq 1 ]; then
         S17_FAILURES="${S17_FAILURES}  ${sha:0:10}  ${err}\n"
+      elif [ "$rc" -eq 2 ]; then
+        S17_SUBSTANCE_FAILURES="${S17_SUBSTANCE_FAILURES}  ${sha:0:10}  ${err}\n"
       fi
     fi
   done
@@ -328,6 +356,21 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
       printf '\n❌ §1.7 trailer missing or invalid on rule-introducing commit(s):\n'
       printf '%b' "$S17_FAILURES"
       printf '\nFix: add `§1.7: forward-check applied — …; backward-check sweep — …` to commit body.\n'
+      printf 'Bootstrap exemption: `§1.7 Bootstrap: <reason>` (≥20 chars rationale).\n\n'
+      exit 1
+    fi
+  fi
+
+  if [ -n "$S17_SUBSTANCE_FAILURES" ]; then
+    if [ "$S17_SUBSTANCE_WARN_ONLY" = "true" ]; then
+      printf '\n⚠ §1.7 trailer lacks file:line citation on rule-introducing commit(s) (substance arm — Wave 8.3):\n'
+      printf '%b' "$S17_SUBSTANCE_FAILURES"
+      printf '\nCalibration window: warn-only through 2026-06-10. Set S17_SUBSTANCE_WARN_ONLY=false to enforce locally.\n'
+      printf 'Fix: include ≥1 file:line citation, e.g. `packages/core/principles/02.test.ts:82`.\n\n'
+    else
+      printf '\n❌ §1.7 trailer lacks file:line citation on rule-introducing commit(s) (substance arm — Wave 8.3):\n'
+      printf '%b' "$S17_SUBSTANCE_FAILURES"
+      printf '\nFix: include ≥1 file:line citation, e.g. `packages/core/principles/02.test.ts:82`.\n'
       printf 'Bootstrap exemption: `§1.7 Bootstrap: <reason>` (≥20 chars rationale).\n\n'
       exit 1
     fi
