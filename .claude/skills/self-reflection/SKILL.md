@@ -93,7 +93,7 @@ Examples with case studies (PR #16, defer-until-pain, L3 research): [references/
 
 ## §1.7 enforcement layers
 
-4 active layers as of Wave 7 sub-wave 7.6.c (2026-05-11). Previously: 3 active + 1 deferred (pre-push trailer check). §13.23 closure shipped layer 4.
+5 active layers as of Wave 8.1 (2026-05-12). Previously: 4 active layers as of Wave 7 sub-wave 7.6.c (2026-05-11). §13.23 closure shipped layer 4; §13.29 closure shipped layer 5.
 
 | Layer | Surface | Mechanism | Status |
 |---|---|---|---|
@@ -101,8 +101,9 @@ Examples with case studies (PR #16, defer-until-pain, L3 research): [references/
 | 2 — Skill auto-trigger | This SKILL.md (frontmatter `description`) | Claude Code auto-loads skill on keywords `правило`, `principle`, `discipline`, etc.; operationalises the forward+backward check protocol | **Active** |
 | 3 — CI workflow | [`.github/workflows/discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml) | PR-description gate: checks that PRs introducing discipline-bearing artefacts include `### Forward-check applied` + `### Backward-check applied` sections | **Active** |
 | 4 — Pre-push hook | [`.husky/pre-push` section 9](../../../.husky/pre-push) | Push-time trailer check: commits that add a `## §` heading to rule/principles/skills files must carry `§1.7:` trailer (C4 scope predicate + D1 warn-only calibration window through 2026-06-10) | **Active** (shipped Wave 7 7.6.c) |
+| 5 — CI substance arm | [`.github/workflows/discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml) `verify-pr-body-sections` + `sanity-stub-fails-substance` jobs | Forward-check section must contain ≥1 file:line citation (regex `[^[:space:]]+\.[a-z]+:[0-9]+`); paired sanity job asserts Incident-1 stub fails the regex | **Active** (shipped Wave 8.1) |
 
-See [open-questions.md §13.23](../../../docs/meta-factory/open-questions.md) for the original deferral rationale and closure decision.
+See [open-questions.md §13.23](../../../docs/meta-factory/open-questions.md) for the layer-4 deferral rationale and closure decision. See [open-questions.md §13.29](../../../docs/meta-factory/open-questions.md) + [research-patch 2026-05-11](../../../docs/meta-factory/research-patches/2026-05-11-§13.29-substantive-compliance-research.md) for the Wave 8.1 substance-arm rationale.
 
 ## How this skill itself complies with §1.7
 

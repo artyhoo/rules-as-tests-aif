@@ -93,3 +93,51 @@ jobs:
           fi
 
           echo "✅ §1.7 sections present and non-empty (forward: ${forward_body} chars, backward: ${backward_body} chars)."
+
+          # Substance gate: Forward-check section must cite at least one file:line ref.
+          # Catches generic prose like "Checked existing rules R1-R20 — compliant."
+          # Regex: at-least-one non-whitespace path component ending in .ext:N
+          forward_citations=$(echo "$PR_BODY" | awk '
+            /^### §1\.7 Forward-check applied/ { capture=1; next }
+            /^###/ { capture=0 }
+            capture { print }
+          ' | grep -cE '[^[:space:]]+\.[a-z]+:[0-9]+' || true)
+
+          if [ "$forward_citations" -lt 1 ]; then
+            echo "::error::Forward-check section contains 0 file:line citations (regex [^[:space:]]+\\.[a-z]+:[0-9]+)."
+            echo "Substance arm (Wave 8.1) — §1.7 must cite specific evidence, not generic prose."
+            echo "Example: 'packages/core/principles/02-paired-negative-test.test.ts:82 mutation arm verified'"
+            echo "Bootstrap exemption: §1.7 Skipped marker with rationale ≥60 chars."
+            exit 1
+          fi
+          echo "✅ Forward-check cites ${forward_citations} file:line reference(s)."
+
+  sanity-stub-fails-substance:
+    name: Sanity — Incident-1 stub §1.7 body MUST fail substance gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Construct Incident-1 stub body and assert 0 citations
+        run: |
+          set -euo pipefail
+          STUB_BODY=$(cat <<'EOF'
+          ### §1.7 Forward-check applied
+          Checked all existing rules R1-R20 — no conflicts with the new rule. Verified principles 01-09 pass. Checked SSOT entries — no overlapping capability area. Trigger sweep complete — no armed triggers fire. Doc-authority headers compliant.
+
+          ### §1.7 Backward-check applied
+          Complete sweep of existing artefacts under the new rule's scope performed. All artefacts compliant. No exemptions required.
+          EOF
+          )
+
+          stub_citations=$(echo "$STUB_BODY" | awk '
+            /^### §1\.7 Forward-check applied/ { capture=1; next }
+            /^###/ { capture=0 }
+            capture { print }
+          ' | grep -cE '[^[:space:]]+\.[a-z]+:[0-9]+' || true)
+
+          if [ "$stub_citations" -ne 0 ]; then
+            echo "::error::Sanity broken — Incident-1 stub body matched ${stub_citations} citations (expected 0)."
+            echo "The substance regex erroneously accepts generic prose. Substance gate has lost its paired-negative arm."
+            exit 1
+          fi
+          echo "✅ Sanity: Incident-1 stub body correctly contains 0 file:line citations."
+          echo "   Substance gate's paired-negative test is intact."
