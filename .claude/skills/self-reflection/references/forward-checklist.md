@@ -59,6 +59,8 @@ For every new `.md` file the proposal claims to create:
 - Filename-convention transient (`docs/meta-factory/PHASE-*-PROMPT.md`, `phase-*-research.md`) → header optional.
 - File **exists** in repo, not just claimed in `README.md` shipping table?
 - Every cross-doc link in proposal resolves to a real file (not to a future or imagined file)?
+- **H8 sub-case (b) — meta-commentary anti-tautology**: In meta-sections that describe primary-content artefacts (counts of rules, lists of commits, enumeration of entries), use declarative forward-pointers («see §X for current list») rather than hard-coded literal counts/enumerations. Literal counts self-deprecate when primary content changes; a pointer to the authoritative section is stable. (`#discipline-application-scope-blindness` sub-case (b) — see [`.claude/rules/phase-research-coverage.md §4`](../../../../.claude/rules/phase-research-coverage.md).)
+- **H8 sub-case (c) — verify before accepting collaborator claims**: For every file:line citation or factual assertion received from a collaborator, agent report, or reviewer finding: open the file and confirm the cited line's content before applying the claim as a fix or incorporating it into the commit. Do not propagate unverified claims. (`#discipline-application-scope-blindness` sub-case (c), T3 analogue for collaborator-sourced claims per [`.claude/rules/ai-laziness-traps.md §2 T3`](../../../../.claude/rules/ai-laziness-traps.md).)
 
 ## Layer 7 — User-value goal lens
 

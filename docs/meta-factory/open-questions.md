@@ -33,7 +33,8 @@
 | [§13.19 Cline Memory Bank full pattern adoption](#1319-cline-memory-bank-full-pattern-adoption-deferred) | deferred |
 | [§13.20 ADR formal adoption](#1320-adr-formal-adoption-deferred--docsadrs-directory--first-adr-file) | deferred |
 | [§13.22 Own-conventions evolution mechanism](#1322-own-conventions-evolution-mechanism--fold-into-l2-research-agent-phase-5) | v1-shipped; deferred to Phase 5+ |
-| [§13.24 H7 + H8 anti-pattern distillation](#1324-candidate-h7--h8-anti-pattern-distillation-into-4-catalog-deferred--h8-sample-size-threshold-already-met) | deferred (H8 threshold met) |
+| [§13.24 H8 promoted; H7 still deferred](#1324-h8-promoted-to-4-catalog-h7-still-deferred) | H8 promoted 2026-05-12; H7 deferred (sample 1/3) |
+| [§13.31 Project-wide discipline-theatre audit (Wave 9 umbrella)](#1331-project-wide-discipline-theatre-audit-wave-9-umbrella) | armed — triggers after maintainer commits to Phase 9+ scope |
 | [§13.32 Project foundations audit & re-evaluation](#1332-project-foundations-audit--re-evaluation-phase-10-umbrella) | armed |
 
 ---
@@ -140,7 +141,7 @@ Decision matrix в [self-application.md](self-application.md) §3 фиксиру
 | 1 | LLM-driven research extension (context7 MCP + Anthropic `web_search_20250305` with allowed_domains) | L2 | First real consumer reports a research gap on a non-curated framework, OR Phase 8 acceptance shows curated store insufficient for Next 16 patterns | New gate: `framework-self-research --llm` returns drift = 0 against curated baseline + cost ≤$0.10 per `research --self` invocation |
 | 2 | Path A LLM gen («picks from menu» — LLM selects existing ESLint plugins / configures options) | L3 | Phase 8 acceptance test passes deterministic; Phase 9 entry research validates ROI (closed negative 2026-05-08, [phase-9-entry-research.md §5 row A1](phase-9-entry-research.md)). **Next re-evaluation:** recipe count exceeds 15 (3× post-A6 baseline of ~5) AND ≥3 framework targets concurrently shipped (e.g. Next + Remix + SvelteKit) require per-framework rule namespace selection AND no single hand-curated preset fits all recipe surfaces. | Two-AI review (gate 5) + cost ≤$1 per generated rule + diff with hand-authored ≤10% |
 | 3 | Path B AST gen (LLM writes ESLint rule TypeScript source) | L3 | Phase 9+ entry; new pattern with no existing ESLint plugin | Mutation testing (gate 3) green + paired bad/good corpus passes + human-review checkpoint before commit |
-| 4 | Gate 5 — two-AI review via AIF `review-sidecar` (`model: opus` override) | L4 | Phase 8 cost-scope decision (per-rule vs per-plan; advisory vs blocking; integration vs reimplementation) | Cost tracked per §13.11 + false-positive rate <20% on 10+ real PRs |
+| 4 | Gate 5 — two-AI review via AI-agnostic sub-agent (read by active AI session on Max subscription, no CI API billing; `agents/compliance-verifier.md` = Wave 8.1b instance of pattern) | L4 | Re-armed under no-paid-LLM-in-CI policy (Wave 8.1b); Phase 8 cost-scope decisions DONE. Implementation deferred pending FP verification. | false-positive rate <20% on 10+ real PRs |
 | 5 | Gate 3 — mutation testing via Stryker | L4 | Path B activation (gate 3 only mutates AST; nothing to mutate in Path A) | Stryker score ≥80% on Path B rules + runtime ≤5 min per CI run |
 
 **Closure criteria.** Each v2 area closes when (a) trigger fires AND (b) verification gate passes for ≥1 real example AND (c) cost model in §13.11 reports a stable per-invocation budget. Until then: deterministic v1 ships.
@@ -166,27 +167,23 @@ Decision matrix в [self-application.md](self-application.md) §3 фиксиру
 
 **Decision deferred** until first invocation; tracking shape emerges from real data, not speculation.
 
-#### Gate 5 v2 invocation shape (decided 2026-05-08 Phase 8)
+#### Gate 5 v2 invocation shape (decided 2026-05-08 Phase 8; re-armed 2026-05-12)
+
+> **Re-armed under no-paid-LLM-in-CI policy (Wave 8.1b, 2026-05-12).** Original design assumed API billing via AIF `review-sidecar` (`model: opus` override) — conflicts with project policy (see `agents/compliance-verifier.md`: «This file is NOT a GitHub Action; it makes no LLM API call; it bills no tokens beyond your existing subscription»). Re-armed: AI-agnostic sub-agent prompt file read by the **active AI session** on Claude Code Max subscription. No CI API billing. Cost arithmetic below is superseded.
 
 Phase 8 entry research (see [phase-8-research.md §6](phase-8-research.md)) closed the **scoping** decision for gate 5 — the **implementation** is still deferred per [§13.10 entry #4](#1310-llm-v2-trigger-conditions) v2 trigger.
 
 | Dimension | Decision | Rationale |
 |---|---|---|
-| **Invocation mode** | **per-plan** (1 invocation per validate run, full plan in context) | ~3× cheaper than per-rule (~$0.29 vs ~$0.72 at Opus 4.7 list pricing on a 26-rule plan), amortizes system-prompt overhead, ≤8s wall-clock vs ≥30s sequential per-rule |
-| **Model** | **Opus 4.7** | Quality gate (catches semantics gates 1/2/4/6 cannot); $0.15 Opus-vs-Sonnet premium is rounding error vs the §6 «≤$5» Phase 8 budget |
-| **Severity** | **advisory non-blocking** | LLM-driven review carries FP risk; promote to blocking only after [§13.10 entry #4](#1310-llm-v2-trigger-conditions) verification gate fires («false-positive rate <20% on 10+ real PRs») |
-| **Caching** | keyed on `rules-lock.json.sourceFingerprint` (sha256/16) | Lock already carries the fingerprint; rerun only when fingerprint changes — repeated CI runs cut to ~$0 |
-| **Per-run budget** | **<$0.30 typical / <$5 with 10× retries** | 17× headroom under EXECUTION-PLAN.md §6 Phase 8 «cost ≤$5» gate; stop-rule «>$10 ⇒ REVISE» does not fire |
+| **Invocation mode** | **per-plan** (1 invocation per validate run, full plan in context) | Amortizes context overhead; decision preserved from Phase 8 scoping |
+| **Model** | **active session's model** (no API override; Max subscription) | No-paid-LLM-in-CI policy (Wave 8.1b). Original Opus 4.7 API billing analysis superseded. |
+| **Severity** | **advisory non-blocking** | AI-session-driven review carries FP risk; promote to blocking only after [§13.10 entry #4](#1310-llm-v2-trigger-conditions) verification gate fires («false-positive rate <20% on 10+ real PRs») |
+| **Caching** | keyed on `rules-lock.json.sourceFingerprint` (sha256/16) | Lock already carries the fingerprint; rerun only when fingerprint changes |
+| **Per-run budget** | **N/A** — Max subscription, no CI API billing | Supersedes original <$0.30 / <$5 estimates. §13.11 cost-tracking not needed for Gate 5 under AI-agnostic pattern. |
 
-**Cost arithmetic** (Anthropic May 2026 list pricing — Opus 4.7 $5/M input, $25/M output; cached input ≤90% off):
+**Cost arithmetic** (Phase 8 original — superseded by AI-agnostic re-arming): original Opus 4.7 API billing estimates no longer apply. CI cost = $0 (Max subscription). §13.11 cost-tracking infrastructure remains relevant for other v2 areas (rows 1–3 in §13.10 table) if those reach build-trigger.
 
-```text
-per-plan, cold: 32K input · $5/M + 5K output · $25/M = $0.16 + $0.125 = $0.285
-per-plan, warm: 32K input · $0.50/M + 5K output · $25/M = $0.016 + $0.125 = $0.141
-per-rule × 26: 78K input · $5/M + 13K output · $25/M = $0.39  + $0.325 = $0.715
-```
-
-**Implementation status:** the *invocation shape* is now SSOT; *building* gate 5 is still deferred. Trigger to start build = §13.10 entry #4 v2 condition (Phase 8 cost-scope decision DONE; verification gate FP rate still pending real-PR data).
+**Implementation status:** invocation shape updated to AI-agnostic pattern (Wave 8.1b re-arming); *building* gate 5 still deferred. Trigger to start build = §13.10 entry #4 v2 condition (Phase 8 cost-scope decisions DONE; no-paid-LLM re-arming DONE; verification gate FP rate still pending real-PR data).
 
 **Cost-tracking infrastructure** (scoped above as a v2 deliverable per §13.11) is **not** built in Phase 8 — keyed on the same `sourceFingerprint`, but the storage shape (proposal: `<consumerRoot>/.ai-factory/synthesizer-output/llm-cost-log.json`) emerges with the first real invocation, not on speculation.
 
@@ -356,11 +353,11 @@ per-rule × 26: 78K input · $5/M + 13K output · $25/M = $0.39  + $0.325 = $0.7
 
 **Cross-references:** [`.claude/rules/phase-research-coverage.md` §4 anti-patterns](../../.claude/rules/phase-research-coverage.md) — `adopted-pattern-drift` tag added in same branch; [`prior-art-evaluations.md` §5 staleness policy](prior-art-evaluations.md) — extends to entries #6-#10; [open-questions.md §13.16](open-questions.md) — discipline-layer SSOT (parallel cadence-trigger pattern).
 
-### 13.24 Candidate H7 + H8 anti-pattern distillation into §4 catalog (deferred — H8 sample-size threshold already met)
+### 13.24 H8 promoted to §4 catalog; H7 still deferred
 
-**Status:** deferred 2026-05-09 (Wave 0.5 close). Tracker entry for «next-session work» referenced in [research-patches/2026-05-09-§13.21-l3-self-review.md](research-patches/2026-05-09-§13.21-l3-self-review.md) and [PR #20 description Process retrospective](https://github.com/Yhooi2/rules-as-tests-aif/pull/20). Without this entry, follow-up work would have lived only as prose in those artefacts — same shape as H8 sub-case (b) «meta-commentary lags primary content», hence the explicit registration here.
+**Status:** H8 **promoted** 2026-05-12 (Wave 8 Batch C). §4 entry `#discipline-application-scope-blindness` added to [`.claude/rules/phase-research-coverage.md`](../../.claude/rules/phase-research-coverage.md); Layer 6 probes added to [`.claude/skills/self-reflection/references/forward-checklist.md`](../../.claude/skills/self-reflection/references/forward-checklist.md); SKILL.md enumeration updated. Research-patch: [research-patches/2026-05-12-§13.24-h8-promotion.md](research-patches/2026-05-12-§13.24-h8-promotion.md). H7 still deferred — threshold not met (sample 1/3). Entry remains open until H7 is resolved. _Originally deferred 2026-05-09 (Wave 0.5 close). Tracker entry for «next-session work» referenced in [research-patches/2026-05-09-§13.21-l3-self-review.md](research-patches/2026-05-09-§13.21-l3-self-review.md) and [PR #20 description Process retrospective](https://github.com/Yhooi2/rules-as-tests-aif/pull/20). Without this entry, follow-up work would have lived only as prose in those artefacts — same shape as H8 sub-case (b) «meta-commentary lags primary content», hence the explicit registration here._
 
-**Origin:** two candidate anti-patterns surfaced during Wave 0.5 work, both as sub-patterns of `#recursive-self-application-gap`:
+**Origin:** two candidate anti-patterns surfaced during Wave 0.5 work, both as related sibling anti-patterns in the focus-tunnel family alongside `#recursive-self-application-gap` (per [`phase-research-coverage.md §4` preface](../../.claude/rules/phase-research-coverage.md) — siblings differ in dimension, not parent/child):
 
 - **H7 «skill consumption blindness»** — project-internal skill (e.g. [.claude/skills/self-reflection/](../../.claude/skills/self-reflection/SKILL.md)) carries auto-trigger description with keywords matching the drafting context, yet skill is not engaged because the draftsman's attention frame doesn't load skill descriptions; auto-trigger requires the harness or operator to surface the skill explicitly. **Sample size: 1/3** (one occurrence in Wave 0.5 v1 drafting). Threshold not yet met.
 - **H8 «discipline-application scope blindness»** — discipline applied to explicit object-under-review (a plan / recommendation / self-review patch), but **not** extended to (a) self-commentary about that object, (b) meta-commentary that lags primary-content updates, (c) claims accepted from collaborators (handover notes, reviewer findings) that propagate into edits. **Sample size: 3/3 named occurrences + 2 additional sub-case (b) instances within Wave 0.5 itself** — see [self-review.md §«H8 escalation list»](research-patches/2026-05-09-§13.21-l3-self-review.md) for the named occurrences and PR #20 retrospective for the additional sub-case (b) instances. Threshold met per [phase-research-coverage.md §3 aggregation](../../.claude/rules/phase-research-coverage.md) (3-patch threshold mirroring AIF `/aif-evolve`).
@@ -384,6 +381,29 @@ per-rule × 26: 78K input · $5/M + 13K output · $25/M = $0.39  + $0.325 = $0.7
 **Out of scope for this entry:** the actual distillation work (lives in next-session research-patch); design of meta-test specifics (literal-count detection regex, scope predicates); decision of whether to extend §1.7 sub-rule numbering vs add §1.8 (depends on cardinality of distilled patterns).
 
 **Cross-references:** [research-patches/2026-05-09-§13.21-l3-self-review.md](research-patches/2026-05-09-§13.21-l3-self-review.md) §«H7 candidate observation» + §«H8 update» — sample data + sub-case enumeration; [research-patches/2026-05-09-§13.21-l3-revision.md](research-patches/2026-05-09-§13.21-l3-revision.md) — second-occurrence exemplar of §1.7 (parent rule); [PR #20 «Process retrospective» section](https://github.com/Yhooi2/rules-as-tests-aif/pull/20) — narrative context for additional sub-case (b) instances; [`.claude/rules/phase-research-coverage.md §3 aggregation`](../../.claude/rules/phase-research-coverage.md) — 3-patch threshold mechanism.
+
+### 13.31 Project-wide discipline-theatre audit (Wave 9 umbrella)
+
+Wave 8 (§13.29) closed `#discipline-theatre` at the **CI / hook surface layer** — places where the gap was enumerated in research-patch §1.1. It did NOT extend the audit to **prose-substance surfaces** across the project, where the same antipattern is structurally possible but mechanically harder to detect.
+
+Suspected categories (NOT exhaustive — Wave 9 first task = enumerate):
+
+1. **Trailer truthfulness** — `§1.7:` / `Prior-art:` / `§1.7 Bootstrap:` trailer bodies vs the actual diff content of their commits. Wave 8 checks for citation **presence**; not whether the cited file:line actually evidences the claim.
+2. **Header accuracy** — `Authoritative-for:` scope statements (per `doc-authority-hierarchy.md`) vs the actual doc content. Wave 8 / principle 09 check **presence** of header; not whether the scope statement matches the doc.
+3. **Mutation-adequacy** — all paired-negative tests in the repo (not just principles 01/02/04/08/09). Do they actually fail when the discipline is bypassed, or are they degenerate oracles? Subsumes §13.30.
+4. **R1-R20 false-negative rate** — each lint rule has a regex/AST predicate; never measured against adversarial code samples that should fire it. Possible bypass via tiny syntactic variant.
+5. **Catalogue substance** — SSOT verdict rationales, memory entry descriptions, skill auto-trigger keyword accuracy. Each currently «present and ≥N chars»; never adversarially audited.
+6. **Wave 8 recursive self-application** — Wave 8 itself shipped claims (every PR body, every sub-agent prompt, every paired-negative arm). Each is subject to its own thesis.
+
+**Status:** armed — triggers after maintainer commits to Phase 9+ scope.
+
+**Trigger to revisit:** Wave 8 (§13.29) merged complete (Wave 8 retro + PR #45 + Wave 8.1b compliance-verifier); trigger now = maintainer commits to Phase 9+ session scope.
+
+**First action upon revisit (per kickoff scaffold):** [`.claude/orchestrator-prompts/wave-9-discipline-theatre-audit/kickoff.md`](../../.claude/orchestrator-prompts/wave-9-discipline-theatre-audit/kickoff.md) (gitignored local scaffold) — research session enumerates surfaces per category, runs sample audit (10-20 surfaces / category), reports adversarial findings + closure mechanism proposals. Implementation deferred to per-category sub-waves AFTER research approved.
+
+**Scope warning:** likely 4-8 week multi-session umbrella. Do NOT bundle into closure of §13.29 — bundling without substantive method is itself `#discipline-theatre`.
+
+**Owner:** maintainer + Phase 9+ planning session.
 
 ---
 
