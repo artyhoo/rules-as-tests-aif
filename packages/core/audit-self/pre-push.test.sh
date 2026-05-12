@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # packages/core/audit-self/pre-push.test.sh
-# Paired-negative tests for .husky/pre-push §9 s17_check_trailer() substance arm.
+# Paired-negative tests for .husky/pre-push §7 pa_check_trailer() and §9 s17_check_trailer() substance arms.
 # Mirrors audit-ai-docs.test.sh pattern.
 # Usage: bash packages/core/audit-self/pre-push.test.sh
 # Exit: 0 = all pass, 1 = at least one failure.
@@ -19,11 +19,14 @@ cat > "$TMPD/git" << 'EOF'
 if [ "$1" = "show" ]; then printf '%s' "$MOCK_BODY"; else command git "$@"; fi
 EOF
 chmod +x "$TMPD/git"; export PATH="$TMPD:$PATH"
-# Source §9 functions from the hook (eval extracts the two function definitions).
+# Source §9 and §7 functions from the hook.
 eval "$(sed -n '/^  s17_is_discipline_introducing()/,/^  }/p; /^  s17_check_trailer()/,/^  }/p' "$HOOK")"
+eval "$(sed -n '/^  pa_check_trailer()/,/^  }/p' "$HOOK")"
 GENERIC="§1.7: forward-check applied — Checked all rules, compliant. Backward-check — complete sweep performed."
 CITATION="§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:82 mutation arm verified; backward: 0 new .md files"
 BOOTSTRAP="§1.7 Bootstrap: introduces substance arm for §1.7 trailer with 2026-06-10 calibration window"
+PA_SKIPPED="Prior-art: skipped — refactor only, no new capability"
+PA_CITATION="Prior-art: prior-art-evaluations.md#38 (CodeRabbit, verdict DEFER — code-review focus, no overlap with capability-commit gate)"
 # 1. Negative: generic stub without file:line → exit 2 (substance failure).
 test_s17_substance_negative() {
   export MOCK_BODY="feat(test): dummy
@@ -68,10 +71,66 @@ $GENERIC"
   [ "$rc" -eq 2 ] && pass "substance_warn_only_default (rc=2; outer router warns only)" \
     || fail "substance_warn_only_default: expected rc=2, got $rc"
 }
+# §7 pa_check_trailer substance tests (Wave 8.4).
+# 5. Negative: skipped escape-hatch in capability context → exit 2 (substance failure).
+test_pa_substance_negative() {
+  export MOCK_BODY="feat(test): dummy
+
+$PA_SKIPPED"
+  export PA_SUBSTANCE_WARN_ONLY=false
+  local rc=0; pa_check_trailer "deadbeef00" >/dev/null 2>&1 || rc=$?
+  unset PA_SUBSTANCE_WARN_ONLY
+  [ "$rc" -eq 2 ] && pass "pa_substance_negative (rc=2 on skipped trailer in capability context)" \
+    || fail "pa_substance_negative: expected rc=2, got $rc"
+}
+# 6. Positive: real SSOT citation → exit 0.
+test_pa_substance_positive() {
+  export MOCK_BODY="feat(test): dummy
+
+$PA_CITATION"
+  export PA_SUBSTANCE_WARN_ONLY=false
+  local rc=0; pa_check_trailer "deadbeef00" >/dev/null 2>&1 || rc=$?
+  unset PA_SUBSTANCE_WARN_ONLY
+  [ "$rc" -eq 0 ] && pass "pa_substance_positive (rc=0 on SSOT-cited trailer)" \
+    || fail "pa_substance_positive: expected rc=0, got $rc"
+}
+# 7. Non-capability commit: outer router skips pa_check_trailer entirely — no substance failure.
+test_pa_substance_noncapability_unaffected() {
+  export MOCK_BODY="feat(test): dummy
+
+$PA_SKIPPED"
+  export PA_SUBSTANCE_WARN_ONLY=false
+  # Simulate non-capability: mock pa_detect_capability_reason to return 1.
+  pa_detect_capability_reason() { return 1; }
+  local failures="" reason="" err="" rc=0
+  if reason=$(pa_detect_capability_reason "deadbeef00"); then
+    err=$(pa_check_trailer "deadbeef00") || rc=$?
+    [ "$rc" -ne 0 ] && failures="rc=$rc"
+  fi
+  unset PA_SUBSTANCE_WARN_ONLY
+  unset -f pa_detect_capability_reason 2>/dev/null || true
+  [ -z "$failures" ] && pass "pa_substance_noncapability_unaffected (outer skips check on non-cap)" \
+    || fail "pa_substance_noncapability_unaffected: unexpected failure $failures"
+}
+# 8. Warn-only default (PA_SUBSTANCE_WARN_ONLY unset): function signals rc=2; outer router warns only.
+test_pa_substance_warn_only_default() {
+  export MOCK_BODY="feat(test): dummy
+
+$PA_SKIPPED"
+  unset PA_SUBSTANCE_WARN_ONLY 2>/dev/null || true
+  local rc=0; pa_check_trailer "deadbeef00" >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 2 ] && pass "pa_substance_warn_only_default (rc=2; outer router warns only)" \
+    || fail "pa_substance_warn_only_default: expected rc=2, got $rc"
+}
 echo "── Running §9 s17_check_trailer substance tests ──"
 test_s17_substance_negative
 test_s17_substance_positive
 test_s17_substance_bootstrap_unaffected
 test_s17_substance_warn_only_default
+echo "── Running §7 pa_check_trailer substance tests ──"
+test_pa_substance_negative
+test_pa_substance_positive
+test_pa_substance_noncapability_unaffected
+test_pa_substance_warn_only_default
 echo ""; echo "$PASS pass / $FAIL fail"
 [ "$FAIL" -eq 0 ] || exit 1; exit 0

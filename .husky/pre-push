@@ -91,6 +91,11 @@ fi
 # under packages/. Bash uses `for c in $(git rev-list ...)` and accumulator
 # variables — NOT `git ... | while read` pipelines, which break under set -e
 # and subshell return semantics (PR #9 m4 finding).
+#
+# Substance arm (Wave 8.4): on capability commits, the `Prior-art: skipped — …`
+# escape-hatch is rejected (exit 2 from pa_check_trailer); must cite a real SSOT
+# entry (prior-art-evaluations.md#N). PA_SUBSTANCE_WARN_ONLY gates independently.
+# TODO 2026-06-10: flip default to PA_SUBSTANCE_WARN_ONLY=false; promote enforcement.
 UPSTREAM_REF="origin/main"
 if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
   COMMITS=$(git rev-list "${UPSTREAM_REF}..HEAD" 2>/dev/null || true)
@@ -194,6 +199,13 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
                 esac
               done
               [ "$all_placeholder" = "1" ] && continue
+              # Substance arm (Wave 8.4): on capability commits, escape-hatch is invalid.
+              # pa_check_trailer is only invoked on capability commits (outer caller
+              # gates via pa_detect_capability_reason); so reaching the skipped branch
+              # while already classified as capability means the rationale is
+              # contradictory by construction. Distinct exit code 2, mirrors §9 pattern.
+              printf '%s' "substance: Prior-art: skipped on capability commit — cite an SSOT entry (prior-art-evaluations.md#N) instead"
+              return 2
               ;;
           esac
           return 0
@@ -208,14 +220,19 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
     return 1
   }
 
+  PA_SUBSTANCE_WARN_ONLY="${PA_SUBSTANCE_WARN_ONLY:-true}"
   PRIOR_ART_FAILURES=""
+  PA_SUBSTANCE_FAILURES=""
   for sha in $COMMITS; do
     reason=""
     if reason=$(pa_detect_capability_reason "$sha"); then
-      err=""
-      if ! err=$(pa_check_trailer "$sha"); then
-        PRIOR_ART_FAILURES="${PRIOR_ART_FAILURES}  ${sha:0:10}  reason: ${reason}; ${err}\n"
-      fi
+      err=""; rc=0
+      err=$(pa_check_trailer "$sha" 2>&1) || rc=$?
+      case $rc in
+        0) ;;
+        1) PRIOR_ART_FAILURES="${PRIOR_ART_FAILURES}  ${sha:0:10}  reason: ${reason}; ${err}\n" ;;
+        2) PA_SUBSTANCE_FAILURES="${PA_SUBSTANCE_FAILURES}  ${sha:0:10}  reason: ${reason}; ${err}\n" ;;
+      esac
     fi
   done
 
@@ -229,6 +246,20 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
     printf 'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n'
     printf 'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n\n'
     exit 1
+  fi
+
+  if [ -n "$PA_SUBSTANCE_FAILURES" ]; then
+    if [ "$PA_SUBSTANCE_WARN_ONLY" = "true" ]; then
+      printf '\n⚠ Prior-art: escape-hatch on capability commit (substance arm, Wave 8.4):\n'
+      printf '%b' "$PA_SUBSTANCE_FAILURES"
+      printf '\nCalibration window: warn-only through 2026-06-10.\n'
+      printf 'Fix: replace `Prior-art: skipped — …` with `Prior-art: prior-art-evaluations.md#N (verdict X — rationale)`.\n\n'
+    else
+      printf '\n❌ Prior-art: escape-hatch on capability commit:\n'
+      printf '%b' "$PA_SUBSTANCE_FAILURES"
+      printf '\nSet PA_SUBSTANCE_WARN_ONLY=true to downgrade locally (calibration window expired).\n\n'
+      exit 1
+    fi
   fi
 
   # ── 9. §1.7 discipline trailer check ─────────────────────────────────────────
