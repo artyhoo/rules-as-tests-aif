@@ -142,6 +142,25 @@ if skip_unless D2; then : ; else
 fi
 
 # ────────────────────────────────────────────────────────────────────────
+# Canonical goal phrase — shared by D3 and D5 (defined globally so D5 can
+# reference DOWNSTREAM_DOCS when invoked with --only=D5 without D3 running).
+#
+# SSOT entry: prior-art-evaluations.md#16 (verdict BUILD — sub-wave 7.1.d).
+# Surface fix (Wave 8.2): extended from 2 entries to 4 after grep-sweep
+# revealed .claude/hooks/inject-session-bootstrap.sh and
+# docs/meta-factory/EXECUTION-PLAN.md as unenrolled active downstream docs
+# (Incident-4: research-patches/2026-05-11-d3-downstream-docs-completeness.md).
+# ────────────────────────────────────────────────────────────────────────
+CANON_PHRASE="AI agents can't silently bypass undocumented conventions"
+CANON_ALT="AI cannot silently bypass what fails CI"
+DOWNSTREAM_DOCS=(
+  ".claude/session-bootstrap.md"
+  "CLAUDE.md"
+  ".claude/hooks/inject-session-bootstrap.sh"
+  "docs/meta-factory/EXECUTION-PLAN.md"
+)
+
+# ────────────────────────────────────────────────────────────────────────
 # D3 — Goal-phrase parity: canonical phrase present in downstream goal-bearing docs
 # Source: Wave 6 D-3 SHIP-B (added sub-wave 7.1.d, 2026-05-11)
 #
@@ -150,20 +169,16 @@ fi
 #   Synonym: "AI cannot silently bypass what fails CI"
 #
 # Checked downstream docs (enumerated explicitly — not regex-matched globally):
-#   .claude/session-bootstrap.md  — operational restatement (must carry goal)
-#   CLAUDE.md                     — AI-tooling conventions (must carry goal pointer)
+#   .claude/session-bootstrap.md          — operational restatement (must carry goal)
+#   CLAUDE.md                             — AI-tooling conventions (must carry goal pointer)
+#   .claude/hooks/inject-session-bootstrap.sh — injects phrase into every session
+#   docs/meta-factory/EXECUTION-PLAN.md   — operational planning doc (Incident-3 drift source)
 #
 # SSOT entry: prior-art-evaluations.md#16 (verdict BUILD — no production analog
 # for doc-vs-doc goal-phrase parity check; see 7.1.d context7 sweep).
 # ────────────────────────────────────────────────────────────────────────
 if skip_unless D3; then : ; else
   RULE="D3 (drift): canonical goal phrase present in downstream goal-bearing docs"
-  CANON_PHRASE="AI agents can't silently bypass undocumented conventions"
-  CANON_ALT="AI cannot silently bypass what fails CI"
-  DOWNSTREAM_DOCS=(
-    ".claude/session-bootstrap.md"
-    "CLAUDE.md"
-  )
   D3_VIOL=""
   for doc in "${DOWNSTREAM_DOCS[@]}"; do
     if [ ! -f "$doc" ]; then
@@ -211,6 +226,77 @@ if skip_unless D4; then : ; else
     else
       pass "$RULE"
     fi
+  fi
+fi
+
+# ────────────────────────────────────────────────────────────────────────
+# D5 (drift, inverse-completeness): every file in repo with canonical goal
+# phrase must be enrolled in DOWNSTREAM_DOCS or explicitly exempt.
+# Catches Incident-4 (DOWNSTREAM_DOCS curated from recall, not derived from grep).
+#
+# Invariant: FOUND ⊆ ENROLLED ∪ EXEMPT.
+# Any file in FOUND \ (ENROLLED ∪ EXEMPT) is a coverage gap → D5 FAILS.
+#
+# SSOT entry: prior-art-evaluations.md#16 (same as D3 — D5 is structural
+# extension of D3, not a new capability area).
+# Incident-4 origin: research-patches/2026-05-11-d3-downstream-docs-completeness.md
+# ────────────────────────────────────────────────────────────────────────
+if skip_unless D5; then : ; else
+  RULE="D5 (drift, inverse): every file with canonical phrase is enrolled or exempt"
+
+  # FROZEN — historical artefacts; phrase appears in research/audit prose, not
+  # as live downstream goal-bearing claim.
+  D5_FROZEN_PATTERNS='(docs/meta-factory/research-patches/|docs/audits/)'
+  # TEST_INFRASTRUCTURE — files that define the canon or test it.
+  D5_TEST_INFRA_PATTERNS='(packages/core/audit-self/audit-ai-docs\.sh|packages/core/audit-self/audit-ai-docs\.test\.sh|packages/core/audit-self/template-render\.audit\.ts)'
+  # ROOT_SOURCE — README.md defines CANON_ALT as the project's own goal statement;
+  # it is the upstream authority, not a downstream consumer requiring drift-tracking.
+  D5_ROOT_SOURCE_PATTERNS='(^README\.md$)'
+  # GITIGNORED — transient operational prompts; gitignored per .gitignore:2 and
+  # explicitly «out of project doc surface» per CLAUDE.md §doc-authority-hierarchy.
+  D5_GITIGNORED_PATTERNS='(^\.claude/orchestrator-prompts/)'
+  # FALSE-POSITIVE allowlist — pre-emptive; RULES.md currently does not match
+  # either canon phrase exactly but is noted in case it evolves.
+  D5_FALSE_POSITIVE_PATTERNS='(packages/preset-next-15-canonical/RULES\.md)'
+
+  # Enrollment set
+  D5_ENROLLED=$(printf '%s\n' "${DOWNSTREAM_DOCS[@]}")
+
+  # Find set: grep -lF for both canon phrases, excluding node_modules + .git
+  D5_FOUND=$(
+    {
+      grep -rlF "$CANON_PHRASE" --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null
+      grep -rlF "$CANON_ALT" --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null
+    } | sed 's|^\./||' | sort -u
+  )
+
+  D5_ORPHANS=""
+  while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    # Enrolled?
+    if printf '%s\n' "$D5_ENROLLED" | grep -qxF "$file"; then continue; fi
+    # Frozen?
+    if echo "$file" | grep -qE "$D5_FROZEN_PATTERNS"; then continue; fi
+    # Test infra?
+    if echo "$file" | grep -qE "$D5_TEST_INFRA_PATTERNS"; then continue; fi
+    # Root source?
+    if echo "$file" | grep -qE "$D5_ROOT_SOURCE_PATTERNS"; then continue; fi
+    # Gitignored transient prompts?
+    if echo "$file" | grep -qE "$D5_GITIGNORED_PATTERNS"; then continue; fi
+    # False-positive allowlist?
+    if echo "$file" | grep -qE "$D5_FALSE_POSITIVE_PATTERNS"; then continue; fi
+    # Orphan — coverage gap.
+    D5_ORPHANS="$D5_ORPHANS"$'\n'"  $file: contains canonical phrase but not in DOWNSTREAM_DOCS or any exemption"
+  done <<< "$D5_FOUND"
+
+  if [ -z "$D5_ORPHANS" ]; then
+    pass "$RULE"
+  else
+    fail "$RULE"
+    echo "$D5_ORPHANS"
+    echo ""
+    echo "  Fix: add the file to DOWNSTREAM_DOCS in audit-ai-docs.sh,"
+    echo "       OR add a justified pattern to D5_FROZEN/TEST_INFRA/ROOT_SOURCE/GITIGNORED/FALSE_POSITIVE."
   fi
 fi
 

@@ -208,6 +208,44 @@ test_D4() {
   rm -rf "$d"
 }
 
+# ─── D5: inverse-completeness — orphan file with canon phrase detected ───
+# D5 greps the actual repo tree (not a sandbox), so tests create/remove a
+# file under $REPO_ROOT/docs/ and run the audit from REPO_ROOT.
+test_D5() {
+  should_skip D5 && return 0
+  local tmpfile="$REPO_ROOT/docs/_wave-8-d5-test-orphan-$$.md"
+  cat > "$tmpfile" <<'EOF'
+# Test orphan for D5
+AI agents can't silently bypass undocumented conventions
+EOF
+  trap "rm -f '$tmpfile'" RETURN
+
+  local rel="docs/_wave-8-d5-test-orphan-$$.md"
+  local out
+  out=$(cd "$REPO_ROOT" && bash "$AUDIT_SH" --only=D5 2>&1)
+  local rc=$?
+
+  if [ "$rc" -eq 1 ] && echo "$out" | grep -q "$rel"; then
+    echo -e "${GREEN}PASS${NC}: D5 — orphan file with canonical phrase correctly detected as D5 violation"
+    PASS=$((PASS + 1))
+  else
+    echo -e "${RED}FAIL${NC}: D5 — expected exit 1 with orphan '$rel' listed. Got rc=$rc:"
+    echo "$out" | sed 's/^/      /'
+    FAIL=$((FAIL + 1))
+  fi
+
+  # Positive arm: after cleanup, D5 must return to green.
+  rm -f "$tmpfile"
+  trap - RETURN
+  if (cd "$REPO_ROOT" && bash "$AUDIT_SH" --only=D5 >/dev/null 2>&1); then
+    echo -e "${GREEN}PASS${NC}: D5 — returns green after orphan removed"
+    PASS=$((PASS + 1))
+  else
+    echo -e "${RED}FAIL${NC}: D5 — still failing after orphan removed (false positive)"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
 # ─── React-Next probes ───────────────────────────────────────────
 # R12, R14, R20 are now enforced by ESLint (rules-as-tests plugin):
 #   R12 → no-restricted-globals + no-server-imports-in-client
@@ -244,6 +282,7 @@ test_D1
 test_D2
 test_D3
 test_D4
+test_D5
 test_R17
 
 echo ""
