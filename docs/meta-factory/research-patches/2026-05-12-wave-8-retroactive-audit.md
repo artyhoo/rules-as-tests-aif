@@ -56,7 +56,7 @@ PR descriptions are external GitHub metadata):
 
 Footer text appended to PRs #31, #32, #34, #35:
 
-```
+```markdown
 ---
 **2026-05-12 retroactive Wave 8.5 note:** This PR's §1.7 Forward-check section would not
 pass the Wave 8.1 substance gate (no file:line citations present). Pre-Wave-8 acceptance —
@@ -72,7 +72,7 @@ Edited PRs: #31, #32, #34, #35.
 file evolved to carry a canon phrase. Wave 8.2 junior finding (PR #40 DECISIONS) noted
 the entry was dead; this PR confirms via:
 
-```
+```bash
 grep -F "AI agents can't silently bypass undocumented conventions" \
     packages/preset-next-15-canonical/RULES.md  → 0 matches
 grep -F "AI cannot silently bypass what fails CI" \
