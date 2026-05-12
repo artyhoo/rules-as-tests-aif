@@ -1,6 +1,7 @@
 {
   "name": "rules-as-tests-aif-workspace",
   "private": true,
+  "license": "UNLICENSED",
   "workspaces": ["packages/*"],
   "scripts": {
     "test": "npm test --workspaces --if-present",
