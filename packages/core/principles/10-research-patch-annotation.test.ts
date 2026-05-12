@@ -68,7 +68,8 @@ describe('Principle 10 — every research patch has <!-- scope:<slug> --> on fir
     const firstFile = files[0];
     const content = readFileSync(firstFile, 'utf8');
     const withoutFirstLine = content.split('\n').slice(1).join('\n');
-    expect(withoutFirstLine.startsWith('<!-- scope:')).toBe(false);
+    const firstLineOfRemainder = withoutFirstLine.split('\n')[0] ?? '';
+    expect(SCOPE_ANNOTATION_RE.test(firstLineOfRemainder)).toBe(false);
   });
 
   it('fails when annotation is malformed (anti-tautology mutation)', () => {
