@@ -43,7 +43,7 @@ Refactors, doc edits, test additions for existing capabilities, bug fixes, snaps
 
 In the commit message body, after the blank line that follows the subject:
 
-```
+```text
 Prior-art: <free-form narrative referencing prior-art-evaluations.md#<ID>, or escape hatch>
 ```
 
@@ -89,3 +89,4 @@ The contract addresses the exact mechanism of the 2026-05-09 incident: reviewer 
 - [docs/meta-factory/prior-art-evaluations.md](docs/meta-factory/prior-art-evaluations.md) — the SSOT.
 - [.github/pull_request_template.md](.github/pull_request_template.md) — PR checklist.
 - [packages/core/principles/08-prior-art-cited.test.ts](packages/core/principles/08-prior-art-cited.test.ts) — meta-test enforcing citations.
+- [agents/compliance-verifier.md](agents/compliance-verifier.md) — AI-agnostic sub-agent for §1.7 substance review; read in your active session before merging a discipline-bearing PR (Wave 8.1b, $0 LLM-in-CI).

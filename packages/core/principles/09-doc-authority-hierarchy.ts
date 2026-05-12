@@ -88,6 +88,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'agents/best-practices-sidecar.md',
   'agents/review-sidecar.md',
   'agents/docs-auditor.md',
+  'agents/compliance-verifier.md',
 ];
 
 /**

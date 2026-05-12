@@ -64,6 +64,7 @@ SHIPPED_DOCS=(
   "agents/best-practices-sidecar.md"
   "agents/review-sidecar.md"
   "agents/docs-auditor.md"
+  "agents/compliance-verifier.md"
   "skills/tool-bootstrapping/SKILL.md"
   "skills/tool-bootstrapping/references/decision-format.md"
 )

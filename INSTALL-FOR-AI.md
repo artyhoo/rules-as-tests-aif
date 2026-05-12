@@ -205,6 +205,7 @@ project/
 │   │   ├── best-practices-sidecar.md  ← validates RULES.md after each /aif-implement
 │   │   ├── review-sidecar.md          ← two-AI review for tautological tests
 │   │   ├── docs-auditor.md            ← runs audit-ai-docs.sh
+│   │   ├── compliance-verifier.md     ← §1.7 substance review — read in active session before merge
 │   │   └── (other AIF agents untouched)
 │   └── skills/rules-as-tests/
 │       ├── SKILL.md                   ← skill, auto-activates on triggers
