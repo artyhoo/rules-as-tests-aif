@@ -255,9 +255,9 @@ if skip_unless D5; then : ; else
   # GITIGNORED — transient operational prompts; gitignored per .gitignore:2 and
   # explicitly «out of project doc surface» per CLAUDE.md §doc-authority-hierarchy.
   D5_GITIGNORED_PATTERNS='(^\.claude/orchestrator-prompts/)'
-  # FALSE-POSITIVE allowlist — pre-emptive; RULES.md currently does not match
-  # either canon phrase exactly but is noted in case it evolves.
-  D5_FALSE_POSITIVE_PATTERNS='(packages/preset-next-15-canonical/RULES\.md)'
+  # FALSE-POSITIVE allowlist removed Wave 8.5 — was dead per Wave 8.2 audit:
+  # packages/preset-next-15-canonical/RULES.md never matched either canon phrase
+  # (grep -F confirmed 0 matches); exemption was pre-emptive and unnecessary.
 
   # Enrollment set
   D5_ENROLLED=$(printf '%s\n' "${DOWNSTREAM_DOCS[@]}")
@@ -283,8 +283,6 @@ if skip_unless D5; then : ; else
     if echo "$file" | grep -qE "$D5_ROOT_SOURCE_PATTERNS"; then continue; fi
     # Gitignored transient prompts?
     if echo "$file" | grep -qE "$D5_GITIGNORED_PATTERNS"; then continue; fi
-    # False-positive allowlist?
-    if echo "$file" | grep -qE "$D5_FALSE_POSITIVE_PATTERNS"; then continue; fi
     # Orphan — coverage gap.
     D5_ORPHANS="$D5_ORPHANS"$'\n'"  $file: contains canonical phrase but not in DOWNSTREAM_DOCS or any exemption"
   done <<< "$D5_FOUND"
@@ -296,7 +294,7 @@ if skip_unless D5; then : ; else
     echo "$D5_ORPHANS"
     echo ""
     echo "  Fix: add the file to DOWNSTREAM_DOCS in audit-ai-docs.sh,"
-    echo "       OR add a justified pattern to D5_FROZEN/TEST_INFRA/ROOT_SOURCE/GITIGNORED/FALSE_POSITIVE."
+    echo "       OR add a justified pattern to D5_FROZEN/TEST_INFRA/ROOT_SOURCE/GITIGNORED."
   fi
 fi
 

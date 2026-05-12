@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # packages/core/audit-self/pre-push.test.sh
 # Paired-negative tests for .husky/pre-push §7 pa_check_trailer() and §9 s17_check_trailer() substance arms.
+# Covers Wave 8.3 (§9 substance), Wave 8.4 (§7 substance), Wave 8.5 (historical-cutoff bypass).
 # Mirrors audit-ai-docs.test.sh pattern.
 # Usage: bash packages/core/audit-self/pre-push.test.sh
 # Exit: 0 = all pass, 1 = at least one failure.
@@ -20,8 +21,7 @@ if [ "$1" = "show" ]; then printf '%s' "$MOCK_BODY"; else command git "$@"; fi
 EOF
 chmod +x "$TMPD/git"; export PATH="$TMPD:$PATH"
 # Source §9 and §7 functions from the hook.
-eval "$(sed -n '/^  s17_is_discipline_introducing()/,/^  }/p; /^  s17_check_trailer()/,/^  }/p' "$HOOK")"
-eval "$(sed -n '/^  pa_check_trailer()/,/^  }/p' "$HOOK")"
+eval "$(sed -n '/^  s17_is_discipline_introducing()/,/^  }/p; /^  s17_check_trailer()/,/^  }/p; /^  pa_check_trailer()/,/^  }/p' "$HOOK")"
 GENERIC="§1.7: forward-check applied — Checked all rules, compliant. Backward-check — complete sweep performed."
 CITATION="§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:82 mutation arm verified; backward: 0 new .md files"
 BOOTSTRAP="§1.7 Bootstrap: introduces substance arm for §1.7 trailer with 2026-06-10 calibration window"
@@ -122,15 +122,37 @@ $PA_SKIPPED"
   [ "$rc" -eq 2 ] && pass "pa_substance_warn_only_default (rc=2; outer router warns only)" \
     || fail "pa_substance_warn_only_default: expected rc=2, got $rc"
 }
-echo "── Running §9 s17_check_trailer substance tests ──"
+# Wave 8.5 historical cutoff tests.
+# 9. §9 s17_check_trailer: commit with author-date before S17_HISTORICAL_CUTOFF
+# must return 0 regardless of trailer content (pre-Wave-8 history replay protection).
+# MOCK_BODY starts with the date string so cut -d' ' -f1 extracts the ISO date.
+test_s17_historical_cutoff() {
+  export MOCK_BODY="2026-05-01 00:00:00 +0000"
+  export S17_SUBSTANCE_WARN_ONLY=false
+  local rc=0; s17_check_trailer "deadbeef00" >/dev/null 2>&1 || rc=$?
+  unset S17_SUBSTANCE_WARN_ONLY
+  unset MOCK_BODY
+  [ "$rc" -eq 0 ] && pass "s17_historical_cutoff (rc=0 on pre-cutoff author-date)" \
+    || fail "s17_historical_cutoff: expected rc=0, got $rc"
+}
+# 10. §7 pa_check_trailer: same mechanism — pre-cutoff commits bypass the Prior-art check.
+test_pa_historical_cutoff() {
+  export MOCK_BODY="2026-05-01 00:00:00 +0000"
+  local rc=0; pa_check_trailer "deadbeef00" >/dev/null 2>&1 || rc=$?
+  unset MOCK_BODY
+  [ "$rc" -eq 0 ] && pass "pa_historical_cutoff (rc=0 on pre-cutoff author-date)" \
+    || fail "pa_historical_cutoff: expected rc=0, got $rc"
+}
+echo "── Running §7+§9 substance + Wave 8.5 historical-cutoff tests ──"
 test_s17_substance_negative
 test_s17_substance_positive
 test_s17_substance_bootstrap_unaffected
 test_s17_substance_warn_only_default
-echo "── Running §7 pa_check_trailer substance tests ──"
 test_pa_substance_negative
 test_pa_substance_positive
 test_pa_substance_noncapability_unaffected
 test_pa_substance_warn_only_default
+test_s17_historical_cutoff
+test_pa_historical_cutoff
 echo ""; echo "$PASS pass / $FAIL fail"
 [ "$FAIL" -eq 0 ] || exit 1; exit 0

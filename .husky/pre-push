@@ -165,6 +165,13 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
 
   pa_check_trailer() {
     local sha="$1" body line payload rationale
+    # Wave 8.5 historical cutoff — pre-cutoff commits bypass the Prior-art check
+    # to avoid retroactive blocking of pre-Wave-8 history replayed via rebase.
+    local author_date
+    author_date=$(git show -s --format=%ai "$sha" | cut -d' ' -f1)
+    if [ "$author_date" \< "${PA_HISTORICAL_CUTOFF:-2026-05-12}" ]; then
+      return 0
+    fi
     body=$(git show -s --format=%B "$sha")
     local found_any=0
     while IFS= read -r line; do
@@ -282,6 +289,11 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
   # substance arm can be calibrated without flipping the presence gate.
   # TODO 2026-06-10: flip default to S17_WARN_ONLY=false; promote enforcement.
   # TODO 2026-06-10: flip default to S17_SUBSTANCE_WARN_ONLY=false; promote substance enforcement.
+  # Wave 8.5 historical cutoff. Commits authored before this date predate
+  # the substance arms; replayed (e.g. rebased) historical commits MUST NOT
+  # be retroactively blocked by gates that didn't exist when they were authored.
+  S17_HISTORICAL_CUTOFF="2026-05-12"
+  PA_HISTORICAL_CUTOFF="2026-05-12"
 
   S17_WARN_ONLY="${S17_WARN_ONLY:-true}"
   S17_SUBSTANCE_WARN_ONLY="${S17_SUBSTANCE_WARN_ONLY:-true}"
@@ -312,6 +324,13 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
 
   s17_check_trailer() {
     local sha="$1" body line payload bs_payload word word_lc all_placeholder
+    # Wave 8.5 historical cutoff — pre-cutoff commits bypass the §1.7 substance
+    # check to avoid retroactive blocking of pre-Wave-8 history replayed via rebase.
+    local author_date
+    author_date=$(git show -s --format=%ai "$sha" | cut -d' ' -f1)
+    if [ "$author_date" \< "${S17_HISTORICAL_CUTOFF:-2026-05-12}" ]; then
+      return 0
+    fi
     body=$(git show -s --format=%B "$sha")
     # Bootstrap exemption B1
     if LC_ALL=en_US.UTF-8 printf '%s\n' "$body" \
