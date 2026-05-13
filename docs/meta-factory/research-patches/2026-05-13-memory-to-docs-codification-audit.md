@@ -1,3 +1,4 @@
+<!-- scope:memory-codification -->
 # Memory-to-docs codification audit — full sweep of 14 personal-memory entries
 
 > **Scope:** post-Wave-9 audit of [/Users/art/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/](file:///Users/art/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) against the project thesis. Each entry classified: **codify in repo** vs **legitimate personal memory**. Inherits folder authority per [README.md](README.md).
