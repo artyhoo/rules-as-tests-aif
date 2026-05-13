@@ -420,3 +420,36 @@ Phase 10 audits **foundational adequacy** — whether chosen mechanisms reflect 
 **Cross-references:** §13.29 (Wave 8 CI/hook substance); Wave 9 umbrella (behavioral compliance — separate armed entry); SSOT #8, #27-32 in [`prior-art-evaluations.md`](prior-art-evaluations.md) (AIF verdicts → A4); `agents/compliance-verifier.md` + `INSTALL-FOR-AI.md` (AI-agnostic surface → A3); [`.claude/rules/ai-laziness-traps.md`](../../.claude/rules/ai-laziness-traps.md).
 
 **Origin:** maintainer 2026-05-12 during Wave 8.4 — «возможно слишком узкий [ресёрч] … все правила и все их релизации прям ВЕСЬ проект». Wave 9 «research methodology adequacy» partially captures but scoped to R-phase docs only.
+
+---
+
+### 13.34 Autonomous self-audit triggering layer (post-Wave-10 research)
+
+Project's discipline chain (CI hooks, principle tests, two-AI reviewer prompts, maintainer prompts) reliably catches AI-agent slips before merge. PR #51 (numeric-claims-unverified), PR #52 (memory-to-docs codification) demonstrated empirically: 9+ file:line / count / annotation slips caught across multiple review rounds — but **every catch required external trigger** (user prompt «обсудим», reviewer-session dispatch, CI hook firing, principle 10 test on push). The AI agent does NOT autonomously re-verify its own claims before declaring «done»; it drifts to next-thing without self-trigger.
+
+Structural diagnosis: **AI session = «agent doer», not «agent self-trigger-er»**. Without external triggers, silent-bypass returns. Cost during PR #52: 3 review rounds for 10-commit PR. This is the recursive form of the project thesis itself — «AI agents can't silently bypass undocumented conventions» — extended to «AI agents can't autonomously verify their own claims either».
+
+**Candidate mechanisms** (for research, not pre-decision):
+- A. Claude Code hooks (PreToolUse / PostToolUse / Stop / SubagentStop / UserPromptSubmit) — automatic fire on events
+- B. Mandatory skill auto-trigger — `.claude/skills/*` with hard «checklist must complete» gating
+- C. AI-agnostic sub-agent invocation requirement — every «done» must include compliance-verifier output
+- D. Structured output schema — claims in format with embedded verification refs
+- E. Pre-completion checklist convention — hook gates «Stop» event on checklist completion
+- F. External paid-LLM reviewer — **PRE-REJECTED** per [`no-paid-llm-in-ci.md`](../../.claude/rules/no-paid-llm-in-ci.md) (codified PR #52)
+- G. Hybrid combinations
+
+**Status:** armed. Mechanism design largely independent of TS-core migration (most candidates are operator-side or AI-session-side, not project TS code), so timing flexible.
+
+**Trigger to revisit:** Wave 10 closure (PR merging Wave 10 batch). Mechanism design benefits from waiting — accumulates additional empirical evidence (review-round burden on Wave 10 PRs). May be promoted sooner if review-round cost during Wave 10 itself becomes prohibitive.
+
+**First action upon revisit:** [`.claude/orchestrator-prompts/autonomous-self-audit-research/research-prompt.md`](../../.claude/orchestrator-prompts/autonomous-self-audit-research/research-prompt.md) (gitignored local scaffold — full candidate enumeration, build-vs-reuse SSOT consult, search-coverage 6-item checklist on negative-existence claims about prior art, recursive applicability check «what catches the catcher's failure?», friction-budget quantification per candidate). R-phase output → `docs/meta-factory/research-patches/2026-MM-DD-§13.34-autonomous-self-audit-research.md`.
+
+**Scope warning:** mechanism choice has friction budget — each candidate has per-turn latency / context cost / attention demand. Quantify before adoption. Also: any mechanism is **itself** subject to its own discipline (turtles-all-the-way-down) — paired-negative methodology test required.
+
+**Recursive self-application gate:** the research patch produced by this entry's session **must** pass through its own proposed mechanism on its own claims. If patch makes claim «mechanism X catches numeric errors», THIS patch's numeric claims must validate through mechanism X. Failure of this gate = mechanism is not viable.
+
+**Cross-references:** [PR #52 `feedback_no_drive_by_prs.md`](../../.claude/rules/no-paid-llm-in-ci.md) (codified policy constraining F category); [`ai-laziness-traps.md §2 T15 «Self-application skipped»`](../../.claude/rules/ai-laziness-traps.md) — companion problem statement; [`agents/compliance-verifier.md`](../../agents/compliance-verifier.md), [`agents/review-sidecar.md`](../../agents/review-sidecar.md) — existing AI-agnostic sub-agent precedents (Wave 8.1b); [`.claude/skills/self-reflection/SKILL.md`](../../.claude/skills/self-reflection/SKILL.md) — closest existing auto-trigger pattern (but skill-availability ≠ skill-execution); `docs/meta-factory/research-patches/2026-05-13-memory-to-docs-codification-audit.md` §10.A — empirical evidence of recursive slip pattern that motivated this entry.
+
+**Owner:** maintainer + post-Wave-10 planning session. Companion to [§13.32](#1332-project-foundations-audit--re-evaluation-phase-10-umbrella) — both armed for post-Wave-10 timeframe but addressing orthogonal layers (foundations-of-mechanisms vs autonomous-self-trigger-of-AI-agent).
+
+**Origin:** 2026-05-13. PR #52 dialogue (memory-to-docs codification PR) — maintainer asked «разве это не я ловлю а каждый слой сам?» Surfaced structural distinction between «layer mechanically catches» (CI hook, principle test) and «layer triggered manually» (user-prompted re-check). Without trigger → AI silently passes wrong-claim through to merge-time. PR #52 itself accumulated 9+ such slips across 3 review rounds — load-bearing empirical evidence.
