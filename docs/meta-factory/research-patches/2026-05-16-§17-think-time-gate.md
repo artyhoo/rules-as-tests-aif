@@ -452,6 +452,7 @@ Proposed trailer: `§1.7: forward+backward checks performed in §8. HOT mechanis
 
 ## See also
 
+- ⚠ Erratum 2026-05-16 — see [2026-05-16-think-time-s17-gate-correction.md](2026-05-16-think-time-s17-gate-correction.md). H2 vs H10 re-evaluation with corrected Stop semantics deferred to implementation moment (Phase 11+).
 - [`.claude/rules/phase-research-coverage.md §1.7`](../../../.claude/rules/phase-research-coverage.md) — authoritative §1.7 discipline rule.
 - [`.claude/rules/phase-research-coverage.md §4`](../../../.claude/rules/phase-research-coverage.md) — anti-pattern catalogue; `#discipline-application-scope-blindness` (H8 sub-case (c)) + `#recommendation-skips-own-discipline`.
 - [`.claude/rules/ai-laziness-traps.md §2`](../../../.claude/rules/ai-laziness-traps.md) — T1, T3, T6, T7, T11, T15, T16 + domain-specific T-think-time-A/B/C.
