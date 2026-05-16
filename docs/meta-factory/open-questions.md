@@ -428,3 +428,63 @@ Structural diagnosis: **AI session = «agent doer», not «agent self-trigger-er
 **Owner:** maintainer + post-Wave-10 planning session. Companion to [§13.32](#1332-project-foundations-audit--re-evaluation-phase-10-umbrella) — both armed for post-Wave-10 timeframe but addressing orthogonal layers (foundations-of-mechanisms vs autonomous-self-trigger-of-AI-agent).
 
 **Origin:** 2026-05-13. PR #52 dialogue (memory-to-docs codification PR) — maintainer asked «разве это не я ловлю а каждый слой сам?» Surfaced structural distinction between «layer mechanically catches» (CI hook, principle test) and «layer triggered manually» (user-prompted re-check). Without trigger → AI silently passes wrong-claim through to merge-time. PR #52 itself accumulated 9+ such slips across 3 review rounds — load-bearing empirical evidence.
+
+---
+
+### 13.35 «1%-Rule» adaptation for skill trigger discipline
+
+Superpowers (`obra/superpowers`) introduces a **«1% Rule»** — mandate skill invocation if there's even a slight chance of applicability. ADAPT-candidate for our trigger-keyword discipline in `.claude/skills/*/SKILL.md` frontmatter. Surfaced in [companion-target-comparison.md §3.1 + §7 Decision D](research-patches/2026-05-16-companion-target-comparison.md).
+
+**Status:** ARMED — track without commitment to ADAPT work. Single-maintainer scope; current trigger keywords surfaced by skill frontmatter `description:` field plus orchestrator/reviewer dispatch already cover most cases. «1% Rule» would tighten by mandating skill invocation even on weak-keyword matches.
+
+**Candidate mechanisms:**
+
+- A. Extend SKILL.md frontmatter spec to include explicit «trigger sensitivity» tier (1%-Rule = «always invoke if any keyword matches»; current = «invoke if discriminating keyword matches»).
+- B. Add «1%-Rule» check at session-bootstrap (re-read SKILL.md descriptions and proactively dispatch on weak matches).
+- C. Reject — current sensitivity adequate; tightening produces false-positive skill loads.
+
+**Trigger to revisit:** ≥3 documented incidents where a skill SHOULD have fired but didn't (skill-availability ≠ skill-execution per §13.34 cross-reference). OR maintainer commits to a skill-discipline session.
+
+**Cross-references:** [companion-target-comparison.md §3.1](research-patches/2026-05-16-companion-target-comparison.md); [§13.34 Autonomous self-audit triggering layer](#1334-autonomous-self-audit-triggering-layer-post-wave-10-research) — related «skill-availability ≠ skill-execution» problem; [`.claude/skills/`](../../.claude/skills/) — current skill surface.
+
+**Origin:** 2026-05-16 companion-target comparison R-phase. ADAPT-candidate flagged but not actioned per §7 Decision D2 (track as ARMED, not author-immediate-research-patch).
+
+---
+
+### 13.36 TDD-for-Skills extension to .claude/skills/*/SKILL.md
+
+Superpowers explicitly applies **TDD discipline** to skill authoring: «NO SKILL WITHOUT A FAILING TEST FIRST»; RED-GREEN-REFACTOR for documentation. ADAPT-candidate for extending our paired-negative-test principle (`packages/core/principles/02-paired-negative-test.test.ts`) to skill files. Surfaced in [companion-target-comparison.md §3.1 + §7 Decision D](research-patches/2026-05-16-companion-target-comparison.md).
+
+**Status:** ARMED — track without commitment. Principle 02 enforces paired-negative tests at the principle-test layer; SKILL.md files currently have no equivalent enforcement (R1-R20 + principles 01-10 + the discipline-self-check CI gate cover code/rule layers, not «skill failure-mode evidenced before authoring»).
+
+**Candidate mechanisms:**
+
+- A. Add `packages/core/principles/N-skill-failure-evidence.test.ts` — mechanical check that every SKILL.md has a companion fixture (or research-patch link) showing the failure mode the skill addresses.
+- B. Add SKILL.md frontmatter requirement `evidenced-failure:` linking to a research-patch or incident note documenting the skill's motivating failure.
+- C. Reject — overkill at single-maintainer scale; SKILL.md scope is narrower than test-skill scope (skills are advice, tests are constraints).
+
+**Trigger to revisit:** ≥2 SKILL.md files authored where the skill turned out to address no real failure pattern (skill drift, theatre risk per [`ai-laziness-traps.md §2 T2`](../../.claude/rules/ai-laziness-traps.md)). OR maintainer commits to a skill-quality-audit session.
+
+**Cross-references:** [companion-target-comparison.md §3.1](research-patches/2026-05-16-companion-target-comparison.md); [`packages/core/principles/02-paired-negative-test.test.ts`](../../packages/core/principles/02-paired-negative-test.test.ts) — existing paired-negative-test discipline; [`.claude/skills/`](../../.claude/skills/) — current skill surface.
+
+**Origin:** 2026-05-16 companion-target comparison R-phase. ADAPT-candidate flagged but not actioned per §7 Decision D2.
+
+---
+
+### 13.37 «Pressure scenarios» adoption for principle tests
+
+Superpowers uses **«Pressure scenarios»** for skill testing — adversarial-probe pattern where a skill is run against scenarios designed to elicit incorrect behavior under time/scope pressure. ADAPT-candidate for our principle tests' adversarial-probe pattern. Surfaced in [companion-target-comparison.md §3.1 + §7 Decision D](research-patches/2026-05-16-companion-target-comparison.md).
+
+**Status:** ARMED — track without commitment. Our paired-negative tests cover «what fails when the discipline is bypassed?»; «pressure scenarios» would add «what happens when the discipline is challenged under stress?» (e.g., time-pressure simulation, scope-creep adversarial input).
+
+**Candidate mechanisms:**
+
+- A. Add `packages/core/principles/N-pressure-scenarios.test.ts` per principle — mechanical adversarial fixtures (e.g., commits with intentionally-misleading trailers; skill triggers with weakly-matching keywords).
+- B. Add a skill-level «red-team» fixture under `.claude/skills/*/red-team/` — hand-crafted adversarial inputs per skill.
+- C. Reject — current paired-negative tests catch primary cases; pressure-scenario marginal benefit low until ≥3 principle-test bypass incidents observed.
+
+**Trigger to revisit:** ≥3 incidents where a principle test PASSED but the discipline was effectively bypassed (false-negative principle tests, e.g., trailer-syntax check passes but trailer content is meaningless — partial Wave 8.1+ closure scope). OR maintainer commits to a principle-test-quality session.
+
+**Cross-references:** [companion-target-comparison.md §3.1](research-patches/2026-05-16-companion-target-comparison.md); [`packages/core/principles/`](../../packages/core/principles/) — current principle test surface; [`.claude/rules/ai-laziness-traps.md §2 T7`](../../.claude/rules/ai-laziness-traps.md) — adversarial counter-prompt discipline; [§13.32 Project foundations audit](#1332-project-foundations-audit--re-evaluation-phase-10-umbrella) — related re-evaluation umbrella.
+
+**Origin:** 2026-05-16 companion-target comparison R-phase. ADAPT-candidate flagged but not actioned per §7 Decision D2.
