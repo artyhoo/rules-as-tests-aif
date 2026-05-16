@@ -16,7 +16,7 @@ Phase 8.8 mechanism (SSOT + principle 08 + `Prior-art:` trailer + pre-push hook)
 
 The rule is invoked at the surfaces declared in `paths:` above — entry research files, the SSOT, and the `research-patches/` accumulator. It is consumed by phase research sessions before closing any [EXECUTION-PLAN.md §5.5](../../docs/meta-factory/EXECUTION-PLAN.md) Step 1.5 lookup, and by retros writing the Self-reflection block.
 
-## §1 Coverage methodology checklist (9 items)
+## §1 Coverage methodology checklist (10 items)
 
 Apply before closing any «N candidates checked → no production analog» claim. Failing any single item → the negative-existence verdict is **provisional**, not load-bearing.
 
@@ -53,6 +53,21 @@ grep -nE "^\| *${N} *\|" docs/meta-factory/prior-art-evaluations.md \
 ```
 
 Expected: matching row present. Verifying *trailer presence* is NOT the same as verifying the *SSOT entry exists*. [CLAUDE.md](../../CLAUDE.md) «add a new SSOT entry … in the same commit as the capability artifact» means the cited ID must be landed by-or-before the citing commit. Discovered when [Wave 7 Round 1 audit](../../docs/meta-factory/research-patches/2026-05-11-wave-7-round1-review.md) Domain 8 reported «#17 ✓; #22 ✓» by trailer presence alone, missing two non-existent entries (closed by M2 fix 2026-05-11).
+
+### §1.10 Type-system over prose for SDK-shaped claims (introduced 2026-05-16, three-channel verification finding)
+
+For claims about SDK-shaped surfaces — hook payload fields, MCP tool contracts, settings.json schema, harness event interfaces, language-server APIs — when type-system evidence diverges from prose documentation, **type-system wins**. Types must compile against actual implementation; prose can be stale, imprecise, or omit fields the runtime nonetheless requires.
+
+**How to apply:**
+
+1. SDK-shaped claim? → check type-system evidence first (e.g., `agent-sdk/typescript.md` for Claude Code, `.d.ts` for npm packages).
+2. Types + prose agree → AFFIRM, cite both.
+3. Types + prose diverge → types win; mark prose as stale or imprecise, surface as research-patch candidate.
+4. Only prose available (no SDK types for this surface) → continue dual-channel prose verification per §1.1-§1.9.
+
+Discovered when three-channel verification of research-patch `2026-05-16-§17-think-time-gate.md` Stop-hook claims found Worker WebFetch + Reviewer WebFetch converged on the same prose misreading («Stop fires only at session end»). The third channel via `claude-code-guide` subagent with TypeScript SDK access resolved unambiguously — `StopHookInput` and `SessionEndHookInput` are distinct interfaces; `Stop` fires per assistant turn, `SessionEnd` fires once at session termination. Prose lifecycle table was contestable; type-system evidence was not.
+
+Single-incident promotion (not the §1 closing «3-patch threshold») is acceptable here because the lesson is mechanically grounded — «types vs prose» is a structural distinction, not a heuristic. Future SDK-shaped patches will accumulate the evidence base. *(Distilled from [research-patches/2026-05-16-claude-code-guide-cross-verification.md §12.6](../../docs/meta-factory/research-patches/2026-05-16-claude-code-guide-cross-verification.md) and [research-patches/2026-05-16-think-time-s17-gate-correction.md §4](../../docs/meta-factory/research-patches/2026-05-16-think-time-s17-gate-correction.md).)*
 
 ## §2 Self-reflection prompts (retro Self-reflection block)
 
