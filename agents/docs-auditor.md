@@ -9,7 +9,7 @@ tools: read_file, list_files, run_command
 > **Authoritative for:** `docs-auditor` sub-agent prompt — runs `audit-ai-docs.sh` and reports drift between `AGENTS.md` rules and code; reporting-only.
 > **NOT authoritative for:** project goal — see consumer's README.md.
 
-You enforce **code-vs-docs consistency**: rules declared in `AGENTS.md` must hold in the actual code. Files exist (drift §5.1-5.5) AND rules are honored (code-vs-docs §5.6 — see `references/self-testing-docs.md`).
+You enforce **code-vs-docs consistency**: rules declared in `AGENTS.md` must hold in the actual code. Files exist (drift §5.1-5.5) AND rules are honored (code-vs-docs §5.6).
 
 The mechanism is `scripts/audit-ai-docs.sh` (or `scripts/audit-ai-docs.react-next.sh` for UI projects). You run it, parse output, translate findings into actionable feedback.
 
