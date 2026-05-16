@@ -5,7 +5,7 @@
 [![Audit Self](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml/badge.svg?branch=main)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml)
 [![Workflow Integrity](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml/badge.svg?branch=main)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml)
 
-> AI Factory extension that converts every codebase rule into an executable test that fails the build when violated. Includes AI documentation audit (drift detection + code-vs-docs probes), 5-layer enforcement framework, and ready-to-use configs for both server-side TypeScript and React/Next.js stacks.
+> Companion to AI Factory + aif-handoff (today) — broader AI-runtime integration on roadmap. Converts every codebase rule into an executable artifact that fails at the earliest reachable channel (edit-time → pre-commit → pre-push → CI → production audit). Adds Living Documentation enforcement and 5-layer framework for AI-resistant codebases — server-side TypeScript and React/Next.js stacks.
 
 ## What this package gives you
 
@@ -40,7 +40,13 @@ AI agents (Claude, Cursor, Copilot, Aider) write plausible-looking code that **r
 - Layer boundaries leak.
 - Conventions in `CLAUDE.md` are forgotten within 3 sessions.
 
-This package operationalizes the principle: **every rule that governs your codebase is an executable test that fails the build when violated**. AI cannot silently bypass what fails CI.
+This package operationalizes the principle: **every rule that governs your codebase is an executable artifact** — an ESLint rule, a pre-push check, a principle test, a mutation gate, a drift probe, or a Living Documentation assertion — **that fails when violated, at the earliest reachable channel**:
+
+```text
+edit-time → pre-commit → pre-push → CI → production audit
+```
+
+**CI is the last-resort gate, not the primary one.** AI cannot silently bypass what fails at any of these channels.
 
 ### Methodology
 
@@ -50,12 +56,23 @@ The framework validates itself with its own logic — **recursive self-applicati
 
 ### What must not break (invariants)
 
-- **Build-vs-reuse discipline** — prior-art consult before any capability commit. SSOT: `docs/meta-factory/prior-art-evaluations.md`. Enforcement: `Prior-art:` commit trailer + pre-push hook.
+- **Build-vs-reuse discipline** — prior-art consult before any capability commit. SSOT: `docs/meta-factory/prior-art-evaluations.md`. Macro-level operating philosophy: `.claude/rules/build-first-reuse-default.md` (default = adopt upstream when problem-class matches; build only when structurally missing). Enforcement: `Prior-art:` commit trailer + pre-push hook.
 - **Recursive self-application** — `make self-audit` green = the framework's own conventions don't drift.
 - **Search-coverage discipline** — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing. Rule: `.claude/rules/phase-research-coverage.md`.
 - **No paid LLM in CI** — no API-billed LLM calls in CI/GH Actions beyond the operator's existing Claude Code subscription. Semantic LLM checks ship as AI-agnostic sub-agent prompts (under `agents/`) read by active AI sessions, not as automated gates with metered API calls. Rationale + escape hatch: [`.claude/rules/no-paid-llm-in-ci.md`](.claude/rules/no-paid-llm-in-ci.md).
+- **Multi-channel enforcement** — every rule fails at the earliest reachable channel: edit-time (ESLint) → pre-commit (lint-staged) → pre-push (husky + audit-ai-docs + §1.7) → CI (Stryker + discipline-self-check) → production (Living Documentation drift). CI is the last-resort gate.
 
 If recursive self-application breaks, the framework becomes documentation that lies about itself — exactly the failure mode it claims to prevent.
+
+## What this project is and isn't
+
+**Is:** companion to AI Factory + aif-handoff (today) focused on Living Documentation enforcement (R1-R20 rules-as-tests, `audit-ai-docs.sh` drift detection, mutation testing, principle tests, 5-layer framework, methodology discipline). One-button install of pre-configured opinionated discipline.
+
+**Isn't:** workflow framework (use AI Factory); task orchestration / swarm coordination (use `aif-handoff`); standalone CI tool.
+
+**Reuse stance:** see [`.claude/rules/build-first-reuse-default.md`](.claude/rules/build-first-reuse-default.md). Default = adopt upstream when problem-class matches. Build ourselves only what is structurally missing — currently: Living Documentation, 5-layer framework, methodology discipline, AST-based hooks (Wave 10).
+
+**Roadmap signals:** subline says «(today)» because alt-target research is on the roadmap. Comparative survey of Superpowers / OhMyOpencode / Agent Teams / Cline / Cursor / Codex / Aider as additional companion-targets is open work — see [research-patch 2026-05-16-goal-clarity-dialogue.md §11](docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md). When that research lands, the «(today)» list widens.
 
 ## The 5-layer framework
 

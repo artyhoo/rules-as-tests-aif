@@ -11,7 +11,7 @@ At session start, read [.claude/session-bootstrap.md](.claude/session-bootstrap.
 
 ## Project goal pointer (do not elevate methodology to goal)
 
-**Goal:** AI agents can't silently bypass undocumented conventions — every codified rule fails CI on violation. Full statement: [README.md#why-this-exists](README.md#why-this-exists).
+**Goal:** AI agents can't silently bypass undocumented conventions. Every codified rule is an executable artifact (ESLint rule, pre-push check, principle test, mutation gate, drift probe, Living Documentation assertion) that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. **CI is the last-resort gate, not the primary one.** Full statement: [README.md#why-this-exists](README.md#why-this-exists).
 
 **Methodology:** recursive self-application — framework validates itself with its own logic. *Quality signal* (per GCC bootstrap precedent, `rustc` compile-self analogy), not the project's goal. **Do not elevate to «north star» in any operational doc.** If you find yourself reasoning under a goal that contradicts README — stop. The contradicting doc has drifted, not README. Surface as a coverage-gap patch under [docs/meta-factory/research-patches/](docs/meta-factory/research-patches/).
 

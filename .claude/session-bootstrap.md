@@ -8,7 +8,7 @@
 
 ## Goal (do not redefine)
 
-AI agents can't silently bypass undocumented conventions. Every codified rule fails CI on violation. See [README.md#why-this-exists](../README.md#why-this-exists) for full statement and «what must not break» invariants.
+AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. **CI = last-resort gate.** See [README.md#why-this-exists](../README.md#why-this-exists) for full statement and «what must not break» invariants.
 
 ## Methodology (do not elevate to goal)
 
@@ -18,9 +18,10 @@ Recursive self-application — framework validates itself via own logic. Quality
 
 | # | Invariant | Enforcement | Source |
 |---|---|---|---|
-| 1 | Build-vs-reuse SSOT consult before capability commit | `Prior-art:` trailer + pre-push hook | [docs/meta-factory/prior-art-evaluations.md](../docs/meta-factory/prior-art-evaluations.md) |
+| 1 | Build-vs-reuse SSOT consult before capability commit + macro-level build-first-reuse-default discipline | `Prior-art:` trailer + pre-push hook | [docs/meta-factory/prior-art-evaluations.md](../docs/meta-factory/prior-art-evaluations.md), [.claude/rules/build-first-reuse-default.md](rules/build-first-reuse-default.md) |
 | 2 | Recursive self-application — framework's own audits green | `make self-audit` + principles meta-tests | [packages/core/principles/](../packages/core/principles/) |
 | 3 | Search-coverage discipline — 6-item checklist on negative-existence claims | rule consumed by phase research sessions | [.claude/rules/phase-research-coverage.md](rules/phase-research-coverage.md) |
+| 4 | Multi-channel enforcement — every rule fails at earliest reachable channel | edit-time → pre-commit → pre-push → CI → production audit; CI = last-resort gate | [README.md#why-this-exists](../README.md#why-this-exists) |
 
 ## Reading order for new context
 
