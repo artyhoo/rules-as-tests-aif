@@ -79,6 +79,7 @@ Each artifact has one owner. Cross-owner edits require explicit handoff (separat
 | [docs/meta-factory/research-patches/](docs/meta-factory/research-patches/) `*` | session that discovered the gap | all subsequent sessions | one patch per gap, append-only |
 | [.husky/pre-push](.husky/pre-push), [.claude/rules/](.claude/rules/) `*` | maintainers | all session agents | enforcement layer |
 | [.claude/session-bootstrap.md](.claude/session-bootstrap.md) | maintainers (deliberate edit) | reviewer agents | operational restatement; modify only when invariants/reading-order change |
+| `agents/docs-auditor.md`, `agents/best-practices-sidecar.md` (consumer-facing agents) | framework maintainers | all sessions | design-by-spec ref consumer-project paths absent in source repo (per D-AuditC-6, 2026-05-16) |
 | [packages/core/principles/](packages/core/principles/) `*` | meta-tests CI | implementation agents | enforcement code |
 
 The contract addresses the exact mechanism of the 2026-05-09 incident: reviewer agents pattern-matching on language in [docs/meta-factory/EXECUTION-PLAN.md](docs/meta-factory/EXECUTION-PLAN.md) §1 («north star»), then reinforcing the wrong goal across reviewer cycles. Read-only constraint on goal-bearing artifacts (README) prevents reviewer agents from silently re-establishing a different goal.

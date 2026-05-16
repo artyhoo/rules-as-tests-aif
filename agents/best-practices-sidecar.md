@@ -1,6 +1,6 @@
 ---
 name: best-practices-sidecar
-description: Validates code against project rules from .ai-factory/RULES.md after every implementation cycle. Reports violations; does not fix them.
+description: Validates code against project rules from .ai-factory/RULES.md after every implementation cycle. Reports violations; does not fix them. Consumer-facing context: this agent expects `.ai-factory/RULES.md` (+ `.ai-factory/ARCHITECTURE.md`, `.ai-factory/RULES.react-next.md`) to be populated by the AIF installer in consumer projects; in the source project the `.ai-factory/` directory is absent and the agent's missing-file fallback handles this (prose-only INFO note rather than a shell block — see Workflow description). When auditing this agent in source-project context, expect the rule-load step to skip — that's by design.
 tools: read_file, list_files, run_command
 ---
 
