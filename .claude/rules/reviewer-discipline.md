@@ -35,9 +35,23 @@ This preserves the reviewer's independence as a falsification check. A reviewer 
 - **Promotion to principle test:** if 3 cross-session role-swap incidents occur within 6 months, add `packages/core/principles/12-reviewer-discipline.test.ts` — mechanical check on reviewer-session output for strategy-imperative phrases («we should», «I recommend the project», «the decision is»). Detection requires sub-agent integration (active session reads own output before posting verdict).
 - **Retirement:** if no role-swap incident occurs for 12 consecutive months AND companion principle test (if promoted) reports zero violations across the same window, archive to prose in CLAUDE.md.
 
+## §5 Classification — Class C (no current mechanism)
+
+**Class:** C — prose-only, mechanism deferred. No compensating mechanism currently in place; the rule is enforced solely by maintainer / reviewer awareness at session time. Promotion to mechanically-tested (Class A) is gated on the existing §4 incident-threshold criterion: 3+ role-swap incidents within 6 months.
+
+**Why Class C and not Class B (compensating mechanism):**
+
+Track 3 condensed prose-rules audit ([research-patches/2026-05-16-prose-rules-audit-research.md §3.3](../../docs/meta-factory/research-patches/2026-05-16-prose-rules-audit-research.md)) probed the 1A draft claim that `agents/compliance-verifier.md` served as the AI-agnostic compensating mechanism for this rule. The probe found compliance-verifier.md is empirically scoped to PR description §1.7 substance review — Forward/Backward citation integrity and sweep completeness — **not** to reviewer role-swap detection or strategy-imperative phrase checking. Pattern: T16 «pattern-matching-on-name» from [ai-laziness-traps.md §2](ai-laziness-traps.md) — «compliance verifier» sounds catch-all but is narrowly scoped.
+
+**Path forward when promotion criterion fires:** C-revise-1 — design a new `agents/reviewer-discipline-verifier.md` AI-agnostic sub-agent prompt scoped specifically to reviewer-session role-swap detection (active session reads own output before posting final verdict; checks for strategy-imperative phrases). Effort estimate: 1-2 hours design + bench test on ≥3 fabricated role-swap cases. Not pre-built — promote on incident evidence, not anticipation.
+
+**Recursive self-application note:** this rule is currently one of two Class C rules in the project (the other: [parallel-subwave-isolation.md](parallel-subwave-isolation.md), confirmed Class C in [Track 3 §3.5](../../docs/meta-factory/research-patches/2026-05-16-prose-rules-audit-research.md)). The README invariant «every rule = executable artifact» absolutism vs Class C practice tension is surfaced in [research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md](../../docs/meta-factory/research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md) — maintainer-owned resolution pending.
+
 ## See also
 
 - [.claude/rules/phase-research-coverage.md §4 anti-patterns](phase-research-coverage.md) — sibling family of focus-tunnel anti-patterns (`#discipline-application-scope-blindness`, `#recursive-self-application-gap`).
-- [.claude/rules/ai-laziness-traps.md](ai-laziness-traps.md) — companion discipline on AI laziness during open-ended audits.
-- [agents/review-sidecar.md](../../agents/review-sidecar.md), [agents/compliance-verifier.md](../../agents/compliance-verifier.md) — AI-agnostic sub-agent precedents for review work.
+- [.claude/rules/ai-laziness-traps.md](ai-laziness-traps.md) — companion discipline on AI laziness during open-ended audits; T16 («pattern-matching-on-name») is the trap that caught the 1A compliance-verifier misalignment.
+- [agents/review-sidecar.md](../../agents/review-sidecar.md) — AI-agnostic sub-agent precedent for review work (NOT a compensating mechanism for this rule).
+- [agents/compliance-verifier.md](../../agents/compliance-verifier.md) — §1.7 PR-body review agent (scoped narrowly to `phase-research-coverage §1.7`; NOT a reviewer-discipline mechanism per Track 3 §3.3).
 - [CLAUDE.md `Artifact Ownership Contract`](../../CLAUDE.md) — reviewer agents are read-only for artifacts they don't own (this rule is the behavioral side of that contract).
+- [docs/meta-factory/research-patches/2026-05-16-prose-rules-audit-research.md §3.3](../../docs/meta-factory/research-patches/2026-05-16-prose-rules-audit-research.md) — Track 3 evidence: Class B → C transition rationale.
