@@ -73,15 +73,25 @@ The hook already enforces Prior-art trailer presence on capability commits. The 
 - (b) Only when a capability file changes in the PR diff (medium signal, scoped)
 - (c) Nightly full sweep + per-PR change-scoped (matches Stryker incremental pattern)
 
-Recommended: **(c) nightly full + per-PR scoped** — matches existing project test infrastructure.
+Recommended (REVISED per [research-patches/2026-05-16-principle-11-q1q5-evidence.md §2.3](../../../docs/meta-factory/research-patches/2026-05-16-principle-11-q1q5-evidence.md)): **(a) On every `npm test` invocation** — aligns with all 10 existing principle tests (01-10), which run on every test invocation. Original Q3 recommendation (option c, nightly + per-PR scoped) was CONTRADICTED by evidence probes:
+
+- **No nightly CI infrastructure exists** in this repo — zero `schedule:` triggers in `.github/workflows/*.yml`
+- **No Stryker incremental pattern** in the config our CI uses (`packages/core/stryker.config.mjs` has no `incremental: true`)
+- `templates/ts-server/stryker.config.json:38` ships `incremental: true` for **consumer projects**, not for our own discipline rollout
+
+Performance budget per Q4 below confirms (a) viable at current scale (~43 capabilities = sub-second).
 
 **Q4 — Performance budget?**
 
-Test enumerates capability files + reads SSOT + reads each capability's introducing commit. For ~50 capabilities (current state) — expected ~1-2 sec. For 500+ — needs caching layer. **Reach out to maintainer when capability count crosses 200.**
+Test enumerates capability files + reads SSOT + reads each capability's introducing commit. For ~50 capabilities (current state — empirically 43 per [Track 5 §2.1](../../../docs/meta-factory/research-patches/2026-05-16-principle-11-q1q5-evidence.md)) — expected ~1-2 sec. For 500+ — needs caching layer. **Reach out to maintainer when capability count crosses 150** (early warning before 200 hard threshold).
 
 **Q5 — Should the test produce «warning» or «failure» on first-rollout?**
 
-First 2 weeks after ship: warning only (annotate in PR but don't block). After 2 weeks: hard failure. This «grace period» matches `phase-research-coverage.md` rollout pattern.
+Recommended (REVISED per [research-patches/2026-05-16-principle-11-q1q5-evidence.md §2.5](../../../docs/meta-factory/research-patches/2026-05-16-principle-11-q1q5-evidence.md)): **hard-fail from day one.** Aligns with principles 08, 09 precedent (companion principle tests for `prior-art-cited` and `doc-authority-hierarchy` both shipped as hard-fail, no grace period). Grandfather mechanism (Q1) already exempts pre-rule-introduction files cleanly — no false positives at ship time. Reduces operational complexity (no time-aware logic in test code).
+
+Original Q5 recommendation (2-week warning → hard fail) was based on assumed `phase-research-coverage.md` rollout pattern; evidence shows that rule rolled out via continuous iterative refinement, NOT phased warning-then-fail. Sibling principle tests are the closer precedent for ship discipline.
+
+If maintainer prefers safety: 2-week warning acceptable, but document tradeoff in commit message body.
 
 ## §6 Implementation outline (TypeScript scaffolding)
 
