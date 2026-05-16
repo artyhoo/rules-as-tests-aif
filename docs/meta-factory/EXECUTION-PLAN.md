@@ -18,7 +18,7 @@
 
 **Operational restatement (do not edit unless README changes):**
 
-- **Goal** — AI agents can't silently bypass undocumented conventions; every codified rule fails CI on violation.
+- **Goal** — AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel (edit-time → pre-commit → pre-push → CI → production audit; CI = last-resort gate).
 - **Methodology** — generate enforcement rules from principles (presets устаревают, принципы — нет). Recursive self-application = quality signal (GCC bootstrap precedent), **not** the goal. Re-elevation to «north star» in any phase doc = drift; surface as a coverage-gap patch under [research-patches/](research-patches/).
 - **Operational acceptance criterion (this plan):** мета-фабрика регенерирует canonical Next 15 preset с diff ≤5%, обновляет его до Next 16 с diff к manual baseline ≤15%, валидирует собственный output набором meta-tests, выведенных из тех же принципов которые она проповедует. This is *how we know the methodology works on the way to the user-facing goal* — not the goal itself.
 
