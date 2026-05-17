@@ -96,7 +96,12 @@ function git(cmd: string): string {
 }
 
 function getGrandfatherDate(): Date {
-  return new Date(git(`git show --format=%ai -s ${GRANDFATHER_COMMIT}`));
+  try {
+    return new Date(git(`git show --format=%ai -s ${GRANDFATHER_COMMIT}`));
+  } catch {
+    // SHA absent in shallow CI clones — fall back to known commit timestamp.
+    return new Date('2026-05-16T15:06:12Z');
+  }
 }
 
 // ── Capability file enumeration ───────────────────────────────────────────────
