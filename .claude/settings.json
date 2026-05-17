@@ -40,6 +40,16 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/end-of-turn-reminder.sh"
+          }
+        ]
+      }
     ]
   }
 }
