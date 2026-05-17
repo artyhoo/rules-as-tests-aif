@@ -1,9 +1,7 @@
 # Principle 11 — build-first reuse-default — DESIGN SKETCH
 
-> **Status:** DESIGN SKETCH, not yet implemented
+> **Status:** IMPLEMENTED — see [11-build-first-reuse-default.test.ts](11-build-first-reuse-default.test.ts) (shipped 2026-05-17, atomic commit on branch feat/principle-11-bfr-default)
 > **Companion rule:** [.claude/rules/build-first-reuse-default.md](../../../.claude/rules/build-first-reuse-default.md)
-> **Real implementation:** `packages/core/principles/11-build-first-reuse-default.test.ts` — to ship in separate atomic commit, ≤2 weeks deadline (per goal-clarity-dialogue 1A §4.3 v2 split discipline)
-> **Fallback if 2-week deadline slips:** rule retains prose-only status; promotion reverts to violation-rate-based criterion matching peer rules
 > **Slot note 2026-05-16:** originally drafted as principle 10; slot collision with existing `10-research-patch-annotation.test.ts` surfaced in pre-ship review → relocated to slot 11; cascade applied across 1A roadmap (ai-laziness-traps→12, phase-research-coverage→13)
 
 ## §1 What this test validates
