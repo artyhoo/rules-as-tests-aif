@@ -16,27 +16,31 @@ last_line=$(tail -r "$transcript" 2>/dev/null | grep -m1 '"type":"assistant"' ||
 [ -z "$last_line" ] && exit 0
 
 tool_names=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="tool_use") | .name' 2>/dev/null || true)
-if echo "$tool_names" | grep -qx 'AskUserQuestion'; then
+text=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="text") | .text' 2>/dev/null || true)
+
+if [ -z "$text" ] && [ -z "$tool_names" ]; then
   exit 0
 fi
 
-text=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="text") | .text' 2>/dev/null || true)
-[ -z "$text" ] && exit 0
-
 text_length=${#text}
 trigger_report=false
+trigger_question=false
+
 if [ "$text_length" -gt 500 ]; then
   if echo "$text" | grep -qE '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)'; then
     trigger_report=true
   fi
 fi
 
-tail_chunk=$(echo "$text" | tail -c 500)
-trigger_question=false
-if echo "$tail_chunk" | grep -qE '\?[[:space:]]*$'; then
+if echo "$tool_names" | grep -qx 'AskUserQuestion'; then
   trigger_question=true
-elif echo "$tail_chunk" | grep -qiE 'Option [AB]|выбирай|decide|хочешь чтобы|which (option|approach)'; then
-  trigger_question=true
+elif [ -n "$text" ]; then
+  tail_chunk=$(echo "$text" | tail -c 500)
+  if echo "$tail_chunk" | grep -qE '\?[[:space:]]*$'; then
+    trigger_question=true
+  elif echo "$tail_chunk" | grep -qiE 'Option [AB]|выбирай|decide|хочешь чтобы|which (option|approach)'; then
+    trigger_question=true
+  fi
 fi
 
 if [ "$trigger_report" = "false" ] && [ "$trigger_question" = "false" ]; then
