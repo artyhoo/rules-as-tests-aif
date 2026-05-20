@@ -89,6 +89,11 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'packages/preset-next-15-canonical/RULES.react-next.md',
   'packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md',
 
+  // skill-context overrides shipped to consumer .ai-factory/skill-context/ (C-1 follow-up,
+  // SSOT #50): AIF-native delivery of our review + rules-check content without colliding slots.
+  'packages/core/templates/shared/skill-context/aif-review/SKILL.md',
+  'packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md',
+
   // Sub-agents copied to consumer .claude/agents/ via install.sh glob.
   // best-practices-sidecar removed (C-1 KEEP-AIF, 2026-05-20); docs-auditor renamed
   // → living-docs-auditor to de-collide with AIF's same-named agent.

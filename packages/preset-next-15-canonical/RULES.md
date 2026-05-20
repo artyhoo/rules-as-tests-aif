@@ -245,7 +245,7 @@ import fs from 'fs'; // in src/domain/
 - `*Service` lives in application or infrastructure, never in domain.
 - `*Controller` only in web/.
 
-**Check:** Manual review only — naming conventions are too project-specific to formalise reliably across stacks. AI Factory's `rules-sidecar` runs an ad-hoc grep against the diff (filename ↔ exported symbol; `*Repository`/`*Service`/`*Controller` placement); `audit-ai-docs.sh` does not include a probe for R10. If your project has a strict naming scheme, write a project-specific probe and a paired negative test.
+**Check:** Manual review only — naming conventions are too project-specific to formalise reliably across stacks. AI Factory's `rules-sidecar` runs an ad-hoc grep against the diff (filename ↔ exported symbol; `*Repository`/`*Service`/`*Controller` placement) — this R10 check is delivered to `rules-sidecar` via the `.ai-factory/skill-context/aif-rules-check/SKILL.md` override (C-1 follow-up, SSOT #50), since `audit-ai-docs.sh` includes no probe for R10. If your project has a strict naming scheme, write a project-specific probe and a paired negative test.
 
 ### Examples
 
