@@ -19,7 +19,7 @@
 
 Решение: **code-vs-docs probes**. Каждое правило AGENTS.md, которое можно формализовать через grep/awk, превращается в bash-проверку в `audit-ai-docs.sh`. Скрипт прогоняет все probes за 5-10 секунд, exit 0 (PASS) или 1 (FAIL).
 
-```
+```text
 AGENTS.md «Rule N: <правило>»
             ↓
 scripts/audit-ai-docs.sh §[probe N]: grep/awk проверка
@@ -28,7 +28,7 @@ exit 0 (PASS) | 1 (FAIL) | 0+WARN (decay-watch)
 ```
 
 Запускается на трёх уровнях:
-1. **`/aif-verify`** через `docs-auditor` sub-agent — перед PR.
+1. **`/aif-verify`** через `living-docs-auditor` sub-agent — перед PR.
 2. **Pre-push hook** (`.husky/pre-push`) — до того, как код покидает машину.
 3. **CI on PR** — required check, не даёт мерджить, если не PASS.
 
@@ -251,15 +251,15 @@ npm run audit:docs || {
 
 ---
 
-## Sub-agent: docs-auditor
+## Sub-agent: living-docs-auditor
 
-В AIF под `/aif-verify` подключается `docs-auditor` sub-agent, который:
+В AIF под `/aif-verify` подключается `living-docs-auditor` sub-agent, который:
 1. Прогоняет `audit-ai-docs.sh`
 2. Парсит вывод
 3. Для каждого FAIL формулирует human-readable объяснение со ссылкой на конкретное правило в AGENTS.md
 4. Если все PASS — выдаёт «VERDICT: ALL PROBES PASSED»
 
-См. `agents/docs-auditor.md` в этом пакете.
+См. `agents/living-docs-auditor.md` в этом пакете.
 
 ---
 
@@ -278,7 +278,7 @@ npm run audit:docs || {
 ## Связано
 
 - `references/doc-organization.md` — hot/cold split AGENTS.md, drift detection §5.1-5.5.
-- `agents/docs-auditor.md` — sub-agent, который запускает audit-скрипт под `/aif-verify`.
+- `agents/living-docs-auditor.md` — sub-agent, который запускает audit-скрипт под `/aif-verify`.
 - `scripts/audit-ai-docs.sh` — эталон серверного TS.
 - `scripts/audit-ai-docs.react-next.sh` — эталон UI-стека.
 - `references/overview.md` Layer 5 — Living Documentation как принцип, частным случаем которого является self-testing AI documentation.

@@ -63,7 +63,8 @@ Install rules-as-tests-aif into this project. Follow these steps exactly:
    `bash setup.sh --stack=<detected-stack>`
 
    This installs:
-   - .claude/agents/{best-practices-sidecar,review-sidecar,docs-auditor}.md (overrides)
+   - .claude/agents/{review-sidecar,living-docs-auditor}.md (shipped sub-agents)
+   - .ai-factory/skill-context/aif-rules-check/SKILL.md (R10/R4/R17 residue override for AIF rules-sidecar)
    - .claude/skills/rules-as-tests/ — skill + 5 reference files in references/
    - .ai-factory/DESCRIPTION.template.md, ARCHITECTURE.ts-server.md, RULES.md, RULES.react-next.md (if applicable)
    - scripts/audit-ai-docs.sh (or .react-next.sh)
@@ -76,7 +77,7 @@ Install rules-as-tests-aif into this project. Follow these steps exactly:
    a. `npm run typecheck` — should pass on a fresh project
    b. `npm run lint` — may have warnings on existing code, that's OK
    c. `npm run audit:docs` — should run, may report findings (read them aloud to me)
-   d. `ls -la .claude/agents/` — confirm best-practices-sidecar.md, review-sidecar.md, docs-auditor.md exist
+   d. `ls -la .claude/agents/` — confirm review-sidecar.md, living-docs-auditor.md exist
    e. `ls -la .ai-factory/` — confirm DESCRIPTION.md (or .template.md), ARCHITECTURE.md, RULES.md exist
 
 6. Read .ai-factory/DESCRIPTION.template.md and tell me which placeholders need filling.
@@ -201,12 +202,11 @@ project/
 │   ├── RULES.react-next.md            ← R12-R20 (only react-next)
 │   └── rules/integration-rules.md     ← only for microservices
 ├── .claude/
-│   ├── agents/                        ← AIF sub-agents (overridden by us)
-│   │   ├── best-practices-sidecar.md  ← validates RULES.md after each /aif-implement
+│   ├── agents/                        ← our shipped sub-agents (alongside AIF agents)
 │   │   ├── review-sidecar.md          ← two-AI review for tautological tests
-│   │   ├── docs-auditor.md            ← runs audit-ai-docs.sh
+│   │   ├── living-docs-auditor.md     ← runs audit-ai-docs.sh (BACKWARD Living-Docs drift)
 │   │   ├── compliance-verifier.md     ← §1.7 substance review — read in active session before merge
-│   │   └── (other AIF agents untouched)
+│   │   └── (AIF agents untouched — rules-sidecar reads .ai-factory/RULES.md)
 │   └── skills/rules-as-tests/
 │       ├── SKILL.md                   ← skill, auto-activates on triggers
 │       └── references/                ← 5 docs (loaded on-demand)
@@ -309,12 +309,12 @@ If a check fails for a reason not in this table — **stop and report**, do not 
 | Check | Command | Expected |
 |---|---|---|
 | Skills loaded | open Claude Code, ask "what skills are available?" | Lists `rules-as-tests` (and AIF base skills) |
-| Sub-agents loaded | `ls .claude/agents/best-practices-sidecar.md` | File exists, ~3KB |
+| Sub-agents loaded | `ls .claude/agents/review-sidecar.md .claude/agents/living-docs-auditor.md` | Both files exist |
 | TypeScript compiles | `npm run typecheck` | Exit 0 |
 | Lint runs | `npm run lint` | Exit 0 (warnings OK on existing code) |
 | Tests discoverable | `npx vitest run --listFiles` | Shows .unit.ts files (or empty if no tests yet) |
 | Audit script runs | `npm run audit:docs` | Exit 0 with PASS/FAIL/WARN output |
 | Pre-commit hook | `git commit --allow-empty -m "test"` (in test branch) | Lint-staged runs |
 | Pre-push hook | `git push --dry-run` | Typecheck + tests + audit run |
-| `/aif-verify` works | in Claude Code: `/aif-verify` | best-practices-sidecar + review-sidecar + docs-auditor produce output |
+| `/aif-verify` works | in Claude Code: `/aif-verify` | review-sidecar + living-docs-auditor + AIF rules-sidecar produce output |
 | Harness hooks active (Claude Code only) | `jq .hooks .claude/settings.json` | `UserPromptSubmit` + `PostToolUse` entries present (sub-wave 7.2.a/b/c) |

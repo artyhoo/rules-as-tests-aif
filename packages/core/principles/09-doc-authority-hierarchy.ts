@@ -89,10 +89,17 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'packages/preset-next-15-canonical/RULES.react-next.md',
   'packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md',
 
-  // Sub-agents copied to consumer .claude/agents/ via install.sh:138-141
-  'agents/best-practices-sidecar.md',
+  // skill-context overrides shipped to consumer .ai-factory/skill-context/ (C-1)
+  'packages/core/templates/shared/skill-context/aif-review/SKILL.md',
+  'packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md',
+
+  // Sub-agents copied to consumer .claude/agents/ via install.sh §2 glob.
+  // best-practices-sidecar is intentionally absent — KEEP-AIF (C-1): not shipped
+  // (excluded from the install glob); its unique residue rides the aif-rules-check
+  // skill-context above. The in-repo agents/best-practices-sidecar.md stays as a
+  // portable SSOT but is no longer a shipped consumer-facing artefact.
   'agents/review-sidecar.md',
-  'agents/docs-auditor.md',
+  'agents/living-docs-auditor.md',
   'agents/compliance-verifier.md',
 ];
 

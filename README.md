@@ -12,10 +12,10 @@
 After install, your project has:
 
 1. **A skill** (`.claude/skills/rules-as-tests/`) — auto-activates in Claude Code on questions about lint, tests, CI, mutation testing, contracts, AI-driven code drift.
-2. **Three sub-agents** (`.claude/agents/`) that AIF runs on `/aif-verify`:
-   - `best-practices-sidecar` — validates code against `RULES.md` (R1–R20).
+2. **Two sub-agents** (`.claude/agents/`) that AIF runs on `/aif-verify`, plus a skill-context override:
    - `review-sidecar` — two-AI tautology review of tests.
-   - `docs-auditor` — runs `audit-ai-docs.sh` and interprets results.
+   - `living-docs-auditor` — runs `audit-ai-docs.sh` and interprets results (BACKWARD Living-Docs drift).
+   - R1–R20 enforcement: AIF's own `rules-sidecar` reads `.ai-factory/RULES.md`; R10 naming and R4/R17 test-existence residue are delivered via `.ai-factory/skill-context/aif-rules-check/SKILL.md`.
 3. **AI Factory templates** (`.ai-factory/`) — DESCRIPTION, ARCHITECTURE, RULES (R1–R11 + R12–R20 for UI + IR1–IR6 for microservices).
 4. **An audit script** (`scripts/audit-ai-docs.sh`) — drift detection + code-vs-docs probes. ~10 sec run. Each probe has a paired negative test (must fail when introduced bug).
 5. **Stack configs**:
@@ -130,7 +130,8 @@ After `setup.sh` finishes, your project has:
 | Path | Source | Edit needed? |
 |---|---|---|
 | `.claude/skills/rules-as-tests/` | skill + 5 references, on-demand | No — auto-activates in Claude Code |
-| `.claude/agents/best-practices-sidecar.md`, `review-sidecar.md`, `docs-auditor.md` | sub-agents for `/aif-verify` | No |
+| `.claude/agents/review-sidecar.md`, `living-docs-auditor.md` | sub-agents for `/aif-verify` | No |
+| `.ai-factory/skill-context/aif-rules-check/SKILL.md` | R10/R4/R17 residue override for AIF's `rules-sidecar` | No |
 | `.ai-factory/RULES.md` | R1-R11 (or +R12-R20 for react-next) | **Yes — review and trim per project** |
 | `.ai-factory/DESCRIPTION.template.md` | template with `<PLACEHOLDERS>` | **Yes — fill in, rename to `DESCRIPTION.md`** |
 | `.ai-factory/ARCHITECTURE.ts-server.md` | drop-in for canonical hexagonal layout | Maybe — rename to `ARCHITECTURE.md` if your layout matches |

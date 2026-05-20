@@ -36,7 +36,7 @@ Every rule fits into one of five layers, each with its own enforcement mechanism
 5. **Living Documentation** — tests *are* the documentation. Test names are sentences; ArchUnit `because(...)` clauses are ADRs; OpenAPI specs generated from Zod schemas.
 
 These five extend in two directions:
-- **Down (shift-left → pre-PR)**: AI Factory `/aif-verify` with sub-agents (`best-practices-sidecar`, `review-sidecar` for two-AI tautology detection).
+- **Down (shift-left → pre-PR)**: AI Factory `/aif-verify` with sub-agents (`review-sidecar` for two-AI tautology detection, `living-docs-auditor` for backward Living-Docs drift, plus AIF's own `rules-sidecar` reading `.ai-factory/RULES.md`).
 - **Up (shift-right → production)**: SLO-as-code (OpenSLO + Pyrra), error budgets, feature flags + observability 2.0, synthetic monitoring, chaos engineering.
 
 Plus a sideways layer:
@@ -127,7 +127,7 @@ Every one of these is caught by a specific automated rule from this skill's temp
 
 The framework integrates with:
 
-- **AI Factory (aif)** — Claude Code workflow tool. Slash-commands (`/aif-plan`, `/aif-implement`, `/aif-verify`, `/aif-commit`). Sub-agents (`best-practices-sidecar`, `review-sidecar`) auto-validate against `RULES.md`.
+- **AI Factory (aif)** — Claude Code workflow tool. Slash-commands (`/aif-plan`, `/aif-implement`, `/aif-verify`, `/aif-commit`). Sub-agents (`review-sidecar`, `living-docs-auditor`) plus AIF's own `rules-sidecar` auto-validate against `RULES.md`.
 - **GitHub Actions / GitLab CI** — required `ci-success` job as the merge gate.
 - **OpenTelemetry** — instrumentation for shift-right SLOs and observability.
 - **OpenSLO + Pyrra/Sloth** — declarative SLOs as code, compiled to Prometheus rules.

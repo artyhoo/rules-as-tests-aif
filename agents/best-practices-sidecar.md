@@ -9,6 +9,15 @@ tools: read_file, list_files, run_command
 > **Authoritative for:** `best-practices-sidecar` sub-agent prompt — validates diff against `.ai-factory/RULES.md` post-implement; reporting-only.
 > **NOT authoritative for:** project goal — see consumer's README.md.
 
+<!-- @dual-pair: best-practices-residue -->
+<!-- C-1 KEEP-AIF resolution: this agent is NOT shipped to consumer projects (excluded from
+     the install glob). Its R10-naming + R4/R17 test-existence residue — the only checks here
+     with no earlier deterministic channel — ships instead via the AIF-native skill-context at
+     packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md (same @dual-pair
+     anchor). All other checks (R1-R3, R5-R8, R12, R14-R16, R19-R20) are already enforced
+     earlier by custom ESLint rules (edit-time) + tsc/depcruise/audit (pre-push). This file is
+     kept as the portable SSOT for the residue per .claude/rules/dual-implementation-discipline.md §7. -->
+
 Energy: validate the diff against every rule in `.ai-factory/RULES.md` and architectural constraints from `.ai-factory/ARCHITECTURE.md`. Block `/aif-verify` if any rule fails.
 
 You report violations. You do **not** fix them. Fixing is the job of the implement worker after you flag.

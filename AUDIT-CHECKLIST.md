@@ -148,9 +148,9 @@ Specifically check:
 
 ### 3.4 Sub-agents have clear responsibility boundaries
 
-- `best-practices-sidecar` — validates against RULES.md, reports
+- AIF `rules-sidecar` (reads `.ai-factory/RULES.md`) + `aif-rules-check` skill-context override — validates against RULES.md, reports
 - `review-sidecar` — two-AI review for tautology, no awareness of how code was written
-- `docs-auditor` — runs audit-ai-docs.sh, parses output
+- `living-docs-auditor` — runs audit-ai-docs.sh, parses output
 
 If two agents have the same job description with different wording — fail.
 
@@ -287,19 +287,19 @@ In a clean project after `ai-factory init --agents claude`:
 ### 6.2 install.sh overlays correctly without breaking AIF base
 
 After `install.sh`:
-- `.claude/agents/best-practices-sidecar.md` — overridden by us
-- `.claude/agents/review-sidecar.md` — overridden by us
-- `.claude/agents/docs-auditor.md` — overridden by us (or new file)
-- Other AIF base agents — UNTOUCHED (plan-coordinator, implement-worker, etc.)
+- `.claude/agents/review-sidecar.md` — installed by us
+- `.claude/agents/living-docs-auditor.md` — installed by us
+- `.ai-factory/skill-context/aif-rules-check/SKILL.md` — installed by us (R10/R4/R17 residue override for AIF rules-sidecar)
+- AIF's `rules-sidecar` and other base agents — UNTOUCHED (reads `.ai-factory/RULES.md`)
 - `.ai-factory/RULES.md` — replaced with our version, BUT user can adjust
 
 ### 6.3 /aif-verify exercises the chain end-to-end
 
 In Claude Code, after `/aif-implement`:
-- `/aif-verify` should invoke best-practices-sidecar → outputs verdict against RULES.md
-- best-practices-sidecar should suggest running audit-ai-docs.sh
-- review-sidecar should produce two-AI review report
-- All three reports visible in single `/aif-verify` output
+- `/aif-verify` should invoke AIF's `rules-sidecar` → outputs verdict against `.ai-factory/RULES.md`
+- `living-docs-auditor` should run audit-ai-docs.sh and report results
+- `review-sidecar` should produce two-AI review report
+- All reports visible in single `/aif-verify` output
 
 (Manual test — requires Claude Code session.)
 

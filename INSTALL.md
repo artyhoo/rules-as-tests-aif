@@ -293,7 +293,7 @@ Try a sample sub-agent invocation in Claude Code:
 /aif-verify
 ```
 
-This should run `best-practices-sidecar`, `review-sidecar`, `docs-auditor`. Output structured verdict.
+This should run `review-sidecar`, `living-docs-auditor` (plus AIF's own `rules-sidecar` reading `.ai-factory/RULES.md`). Output structured verdict.
 
 ---
 

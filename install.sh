@@ -61,10 +61,11 @@ SHIPPED_DOCS=(
   "packages/preset-next-15-canonical/RULES.md"
   "packages/preset-next-15-canonical/RULES.react-next.md"
   "packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md"
-  "agents/best-practices-sidecar.md"
   "agents/review-sidecar.md"
-  "agents/docs-auditor.md"
+  "agents/living-docs-auditor.md"
   "agents/compliance-verifier.md"
+  "packages/core/templates/shared/skill-context/aif-review/SKILL.md"
+  "packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md"
   "skills/tool-bootstrapping/SKILL.md"
   "skills/tool-bootstrapping/references/decision-format.md"
 )
@@ -231,6 +232,12 @@ fi
 echo "▶ Sub-agents → .claude/agents/"
 mkdir_safe "$PROJECT_ROOT/.claude/agents"
 for f in "$PKG_ROOT"/agents/*.md; do
+  # best-practices-sidecar: KEEP-AIF (C-1 resolution) — do NOT ship ours. AI Factory's
+  # own rules-sidecar already reads .ai-factory/RULES.md; our edit-time ESLint rules +
+  # pre-push (tsc/depcruise/audit) are the earlier-channel enforcers. Our genuinely
+  # unique residue (R10 naming, R4/R17 test-existence) ships via the skill-context
+  # template below, not as a colliding agent slot. File kept in-repo as portable SSOT.
+  [ "$(basename "$f")" = "best-practices-sidecar.md" ] && continue
   copy_safe "$f" "$PROJECT_ROOT/.claude/agents/$(basename "$f")"
 done
 
@@ -241,6 +248,17 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$P
 copy_safe "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md"
 copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.md" "$PROJECT_ROOT/.ai-factory/RULES.md"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJECT_ROOT/.ai-factory/rules/integration-rules.md"
+
+# skill-context overrides — AIF-native "extend a vendored sub-agent" mechanism (C-1).
+# AIF's own background sidecars MANDATORY-read .ai-factory/skill-context/<skill>/SKILL.md
+# (verified: a background maxTurns:6 sidecar reads + applies these). We ride that wiring
+# instead of shipping colliding agents: aif-review gets our anti-tautology test-review
+# content; aif-rules-check gets our R10-naming + test-existence residue.
+mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/aif-review"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/skill-context/aif-review/SKILL.md" "$PROJECT_ROOT/.ai-factory/skill-context/aif-review/SKILL.md"
+mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/aif-rules-check"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md" "$PROJECT_ROOT/.ai-factory/skill-context/aif-rules-check/SKILL.md"
+
 if [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-next.md"
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.react-next.md" "$PROJECT_ROOT/.ai-factory/RULES.react-next.md"
