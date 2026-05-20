@@ -11,7 +11,7 @@
 
 ## Слои AI-стека и когда что грузится
 
-```
+```text
 <project>/
 ├── AGENTS.md                       ← главная инструкция (hot, ≤150 строк)
 ├── CLAUDE.md                       ← @import AGENTS.md (или прямой)
@@ -335,4 +335,4 @@ git show develop:.claude/skills/<name>/SKILL.md > .claude/skills/<name>/SKILL.md
 
 - `references/self-testing-docs.md` — code-vs-docs probes как extension этой рамки на runtime-проверки.
 - `references/checks-map.md` — где этот аудит живёт в общей карте уровней (уровень 5 — CI on PR).
-- `agents/docs-auditor.md` — sub-agent, который прогоняет drift-проверки под `/aif-verify`.
+- `agents/living-docs-auditor.md` — sub-agent, который прогоняет drift-проверки под `/aif-verify`.
