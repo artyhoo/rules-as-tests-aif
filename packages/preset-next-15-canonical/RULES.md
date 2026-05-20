@@ -1,10 +1,11 @@
 # Rules — automatically enforced after every /aif-implement
 
-> **Authoritative for:** canonical R1–R11 rule list enforced by `best-practices-sidecar` in the preset-next-15 preset (consumer-customisable).
+> **Authoritative for:** canonical R1–R11 rule list for the preset-next-15 preset (consumer-customisable). Enforcement is multi-channel (earliest reachable channel wins): edit-time custom ESLint rules, pre-push `audit-ai-docs.sh`, and AI Factory's `rules-sidecar` (which reads this file at `.ai-factory/RULES.md` during `/aif-verify`).
 > **NOT authoritative for:** project goal — see consumer's README.md.
 
-These rules are checked by `best-practices-sidecar` after every implementation,
-before `/aif-verify` accepts the change. Each rule has a corresponding
+These rules are enforced at the **earliest reachable channel**: custom ESLint rules at
+edit-time, `audit-ai-docs.sh` + `tsc`/`depcruise`/tests at pre-push, and AI Factory's
+`rules-sidecar` (which reads this file) at `/aif-verify`. Each rule has a corresponding
 automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verify`.
 
 ## Summary table
@@ -244,7 +245,7 @@ import fs from 'fs'; // in src/domain/
 - `*Service` lives in application or infrastructure, never in domain.
 - `*Controller` only in web/.
 
-**Check:** Manual review only — naming conventions are too project-specific to formalise reliably across stacks. `best-practices-sidecar` runs an ad-hoc grep against the diff (filename ↔ exported symbol; `*Repository`/`*Service`/`*Controller` placement); `audit-ai-docs.sh` does not include a probe for R10. If your project has a strict naming scheme, write a project-specific probe and a paired negative test.
+**Check:** Manual review only — naming conventions are too project-specific to formalise reliably across stacks. AI Factory's `rules-sidecar` runs an ad-hoc grep against the diff (filename ↔ exported symbol; `*Repository`/`*Service`/`*Controller` placement); `audit-ai-docs.sh` does not include a probe for R10. If your project has a strict naming scheme, write a project-specific probe and a paired negative test.
 
 ### Examples
 
@@ -286,7 +287,7 @@ import fs from 'fs'; // in src/domain/
 
 ## How violations are handled
 
-1. `best-practices-sidecar` flags the violation in `/aif-verify` output.
+1. AI Factory's `rules-sidecar` flags the violation in `/aif-verify` output (and edit-time ESLint / pre-push `audit-ai-docs.sh` flag it earlier).
 2. `/aif-fix` is invoked automatically on flagged items.
 3. If the rule is genuinely incompatible with the task — `/aif-rules` to discuss
    updating the rule (with rationale), not to silently bypass it.
@@ -296,4 +297,4 @@ import fs from 'fs'; // in src/domain/
 - Each rule has a measurable check. If the check is missing — the rule is a wish, not a rule. Either implement the check or delete the rule.
 - Rules are added through PR with rationale (which class of bugs it prevents).
 - Rules are deleted only with explicit ADR documenting why.
-- Aim to keep ~10–12 rules **active per validation pass**. The package ships R1–R11 (server) + R12–R20 (UI) + IR1–IR6 (microservices), but in any one project a subset is enabled — adjust `audit-ai-docs.sh` and `best-practices-sidecar.md` to skip rules that don't apply. Past ~12 rules in a single pass the AI starts losing focus.
+- Aim to keep ~10–12 rules **active per validation pass**. The package ships R1–R11 (server) + R12–R20 (UI) + IR1–IR6 (microservices), but in any one project a subset is enabled — adjust `audit-ai-docs.sh` and your ESLint config to skip rules that don't apply. Past ~12 rules in a single pass the AI starts losing focus.

@@ -25,9 +25,8 @@
   "agents": {
     "claude": {
       "files": [
-        "agents/best-practices-sidecar.md",
         "agents/review-sidecar.md",
-        "agents/docs-auditor.md"
+        "agents/living-docs-auditor.md"
       ]
     }
   },

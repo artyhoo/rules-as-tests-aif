@@ -62,7 +62,7 @@ Consumer-facing means: shipped to consumer projects via `install.sh`, or consume
 
 **Default:** ship CC-native primary for CC consumers; ship portable markdown fallback for non-CC consumers. Both reference the same SSOT spec (§7).
 
-**Examples:** `agents/compliance-verifier.md` (portable markdown read by any AI session); `agents/docs-auditor.md` (same); `.claude/skills/rules-as-tests/` (skill consumed in CC-compatible harnesses). When a CC hook is added to complement one of these agents, the pair is dual-channel.
+**Examples:** `agents/compliance-verifier.md` (portable markdown read by any AI session); `agents/living-docs-auditor.md` (same); `.claude/skills/rules-as-tests/` (skill consumed in CC-compatible harnesses). When a CC hook is added to complement one of these agents, the pair is dual-channel.
 
 **May deviate when:** consumer-base is provably CC-only by current usage data AND the capability is not semantically meaningful outside CC (e.g., a PostToolUse hook providing real-time edit feedback has no portable equivalent that would fire at the same moment).
 

@@ -107,7 +107,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
 
   it('positive: file outside exempt glob is NOT exempt (negative case)', () => {
     expect(isExempt('packages/core/templates/shared/AGENTS.md.template')).toBe(false);
-    expect(isExempt('agents/best-practices-sidecar.md')).toBe(false);
+    expect(isExempt('agents/review-sidecar.md')).toBe(false);
     expect(isExempt('docs/meta-factory/EXECUTION-PLAN.md')).toBe(false);
     expect(isExempt('packages/preset-next-15-canonical/RULES.md')).toBe(false);
   });
@@ -161,7 +161,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
       SHIPPED_DOC_PREFIXES.some((pref) => p.startsWith(pref)),
     );
 
-    expect(installShipped).toHaveLength(14);
+    expect(installShipped).toHaveLength(13);
     expect(new Set(installShipped)).toEqual(new Set(shippedSubset));
   });
 

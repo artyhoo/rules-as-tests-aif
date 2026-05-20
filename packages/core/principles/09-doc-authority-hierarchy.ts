@@ -89,10 +89,11 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'packages/preset-next-15-canonical/RULES.react-next.md',
   'packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md',
 
-  // Sub-agents copied to consumer .claude/agents/ via install.sh:138-141
-  'agents/best-practices-sidecar.md',
+  // Sub-agents copied to consumer .claude/agents/ via install.sh glob.
+  // best-practices-sidecar removed (C-1 KEEP-AIF, 2026-05-20); docs-auditor renamed
+  // → living-docs-auditor to de-collide with AIF's same-named agent.
   'agents/review-sidecar.md',
-  'agents/docs-auditor.md',
+  'agents/living-docs-auditor.md',
   'agents/compliance-verifier.md',
 ];
 

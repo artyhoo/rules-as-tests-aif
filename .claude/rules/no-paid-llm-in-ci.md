@@ -52,5 +52,5 @@ When designing any new discipline / CI gate / automation:
 
 - [README.md §What must not break](../../README.md) — invariant declaration (commit 2 of memory-codification PR).
 - [docs/meta-factory/research-patches/2026-05-11-llm-usage-audit.md](../../docs/meta-factory/research-patches/2026-05-11-llm-usage-audit.md) — full inventory of LLM touchpoints with cost classification.
-- [agents/compliance-verifier.md](../../agents/compliance-verifier.md), [agents/review-sidecar.md](../../agents/review-sidecar.md), [agents/docs-auditor.md](../../agents/docs-auditor.md), [agents/best-practices-sidecar.md](../../agents/best-practices-sidecar.md) — AI-agnostic sub-agent pattern precedents.
+- [agents/compliance-verifier.md](../../agents/compliance-verifier.md), [agents/review-sidecar.md](../../agents/review-sidecar.md), [agents/living-docs-auditor.md](../../agents/living-docs-auditor.md) — AI-agnostic sub-agent pattern precedents.
 - [docs/meta-factory/open-questions.md §13.10#4](../../docs/meta-factory/open-questions.md) — Gate 5 re-classification under this policy.
