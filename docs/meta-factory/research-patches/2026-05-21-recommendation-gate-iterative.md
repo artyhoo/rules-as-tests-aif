@@ -489,9 +489,12 @@ Specifically: C3 («4-turn hand-roll defence») was a case where `§1` analysis 
 
 3. **H1 specificity vs. session-start sufficiency:** the 2026-05-13 session had generic injection but not the specific 4-step recommendation checklist. Round 3 dry-run must evaluate whether the corpus cases (C1–C8) would plausibly have been caught by the specific checklist instruction vs. the generic goal/invariants that were present and failed. This is the Q1 empirical question in dry-run form.
 
-
 ---
 
 ## §3 — Paper prototype + dry-run vs full corpus
 
 > **Moved to a separate file** to stay under the 500-line markdown limit (`.husky/pre-commit`): see [2026-05-21-recommendation-gate-iterative-round-3.md](2026-05-21-recommendation-gate-iterative-round-3.md). **Round 3 status: COMPLETE — Gate 3 PASS.** Headline: H2 keyword-scan caps at 4/10 genuine catches + 67% false-positive rate (two structural FP causes); H10 schema-gate 5/9 firm + 0% FP but fabrication-bypass risk; H1 instruction-delta concrete only for the at-write-time factual class (C7/C8/F2/F3), strategy-verdict class Q1-unresolved at paper fidelity; no single mechanism covers both failure classes.
+
+## §4 — Self-application (recursive)
+
+> **Moved to a separate file** to stay under the 500-line limit: see [2026-05-21-recommendation-gate-iterative-round-4.md](2026-05-21-recommendation-gate-iterative-round-4.md). **Round 4 status: COMPLETE — Gate 4 PASS.** Headline: the patch's own §2 prior-art verdicts (R2a/R2b/R2c = H1/H2/H10) skip Step 4 (adversarial falsification) — H2 fires (HAS_ADVERSARIAL=0), H10 blocks (`adversarial_falsification` absent), H1 marks Step 4 absent on all three; verified deterministically against committed §2.1/§2.2/§2.3. Recursive first-class finding: the research-patch commits the very failure mode it studies — three consecutive Worker-draft → review-cycle catches (R2 cadence, R3 F3, R4 §4.4 mis-citation) plus the standing committed-text Step-4 gap.
