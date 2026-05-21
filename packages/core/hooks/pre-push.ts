@@ -81,7 +81,66 @@ function requireSelfTest(scriptRelPath: string): void {
   emit(r);
 }
 
+/**
+ * §7 Prior-art trailer check. Extracted so it can run in isolation (PREPUSH_ONLY)
+ * — the anti-tautology end-to-end test exercises only this section and must not
+ * depend on the other sections' tools/deps.
+ */
+function priorArtSection(): void {
+  const UPSTREAM_REF = 'origin/main';
+  if (!upstreamExists(UPSTREAM_REF)) return;
+  const commits = getCommits(UPSTREAM_REF);
+  const substanceWarnOnly = (process.env['PA_SUBSTANCE_WARN_ONLY'] ?? 'true') !== 'false';
+  const report = runPriorArtCheck(commits, realGit);
+
+  if (report.failures.length > 0) {
+    process.stdout.write('\n❌ Prior-art trailer missing or invalid on capability commit(s):\n');
+    for (const f of report.failures) {
+      process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
+    }
+    process.stdout.write(
+      '\nFix: amend the commit body to include a `Prior-art:` line per CONTRIBUTING.md.\n' +
+        'Examples:\n' +
+        '  Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).\n' +
+        '  Prior-art: skipped — refactor only, no new capability\n\n' +
+        'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n' +
+        'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n\n',
+    );
+    process.exit(1);
+  }
+
+  if (report.substanceFailures.length > 0) {
+    if (substanceWarnOnly) {
+      process.stdout.write('\n⚠ Prior-art: escape-hatch on capability commit (substance arm, Wave 8.4):\n');
+      for (const f of report.substanceFailures) {
+        process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
+      }
+      process.stdout.write(
+        '\nCalibration window: warn-only through 2026-06-10.\n' +
+          'Fix: replace `Prior-art: skipped — …` with `Prior-art: prior-art-evaluations.md#N (verdict X — rationale)`.\n\n',
+      );
+    } else {
+      process.stdout.write('\n❌ Prior-art: escape-hatch on capability commit:\n');
+      for (const f of report.substanceFailures) {
+        process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
+      }
+      process.stdout.write(
+        '\nSet PA_SUBSTANCE_WARN_ONLY=true to downgrade locally (calibration window expired).\n\n',
+      );
+      process.exit(1);
+    }
+  }
+}
+
 function main(): void {
+  // Test seam: run a single section in isolation. The §7 anti-tautology
+  // end-to-end test (tests/hooks/prior-art-trailer-hook.test.sh) sets this so it
+  // exercises only the prior-art logic, independent of sections 1–6 deps/env.
+  if (process.env['PREPUSH_ONLY'] === 'prior-art') {
+    priorArtSection();
+    process.exit(0);
+  }
+
   // ── 1. actionlint ──────────────────────────────────────────────────────────
   const workflows = workflowYmlFiles();
   if (workflows.length > 0) {
@@ -160,56 +219,9 @@ function main(): void {
   }
 
   // ── 7. Prior-art trailer (§7) — TS-native since Wave 10.2 ────────────────────
-  // Capability-commit detection + `Prior-art:` trailer validation.
-  // Ported from pa_* functions in the former legacy-trailer-checks.sh (now
-  // trimmed to §1.7-only). PA_SUBSTANCE_WARN_ONLY=true is the calibration
-  // default through 2026-06-10; set to false to harden locally.
-  {
-    const UPSTREAM_REF = 'origin/main';
-    if (upstreamExists(UPSTREAM_REF)) {
-      const commits = getCommits(UPSTREAM_REF);
-      const substanceWarnOnly = (process.env['PA_SUBSTANCE_WARN_ONLY'] ?? 'true') !== 'false';
-      const report = runPriorArtCheck(commits, realGit);
-
-      if (report.failures.length > 0) {
-        process.stdout.write('\n❌ Prior-art trailer missing or invalid on capability commit(s):\n');
-        for (const f of report.failures) {
-          process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
-        }
-        process.stdout.write(
-          '\nFix: amend the commit body to include a `Prior-art:` line per CONTRIBUTING.md.\n' +
-          'Examples:\n' +
-          '  Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).\n' +
-          '  Prior-art: skipped — refactor only, no new capability\n\n' +
-          'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n' +
-          'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n\n',
-        );
-        process.exit(1);
-      }
-
-      if (report.substanceFailures.length > 0) {
-        if (substanceWarnOnly) {
-          process.stdout.write('\n⚠ Prior-art: escape-hatch on capability commit (substance arm, Wave 8.4):\n');
-          for (const f of report.substanceFailures) {
-            process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
-          }
-          process.stdout.write(
-            '\nCalibration window: warn-only through 2026-06-10.\n' +
-            'Fix: replace `Prior-art: skipped — …` with `Prior-art: prior-art-evaluations.md#N (verdict X — rationale)`.\n\n',
-          );
-        } else {
-          process.stdout.write('\n❌ Prior-art: escape-hatch on capability commit:\n');
-          for (const f of report.substanceFailures) {
-            process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
-          }
-          process.stdout.write(
-            '\nSet PA_SUBSTANCE_WARN_ONLY=true to downgrade locally (calibration window expired).\n\n',
-          );
-          process.exit(1);
-        }
-      }
-    }
-  }
+  // Capability-commit detection + `Prior-art:` trailer validation. Ported from
+  // pa_* functions in the former legacy-trailer-checks.sh (now §1.7-only).
+  priorArtSection();
 
   // ── §1.7. Discipline trailer (§1.7) — delegated to legacy bash shim until Wave 10.3 ──
   // The shim is now §1.7-only (pa_* functions removed in Wave 10.2). The bash

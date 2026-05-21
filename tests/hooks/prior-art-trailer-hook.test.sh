@@ -91,20 +91,29 @@ STUB
   echo "$tmp"
 }
 
-# tsx loader + node_modules resolution: tsx is in the real repo's node_modules.
-# When running node from the test repo cwd, tsx cannot be found unless we point
-# NODE_PATH at the real repo. Use NODE_PATH so all tsx/ESM imports resolve.
-REAL_NODE_MODULES="$REPO_ROOT/node_modules"
+# tsx loader resolution: tsx may live in packages/core/node_modules (CI installs
+# via `npm install --prefix packages/core`) OR the repo root node_modules (hoisted
+# dev install). Probe both so the test is environment-agnostic.
+if [ -f "$REPO_ROOT/packages/core/node_modules/tsx/dist/esm/index.mjs" ]; then
+  REAL_NODE_MODULES="$REPO_ROOT/packages/core/node_modules"
+elif [ -f "$REPO_ROOT/node_modules/tsx/dist/esm/index.mjs" ]; then
+  REAL_NODE_MODULES="$REPO_ROOT/node_modules"
+else
+  echo "❌ tsx loader not found in packages/core/node_modules or root node_modules"
+  exit 1
+fi
 TSX_LOADER="$REAL_NODE_MODULES/tsx/dist/esm/index.mjs"
 
-# run_hook: invokes the TS orchestrator in the tmp repo.
-# NODE_PATH ensures tsx + other deps resolve from the real repo's node_modules.
-# PATH override ensures stub binaries (actionlint, npx, …) take precedence.
+# run_hook: invokes ONLY §7 of the TS orchestrator in the tmp repo via the
+# PREPUSH_ONLY=prior-art seam, so this anti-tautology guard is independent of
+# sections 1–6 (actionlint/zizmor/self-tests/manifest/principles) and their deps.
+# NODE_PATH resolves tsx; PATH override keeps any residual stub binaries ahead.
 run_hook() {
   local repo="$1"
   (
     cd "$repo"
     NODE_PATH="$REAL_NODE_MODULES" \
+    PREPUSH_ONLY="prior-art" \
     PATH="$repo/_stub_bin:$PATH" \
       node --import "$TSX_LOADER" "$TS_HOOK" >/dev/null 2>&1
   )
