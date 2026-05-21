@@ -6,6 +6,8 @@
 
 ---
 
+> **STATUS RECONCILIATION (added 2026-05-21, post-merge):** several waves listed below as "pending/urgent/next" were in fact **already merged earlier the same day this patch landed** (#101 at 18:09; the merges below predate it). This banner corrects the stale framing without rewriting the original analysis. **N6a (C-1 impl) — DONE:** PRs #79 (KEEP-AIF best-practices + RENAME docs-auditor→living-docs-auditor) + #82 (skill-context delivery) + #83/#84/#85 (research-patches, prose sync, audit refresh); live-probe DECISION-NEEDED #2 RAN+PASSED (background sidecar reads skill-context, see [2026-05-20-skill-context-runtime-probe.md](2026-05-20-skill-context-runtime-probe.md)); Commit 7 README companion subline also landed (Superpowers named at README.md:8/72/78). **N4a (detector fix) — DONE:** PR #98 shipped detector v2 (≤2 intervening tokens + strip citations/quotes/links), recall +~37% / precision −~105 FP, validated against committed [tests/eval/baseline-2026-05-21.md](../../../tests/eval/baseline-2026-05-21.md). Remaining N4 work = **N4b (recommendation-moment gate)** only. Lesson: reconcile against same-day merges before recording wave status (a `#stale-claim` instance of the verify-before-claim family).
+
 ## §1 — Question
 
 After the project history book landed on main (PR #93), the maintainer asked the load-bearing strategic question: **does this project genuinely symbiose with Superpowers (`obra/superpowers`), or are the two doing the same thing?** And, downstream: what niche does the project occupy, where should it grow, and how should it strengthen its companions while being strengthened by them — especially given its AI-agnostic design.
@@ -65,7 +67,7 @@ Three independent probes of `obra/superpowers`, 2026-05-21:
 
 ### Wave N4 — Recommendation-moment as enforceable channel (the new frontier)
 - **Goal:** close the gap §1.7 doesn't cover — the moment an agent *asserts a recommendation*, before any commit. No companion has it.
-- **Tasks (ordered by #97 finding):** (1) **fix the claim-detector first** — current recall ≈ 0.43, precision ≈ 0.20–0.25 is the binding constraint, NOT compliance; (2) only then design the recommendation-moment gate.
+- **Tasks (ordered by #97 finding):** (1) ✅ **DONE (#98)** — fix the claim-detector first (was recall ≈ 0.43, precision ≈ 0.20–0.25); detector v2 shipped (recall +~37%, precision −~105 FP per [baseline-2026-05-21.md](../../../tests/eval/baseline-2026-05-21.md)); (2) **N4b — remaining:** design the recommendation-moment gate.
 - **Checks:** re-run the #97 scorer ([2026-05-21-instruction-compliance-empirical.scorer.py](2026-05-21-instruction-compliance-empirical.scorer.py)) as before/after; pre-registered effect size; no-paid-LLM.
 - **Output:** improved detector; possible new channel = candidate give-back to companions.
 - **BFR verdict:** BUILD (frontier; nobody upstream).
@@ -77,7 +79,7 @@ Three independent probes of `obra/superpowers`, 2026-05-21:
 - **BFR verdict:** the inverse of adopt — contribute.
 
 ### Wave N6 — Coexistence, then one-button install
-- **Goal:** (a) ship the C-1 implementation PR (resolves `.claude/agents/` collision with AIF — already RESOLVED in design 2026-05-20, impl pending; **blocks the honest «installs alongside AIF» claim + Commit 7**); (b) one-button install — gated on N3 (portable core) **and** (a).
+- **Goal:** (a) ✅ **DONE (#79+#82+#83/#84/#85)** — C-1 implementation shipped (resolved `.claude/agents/` collision with AIF; honest «installs alongside AIF» claim + Commit 7 now unblocked and landed); (b) one-button install — gated on N3 (portable core) **and** (a).
 - **Checks:** real hybrid install probe in /tmp (per C-1 mandatory-probe discipline T-CIA-A); install must not silently corrupt a coexisting AIF install.
 - **Output:** clean coexistence; eventual `npx`-style scaffold replacing the current 8 manual steps.
 - **BFR verdict:** the «button» is the only new build; coexistence reuses C-1 resolution.
@@ -97,9 +99,9 @@ Three independent probes of `obra/superpowers`, 2026-05-21:
 ```text
 FIRM DATE 2026-06-15 (plan by it, not a cliff): N0 (headless billing change — VERIFIED: meter, not ban; pick how to pay)
 NOW (cheap, parallel, lock the story):   N1 (validation) ∥ N2 (adopt)
-URGENT (unblocks Commit 7 + AIF claim):  N6a (C-1 impl PR)
-LONG POLE (after Wave 9 M1–M5):          N3 (TS core / Wave 10)
-RESEARCH (no deadline):                  N4a (detector fix) → N4b (gate)
+✅ DONE (#79+#82+#83/#84/#85):           N6a (C-1 impl PR) — was URGENT, now landed
+LONG POLE (Wave 10 I-phase IN PROGRESS): N3 (TS core / Wave 10) — 10.1 = PR #107 merge-ready
+RESEARCH (no deadline):                  N4a (detector fix) ✅ DONE (#98) → N4b (gate) — remaining
 ARM UP (process-layer, ⊇ N0 target):     N7 (dogfood companions in dev) — gated on DECISION = C
 AFTER N7 → then N2+N3:                    N5 (give-back)
 AFTER N3+N6a:                             N6b (one-button install)
@@ -108,7 +110,7 @@ AFTER N3+N6a:                             N6b (one-button install)
 - **N0 has the only fixed external date (June 15)** — but VERIFICATION downgraded it from "hard cliff that beats all" to "cost-model change to plan around." It hits the non-moat layer; the substrate is untouched (already `no-paid-llm-in-ci`-protected). Worst case: degrade orchestration to the free interactive pool. Plan dispatch cost by the date.
 
 - **N1/N2** are cheap and lock positioning → do first, parallelizable (use worktrees per [`parallel-subwave-isolation.md`](../../../.claude/rules/parallel-subwave-isolation.md)).
-- **N6a (C-1 impl)** is the urgent unblock — gates the honest companion claim and Commit 7.
+- ~~**N6a (C-1 impl)** is the urgent unblock — gates the honest companion claim and Commit 7.~~ ✅ DONE (#79+#82+#83/#84/#85) — companion claim + Commit 7 landed.
 - **N3** is the long pole; everything product-shaped (N5, N6b) waits on it.
 - **One-button install is LAST** — «coexistence first, button later», never the reverse.
 - **N7 gates on the DECISION-NEEDED** (companion = A/B/C). It is the operational twin of book Часть XIII («arm up with allies») and folds into N0: process-layer dogfooding *is* the storm-migration. N5 (give-back) sequences **after** N7 — you only know what's worth giving once you've used theirs.
