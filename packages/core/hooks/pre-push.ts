@@ -135,16 +135,17 @@ function priorArtSection(): void {
 
 /**
  * §1.7 discipline-trailer check. TS-native since Wave 10.3 (ported from the
- * deleted legacy-trailer-checks.sh s17_* functions). Both arms default to
- * warn-only (S17_WARN_ONLY / S17_SUBSTANCE_WARN_ONLY) through the 2026-06-10
- * calibration window; set the env flag to 'false' to harden locally.
+ * deleted legacy-trailer-checks.sh s17_* functions). Both arms enforce
+ * (blocking) by default since 2026-05-21 (flipped early per maintainer
+ * directive; was warn-only during the D1 calibration window). Set
+ * S17_WARN_ONLY=true / S17_SUBSTANCE_WARN_ONLY=true for a local opt-in downgrade.
  */
 function s17Section(): void {
   const UPSTREAM_REF = 'origin/main';
   if (!upstreamExists(UPSTREAM_REF)) return;
   const commits = getCommits(UPSTREAM_REF);
-  const warnOnly = (process.env['S17_WARN_ONLY'] ?? 'true') !== 'false';
-  const substanceWarnOnly = (process.env['S17_SUBSTANCE_WARN_ONLY'] ?? 'true') !== 'false';
+  const warnOnly = (process.env['S17_WARN_ONLY'] ?? 'false') !== 'false';
+  const substanceWarnOnly = (process.env['S17_SUBSTANCE_WARN_ONLY'] ?? 'false') !== 'false';
   const report = runS17Check(commits, realGit);
 
   if (report.failures.length > 0) {
@@ -152,7 +153,7 @@ function s17Section(): void {
       process.stdout.write('\n⚠ §1.7 trailer missing or invalid on rule-introducing commit(s):\n');
       for (const f of report.failures) process.stdout.write(`  ${f.sha}  ${f.message}\n`);
       process.stdout.write(
-        '\nCalibration window: warn-only through 2026-06-10 (30 days from ship). Set S17_WARN_ONLY=false to enforce locally.\n' +
+        '\nLocal downgrade active (S17_WARN_ONLY=true); the default is enforcing.\n' +
           'Fix: add `§1.7: forward-check applied — …; backward-check sweep — …` to commit body.\n\n',
       );
     } else {
@@ -171,7 +172,7 @@ function s17Section(): void {
       process.stdout.write('\n⚠ §1.7 trailer lacks file:line citation on rule-introducing commit(s) (substance arm — Wave 8.3):\n');
       for (const f of report.substanceFailures) process.stdout.write(`  ${f.sha}  ${f.message}\n`);
       process.stdout.write(
-        '\nCalibration window: warn-only through 2026-06-10. Set S17_SUBSTANCE_WARN_ONLY=false to enforce locally.\n' +
+        '\nLocal downgrade active (S17_SUBSTANCE_WARN_ONLY=true); the default is enforcing.\n' +
           'Fix: include ≥1 file:line citation, e.g. `packages/core/principles/02.test.ts:82`.\n\n',
       );
     } else {
@@ -282,7 +283,7 @@ function main(): void {
 
   // ── §1.7. Discipline trailer — TS-native since Wave 10.3 ─────────────────────
   // Ported from s17_* in the (now deleted) legacy-trailer-checks.sh. Both arms
-  // default to warn-only through the 2026-06-10 calibration window.
+  // enforce (blocking) by default since 2026-05-21; S17_WARN_ONLY=true downgrades.
   s17Section();
 
   // ── 8. lychee offline link check on changed *.md ─────────────────────────────

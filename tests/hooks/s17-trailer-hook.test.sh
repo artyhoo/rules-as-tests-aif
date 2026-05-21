@@ -18,6 +18,10 @@
 #   4. positive: NON-discipline commit (no rule/principle/skill touched)  → exit 0
 #   5. positive: discipline commit + §1.7 Bootstrap exemption            → exit 0
 #   6. anti-tautology: logic load-bearing — verified by s17.test.ts + Stryker ≥80%
+#   7. DEFAULT (env unset): discipline commit + NO §1.7                   → exit non-zero
+#                (guards the enforcing default; catches a revert to warn-only)
+#   8. DEFAULT (env unset): discipline commit + generic stub (no file:line) → exit non-zero
+#                (guards the substance-arm enforcing default)
 #
 # CI: invoked from .github/workflows/audit-self.yml#principles-meta-tests.
 
@@ -174,12 +178,46 @@ test_6_antitautology_covered_by_vitest() {
   record pass "6 — anti-tautology (s17 logic load-bearing) verified by s17.test.ts + Stryker ≥80%"
 }
 
+# Test 7: discipline commit + NO §1.7, env UNSET → non-zero. Guards the enforcing
+# DEFAULT (not just the explicit S17_WARN_ONLY=false override). A revert of the
+# default to 'true' (warn-only) flips this to exit 0 and fails the test.
+test_7_default_blocks_missing() {
+  local repo; repo=$(make_repo)
+  add_discipline_commit "$repo" \
+    "feat(rules): add test rule" \
+    "Body with no discipline-check reference whatsoever."
+  if ( unset S17_WARN_ONLY S17_SUBSTANCE_WARN_ONLY; run_hook "$repo" ); then
+    record fail "7 — missing §1.7 with default (env unset) should block but exited 0 (default reverted to warn?)"
+  else
+    record pass "7 — no §1.7 + env UNSET → exit non-zero (enforcing default)"
+  fi
+  rm -rf "$repo"
+}
+
+# Test 8: discipline commit + generic stub (no file:line), env UNSET → non-zero.
+# Guards the substance-arm enforcing DEFAULT (S17_SUBSTANCE_WARN_ONLY).
+test_8_default_blocks_substance() {
+  local repo; repo=$(make_repo)
+  add_discipline_commit "$repo" \
+    "feat(rules): add test rule" \
+    "Body." \
+    "§1.7: forward-check applied — Checked all rules, compliant. Backward-check — complete sweep performed."
+  if ( unset S17_WARN_ONLY S17_SUBSTANCE_WARN_ONLY; run_hook "$repo" ); then
+    record fail "8 — generic stub with default (env unset) should block but exited 0 (substance default reverted?)"
+  else
+    record pass "8 — generic stub (no file:line) + env UNSET → exit non-zero (substance enforcing default)"
+  fi
+  rm -rf "$repo"
+}
+
 test_1_positive_citation
 test_2_negative_substance_enforced
 test_3_negative_missing_enforced
 test_4_positive_non_discipline
 test_5_positive_bootstrap
 test_6_antitautology_covered_by_vitest
+test_7_default_blocks_missing
+test_8_default_blocks_substance
 
 printf '\n── Summary ──\n%d pass / %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
