@@ -39,6 +39,18 @@ const CORE = resolve(REPO_ROOT, 'packages/core');
 const run = (cmd: string, args: readonly string[] = []): CheckResult =>
   runCheck(cmd, args, { cwd: REPO_ROOT });
 
+/**
+ * Upstream ref the trailer checks diff against (`<ref>..HEAD`). Defaults to
+ * `origin/main` — the pre-push case and PRs targeting main. The CI backstop
+ * (audit-self.yml `pr-commit-trailers`) overrides it via PREPUSH_UPSTREAM_REF
+ * with the PR base ref. Parameterising the ref (vs hard-coding `origin/main`) is
+ * what lets the backstop also gate PRs targeting a non-main base — epic/staging
+ * branches per the §13.40 automerge→staging plan, where sub-PRs target staging.
+ */
+function upstreamRef(): string {
+  return process.env['PREPUSH_UPSTREAM_REF'] ?? 'origin/main';
+}
+
 /** Re-emit a captured result's output to the operator. */
 function emit(r: CheckResult): void {
   if (r.stdout) process.stdout.write(r.stdout);
@@ -88,7 +100,7 @@ function requireSelfTest(scriptRelPath: string): void {
  * depend on the other sections' tools/deps.
  */
 function priorArtSection(): void {
-  const UPSTREAM_REF = 'origin/main';
+  const UPSTREAM_REF = upstreamRef();
   if (!upstreamExists(UPSTREAM_REF)) return;
   const commits = getCommits(UPSTREAM_REF);
   const substanceWarnOnly = (process.env['PA_SUBSTANCE_WARN_ONLY'] ?? 'true') !== 'false';
@@ -141,7 +153,7 @@ function priorArtSection(): void {
  * S17_WARN_ONLY=true / S17_SUBSTANCE_WARN_ONLY=true for a local opt-in downgrade.
  */
 function s17Section(): void {
-  const UPSTREAM_REF = 'origin/main';
+  const UPSTREAM_REF = upstreamRef();
   if (!upstreamExists(UPSTREAM_REF)) return;
   const commits = getCommits(UPSTREAM_REF);
   const warnOnly = (process.env['S17_WARN_ONLY'] ?? 'false') !== 'false';

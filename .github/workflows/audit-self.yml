@@ -229,6 +229,8 @@ jobs:
         run: bash tests/hooks/prior-art-trailer-hook.test.sh
       - name: Run §1.7 discipline trailer hook anti-tautology test (Wave 10.3)
         run: bash tests/hooks/s17-trailer-hook.test.sh
+      - name: Run PREPUSH_UPSTREAM_REF override paired-negative (non-main base backstop)
+        run: bash tests/hooks/prepush-upstream-ref.test.sh
       - name: Run end-of-turn claim-scan hook test (autonomous-self-audit §11.1)
         run: bash tests/hooks/eot-claim-scan.test.sh
 
@@ -255,21 +257,35 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           persist-credentials: false
-          fetch-depth: 0  # full history so origin/main..HEAD resolves the PR commits
+          fetch-depth: 0  # full history so <base>..HEAD resolves the PR commits
           ref: ${{ github.event.pull_request.head.sha }}  # PR tip, not the synthetic merge commit
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '20'
       - name: Install workspace deps (hoists tsx to root)
         run: npm install --silent
-      - name: Ensure origin/main base ref is present
-        run: git fetch --no-tags --quiet origin main:refs/remotes/origin/main
+      - name: Ensure PR base ref is present
+        # Diff against the actual PR base (github.base_ref), not a hard-coded
+        # origin/main — so the backstop also gates PRs targeting a non-main base
+        # (epic/staging, §13.40 automerge plan). base_ref via env, not inline
+        # ${{…}} in run:, to avoid template-injection (zizmor). Fail loudly if the
+        # base is unresolvable: pre-push.ts's upstreamExists() would otherwise
+        # SILENTLY SKIP the checks (rc 0) — a false-pass that defeats the backstop.
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --quiet origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          git rev-parse --verify "origin/${BASE_REF}" >/dev/null \
+            || { echo "::error::base ref origin/${BASE_REF} not resolvable — refusing to skip the backstop"; exit 1; }
       - name: §1.7 discipline-trailer check over PR commits (hard-enforced)
         env:
           S17_WARN_ONLY: 'false'
           S17_SUBSTANCE_WARN_ONLY: 'false'
+          PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
         run: PREPUSH_ONLY=s17 npx tsx packages/core/hooks/pre-push.ts
       - name: §7 Prior-art trailer check over PR commits (base blocks; substance warn-only per Option B)
+        env:
+          PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
         run: PREPUSH_ONLY=prior-art npx tsx packages/core/hooks/pre-push.ts
 
   enforce-husky-presence:
