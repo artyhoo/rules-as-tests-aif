@@ -24,7 +24,10 @@ if [ -z "$anchor" ]; then
 fi
 [ -z "$anchor" ] && anchor="(цель сессии не извлеклась — назови её сам)"
 
-last_line=$(tail -r "$transcript" 2>/dev/null | grep -m1 '"type":"assistant"' || true)
+# Last assistant line. `grep ... | tail -1` (portable: equivalent to BSD `tail -r |
+# grep -m1` on macOS, and works on Linux/CI where `tail -r` is unavailable — lets the
+# companion test exercise this hook in CI).
+last_line=$(grep '"type":"assistant"' "$transcript" 2>/dev/null | tail -1 || true)
 if [ -z "$last_line" ]; then
   exit 0
 fi
@@ -42,9 +45,31 @@ fi
 
 text_length=${#text}
 
-# Trigger ONLY on (a) a substantial structured answer ("много текста"), or
-# (b) a question. Tool calls alone do NOT trigger — a short "готово, поправил X"
-# turn needs no recap. This restores the original firing condition.
+# --- Factual-claim scan (deterministic; no LLM, no external call — no-paid-llm-in-ci).
+# spec: docs/meta-factory/research-patches/2026-05-21-autonomous-self-audit-triggering.md §11.1
+# Targets the at-write-time factual class the recap nudge alone does NOT force a
+# re-verify on: numeric counts (incident #1 "4+ files"), file:line citations
+# (incident #5 ":30"), and negative-existence claims (incident #2). These can ride a
+# SHORT turn that the long_text gate skips — so the scan fires on claim-PRESENCE
+# regardless of length, and enumerates the exact hits so the re-verify ask is
+# item-specific (Agent Verifier `[P]`-tier idea), not a generic "be careful".
+# Honest limit: this raises salience, it does not structurally force compliance.
+claim_hits=""
+if [ -n "$text" ]; then
+  while IFS= read -r h; do [ -n "$h" ] && claim_hits+="  • число «${h}» — переrun команду подсчёта, процитируй вывод (не по памяти)"$'\n'; done \
+    < <(echo "$text" | grep -oiE '[0-9]+\+? *(files?|tests?|cases?|entries|entry|rules?|principles?|layers?|incidents?|candidates?|commits?|hooks?|lines?)' | head -5)
+  while IFS= read -r h; do [ -n "$h" ] && claim_hits+="  • цитата «${h}» — переоткрой file:line, подтверди содержимое строки"$'\n'; done \
+    < <(echo "$text" | grep -oiE '[a-zA-Z0-9_./-]+\.(ts|tsx|js|jsx|md|sh|json|ya?ml):[0-9]+' | head -5)
+  while IFS= read -r h; do [ -n "$h" ] && claim_hits+="  • negative-existence «${h}…» — назови, какие из 6 пунктов search-coverage прогнал"$'\n'; done \
+    < <(echo "$text" | grep -oiE 'no (production|existing|prod|known)[^.]{0,60}(exist|found|analog|implement)' | head -3)
+fi
+has_claims=false
+[ -n "$claim_hits" ] && has_claims=true
+
+# Trigger ONLY on (a) a substantial structured answer ("много текста"),
+# (b) a question, or (c) factual claims detected by the scan above.
+# Tool calls alone do NOT trigger — a short "готово, поправил X" turn with no
+# claim and no question needs no recap.
 long_text=false
 if [ "$text_length" -gt 500 ]; then
   if echo "$text" | grep -qE '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)'; then
@@ -72,8 +97,9 @@ fi
 #     a fork is on the table — the highest-value moment for it.
 #   Branch A — long substantive answer, no question: work recap + drift verdict.
 #   Branch B — a question with no long answer body: fork-challenge + recommend-first.
-#   Neither (short chatter, bare tool call) — stay silent (no reminder).
-if [ "$long_text" = "false" ] && [ "$asked" = "false" ]; then
+#   Branch D — claims present on a short, question-less turn: claim-only re-verify.
+#   Neither (short chatter, bare tool call, no claim) — stay silent (no reminder).
+if [ "$long_text" = "false" ] && [ "$asked" = "false" ] && [ "$has_claims" = "false" ]; then
   exit 0
 fi
 
@@ -117,7 +143,7 @@ elif [ "$long_text" = "true" ]; then
 Любой пункт не выходит конкретным → скажи прямо, не заполняй водой.
 EOF
 )
-else
+elif [ "$asked" = "true" ]; then
   reminder=$(cat <<EOF
 Ты остановился на вопросе. Прежде чем ждать — проверь сам вопрос, для себя в первую очередь.
 ОБЯЗАТЕЛЬНО начни блок ровно со строки «## 🟢 Простыми словами».
@@ -130,6 +156,18 @@ else
 Суть выбора не объясняется просто → сам вопрос сформулирован неточно: скажи об этом.
 EOF
 )
+else
+  # Branch D — claims present, but short turn with no question and no long body.
+  reminder=$(cat <<EOF
+Короткий ход — но в нём есть фактические утверждения. Прежде чем «готово», перепроверь их сам, для себя, по источнику, а не по памяти.
+EOF
+)
+fi
+
+# Append the enumerated factual-claim re-verify block to whatever reminder fired
+# (Branch A/B/C/D) — the item-specific salience upgrade over the generic nudge.
+if [ "$has_claims" = "true" ]; then
+  reminder+=$'\n\n'"Фактические утверждения в этом ходе — перепроверь КАЖДОЕ перед «готово» (проверка источника, не пересказ):"$'\n'"${claim_hits}"
 fi
 
 # `reason` is the field delivered to the MODEL when decision=block on a Stop hook
