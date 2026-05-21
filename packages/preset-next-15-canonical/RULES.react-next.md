@@ -2,8 +2,8 @@
 
 > Дополняет `RULES.md` правилами R12–R20 для React 19 + Next.js 15 App Router.
 > Базовые R1–R11 применяются ко всем проектам и описаны в `RULES.md`.
-> Эти правила проверяются `best-practices-sidecar` после каждого `/aif-implement`,
-> и `audit-ai-docs.react-next.sh` после `/aif-verify`.
+> Эти правила enforce-ятся на самом раннем достижимом канале: edit-time custom ESLint,
+> pre-push `audit-ai-docs.react-next.sh`, и AI Factory `rules-sidecar` (читает этот файл) на `/aif-verify`.
 >
 > **Authoritative for:** R12–R20 rule extension for React 19 + Next.js 15 (consumer-customisable per preset).
 > **NOT authoritative for:** project goal — see consumer's README.md.
@@ -255,8 +255,8 @@ export async function deleteItem(id: string) {
 
 ## How violations are handled
 
-1. `best-practices-sidecar` flags violation on `/aif-verify`.
-2. `docs-auditor` runs `audit-ai-docs.react-next.sh` and reports.
+1. AI Factory's `rules-sidecar` flags violation on `/aif-verify` (edit-time ESLint / pre-push flag it earlier).
+2. `living-docs-auditor` runs `audit-ai-docs.react-next.sh` and reports.
 3. `/aif-fix` resolves flagged items.
 4. If a rule is genuinely incompatible — `/aif-rules` to discuss update with rationale.
 
@@ -266,4 +266,4 @@ When project develops project-specific patterns:
 1. Add rule R21+ to this file with its automated check.
 2. Add corresponding probe to `scripts/audit-ai-docs.react-next.sh`.
 3. Add **negative test** for the probe — without it, rule is wishful thinking.
-4. Update `best-practices-sidecar.md` if the check requires AI interpretation.
+4. Update your edit-time ESLint rule (or AI Factory `rules-sidecar` skill-context) if the check requires AI interpretation.

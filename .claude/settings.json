@@ -2,6 +2,11 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
+  "permissions": {
+    "allow": [
+      "Bash(bash .claude/hooks/end-of-turn-reminder.sh)"
+    ]
+  },
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -37,6 +42,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/check-doc-authority.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/end-of-turn-reminder.sh"
           }
         ]
       }

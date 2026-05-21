@@ -13,8 +13,8 @@ This checklist is **rule-as-test recursion**: the package about "executable rule
 
 ### 1.1 File count and structure
 ```bash
-find . -type f | wc -l
-# EXPECTED: ~37-40 files
+git ls-files | wc -l
+# EXPECTED: ~390 tracked files (packages/ monorepo; was ~37-40 in the early flat layout)
 ```
 
 ### 1.2 Bash scripts have valid syntax
@@ -33,9 +33,12 @@ done
 # EXPECTED: no errors
 ```
 
-### 1.4 No file > 500 lines (except templates)
+### 1.4 No tracked .md file > 500 lines (except declared-transient exempt)
 ```bash
-find . -name "*.md" -not -path "./factory/*template*" | while read f; do
+# Pre-commit enforces ≤500 on changed *.md, exempting docs/meta-factory/EXECUTION-PLAN.md
+# (declared "transient artifact"). Mirror that exempt here.
+git ls-files '*.md' | while read -r f; do
+  [ "$f" = "docs/meta-factory/EXECUTION-PLAN.md" ] && continue
   lines=$(wc -l < "$f")
   [ "$lines" -gt 500 ] && echo "OVERWEIGHT: $f ($lines lines)"
 done
@@ -44,39 +47,52 @@ done
 
 ### 1.5 Setup/install scripts are executable
 ```bash
-[ -x setup.sh ] && [ -x install.sh ] && [ -x scripts/audit-ai-docs.sh ] || echo "FAIL: missing +x"
-# EXPECTED: silent (no output = pass)
+# NOTE: scripts/audit-ai-docs.sh is the CONSUMER-installed path (absent in this source repo
+# by design — see agents/living-docs-auditor.md). The source-repo canonical lives under
+# packages/core/audit-self/.
+[ -x setup.sh ] && [ -x install.sh ] && [ -x packages/core/audit-self/audit-ai-docs.sh ] || echo "FAIL: missing +x"
+# EXPECTED: silent (no output = pass).
+# KNOWN FINDING (2026-05-21): setup.sh is git mode 100644 (not +x) while install.sh is 100755.
+# This probe FAILs on it — a real inconsistency finding, not a stale-probe artifact. setup.sh
+# is invoked as `bash setup.sh` so it works, but the bit is inconsistent. Surface, do not fix here.
 ```
 
 ---
 
 ## Section 2 — Cross-references and consistency (~5 min)
 
-### 2.1 Every R-rule in RULES.md has either an audit probe OR an explicit "manual review" note
+### 2.1 Every R-rule in RULES.md has a documented enforcement strategy
+
+> **Post-C-1 (2026-05-20):** `best-practices-sidecar.md` is no longer ours (KEEP-AIF —
+> AIF's `rules-sidecar` reads `.ai-factory/RULES.md`). The per-rule enforcement strategy
+> now lives in the audit-script header (`packages/core/audit-self/audit-ai-docs.sh` lines
+> 8-18: delegated-to-ESLint / probe / manual-review-only) plus the `aif-rules-check`
+> skill-context residue (R4/R10/R17 — the checks with no earlier deterministic channel).
 
 ```bash
-# Extract rule numbers from RULES.md
-RULES=$(grep -oP "^## R\d+" factory/RULES.md | grep -oP "R\d+")
+RULES_FILE=packages/preset-next-15-canonical/RULES.md
+AUDIT=packages/core/audit-self/audit-ai-docs.sh
+RESIDUE=packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md
 
-# For each R-rule, check that it's either:
-# - referenced as `R<N>` in audit-ai-docs.sh, OR
-# - mentioned as "manual review" in best-practices-sidecar.md
+RULES=$(grep -oE "^## R[0-9]+" "$RULES_FILE" | grep -oE "R[0-9]+")
 for r in $RULES; do
-  in_audit=$(grep -c "skip_unless $r" scripts/audit-ai-docs.sh 2>/dev/null || echo 0)
-  in_manual=$(grep -c "$r.*manual\|manual.*$r" agents/best-practices-sidecar.md 2>/dev/null || echo 0)
-  in_eslint=$(grep -c "$r.*ESLint\|delegated.*$r\|$r.*delegated" agents/best-practices-sidecar.md 2>/dev/null || echo 0)
-  if [ "$in_audit" -eq 0 ] && [ "$in_manual" -eq 0 ] && [ "$in_eslint" -eq 0 ]; then
-    echo "ORPHAN RULE: $r — no probe, no manual review, no ESLint delegation"
+  # Strategy documented as: a skip_unless probe, an ESLint/depcruise delegation note,
+  # a "manual review only" note (all in the audit-script header), OR the skill-context residue.
+  in_audit=$(grep -cE "skip_unless $r\b|^#.*\b$r\b" "$AUDIT" 2>/dev/null)
+  in_residue=$(grep -cE "\b$r\b" "$RESIDUE" 2>/dev/null)
+  if [ "$in_audit" -eq 0 ] && [ "$in_residue" -eq 0 ]; then
+    echo "ORPHAN RULE: $r — no probe, no delegation/manual note, no skill-context residue"
   fi
 done
-# EXPECTED: nothing (every rule has enforcement strategy)
+# EXPECTED: nothing (every rule has a documented enforcement strategy)
 ```
 
 ### 2.2 Every probe in audit-ai-docs.sh has a comment mapping to an R-rule
 
 ```bash
-grep -E "^# R[0-9]+ —|^# D[0-9]+ —" scripts/audit-ai-docs.sh | wc -l
-# EXPECTED: ≥9 (R1-R9 mapped, plus D1-D2 for drift)
+grep -E "^# R[0-9]+ —|^# D[0-9]+ —" packages/core/audit-self/audit-ai-docs.sh | wc -l
+# EXPECTED: ≥5 (R4 probe + D1-D4 drift checks; R1-R3/R5-R11 are delegated/manual per the
+# header strategy block at lines 8-18, not per-probe comments)
 ```
 
 ### 2.3 Markdown links to .md files resolve
@@ -100,20 +116,30 @@ done | sort -u
 ### 2.4 No old paths after rename
 
 ```bash
-# Check there are no stale references to old filenames
-grep -r "ai-factory-RULES\.md" --include="*.md" --include="*.sh" . 2>/dev/null
-# EXPECTED: empty (was renamed to factory/RULES.md)
+# Historical rename: ai-factory-RULES\.md → factory/RULES.md → packages/preset-*/RULES.md.
+# (Exclude the audit docs themselves — they legitimately name the historical path in prose.)
+grep -rs "ai-factory-RULES\.md" --include="*.md" --include="*.sh" . 2>/dev/null \
+  | grep -v node_modules | grep -v "AUDIT-CHECKLIST\|AUDIT-PROMPT"
+# EXPECTED: empty
 
-grep -r "best-practices-sidecar\.react\.md" --include="*.md" . 2>/dev/null
-# EXPECTED: empty (was inlined into best-practices-sidecar.md)
+# Post-C-1 (2026-05-20): our docs-auditor was renamed → living-docs-auditor; our
+# best-practices-sidecar was de-shipped (KEEP-AIF). Check no agent FILE and no active
+# WIRING ships either old name. (Prose mentions like "renamed from docs-auditor" are
+# explanatory and fine — only files + array/glob wiring matter.)
+[ -e agents/best-practices-sidecar.md ] && echo "STALE: agents/best-practices-sidecar.md still present (should be KEEP-AIF)"
+[ -e agents/docs-auditor.md ] && echo "STALE: agents/docs-auditor.md still present (renamed to living-docs-auditor)"
+grep -nE '"agents/(best-practices-sidecar|docs-auditor)\.md"' install.sh extension.json 2>/dev/null
+# EXPECTED: empty (no file, no wiring for either old name)
 ```
 
 ### 2.5 Stack-specific files match in name pattern
 
 ```bash
-ls templates/ts-server/ templates/react-next/
-# EXPECTED: react-next/ has eslint.config.react.mjs, vitest.config.ts, playwright.config.ts, github-actions-ci-ui.yml
-# EXPECTED: ts-server/ has eslint.config.mjs, vitest.config.ts, dependency-cruiser.cjs, stryker.config.json, github-actions-ci.yml
+# ts-server configs stay at root templates/ts-server/ (Phase-3 Gate 2 option A — kept legacy).
+# react-next configs moved to the preset package; shared/ deleted from root (canonical in packages/).
+ls templates/ts-server/ packages/preset-next-15-canonical/templates/
+# EXPECTED: templates/ts-server/ has eslint.config.mjs, vitest.config.ts, dependency-cruiser.cjs, stryker.config.json, github-actions-ci.yml
+# EXPECTED: packages/preset-next-15-canonical/templates/ has eslint.config.react.mjs, github-actions-ci-ui.yml, ARCHITECTURE.react-next.md
 ```
 
 ---
@@ -122,16 +148,17 @@ ls templates/ts-server/ templates/react-next/
 
 ### 3.1 Templates have clear placeholders
 
-Read `factory/DESCRIPTION.template.md` and `factory/ARCHITECTURE.ts-server.md`. Verify:
+Read `packages/core/templates/shared/DESCRIPTION.template.md` and `packages/core/templates/shared/ARCHITECTURE.ts-server.md`. Verify:
 - All `<PLACEHOLDER>` markers are valid (matched, not hanging brackets)
 - Each placeholder has a comment explaining what to replace it with
 - No real project names or paths leaked (this is generic template)
 
 ### 3.2 No duplicated rule statements
 
-For each R-rule in RULES.md:
+For each R-rule in `packages/preset-next-15-canonical/RULES.md`:
 - Statement exists in RULES.md (canonical)
-- Reference (not restatement) exists in best-practices-sidecar.md
+- Reference (not restatement) exists in the `aif-rules-check` skill-context residue (R4/R10/R17)
+  and/or the audit-script header strategy block (post-C-1; replaces best-practices-sidecar.md)
 - Reference (not restatement) exists in DESCRIPTION/ARCHITECTURE templates
 - audit-ai-docs.sh probe quotes the R-number, not restates the rule
 
@@ -148,9 +175,22 @@ Specifically check:
 
 ### 3.4 Sub-agents have clear responsibility boundaries
 
-- `best-practices-sidecar` — validates against RULES.md, reports
-- `review-sidecar` — two-AI review for tautology, no awareness of how code was written
-- `docs-auditor` — runs audit-ai-docs.sh, parses output
+Post-C-1 (2026-05-20) we ship exactly three sub-agents (`best-practices-sidecar` is
+KEEP-AIF — not ours; see `docs/meta-factory/research-patches/2026-05-20-agent-collision-resolution.md`):
+
+- `review-sidecar` — adversarial two-AI diff review for tautological/mock-only tests; no
+  awareness of how the code was written. (Portable SSOT; content also rides AIF's
+  `aif-review` skill-context — `@dual-pair: review-sidecar`.)
+- `living-docs-auditor` — runs `audit-ai-docs.sh`, parses output, reports **backward**
+  Living-Documentation drift (do AGENTS.md/RULES.md rules still hold in code?). Renamed
+  from `docs-auditor` to de-collide with AIF's same-named **forward** doc-gen gate.
+- `compliance-verifier` — reviews PR-description §1.7 Forward/Backward sections for
+  substantive file:line evidence; no collision with AIF.
+
+```bash
+ls agents/
+# EXPECTED: review-sidecar.md, living-docs-auditor.md, compliance-verifier.md (NO best-practices-sidecar.md, NO docs-auditor.md)
+```
 
 If two agents have the same job description with different wording — fail.
 
@@ -162,8 +202,8 @@ Try to parse templates without project context:
 node --check templates/ts-server/eslint.config.mjs 2>&1 | head -5
 # (will fail on imports, that's OK — just check syntax)
 
-# tsconfig.json valid
-python3 -c "import json; json.load(open('templates/shared/tsconfig.json'))"
+# tsconfig.json valid (shared/ moved to packages/core/templates/shared/)
+python3 -c "import json; json.load(open('packages/core/templates/shared/tsconfig.json'))"
 ```
 
 ---
@@ -214,7 +254,7 @@ Read the section. If a lesson sounds like "you should be careful" without a conc
 
 Apply selected R-rules to this very package:
 - **R10 Naming**: Files named after their content? (e.g., `audit-ai-docs.sh` does audit AI docs ✓)
-- **R11 CI integrity**: Does the package describe how it's tested? (Currently NO — there's no CI for the package itself. Note for later.)
+- **R11 CI integrity**: Does the package describe how it's tested? **YES now** — `.github/workflows/audit-self.yml` runs `mechanical`, `rule-to-probe`, `probe-tests` + framework-self-install jobs on every push/PR. (Was a known gap pre-2026; now closed — see §8.1.)
 
 ---
 
@@ -286,22 +326,38 @@ In a clean project after `ai-factory init --agents claude`:
 
 ### 6.2 install.sh overlays correctly without breaking AIF base
 
-After `install.sh`:
-- `.claude/agents/best-practices-sidecar.md` — overridden by us
-- `.claude/agents/review-sidecar.md` — overridden by us
-- `.claude/agents/docs-auditor.md` — overridden by us (or new file)
-- Other AIF base agents — UNTOUCHED (plan-coordinator, implement-worker, etc.)
-- `.ai-factory/RULES.md` — replaced with our version, BUT user can adjust
+Post-C-1 (2026-05-20) our install occupies **ZERO** of AIF's agent slots (no `--force`
+overwrite of any AIF agent). After `install.sh`:
+- `.claude/agents/best-practices-sidecar.md` — **AIF's, untouched** (KEEP-AIF; AIF's
+  `rules-sidecar` already reads our `.ai-factory/RULES.md`; we ship no override)
+- `.claude/agents/living-docs-auditor.md` — **ours, new file** (renamed from `docs-auditor`
+  so it does not collide with AIF's same-named agent)
+- `.claude/agents/review-sidecar.md` — collides with AIF's; default `copy_safe` (no `--force`)
+  keeps AIF's, and our anti-tautology content rides `.ai-factory/skill-context/aif-review/SKILL.md`
+- `.claude/agents/compliance-verifier.md` — **ours, no collision**
+- Other AIF base agents — UNTOUCHED (plan-coordinator, implement-worker, rules-sidecar, etc.)
+- `.ai-factory/RULES.md` — seeded with our R1-R20, BUT user can adjust
+
+```bash
+# Disjointness check (the post-C-1 version-bump safety probe): our installed agent names
+# must stay disjoint from AIF's. In a sandbox after both inits:
+comm -12 <(ls "$AIF_PROBE/.claude/agents" | sort) <(ls agents | sort)
+# EXPECTED: only review-sidecar.md (the one intentional collision, handled by skill-context)
+```
 
 ### 6.3 /aif-verify exercises the chain end-to-end
 
-In Claude Code, after `/aif-implement`:
-- `/aif-verify` should invoke best-practices-sidecar → outputs verdict against RULES.md
-- best-practices-sidecar should suggest running audit-ai-docs.sh
-- review-sidecar should produce two-AI review report
-- All three reports visible in single `/aif-verify` output
+In Claude Code, after `/aif-implement` (post-C-1 wiring):
+- `/aif-verify` invokes AIF's `rules-sidecar` → reads `.ai-factory/RULES.md` (our R1-R20) and
+  applies the `aif-rules-check` skill-context residue (R4/R10/R17) → verdict
+- `aif-review` runs, augmented by our `.ai-factory/skill-context/aif-review/SKILL.md`
+  anti-tautology conventions → two-AI review report
+- Earlier channels (edit-time ESLint custom rules, pre-push `audit-ai-docs.sh`/tsc/depcruise)
+  are the authoritative deterministic enforcers; `/aif-verify` is the late LLM channel
+- `living-docs-auditor` (ours) is dispatched via its own name (not in AIF's coordinator
+  allowlist after rename) or run at pre-push via `audit-ai-docs.sh`
 
-(Manual test — requires Claude Code session.)
+(Manual test — requires Claude Code session + AIF init.)
 
 ---
 
@@ -310,9 +366,9 @@ In Claude Code, after `/aif-implement`:
 ### 7.1 README accurately describes what's in the package
 
 Read README.md. Cross-check claims:
-- "37 files" → match actual count
-- "covers ts-server and react-next" → check both template dirs exist
-- "self-testing AI docs via probes" → check audit-ai-docs.sh exists with probes
+- any file-count claim → match actual (`git ls-files | wc -l`)
+- "covers ts-server and react-next" → `templates/ts-server/` (root) + `packages/preset-next-15-canonical/templates/` exist
+- "self-testing AI docs via probes" → `packages/core/audit-self/audit-ai-docs.sh` exists with probes
 
 ### 7.2 INSTALL.md describes actual installation steps
 
@@ -333,103 +389,41 @@ The package authors flagged these gaps. They are not bugs — they are TODOs tha
 the package itself doesn't yet satisfy. **The audit must explicitly check whether
 these are still gaps, and report them as findings if so.**
 
-### 8.1 CI for the package itself
+### 8.1 CI for the package itself — RESOLVED (was a gap pre-2026)
 
-The package requires CI from user projects (R11 in RULES.md). But does the
-package itself have CI?
+The package requires CI from user projects (R11). It now **has its own CI**:
 
 ```bash
-ls .github/workflows/ 2>/dev/null
+grep -E "^  [a-z-]+:$" .github/workflows/audit-self.yml
+# EXPECTED: jobs incl. mechanical, rule-to-probe, probe-tests, manifest-render-check,
+#           principles-meta-tests, enforce-husky-presence, framework-self-install-*, …
 ```
 
-**If empty or missing self-audit workflow** → report MAJOR finding:
-"Package violates own R11 — no CI/.github/workflows/audit-self.yml that runs
-AUDIT-CHECKLIST mechanical checks on every PR to this repo."
+**If the file is missing or the three core jobs (`mechanical`, `rule-to-probe`,
+`probe-tests`) are gone** → report BLOCKER "Self-audit CI broken/missing" — this is
+load-bearing for the package's own "rules as tests" thesis (silent regression here =
+the package stops eating its own dog food).
 
-Suggested fix when adopted:
-```yaml
-# .github/workflows/audit-self.yml
-name: Self-audit
-on: [pull_request]
-jobs:
-  mechanical:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Bash syntax
-        run: for f in $(find . -name "*.sh"); do bash -n "$f"; done
-      - name: JSON validity
-        run: for f in $(find . -name "*.json"); do python3 -c "import json; json.load(open('$f'))"; done
-      - name: Stale path references
-        run: |
-          ! grep -r "ai-factory-RULES\.md" --include="*.md" --include="*.sh" .
-          ! grep -r "best-practices-sidecar\.react\.md" --include="*.md" .
-      - name: Rule-to-probe mapping
-        run: bash AUDIT-section-1-2.sh   # extract checks from AUDIT-CHECKLIST.md
-```
-
-### 8.2 Negative tests for audit-ai-docs.sh probes
+### 8.2 Negative tests for audit-ai-docs.sh probes — RESOLVED (was a gap pre-2026)
 
 `references/self-testing-docs.md` states: "every probe should have a matching
 negative test — inject artificial violation, run probe, expect FAIL, revert."
 
-Check whether such tests exist:
+Such tests now exist for the core (ts-server) probes:
 ```bash
-ls tests/audit/ 2>/dev/null
-find . -name "*audit*test*.sh" -o -name "*audit*spec*.sh"
+bash packages/core/audit-self/audit-ai-docs.test.sh
+# EXPECTED: exit 0, summary "9 pass / 0 fail" (or higher if probes were added).
+# Each test injects a violation in a temp dir, runs the probe with --only=R<N>/D<N>,
+# asserts the probe catches it. Wired into .github/workflows/audit-self.yml job `probe-tests`.
 ```
 
-**If empty** → report MAJOR finding:
-"Probes lack negative tests. Silent regex breakage will be undetected. Affects
-R1, R2, R4, R6, R7, R8, R9, D1, D2 in audit-ai-docs.sh and R12, R14, R15, R16a,
-R16b, R17, R20 in audit-ai-docs.react-next.sh."
+**If the file is missing, exit≠0, or any test FAILs** → report BLOCKER "Probes without
+working negative tests — silent regex breakage risk."
 
-Suggested fix when adopted:
-
-```bash
-# tests/audit/audit-ai-docs.test.sh
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Test for probe R7 — injects artificial Date.now() violation, expects FAIL
-test_R7_catches_date_now() {
-  mkdir -p src/domain
-  echo 'export const x = Date.now();' > src/domain/_test_probe_violation.ts
-
-  if bash scripts/audit-ai-docs.sh --only=R7 2>/dev/null; then
-    echo "FAIL: probe R7 missed Date.now() violation"
-    rm src/domain/_test_probe_violation.ts
-    return 1
-  fi
-
-  rm src/domain/_test_probe_violation.ts
-  echo "PASS: R7 correctly catches Date.now()"
-}
-
-# Test for probe R6 — string throw
-test_R6_catches_string_throw() {
-  mkdir -p src/domain
-  echo 'export const f = () => { throw "bad"; };' > src/domain/_test_probe_violation.ts
-
-  if bash scripts/audit-ai-docs.sh --only=R6 2>/dev/null; then
-    echo "FAIL: probe R6 missed string throw"
-    rm src/domain/_test_probe_violation.ts
-    return 1
-  fi
-
-  rm src/domain/_test_probe_violation.ts
-  echo "PASS: R6 correctly catches string throw"
-}
-
-# ... one test per probe ...
-
-test_R7_catches_date_now
-test_R6_catches_string_throw
-# etc
-```
-
-These tests should be in `.github/workflows/audit-self.yml` (Section 8.1)
-so they run automatically.
+**Remaining gap (genuine finding):** there is **no** paired negative-test file for the
+react-next probes in `packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh`
+(R17 + the R12/R14/R15/R16a/R16b/R20 ESLint-delegated probes). Report as MAJOR finding when
+auditing — the ts-server probes are negative-tested; the react-next ones are not.
 
 ---
 

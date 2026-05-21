@@ -61,9 +61,10 @@ SHIPPED_DOCS=(
   "packages/preset-next-15-canonical/RULES.md"
   "packages/preset-next-15-canonical/RULES.react-next.md"
   "packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md"
-  "agents/best-practices-sidecar.md"
+  "packages/core/templates/shared/skill-context/aif-review/SKILL.md"
+  "packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md"
   "agents/review-sidecar.md"
-  "agents/docs-auditor.md"
+  "agents/living-docs-auditor.md"
   "agents/compliance-verifier.md"
   "skills/tool-bootstrapping/SKILL.md"
   "skills/tool-bootstrapping/references/decision-format.md"
@@ -229,6 +230,18 @@ fi
 
 # ─── 2. Sub-agents ──────────────────────────────────────
 echo "▶ Sub-agents → .claude/agents/"
+# C-1 agent-collision resolution (2026-05-20, research-patches/2026-05-20-agent-collision-resolution.md):
+#   - best-practices-sidecar — KEEP-AIF: removed from our payload; AIF's rules-sidecar
+#     (reads .ai-factory/RULES.md) + edit-time ESLint + pre-push are the real enforcers.
+#   - docs-auditor — RENAMED to living-docs-auditor (de-collides with AIF's same-named agent).
+#   - review-sidecar — still collides with AIF's. copy_safe DEFAULT (no --force) intentionally
+#     SKIPS it when AIF's is present (AIF keeps its slot). Do NOT --force-overwrite it: that
+#     would strip AIF frontmatter the implement-coordinator + aif-handoff pipeline depend on.
+#     Instead our anti-tautology content is delivered into AIF's pipeline via the native
+#     .ai-factory/skill-context/aif-review/SKILL.md override (copied in §3 below). The live
+#     CC-dispatch probe (former DECISION-NEEDED #2) is RESOLVED: a background maxTurns:6
+#     sidecar reads + applies skill-context (3/3 read, 2/2 apply) — SSOT #50, ADOPT.
+#     agents/review-sidecar.md remains the portable SSOT (@dual-pair anchor: review-sidecar).
 mkdir_safe "$PROJECT_ROOT/.claude/agents"
 for f in "$PKG_ROOT"/agents/*.md; do
   copy_safe "$f" "$PROJECT_ROOT/.claude/agents/$(basename "$f")"
@@ -241,6 +254,17 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$P
 copy_safe "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md"
 copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.md" "$PROJECT_ROOT/.ai-factory/RULES.md"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJECT_ROOT/.ai-factory/rules/integration-rules.md"
+
+# skill-context overrides — AIF-native "extend a vendored sub-agent" mechanism (C-1, SSOT #50).
+# AIF's own background sidecars MANDATORY-read .ai-factory/skill-context/<skill>/SKILL.md
+# (verified live: a background maxTurns:6 sidecar reads + applies these). We ride that wiring
+# instead of shipping colliding agents: aif-review gets our anti-tautology test-review content;
+# aif-rules-check gets the R10-naming + test-existence residue of the removed best-practices-sidecar.
+mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/aif-review"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/skill-context/aif-review/SKILL.md" "$PROJECT_ROOT/.ai-factory/skill-context/aif-review/SKILL.md"
+mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/aif-rules-check"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md" "$PROJECT_ROOT/.ai-factory/skill-context/aif-rules-check/SKILL.md"
+
 if [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-next.md"
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.react-next.md" "$PROJECT_ROOT/.ai-factory/RULES.react-next.md"

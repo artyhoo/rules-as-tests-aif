@@ -72,7 +72,7 @@ You open the file; line 91 is a comment or a different array entry. The line num
 The §1.7 Backward-check must enumerate the **complete set of existing artefacts** that fall under the new rule's scope — not «a few examples» but the exhaustive output of a `find` or `grep` sweep.
 
 **What good looks like:**
-> `grep -nE "^> \*\*Authoritative for" agents/*.md` → 3 matches (best-practices-sidecar.md:9, review-sidecar.md:9, docs-auditor.md:9). New agent makes 4.
+> `grep -nE "^> \*\*Authoritative for" agents/*.md` → one match per shipped agent (e.g. review-sidecar.md:9, living-docs-auditor.md:9, compliance-verifier.md:9). Adding a new agent adds a match.
 
 This demonstrates an actual sweep was run: the command, the output count, and the line numbers.
 
