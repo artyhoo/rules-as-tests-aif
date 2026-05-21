@@ -1,62 +1,32 @@
-#!/usr/bin/env sh
-# Pre-push hook: typecheck + tests on changed files + architecture + audit-ai-docs.
-# Target: 15-90 seconds. Heavier than pre-commit, lighter than CI.
+#!/usr/bin/env bash
+# .husky/pre-push — TS-core dispatcher (shipped by install.sh via husky-pre-push.sh).
 #
-# Install: place at .husky/pre-push and run `chmod +x .husky/pre-push`
+# Runtime feature detection, NOT install-time (dual-implementation-discipline.md §3):
+# checks at every push whether Node ≥20 is available, routes accordingly.
 #
-# Edge case handled: new branch without upstream (first push) — falls back to origin/<default-branch>.
+# Capability-check, NOT brand-name detection (dual-implementation-discipline.md §4 / §8):
+# gates on `command -v node` + major-version, never on a harness brand string.
+#
+# Routes:
+#   Node ≥20 + pre-push.ts present → TS-core hook (full checks: §7 substance, §1.7 substance, etc.)
+#   Otherwise                       → bash critical-only fallback (§7/§1.7 presence only)
+#
+# Both hooks are installed by install.sh alongside this file.
+# See packages/core/hooks/pre-push.fallback.sh for the fallback's check set.
+set -euo pipefail
 
-set -e
+REPO_ROOT=$(git rev-parse --show-toplevel)
+TS_HOOK="$REPO_ROOT/packages/core/hooks/pre-push.ts"
+FALLBACK="$REPO_ROOT/packages/core/hooks/pre-push.fallback.sh"
 
-CURRENT=$(git rev-parse --abbrev-ref HEAD)
+node_major() { node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0; }
 
-# Determine the diff range
-UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null || echo "")
-
-if [ -z "$UPSTREAM" ]; then
-  # New branch without upstream: compare against default remote branch
-  DEFAULT=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
-    | sed 's@^refs/remotes/origin/@@' \
-    || echo "main")
-  RANGE="origin/$DEFAULT...HEAD"
-  echo "▶ Branch has no upstream — comparing against origin/$DEFAULT"
+if command -v node >/dev/null 2>&1 && [ "$(node_major)" -ge 20 ] && [ -f "$TS_HOOK" ]; then
+  exec node --import tsx/esm "$TS_HOOK"
+elif [ -x "$FALLBACK" ]; then
+  exec bash "$FALLBACK"
 else
-  RANGE="@{push}...HEAD"
+  echo "⚠ pre-push: Node ≥20 unavailable and bash fallback not present — skipping checks."
+  echo "  Install Node ≥20 to enable the full TS-core pre-push hook."
+  exit 0
 fi
-
-# 1. TypeScript check (whole project — types are global)
-echo "▶ TypeScript check…"
-npm run typecheck
-
-# 2. Vitest related — only tests touching changed files
-echo "▶ Vitest related ($RANGE)…"
-CHANGED=$(git diff --name-only "$RANGE" -- '*.ts' '*.tsx' 2>/dev/null | tr '\n' ' ')
-if [ -n "$CHANGED" ]; then
-  npx vitest related --run $CHANGED
-else
-  echo "  (no .ts/.tsx changes — skipping)"
-fi
-
-# 3. Architecture rules
-echo "▶ Architecture check…"
-npm run arch:check
-
-# 4. AI documentation audit (code-vs-docs probes)
-# Auto-detect React/Next vs server-side
-if [ -f next.config.ts ] || [ -f next.config.js ] || [ -f next.config.mjs ]; then
-  AUDIT_SCRIPT=scripts/audit-ai-docs.react-next.sh
-else
-  AUDIT_SCRIPT=scripts/audit-ai-docs.sh
-fi
-
-if [ -f "$AUDIT_SCRIPT" ]; then
-  echo "▶ AI docs audit ($AUDIT_SCRIPT)…"
-  bash "$AUDIT_SCRIPT" || {
-    echo "  AI-docs audit failed. Run \`bash $AUDIT_SCRIPT\` to see details."
-    exit 1
-  }
-else
-  echo "  (audit-ai-docs.sh not present — skipping. Add it to enforce code-vs-docs consistency.)"
-fi
-
-echo "✓ pre-push OK"
