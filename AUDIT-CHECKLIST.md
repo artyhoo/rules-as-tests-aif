@@ -116,7 +116,7 @@ done | sort -u
 ### 2.4 No old paths after rename
 
 ```bash
-# Historical rename: ai-factory-RULES.md → factory/RULES.md → packages/preset-*/RULES.md.
+# Historical rename: ai-factory-RULES\.md → factory/RULES.md → packages/preset-*/RULES.md.
 # (Exclude the audit docs themselves — they legitimately name the historical path in prose.)
 grep -rs "ai-factory-RULES\.md" --include="*.md" --include="*.sh" . 2>/dev/null \
   | grep -v node_modules | grep -v "AUDIT-CHECKLIST\|AUDIT-PROMPT"
