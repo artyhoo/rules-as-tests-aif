@@ -1,11 +1,13 @@
 /**
- * Structural meta-tests for the Wave 10.1 dispatcher + orchestrator.
+ * Structural meta-tests for the Wave 10.1 / 10.2 dispatcher + orchestrator.
  *
  * These assert the dispatch contract that dual-implementation-discipline.md §4
  * mandates (capability-check, not brand-name) and the migration invariants that
  * keep enforcement intact (delegation through runCheck; self-tests still
- * referenced by literal path; trailer block delegated to the legacy shim).
+ * referenced by literal path; §7 Prior-art trailer now handled directly in TS;
+ * legacy shim retained for §1.7-only).
  * The runner's own behaviour is covered by utils/run-check.test.ts.
+ * The §7 logic is covered by checks/prior-art.test.ts.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -59,7 +61,18 @@ describe('pre-push.ts orchestrator — delegation folded through runCheck', () =
     }
   });
 
-  it('delegates the trailer block to the legacy bash shim (ported in 10.2/10.3)', () => {
+  it('delegates §1.7 trailer to the legacy bash shim (§7 moved to TS in Wave 10.2)', () => {
+    // The shim is now §1.7-only (pa_* removed in Wave 10.2). It is still
+    // invoked for the §1.7 discipline-trailer check until Wave 10.3 ports it.
     expect(ORCHESTRATOR).toMatch(/legacy-trailer-checks\.sh/);
+  });
+
+  it('imports §7 prior-art check from the TS module (Wave 10.2)', () => {
+    // §7 is now driven by runPriorArtCheck from checks/prior-art.ts.
+    expect(ORCHESTRATOR).toMatch(/from '\.\/checks\/prior-art\.ts'/);
+  });
+
+  it('imports git helpers from utils/git.ts (Wave 10.2)', () => {
+    expect(ORCHESTRATOR).toMatch(/from '\.\/utils\/git\.ts'/);
   });
 });

@@ -1,194 +1,22 @@
 #!/usr/bin/env bash
-# legacy-trailer-checks.sh — TEMPORARY (Wave 10.1 extraction)
+# legacy-trailer-checks.sh — TEMPORARY shim (Wave 10.2 trimmed)
 #
-# Verbatim extraction of `.husky/pre-push` §7 (Prior-art trailer, Phase 8.8 T8)
-# + §1.7 discipline-trailer block (lines 116-455 of the pre-Wave-10 hook,
-# origin/main 511de8f). Invoked by packages/core/hooks/pre-push.ts via
-# runCheck('bash', [this]) so enforcement stays intact while the TS migration
-# proceeds incrementally:
-#   - §7  pa_check_trailer   → Wave 10.2  (packages/core/hooks/checks/prior-art.ts)
+# Wave 10.1 extracted §7 (Prior-art, pa_*) + §1.7 (s17_*) from .husky/pre-push
+# into this file for incremental TS migration. Wave 10.2 ports pa_* to TS
+# (packages/core/hooks/checks/prior-art.ts); the pa_* block is removed here.
+# This file now contains §1.7-only (s17_* functions).
+#
 #   - §1.7 s17_check_trailer → Wave 10.3  (packages/core/hooks/checks/s17.ts)
-# As each section ports to TS, the corresponding block is removed here; the file
-# shrinks to empty and is deleted at the end of Wave 10.3. Do NOT add new logic
-# here — this is a migration shim, not a home for new checks.
 #
-# Logic below is byte-for-byte the original bash; no behavioural change in 10.1.
+# Do NOT add new logic here — this is a migration shim, not a home for new checks.
+# Invoked by packages/core/hooks/pre-push.ts via runCheck('bash', [this]) for §1.7.
 set -euo pipefail
 
 UPSTREAM_REF="origin/main"
 if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
   COMMITS=$(git rev-list "${UPSTREAM_REF}..HEAD" 2>/dev/null || true)
 
-  pa_is_new_dep_added() {
-    # Detects deps NEWLY ADDED in this commit (not version bumps of existing
-    # deps). Compares `+` and `-` lines: a dep key present in `+` but absent
-    # in `-` is new. Common semver prefixes covered (caret/tilde/range/digit/
-    # wildcard); pure dist-tag versions ("latest" / "next" / etc.) and URL
-    # specifiers ("file:" / "git+" / "github:") are NOT covered — they
-    # silently slip past the gate (documented limitation; Phase 9+ entry
-    # research can tighten if observed in practice).
-    local sha="$1" diff added_keys removed_keys key
-    diff=$(git show "$sha" -- 'package.json' 2>/dev/null) || return 1
-    added_keys=$(printf '%s\n' "$diff" \
-      | grep -E '^\+[[:space:]]+"[^"]+":[[:space:]]*"(\^|~|>=?|<=?|=|[0-9*])' \
-      | sed -E 's/^\+[[:space:]]+"([^"]+)":.*/\1/' || true)
-    removed_keys=$(printf '%s\n' "$diff" \
-      | grep -E '^-[[:space:]]+"[^"]+":[[:space:]]*"(\^|~|>=?|<=?|=|[0-9*])' \
-      | sed -E 's/^-[[:space:]]+"([^"]+)":.*/\1/' || true)
-    for key in $added_keys; do
-      if ! printf '%s\n' "$removed_keys" | grep -qFx "$key"; then
-        return 0
-      fi
-    done
-    return 1
-  }
-
-  pa_is_new_core_subdir_50loc() {
-    local sha="$1" status path subdir lines parent="${1}^"
-    git rev-parse --verify "$parent" &>/dev/null || parent=""
-    while IFS=$'\t' read -r status path; do
-      [ "$status" = "A" ] || continue
-      case "$path" in packages/core/*) ;; *) continue ;; esac
-      subdir="${path#packages/core/}"
-      subdir="${subdir%%/*}"
-      if [ -n "$parent" ] \
-        && git ls-tree -r --name-only "$parent" -- "packages/core/$subdir/" 2>/dev/null | grep -q .
-      then
-        # subdir already existed at parent — not a new subdir
-        continue
-      fi
-      lines=$(git show "$sha:$path" 2>/dev/null | wc -l | tr -d ' ')
-      [ "${lines:-0}" -ge 50 ] && return 0
-    done < <(git diff-tree --no-commit-id --name-status -r "$sha" 2>/dev/null || true)
-    return 1
-  }
-
-  pa_is_new_packages_80loc() {
-    local sha="$1" status path lines
-    while IFS=$'\t' read -r status path; do
-      [ "$status" = "A" ] || continue
-      case "$path" in packages/*) ;; *) continue ;; esac
-      lines=$(git show "$sha:$path" 2>/dev/null | wc -l | tr -d ' ')
-      [ "${lines:-0}" -ge 80 ] && return 0
-    done < <(git diff-tree --no-commit-id --name-status -r "$sha" 2>/dev/null || true)
-    return 1
-  }
-
-  pa_detect_capability_reason() {
-    local sha="$1"
-    pa_is_new_dep_added "$sha" && { echo "new explicit dep in package.json"; return 0; }
-    pa_is_new_core_subdir_50loc "$sha" && { echo "new file ≥50 LOC under new packages/core/<dir>/"; return 0; }
-    pa_is_new_packages_80loc "$sha" && { echo "new file ≥80 LOC under packages/"; return 0; }
-    return 1
-  }
-
-  pa_check_trailer() {
-    local sha="$1" body line payload rationale
-    # Wave 8.5 historical cutoff — pre-cutoff commits bypass the Prior-art check
-    # to avoid retroactive blocking of pre-Wave-8 history replayed via rebase.
-    local author_date
-    author_date=$(git show -s --format=%ai "$sha" | cut -d' ' -f1)
-    if [ "$author_date" \< "${PA_HISTORICAL_CUTOFF:-2026-05-12}" ]; then
-      return 0
-    fi
-    body=$(git show -s --format=%B "$sha")
-    local found_any=0
-    while IFS= read -r line; do
-      case "$line" in
-        Prior-art:*)
-          found_any=1
-          payload="${line#Prior-art:}"
-          payload="${payload# }"
-          # Universal length check: ≥20 chars of payload after "Prior-art: "
-          [ "${#payload}" -ge 20 ] || continue
-          # Escape-hatch refinement: if "skipped <separator> rationale", validate
-          # rationale ≥20 chars on its own AND not a pure placeholder.
-          case "$payload" in
-            skipped*)
-              rationale="${payload#skipped}"
-              rationale="${rationale## }"
-              rationale="${rationale#—}"
-              rationale="${rationale#–}"
-              rationale="${rationale#-}"
-              rationale="${rationale#:}"
-              rationale="${rationale## }"
-              [ "${#rationale}" -ge 20 ] || continue
-              # Word-tokenize the rationale and check if EVERY word is a placeholder
-              # (catches gaming via repeated placeholders, e.g. "TODO TODO TODO TODO TODO"
-              # which passes the length check but is non-substantive).
-              local all_placeholder=1 word word_lc
-              for word in $rationale; do
-                word_lc=$(printf '%s' "$word" | tr '[:upper:]' '[:lower:]' | tr -d '[:punct:]')
-                case "$word_lc" in
-                  todo|later|na|tbd|fixme|placeholder|"") ;;
-                  *) all_placeholder=0; break ;;
-                esac
-              done
-              [ "$all_placeholder" = "1" ] && continue
-              # Substance arm (Wave 8.4): on capability commits, escape-hatch is invalid.
-              # pa_check_trailer is only invoked on capability commits (outer caller
-              # gates via pa_detect_capability_reason); so reaching the skipped branch
-              # while already classified as capability means the rationale is
-              # contradictory by construction. Distinct exit code 2, mirrors §9 pattern.
-              printf '%s' "substance: Prior-art: skipped on capability commit — cite an SSOT entry (prior-art-evaluations.md#N) instead"
-              return 2
-              ;;
-          esac
-          return 0
-        ;;
-      esac
-    done <<< "$body"
-    if [ $found_any -eq 1 ]; then
-      printf '%s' "Prior-art: line found but invalid (length <20 or placeholder rationale)"
-    else
-      printf '%s' "no Prior-art: trailer"
-    fi
-    return 1
-  }
-
-  PA_SUBSTANCE_WARN_ONLY="${PA_SUBSTANCE_WARN_ONLY:-true}"
-  PRIOR_ART_FAILURES=""
-  PA_SUBSTANCE_FAILURES=""
-  for sha in $COMMITS; do
-    reason=""
-    if reason=$(pa_detect_capability_reason "$sha"); then
-      err=""; rc=0
-      err=$(pa_check_trailer "$sha" 2>&1) || rc=$?
-      case $rc in
-        0) ;;
-        1) PRIOR_ART_FAILURES="${PRIOR_ART_FAILURES}  ${sha:0:10}  reason: ${reason}; ${err}\n" ;;
-        2) PA_SUBSTANCE_FAILURES="${PA_SUBSTANCE_FAILURES}  ${sha:0:10}  reason: ${reason}; ${err}\n" ;;
-      esac
-    fi
-  done
-
-  if [ -n "$PRIOR_ART_FAILURES" ]; then
-    printf '\n❌ Prior-art trailer missing or invalid on capability commit(s):\n'
-    printf '%b' "$PRIOR_ART_FAILURES"
-    printf '\nFix: amend the commit body to include a `Prior-art:` line per CONTRIBUTING.md.\n'
-    printf 'Examples:\n'
-    printf '  Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).\n'
-    printf '  Prior-art: skipped — refactor only, no new capability\n\n'
-    printf 'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n'
-    printf 'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n\n'
-    exit 1
-  fi
-
-  if [ -n "$PA_SUBSTANCE_FAILURES" ]; then
-    if [ "$PA_SUBSTANCE_WARN_ONLY" = "true" ]; then
-      printf '\n⚠ Prior-art: escape-hatch on capability commit (substance arm, Wave 8.4):\n'
-      printf '%b' "$PA_SUBSTANCE_FAILURES"
-      printf '\nCalibration window: warn-only through 2026-06-10.\n'
-      printf 'Fix: replace `Prior-art: skipped — …` with `Prior-art: prior-art-evaluations.md#N (verdict X — rationale)`.\n\n'
-    else
-      printf '\n❌ Prior-art: escape-hatch on capability commit:\n'
-      printf '%b' "$PA_SUBSTANCE_FAILURES"
-      printf '\nSet PA_SUBSTANCE_WARN_ONLY=true to downgrade locally (calibration window expired).\n\n'
-      exit 1
-    fi
-  fi
-
-  # ── 9. §1.7 discipline trailer check ─────────────────────────────────────────
+  # ── §1.7 discipline trailer check ─────────────────────────────────────────
   # Enforces §1.7 forward+backward check trailer on commits introducing or
   # extending rules / principles / disciplines (per .claude/rules/phase-research-
   # coverage.md §1.7). Push-time gate; commit-time would force trailer onto every
@@ -212,7 +40,6 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
   # the substance arms; replayed (e.g. rebased) historical commits MUST NOT
   # be retroactively blocked by gates that didn't exist when they were authored.
   S17_HISTORICAL_CUTOFF="2026-05-12"
-  PA_HISTORICAL_CUTOFF="2026-05-12"
 
   S17_WARN_ONLY="${S17_WARN_ONLY:-true}"
   S17_SUBSTANCE_WARN_ONLY="${S17_SUBSTANCE_WARN_ONLY:-true}"
