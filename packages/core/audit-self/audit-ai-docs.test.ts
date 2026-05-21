@@ -1303,7 +1303,7 @@ describe('main() — CLI entrypoint', () => {
   beforeEach(() => {
     dir = makeTmpDir();
     // Mock process.exit so it doesn't terminate the test process
-    exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: number) => {
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: string | number | null) => {
       throw new Error(`process.exit(${_code})`);
     });
     // Capture console.log output
