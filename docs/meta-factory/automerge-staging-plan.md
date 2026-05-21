@@ -44,7 +44,9 @@ git push origin origin/main:staging   # clean ff; staging has no unique commits 
 
 This is what keeps `staging` a *disposable buffer* rather than silently becoming a divergent long-lived `develop`. **If `staging` is allowed to drift from `main` for days/weeks, this whole model degrades** (integration problems pile up and hit `main` in bulk at promotion). Promote + resync frequently — ideally after each walk-away session.
 
-**When NOT to use the two-hop:** a single small change by exact path is fine to branch from `main` and PR straight to `main` (trunk-based). Reserve the staging buffer for batches / walk-away / higher-risk work where you want a review buffer.
+**Everything routine goes through `staging` — including single small changes.** The binding cost is *maintainer clicks*, not git mechanics: a PR straight to `main` is owner-only, so it forces a **manual merge click every time** — exactly the toil this flow removes. A PR to `staging` **auto-merges on green CI (zero clicks)** and the maintainer clicks once per batch at `staging → main`. So "branch from main → staging" is the default for all routine work; **direct-to-`main` is reserved for owner-initiated urgent hotfixes** (which the owner merges themselves anyway).
+
+> **Dependency for true zero-click walk-away:** the agent must be able to set `gh pr merge --auto` on a `staging`-targeted PR (auto-merge fires only on green required checks → safe; never touches `main`). The current `git-safety` hook allows agent merges only for `feat → epic/ID-*` and blocks `gh pr merge` to `staging`/`main` — so until it is relaxed to permit `gh pr merge --auto --base staging`, the maintainer still enables auto-merge per PR. Relaxing it is a maintainer edit (`.claude/hooks/git-safety.sh` is agent-denied). This is the actual lever for "0 involvement", not the branching choice.
 
 ## §3 Prerequisite status — CI-backstop (DONE)
 
