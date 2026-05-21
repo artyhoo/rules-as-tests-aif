@@ -12,7 +12,7 @@ This package was created by AI in one session. AI has blind spots about its own 
 
 ## The audit prompt — copy and paste
 
-```
+```text
 You are auditing the rules-as-tests-aif package as an external reviewer.
 You did NOT build this. You have NO memory of design decisions. Be skeptical.
 
@@ -59,10 +59,15 @@ Run these commands and report each result clearly:
      done
    done | sort -u
 
-6. Stale path references:
-   grep -r "ai-factory-RULES\.md" --include="*.md" --include="*.sh" .
-   grep -r "best-practices-sidecar\.react\.md" --include="*.md" .
-   # Both should be empty.
+6. Stale path / stale-agent references:
+   grep -rs "ai-factory-RULES\.md" --include="*.md" --include="*.sh" . | grep -v node_modules
+   # Should be empty (historical rename → packages/preset-*/RULES.md).
+   # Post-C-1: our best-practices-sidecar is de-shipped (KEEP-AIF), docs-auditor renamed
+   # → living-docs-auditor. No agent FILE or active WIRING should carry the old names
+   # (prose mentions like "renamed from docs-auditor" are fine):
+   ls agents/best-practices-sidecar.md agents/docs-auditor.md 2>&1   # both: No such file
+   grep -nE '"agents/(best-practices-sidecar|docs-auditor)\.md"' install.sh extension.json
+   # Should be empty.
 
 ═══════════════════════════════════════════════════════════════
 PHASE 2 — Rule-to-probe mapping (~5 minutes)
@@ -71,18 +76,24 @@ PHASE 2 — Rule-to-probe mapping (~5 minutes)
 The package's core principle: every rule has an executable check.
 Verify the package follows its own principle.
 
-7. Extract all R-rules from factory/RULES.md:
-   grep "^## R" factory/RULES.md
+7. Extract all R-rules from RULES.md (source-repo canonical home):
+   grep "^## R" packages/preset-next-15-canonical/RULES.md
 
-8. Extract probes from scripts/audit-ai-docs.sh:
-   grep -E "skip_unless R" scripts/audit-ai-docs.sh
+8. Extract probes from the source-repo audit script:
+   grep -E "skip_unless [RD]" packages/core/audit-self/audit-ai-docs.sh
 
 9. Cross-check: for each R-rule, verify EITHER:
    - It has a probe in audit-ai-docs.sh (skip_unless R<N> exists), OR
-   - best-practices-sidecar.md says it's "manual review only" or "delegated to ESLint"
+   - The audit-script header strategy block (lines 8-18) marks it "manual review only"
+     or "delegated to ESLint/depcruise" (post-C-1 home of what best-practices-sidecar.md
+     used to hold), OR
+   - It appears in the aif-rules-check skill-context residue
+     (packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md — R4/R10/R17)
    - Otherwise report ORPHAN RULE
 
-10. Same check for R12-R20 (RULES.react-next.md) vs audit-ai-docs.react-next.sh.
+10. Same check for R12-R20:
+    grep "^## R" packages/preset-next-15-canonical/RULES.react-next.md
+    vs packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh
 
 ═══════════════════════════════════════════════════════════════
 PHASE 3 — Content quality (~15 minutes, requires reading)
@@ -100,11 +111,13 @@ PHASE 3 — Content quality (~15 minutes, requires reading)
     If both contain a paragraph saying "five layers: architecture, meta-tests,
     spec-by-example, mutation, living docs" — flag as duplication.
 
-13. Read agents/best-practices-sidecar.md and agents/review-sidecar.md.
+13. Read the three shipped agents (post-C-1; best-practices-sidecar is KEEP-AIF, not ours):
+    agents/review-sidecar.md, agents/living-docs-auditor.md, agents/compliance-verifier.md.
     Question: are responsibilities clearly different?
-    - best-practices-sidecar = validates against RULES.md
-    - review-sidecar = catches tautologies in tests
-    If they overlap (e.g., both check tautologies) — flag duplication.
+    - review-sidecar = catches tautological/mock-only tests in a diff
+    - living-docs-auditor = runs audit-ai-docs.sh, reports backward code-vs-docs drift
+    - compliance-verifier = reviews PR §1.7 Forward/Backward section substance
+    If any two overlap (same job, different wording) — flag duplication.
 
 14. Read references/ai-traps.md "Lessons learned" section.
     For each lesson, check it has:
@@ -112,7 +125,8 @@ PHASE 3 — Content quality (~15 minutes, requires reading)
     - Generalizable lesson
     - Executable detection rule (or explicitly noted as manual review)
 
-15. Read factory/DESCRIPTION.template.md and ARCHITECTURE.ts-server.md.
+15. Read packages/core/templates/shared/DESCRIPTION.template.md and
+    packages/core/templates/shared/ARCHITECTURE.ts-server.md.
     Verify all <PLACEHOLDER> markers are valid YAML/Markdown
     (matched brackets, comments explaining what to fill in).
 
@@ -123,7 +137,8 @@ PHASE 4 — Self-application (does the package follow its own rules?)
 16. R10 — Naming: each file named after its content?
     Examples to check:
     - audit-ai-docs.sh — yes, audits AI docs
-    - best-practices-sidecar.md — yes, sidecar agent for best practices
+    - living-docs-auditor.md — yes, audits Living-Documentation drift
+    - compliance-verifier.md — yes, verifies PR §1.7 compliance
     - checks-map.md — yes, maps checks to layers
     Flag any file with misleading name.
 
@@ -170,18 +185,25 @@ they exist AND still work — silent regression here is severity BLOCKER.
 
     EXPECTED: at least three jobs — `mechanical:` (bash/json/dead-links),
     `rule-to-probe:` (orphan-rule check), `probe-tests:` (runs negative tests).
+    (Reality 2026-05: many more — manifest-render-check, principles-meta-tests,
+    enforce-husky-presence, framework-self-install-*, framework-self-detect/research/synth/validate.)
 
-    Run the rule-to-probe logic locally to verify it doesn't false-positive:
+    Run the rule-to-probe logic locally to verify it doesn't false-positive (post-C-1:
+    enforcement strategy lives in the audit-script header + skill-context residue, NOT in
+    best-practices-sidecar.md which is no longer ours):
 
     fail=0
-    for rules_file in factory/RULES.md factory/RULES.react-next.md; do
+    AUDIT_TS=packages/core/audit-self/audit-ai-docs.sh
+    AUDIT_RN=packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh
+    RESIDUE=packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md
+    for rules_file in packages/preset-next-15-canonical/RULES.md \
+                      packages/preset-next-15-canonical/RULES.react-next.md; do
       for r in $(grep -oE "^## R[0-9]+[a-z]?" "$rules_file" | grep -oE "R[0-9]+[a-z]?"); do
         in_audit=0
-        grep -qE "skip_unless ${r}[a-z]*\b" scripts/*.sh 2>/dev/null && in_audit=1
-        in_manual=0
-        grep -qE "$r.*manual|manual.*$r|$r.*delegated|delegated.*$r" \
-          agents/best-practices-sidecar.md scripts/*.sh 2>/dev/null && in_manual=1
-        [ "$in_audit" -eq 0 ] && [ "$in_manual" -eq 0 ] && { echo "ORPHAN: $r"; fail=1; }
+        grep -qE "skip_unless ${r}[a-z]*\b|^#.*\b${r}[a-z]*\b" "$AUDIT_TS" "$AUDIT_RN" 2>/dev/null && in_audit=1
+        in_residue=0
+        grep -qE "\b${r}\b" "$RESIDUE" 2>/dev/null && in_residue=1
+        [ "$in_audit" -eq 0 ] && [ "$in_residue" -eq 0 ] && { echo "ORPHAN: $r"; fail=1; }
       done
     done
     echo "exit=$fail"
@@ -194,11 +216,14 @@ they exist AND still work — silent regression here is severity BLOCKER.
 22. Negative tests for audit-ai-docs.sh probes.
 
     Check:
-    bash tests/audit/audit-ai-docs.test.sh
+    bash packages/core/audit-self/audit-ai-docs.test.sh
 
-    EXPECTED: exit code 0, summary line "16 pass / 0 fail" (or higher if probes
+    EXPECTED: exit code 0, summary line "9 pass / 0 fail" (or higher if probes
     were added). Each test injects a violation in a temp dir, runs the probe
-    with --only=R<N>, asserts the probe catches it.
+    with --only=R<N>/D<N>, asserts the probe catches it. NOTE: only the core
+    (ts-server) probes are negative-tested; the react-next probes
+    (packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh) have
+    no paired negative-test file — flag as a MAJOR finding.
 
     If file is missing, exit≠0, or any test FAILs — REPORT as BLOCKER
     "Probes without working negative tests — silent breakage risk".
@@ -206,12 +231,13 @@ they exist AND still work — silent regression here is severity BLOCKER.
 
 23. Self-application: does the package itself pass its own audit?
 
-    Check:
-    bash scripts/audit-ai-docs.sh
+    Check (source-repo canonical path; scripts/audit-ai-docs.sh is the CONSUMER path):
+    bash packages/core/audit-self/audit-ai-docs.sh
     echo "exit=$?"
 
-    EXPECTED: exit 0, no FAILs (WARNs from D1/D2 are acceptable if AGENTS.md
-    or .mcp.json don't exist at package root — package itself doesn't ship them).
+    EXPECTED: exit 0, no FAILs (WARNs from D1/D2/D4 are acceptable if AGENTS.md,
+    .mcp.json, or .ai-factory/tool-decisions.md don't exist at package root —
+    the package itself doesn't ship them).
 
     If any FAIL appears — REPORT as BLOCKER "Package fails its own audit".
     Past breakage: leftover negative-test artifacts (src/, AGENTS.md with
@@ -256,7 +282,7 @@ Do NOT make changes to any files. Report only.
 1. Save the audit output to a file (e.g., `audit-results-<date>.md`).
 2. Review findings yourself — agree/disagree with each.
 3. In a NEW session, prompt the AI to fix the agreed findings:
-   ```
+   ```text
    Read audit-results-<date>.md. For each finding I marked as "AGREE",
    apply the suggested fix. Do not touch findings I marked "DISAGREE".
    After fixes, re-run AUDIT-PROMPT.md PHASE 1-2 to verify.
