@@ -4,7 +4,7 @@
 > **Authoritative for:** iterative re-validation of the think-time-gate §7 recommendation bundle (H1+H10+W1, MEDIUM confidence); anchor consolidation of what is already decided; Round 0 of the iterative research structure described in [`.claude/orchestrator-prompts/recommendation-gate-iterative/kickoff.md`](./../../../.claude/orchestrator-prompts/recommendation-gate-iterative/kickoff.md).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The mechanism catalogue and prior-art evidence — those are authoritative in the predecessor patch (§0.1 below). Strategy/implementation decision — maintainer after Round 5 surfaces decision-needed.
 > **Date:** 2026-05-21
-> **Status:** ROUND 0 COMPLETE — anchor only; no new findings, no strategy recommendation. Rounds 1-5 pending.
+> **Status:** ROUND 2 COMPLETE (post-REVISE correction applied) — shortlist {H1, H2, H10}; H2 FRESH-route delta-a; springzero per-turn cadence corrected to INCONCLUSIVE-resolved (session-exit); H2 per-turn viability re-grounded on Claude Code harness evidence only; Gate 2 self-check passed. Rounds 3-5 pending.
 > **Predecessor:** [2026-05-16-§17-think-time-gate.md](2026-05-16-§17-think-time-gate.md) (mechanism catalogue, §4 H1–H11 + W1–W4, §7 recommendation bundle) + [2026-05-16-think-time-s17-gate-correction.md](2026-05-16-think-time-s17-gate-correction.md) (Stop-hook errata). This patch is a **re-validation** of those delivered conclusions (Option B, maintainer decision 2026-05-21), NOT a replacement or re-derivation.
 > **Inherits authority from:** [research-patches/README.md](README.md) folder-level Authoritative-for header.
 
@@ -297,3 +297,194 @@ The section heading `### §1.0 Population enumeration` and the sentence «**Orde
 | F1 | FABRICATED — no source | Marked FABRICATED explicitly; no claim of real existence |
 | F2 | FABRICATED — no source | Marked FABRICATED explicitly; references C7 as real analog |
 | F3 | FABRICATED — no source | Marked FABRICATED explicitly; references C8 as real analog |
+
+---
+
+## §2 — Shortlist + prior-art delta
+
+> **Round 2 status:** COMPLETE. Gate 2 self-check at §2.5.
+> **T-recgate-A compliance:** this section contains NO catch-rate or false-positive-rate claims. Those belong to Round 3.
+> **Gate 0 re-declaration:** The mechanism catalogue is NOT re-derived here. All H-descriptions reference `2026-05-16-§17-think-time-gate.md §4` as authoritative. Only prior-art delta evidence that meets one of conditions (a)/(b)/(c) is newly generated.
+
+---
+
+### §2.0 Shortlist selection rationale
+
+**Shortlisted: H1, H2, H10.**
+
+**Selection criteria applied (explicit):**
+
+Three criteria determined in/out:
+
+1. **Temporal enforceability:** can the mechanism fire at or before the moment a verdict reaches the user? (HOT enforceability criterion)
+2. **Structural vs. behavioural:** does the mechanism enforce discipline via harness structure (schema, hook return code, tool schema) or rely solely on AI instruction compliance?
+3. **Architectural scope vs. D6 relevance:** is the candidate directly implicated in the open D6 question (H2 vs H10 re-examination post-errata)?
+
+**Per-candidate in/out:**
+
+| Candidate | In/Out | One-line reason |
+|---|---|---|
+| H1 | IN | Cheapest HOT mechanism; fires on UserPromptSubmit (before AI turn); §7 bundle includes it; Q1 unresolved — must carry into Round 3 to dry-run whether specificity closes the gap |
+| H2 | IN | Errata reopened: Stop hook fires per-turn (confirmed by two independent channels — errata §2 TypeScript SDK type evidence + DeepWiki anthropics/claude-code); D6 requires explicit re-examination against H10; scan-pattern prior art found in springzero/codex-plugin-cc (firing cadence of that repo: INCONCLUSIVE — see §2.2) |
+| H10 | IN | Architecturally strongest HOT mechanism; §7 bundle primary; sole mechanism with structural enforcement (tool schema vs. keyword scan); D6 question specifically asks H2 vs H10 on revised rationale |
+| H3 | OUT | Harness architectural constraint verified: skill auto-trigger on AI output NOT supported (`§4 H3`); no delta condition applies |
+| H4 | OUT | TodoWrite checkbox-marking is bypassable; no new harness support found; same weakness as H1 but higher friction; collapses into H1 extension shape |
+| H5 | OUT | Custom MCP gate requires AI to voluntarily call it — not structural; §5.3 confirmed no production MCP recommendation-validator exists; H10 subsumes the structural tool-call insight |
+| H6 | OUT | Multi-pass output is a behavioural pattern (H1 extension shape); no independent harness property; collapses into H1 |
+| H7 | OUT | Verbal hedge detection only; doesn't catch disciplinary failures that avoid trigger words (C2, C4, C5 all lack hedge words yet are wrong) |
+| H8 | OUT | Elicitation hook verified INAPPLICABLE for general output interception (`§5.2`); sub-agent reviewer carries `#reviewer-as-secondary-orchestrator` risk (`§7.2`); no delta condition changes this |
+| H9 | OUT | Adversarial section requirement is a complement to H2 (implemented as H2 scan target), not a standalone mechanism; if H2 shortlisted, H9 is a scan parameter within it |
+| H11 | OUT | Behavioural eval suite is WARM/COLD classification; does not fire HOT; Round 3 corpus IS an ad-hoc H11 run — if H11 merits recommendation, Round 5 surfaces it |
+| W1 | NOT SHORTLISTED FOR ROUND 3 DRY-RUN (but retained in bundle) | W1 is WARM class; dry-run in Round 3 is against in-dialogue corpus (C1–C8, F1–F3), which are all pre-commit failures. W1 catches post-commit shape; out of Round 3 scope. Still part of §7 bundle. |
+
+**Adversarial counter-prompt (T7 obligation — run it, don't claim it):**
+
+> «Which catalogue item did I wrongly drop?»
+
+The strongest challenge is **W3 (two-AI session discipline)**. W3 directly addresses the 4-turn same-session defence pattern (C3) — a fresh session has no prior commitment to the DEFER verdict. I dropped W3 because: (a) Round 3 dry-run targets in-dialogue corpus (C1–C8, F1–F3) which are pre-commit; W3 is a WARM-adjacent mechanism that fires between sessions, not within; (b) the `#reviewer-as-secondary-orchestrator` risk is documented in `§7.2` and `2026-05-16-§17-think-time-gate.md:352`; (c) the Round-3 dry-run scope is HOT mechanisms only. **Assessment: W3 drop was correct for Round 3 scope; must surface in Round 5 as separate option for the 4-turn-defence shape.**
+
+Second strongest challenge: **H9 dropped as standalone.** H9 (adversarial counter-prompt requirement) directly addresses C6 (L3 recommendation without §1.7 forward+backward) — the «Falsification:» block absence is exactly what C6 lacked. However, H9 is architecturally a scan parameter for H2 (Stop hook checks for «Falsification:» section presence in `last_assistant_message`). Carrying H9 as a separate shortlist entry would duplicate H2's mechanism. **Assessment: H9 is a sub-parameter of H2 in Round 3; not a separate mechanism.**
+
+---
+
+### §2.1 H1 — prior-art verdict (CITE route)
+
+**Route: CITE from `2026-05-16-§17-think-time-gate.md §5.1`.**
+
+Delta condition: none. H1 is not implicated in the Stop-hook errata (H1 is UserPromptSubmit, not Stop). No dry-run contradiction anticipated at this stage. §5 evidence is unaffected.
+
+**Cited prior-art verdict** (`§5.1` SSOT table, row #20):
+> «[#20] Claude Code hooks API | ADOPT | All HOT mechanisms using Stop/UserPromptSubmit/PreToolUse hooks build on adopted surface. No new dep.»
+
+H1 extends the existing `inject-session-bootstrap.sh` (SSOT #20, ADOPT). H1 itself is scoped as «extends existing hook #20 (Claude Code hooks API, ADOPT). No new capability, no new dep» (`2026-05-16-§17-think-time-gate.md:100`).
+
+**Cited §5.1 SSOT proposed entry** (`§5.1 §Entry #49 candidate`):
+> «Constitutional AI self-critique pattern (Anthropic, 2022+) — Verdict candidate: ADOPT VOCABULARY — the pattern name and mechanism are well-known; project already implements a version via H1 (prompt injection). T16 check: CAI problem class = harmlessness alignment; our problem class = recommendation-discipline compliance. Partial match on the self-critique mechanism shape; full match on «revise before output» paradigm.»
+
+**T16 problem-class-match block (H1):**
+
+> **Upstream problem class:** Claude Code UserPromptSubmit hook — injects `additionalContext` into AI prompt context on every user turn. Constitutional AI self-critique — AI generates draft, critiques against principle, revises.
+> **Our problem class:** injecting a recommendation-specific discipline checklist into the AI's context at the moment a recommendation dialogue turn begins, so the AI has explicit per-step instructions (state SSOT row, run context7, cite file:line, run adversarial counter) before forming the verdict.
+> **Match?** Partial (UserPromptSubmit hook) / Vocabulary (CAI). The hook mechanism is an exact match for delivery channel. CAI is vocabulary-match for the self-critique pattern embedded in the instruction. **Evidence:** `2026-05-16-§17-think-time-gate.md:100` (SSOT #20 cite); `§5.1 §Entry #49` (CAI vocabulary match documented); `inject-session-bootstrap.sh` (existing hook confirmed operational by bash execution per `§8.1`).
+
+---
+
+### §2.2 H2 — prior-art verdict (FRESH route — delta condition a)
+
+**Route: FRESH — delta condition (a).** The §5.1 dismissal of H2 rested on the claim «Stop hook only fires when the session actually terminates» (`2026-05-16-§17-think-time-gate.md:104` — «Stop hook fires when AI stops, not after each turn mid-conversation»). The errata (`2026-05-16-think-time-s17-gate-correction.md §2`) definitively corrects this: «Stop hook fires per assistant turn». The §5 H2 prior-art conclusion requires a fresh look given this changed premise.
+
+**Fresh prior-art research — ≥3 phrasings:**
+
+**Phrasing 1:** «claude code Stop hook per turn post-turn transcript audit discipline compliance 2026»
+- **Tool:** WebSearch
+- **Result:** «Stop hooks execute after each turn completes» (per-turn scope confirmed); «A Stop hook can check the session-specific transcript to verify actions like plan completion»; transcript_path field allows grepping the session transcript with zero cross-contamination; link: [Claude Code Hooks: Complete Guide — claudefa.st](https://claudefa.st/blog/tools/hooks/hooks-guide)
+- **Key finding:** Stop hook is documented in 2026 production sources as **per-turn**, receiving `transcript_path` for session-specific transcript access and `last_assistant_message` for direct text access without transcript parsing.
+
+**Phrasing 2:** «LLM post-turn output audit hook agent self-critique verdict compliance before next turn»
+- **Tool:** WebSearch
+- **Result:** SAVER (Self-Audited Verified Reasoning) — framework enforcing verification over internal belief states within the agent before action commitment; performs adversarial auditing to localise violations. Agent-as-a-Judge patterns in multi-turn systems check entire conversation for policy compliance. AgentForesight-7B: compact online auditor for step-level failure localisation. Links: [arxiv.org/pdf/2604.08401 (SAVER)](https://arxiv.org/pdf/2604.08401); [arxiv.org/html/2605.08715 (AgentForesight)](https://arxiv.org/html/2605.08715)
+- **Key finding:** Academic literature in 2026 explicitly addresses per-turn agent output auditing for compliance; production patterns exist (SAVER, AgentForesight) but are framework-level, not Claude Code Stop-hook implementations.
+
+**Phrasing 3:** «Stop hook transcript scan recommendation discipline gate claude code last_assistant_message per turn»
+- **Tool:** WebSearch
+- **Result:** `springzero/codex-plugin-cc` «Stop Review Gate Hook» — production implementation that binds to the `"Stop"` event, constructs a review prompt including `last_assistant_message`, returns `ALLOW: <reason>` or `BLOCK: <reason>` verdict, prevents Claude from continuing on BLOCK. Link: [DeepWiki: springzero/codex-plugin-cc §4.2](https://deepwiki.com/springzero/codex-plugin-cc/4.2-stop-review-gate-hook)
+- **Key finding (partial):** Production prior art EXISTS for the Stop-hook + `last_assistant_message` + ALLOW/BLOCK scan-pattern. Firing cadence (per-turn vs. session-exit) was NOT resolved by WebSearch alone — requires separate DeepWiki verification (see Phrasing 5 below).
+
+**Phrasing 4 (DeepWiki — confirm Claude Code Stop per-turn semantics, independent of springzero):**
+- **Tool:** DeepWiki `ask_question("anthropics/claude-code", "Does the Stop hook fire after every assistant turn...")`
+- **Result:** «The Stop hook fires after each assistant turn, not only at session end»; «SessionEnd is a separate hook type»; distinct `CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS` confirms they are separate systems. Link: [DeepWiki search result](https://deepwiki.com/search/does-the-stop-hook-fire-after_7b457c20-a5d0-4a8e-a4d9-550c1d0ac300)
+- **Key finding:** Claude Code's OWN Stop hook fires per-turn. This evidence is independent of springzero — it comes from the `anthropics/claude-code` repo and the errata §2 TypeScript SDK type-system evidence (`StopHookInput` vs `SessionEndHookInput` are distinct interfaces). H2's per-turn viability rests on this channel, not on springzero.
+
+**Phrasing 5 (DeepWiki — verify springzero firing cadence, independent resolution of Reviewer BLOCKING FINDING #1):**
+- **Tool:** DeepWiki `ask_question("springzero/codex-plugin-cc", "Does the Stop Review Gate Hook fire after every assistant turn, or only when the session exits? What event does its hooks config bind to?")`
+- **Result:** «The Stop Review Gate Hook fires only when the session exits, and it binds to the `"Stop"` event... This means it runs when Claude Code attempts to stop/exit the session, not after every assistant turn.» It does read `last_assistant_message`, but the firing cadence is session-exit. Link: [DeepWiki search result](https://deepwiki.com/search/does-the-stop-review-gate-hook_7b2a9dba-5fc2-4786-bead-b20455d6e4d8)
+- **Key finding: INCONCLUSIVE-resolved.** springzero's Stop Review Gate Hook fires at session exit (same temporal pattern as §5.1's original claim about Claude Code's Stop), NOT per-turn. The WebSearch (Phrasing 3) surfaced springzero as a scan-pattern precedent but WebSearch did not resolve firing cadence. DeepWiki resolution contradicts the per-turn inference. **Consequence:** springzero is prior art for the ALLOW/BLOCK scan-pattern and `last_assistant_message` usage only — it is NOT prior art for per-turn firing. The per-turn viability claim for H2 stands on Phrasing 4 (Claude Code harness) + errata §2 (TypeScript SDK types), which do not depend on springzero.
+
+**T16 problem-class-match block (H2):**
+
+> **Upstream problem class (springzero/codex-plugin-cc Stop Review Gate Hook):** session-exit Stop hook review of the assistant's code-change output for engineering quality issues (second-order failures, rollback risk, design tradeoffs). Reads `last_assistant_message`; returns ALLOW/BLOCK verdict; blocks session exit on BLOCK. Firing cadence: session-exit (verified by DeepWiki Phrasing 5 above — NOT per-turn).
+> **Our problem class:** per-turn Stop hook scan of `last_assistant_message` for recommendation-discipline violations — specifically: verdict-shape phrases (ADOPT/DEFER/RECOMMEND/VERDICT) without accompanying SSOT row citation and file:line evidence; adversarial counter-prompt section absence.
+> **Match?** Partial on scan-pattern / Mismatch on firing cadence. **Evidence:** The scan pattern matches (Stop hook + `last_assistant_message` + ALLOW/BLOCK contract is established precedent in springzero). The review domain differs (code quality vs. recommendation-discipline). The firing cadence mismatches: springzero fires at session exit; H2 for this project needs per-turn firing. Per-turn firing is harness-supported (Phrasing 4, errata §2) but springzero does NOT demonstrate per-turn Stop hook in production. The ALLOW/BLOCK contract and `last_assistant_message` access are reusable (ADOPT VOCABULARY). The specific scan predicates and per-turn firing configuration are project-BUILD.
+
+**Updated H2 prior-art verdict (delta):** ADOPT VOCABULARY for the Stop-hook + `last_assistant_message` + ALLOW/BLOCK scan-pattern (from springzero/codex-plugin-cc production prior art for the pattern shape; per-turn firing cadence confirmed by Claude Code harness evidence — Phrasing 4 + errata §2 — not by springzero). BUILD for the specific recommendation-discipline scan predicates (per-turn firing configuration + SSOT-citation-presence scanning: no production analog found).
+
+**Critical weaknesses NOT changed by errata:**
+
+1. **AI bypass via keyword avoidance:** H2 scans `last_assistant_message` for verdict-shape phrases. The 2026-05-13 session (C2-C3) used «DEFER» explicitly, which would trigger detection. But a semantically equivalent verdict without the keyword («Based on available evidence, Danger JS is unsuitable because...») bypasses the keyword scan. This weakness is unchanged by the per-turn firing correction.
+
+2. **Stream-edit vs. structured-tool semantics:** The Stop hook can return `{"decision": "block", "systemMessage": "..."}` to inject context and continue the session (`§5.2` confirmed). But the hook fires *after* the AI response is generated — the response is already formed. Block + inject = ask AI to try again, not prevent the formation of the wrong verdict. H10 (tool-call-as-gate) prevents formation at schema-enforcement time; H2 catches and rejects *after* formation. This is a genuine remaining distinction even post-errata.
+
+---
+
+### §2.3 H10 — prior-art verdict (CITE route)
+
+**Route: CITE from `2026-05-16-§17-think-time-gate.md §5.1` and `§5.3`.**
+
+Delta condition: none. H10 is not implicated in the Stop-hook errata (H10 is a tool-call mechanism, not a Stop/SessionEnd hook). No §5 evidence was errata-invalidated for H10.
+
+**Cited prior-art verdict** (`§5.1` — no SSOT entry):
+> «No SSOT entry covers: dialogue-time recommendation gating, «verdict-as-tool-call» pattern (H10), behavioural eval suite for recommendation discipline (H11). These would be new entries if implemented.» (`2026-05-16-§17-think-time-gate.md:220`)
+
+**Cited §5.3 MCP ecosystem finding:**
+> «No «recommendation pre-validator», «output linter», or «verdict gate» MCP server exists in the ecosystem. MCP servers implement input validation via Zod schemas at tool-definition level (per DeepWiki) but do not operate as middleware interceptors on AI responses.» (`2026-05-16-§17-think-time-gate.md:276`)
+
+**Cited §4 H10 SSOT check:**
+> «This is a HOT mechanism with no prior art in the ecosystem search. No production «verdict-as-tool-call» pattern found in context7, DeepWiki, or WebSearch. Would be a project-BUILD capability.» (`2026-05-16-§17-think-time-gate.md:169`)
+
+**Prior-art verdict:** BUILD. No production «verdict-as-tool-call» recommendation gate found. MCP ecosystem provides tool-schema input validation (Zod) but not as recommendation-discipline gate. Project-specific BUILD for the `issue_verdict(type, candidate, ssot_id, evidence[], adversarial_falsification)` tool contract.
+
+**T16 problem-class-match block (H10):**
+
+> **Upstream problem class (MCP tool-call pattern, SSOT #20):** Claude Code tool-use capability — AI calls a structured MCP tool with schema-validated parameters; tool returns result. Zod schema enforces required fields at call time; missing required field → tool call rejected before AI output is generated.
+> **Our problem class:** requiring that the act of issuing a recommendation IS a tool call to `issue_verdict(...)` with mandatory fields: `ssot_id` (SSOT row consulted), `evidence[]` (file:line citations), `adversarial_falsification` (non-empty). Verdict prose is derived FROM the tool call output, not authored as free text. Empty SSOT field → tool call fails schema validation before verdict can ship.
+> **Match?** Yes at the harness level (tool-call with schema validation is exactly MCP tool-use capability). No at the problem-class level for the specific discipline gate: no production tool enforces recommendation-discipline compliance via a mandatory `issue_verdict` contract. **Evidence:** `2026-05-16-§17-think-time-gate.md:169` («No production «verdict-as-tool-call» pattern found»); `§5.3` MCP ecosystem sweep; SSOT #20 (Claude Code hooks/tool-use API, ADOPT — the substrate is adopted, the application is BUILD).
+
+---
+
+### §2.4 D6 — explicit re-examination (reviewer-discipline: surface, do not decide)
+
+**D6 context** (`2026-05-16-think-time-s17-gate-correction.md §3`): «Maintainer should decide whether to: (a) accept H10 over H2 on the revised rationale and treat parent §5.1 as superseded by this errata; (b) re-open the H2 vs H10 comparison given Stop can fire per turn — Stop hook becomes a viable candidate; (c) treat both as viable, ship H10 first, retain H2 as deferred alternative.»
+
+**What changed with the Stop-hook errata:**
+
+The original §5.1 argument against H2 was temporal: «Stop hook fires at session end, not per turn; therefore 4 of the 5 failures in the 2026-05-13 session would not be caught» (`§5.2:244-248`). This argument is now **invalidated**. Stop fires per turn. H2 CAN intercept after each individual assistant turn in a multi-turn conversation — including turns 1 through 4 of the 4-turn defence pattern (C3).
+
+Specifically: C3 («4-turn hand-roll defence») was a case where `§1` analysis noted H2 could catch the pattern *only if the Stop hook fires per turn*. The errata removes the barrier. H2 could detect that the same DEFER verdict appeared in turns 2–5 without any new file:line evidence across those turns.
+
+**What did NOT change:**
+
+1. **H10's independent advantage remains.** H10 enforces discipline via tool schema *before* the verdict text is generated. H2 fires *after* the response is generated (block + reinject = retry). The distinction is: H10 prevents formation; H2 catches-and-rejects formation. This is a genuine architectural difference that the errata does not affect.
+
+2. **H2's keyword-bypass weakness remains.** AI can convey the same DEFER verdict without using ADOPT/DEFER/RECOMMEND keywords. H10's schema enforcement cannot be bypassed by keyword avoidance — the tool call itself must have `ssot_id` populated. H2's keyword scan can be bypassed semantically.
+
+3. **H2 has production prior art for the scan-pattern (springzero/codex-plugin-cc); H10 remains project-BUILD.** This is a NEW finding post-errata delta search, with one qualification: springzero's Stop Review Gate Hook fires at session-exit, not per-turn (DeepWiki Phrasing 5 verified). It is therefore prior art for the ALLOW/BLOCK scan-pattern and `last_assistant_message` usage — but NOT for per-turn Stop hook firing in production. H2's per-turn viability rests on Claude Code harness evidence (Phrasing 4, errata §2), not on springzero. The scan-pattern prior art still lowers H2's implementation cost relative to H10: the ALLOW/BLOCK contract is established precedent, `last_assistant_message` access is confirmed, and the hook infrastructure is ADOPT VOCABULARY. H10 requires building a custom MCP server from scratch and restructuring recommendation dialogue flow.
+
+**Implication framing (reviewer-discipline — surface, do not decide):**
+
+- **H2-now-viable implies:** the cost gap between H2 and H10 is larger than §7 assumed. H2 has production prior art (ADOPT VOCABULARY); H10 is project-BUILD. If temporal coverage is no longer H10's sole advantage over H2, the cost/benefit calculus shifts. A maintainer who previously accepted H10's architectural investment because H2 «fires too late» may reconsider given H2 now covers per-turn.
+- **H10's distinguishing property is still:** structured-tool semantics that prevent verdict formation (not just catch-and-reject); keyword-bypass resistance (schema field required regardless of prose); Wave 10 natural scope fit (TS-core migration). H10 is architecturally stronger; H2 is architecturally achievable with less investment.
+- **Decision-needed for maintainer (D6):** which of (a)/(b)/(c) in `correction §3` to select. Round 3 dry-run will report catch-rate and false-positive-rate for both H2 and H10 against the C1–C8, F1–F3 corpus, providing the evidence base for that decision. Maintainer decides in Round 5.
+
+---
+
+### §2.5 Gate 2 self-check
+
+**Gate 2 requirement:** each shortlisted candidate must carry BOTH (1) a prior-art verdict (CITE-from-§5 OR FRESH delta a/b/c) AND (2) an explicit T16 problem-class-match block. A candidate missing either is NOT validly shortlisted.
+
+| Candidate | Prior-art route | T16 match stated? | D6 addressed? |
+|---|---|---|---|
+| H1 | CITE — `§5.1` SSOT #20 row + Entry #49 candidate (CAI vocabulary) | Yes — §2.1 T16 block present | N/A — H1 not part of D6 question |
+| H2 | FRESH — delta condition (a): errata invalidated «fires at session end» premise; 5 phrasings run (WebSearch ×3 + DeepWiki ×2); scan-pattern prior art found (springzero/codex-plugin-cc — ALLOW/BLOCK + last_assistant_message); springzero per-turn cadence: INCONCLUSIVE-resolved as session-exit (Phrasing 5); per-turn viability confirmed by Claude Code harness independently (Phrasing 4 + errata §2) | Yes — §2.2 T16 block present; upstream problem class corrected to session-exit; cadence mismatch noted explicitly | Yes — §2.4 lays out what changed and what did NOT change; point 3 qualified re: springzero cadence; framed as H2-implies-X / H10-distinguishing-property-is-Y; decision not picked |
+| H10 | CITE — `§5.1` («no SSOT entry covers») + `§5.3` (MCP ecosystem sweep) + `§4 H10` SSOT check («no production verdict-as-tool-call found») | Yes — §2.3 T16 block present | Yes — §2.4 addresses H10's distinguishing property post-errata |
+
+**All three candidates: Gate 2 PASS.**
+
+**T15 self-application check:** does this §2 section apply its own shortlist discipline to itself? §2 surfaces candidates with prior-art evidence and T16 blocks — it does not issue a verdict on which to adopt. Reviewer-discipline maintained. D6 framed as decision-needed, not decided. Gate 2 self-check table present. **Self-application: PASS.**
+
+**Residuals flagged for Round 3:**
+
+1. **H2 keyword-bypass weakness vs. H10 schema-bypass resistance:** Round 3 dry-run must test how many corpus cases use verdict-shape keywords explicitly (triggerable by H2 scan) vs. how many use semantically equivalent non-keyword forms (H2-bypassable). This is the empirical question that determines H2's actual catch-rate vs. H10's structural advantage.
+
+2. **H2 «catch-and-reject vs. prevent-formation» latency:** the stop-hook-fires-after-response-generation property means H2 adds one retry loop per intercepted turn. For the 4-turn defence (C3), H2 would fire 4 times — 4 retry loops. H10 would enforce at the first tool-call attempt. Round 3 should note which mechanism is less disruptive to dialogue flow.
+
+3. **H1 specificity vs. session-start sufficiency:** the 2026-05-13 session had generic injection but not the specific 4-step recommendation checklist. Round 3 dry-run must evaluate whether the corpus cases (C1–C8) would plausibly have been caught by the specific checklist instruction vs. the generic goal/invariants that were present and failed. This is the Q1 empirical question in dry-run form.
