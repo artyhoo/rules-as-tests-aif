@@ -457,7 +457,7 @@ Superpowers (`obra/superpowers`) introduces a **«1% Rule»** — mandate skill 
 
 Superpowers explicitly applies **TDD discipline** to skill authoring: «NO SKILL WITHOUT A FAILING TEST FIRST»; RED-GREEN-REFACTOR for documentation. ADAPT-candidate for extending our paired-negative-test principle (`packages/core/principles/02-paired-negative-test.test.ts`) to skill files. Surfaced in [companion-target-comparison.md §3.1 + §7 Decision D](research-patches/2026-05-16-companion-target-comparison.md).
 
-**Status:** ARMED — track without commitment. Principle 02 enforces paired-negative tests at the principle-test layer; SKILL.md files currently have no equivalent enforcement (R1-R20 + principles 01-10 + the discipline-self-check CI gate cover code/rule layers, not «skill failure-mode evidenced before authoring»).
+**Status:** RESOLVED (2026-05-21) — shipped as [principle 15 — skill paired-negative](../../packages/core/principles/15-skill-paired-negative.test.ts) (#112; SSOT [#55](prior-art-evaluations.md)). A refinement of **candidate mechanism A** below: rather than a companion fixture file, each non-grandfathered `SKILL.md` must carry a body-section paired-negative block (`## Without this skill` / `## With this skill`, both non-trivial and differing — anti-tautology). Grandfather = explicit `EXEMPT_SKILLS` allowlist (the 5 current skills). Principle 02 enforces paired-negative at the rule layer; principle 15 now extends the same idea to the skill layer (ADAPT of Superpowers' «NO SKILL WITHOUT A FAILING TEST», substrate-pure — no dependency). *(Was: ARMED — track without commitment.)*
 
 **Candidate mechanisms:**
 
