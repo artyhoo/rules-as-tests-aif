@@ -14,6 +14,16 @@ if [ -z "$transcript" ] || [ ! -f "$transcript" ]; then
   exit 0
 fi
 
+# Session-goal anchor (deterministic, no LLM). Primary signal: CC's own session
+# title (`{"type":"ai-title","aiTitle":...}`) — empirically present even when the
+# first user message has no extractable text block. Fallback: head of the first
+# user instruction. grep avoids a full-file jq slurp (cheap on large transcripts).
+anchor=$(grep '"type":"ai-title"' "$transcript" 2>/dev/null | tail -1 | jq -r '.aiTitle // empty' 2>/dev/null || true)
+if [ -z "$anchor" ]; then
+  anchor=$(grep -m1 '"type":"user"' "$transcript" 2>/dev/null | jq -r 'if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text) else (.message.content // empty) end' 2>/dev/null | head -1 | tr "\n" " " | cut -c1-120 || true)
+fi
+[ -z "$anchor" ] && anchor="(цель сессии не извлеклась — назови её сам)"
+
 last_line=$(tail -r "$transcript" 2>/dev/null | grep -m1 '"type":"assistant"' || true)
 if [ -z "$last_line" ]; then
   exit 0
@@ -31,71 +41,106 @@ if [ -z "$text" ] && [ "$has_askuserquestion" != "true" ]; then
 fi
 
 text_length=${#text}
-trigger_report=false
+
+# Trigger ONLY on (a) a substantial structured answer ("много текста"), or
+# (b) a question. Tool calls alone do NOT trigger — a short "готово, поправил X"
+# turn needs no recap. This restores the original firing condition.
+long_text=false
 if [ "$text_length" -gt 500 ]; then
   if echo "$text" | grep -qE '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)'; then
-    trigger_report=true
+    long_text=true
   fi
 fi
 
-trigger_question=false
+# Did the turn end in a question?
+asked=false
 if [ "$has_askuserquestion" = "true" ]; then
-  trigger_question=true
+  asked=true
 elif [ -n "$text" ]; then
   tail_chunk=$(echo "$text" | tail -c 500)
   if echo "$tail_chunk" | grep -qE '\?[[:space:]]*$'; then
-    trigger_question=true
+    asked=true
   elif echo "$tail_chunk" | grep -qiE 'Option [AB]|выбирай|decide|хочешь чтобы|which (option|approach)'; then
-    trigger_question=true
+    asked=true
   fi
 fi
 
-if [ "$trigger_report" = "false" ] && [ "$trigger_question" = "false" ]; then
+# Three branches:
+#   Branch C — long answer AND a trailing fork-question: needs BOTH the work
+#     recap (+ goal drift verdict) AND the recommendation-first/fork-challenge.
+#     A pure long-wins collapse would drop the recommendation nudge exactly when
+#     a fork is on the table — the highest-value moment for it.
+#   Branch A — long substantive answer, no question: work recap + drift verdict.
+#   Branch B — a question with no long answer body: fork-challenge + recommend-first.
+#   Neither (short chatter, bare tool call) — stay silent (no reminder).
+if [ "$long_text" = "false" ] && [ "$asked" = "false" ]; then
   exit 0
 fi
 
-if [ "$trigger_report" = "true" ] && [ "$trigger_question" = "true" ]; then
-  reminder=$(cat <<'EOF'
-ОБЯЗАТЕЛЬНО допиши в конец ответа ВИДИМЫЙ блок — начни его ровно со строки «## 🟢 Простыми словами» (без этого заголовка блок не считается выполненным; пользователь должен его увидеть). Это Feynman-check: понимаешь = умеешь пересказать просто; если не складывается — это диагностика, а не косметика.
+if [ "$long_text" = "true" ] && [ "$asked" = "true" ]; then
+  reminder=$(cat <<EOF
+Стоп. Это и длинный ответ, И вопрос-развилка в конце — нужен и пересказ работы, и проверка вопроса. В первую очередь для себя.
+ОБЯЗАТЕЛЬНО начни блок ровно со строки «## 🟢 Простыми словами» — чтобы человек опознал его с ходу.
+(Не можешь сказать просто, конкретно и в общем — что/зачем/почему/как → сам не до конца понял; это диагностика, не отчёт.)
 
-В блоке два слоя.
+Цель сессии (из названия сессии / первого задания): «${anchor}».
 
-Слой 1 — что ты сказал, простыми словами, 5 коротких строк:
-1. Что я сделал / показал
-2. Главный вывод
-3. Что это значит для тебя сейчас
-4. Что дальше
-5. На что обратить внимание (или пропусти)
+Первые 2 строки — так, чтобы человек без контекста понял с ходу:
+• Чем я сейчас занят — одной фразой, простым языком.
+• На той ли я цели — выбери ОДНО: НА ЦЕЛИ / УВЕЛО В СТОРОНУ <тема> (и почему) / СОЗНАТЕЛЬНО СВЕРНУЛ на <тема> (и зачем). Не «вроде на цели».
 
-Слой 2 — суть вопроса, 1-2 предложения без жаргона: в чём выбор и что меняется между вариантами на простом примере.
+Что сделал — коротко, с именами (файл/функция/решение): конкретное изменение + ОДНА вещь, в которой меньше всего уверен и которую стоит перепроверить.
 
-Если слой не складывается просто — НЕ имитируй: напиши «упростить вот эту часть не получается» и укажи где затык. Это и есть сигнал — Layer 1 был неточным или паттерн-мэтчем.
+По вопросу:
+1. Это настоящая развилка — или я перекладываю решение, которое могу принять сам? Один вариант явно лучше по существу (по целям сессии и дисциплине) → НЕ спрашивай: сделай его и скажи, что сделал.
+2. Если правда развилка — сначала МОЯ обоснованная рекомендация: «Рекомендую <вариант>, потому что <причина против целей и трейдоффов>». Потом альтернативы коротко. Решает человек.
+Любой пункт не выходит конкретным → скажи прямо, не заполняй водой.
 EOF
 )
-elif [ "$trigger_report" = "true" ]; then
-  reminder=$(cat <<'EOF'
-ОБЯЗАТЕЛЬНО допиши в конец ответа ВИДИМЫЙ блок — начни его ровно со строки «## 🟢 Простыми словами» (без этого заголовка блок не считается; пользователь должен его увидеть). Feynman-check: понимаешь = умеешь рассказать другу за кофе. Если пересказ не складывается — Layer 1 был паттерн-мэтчем, вернись и пересобери.
-Формат — 5 коротких строк, без жаргона и без терминов, требующих объяснения:
-1. Что я только что сделал / показал
-2. Главный вывод одной фразой
-3. Что это значит для тебя прямо сейчас
-4. Что осталось / следующий шаг
-5. На что обратить внимание / риски (или пропусти если нет)
-Не повторяй детали выше. Если ловишь себя на «упростить не получается, скажу как было» — это сигнал пересобрать сам ответ, а не писать «упрощённую» копию.
+elif [ "$long_text" = "true" ]; then
+  reminder=$(cat <<EOF
+Стоп. Прежде чем закончить — пересказ простыми словами, в первую очередь для себя.
+ОБЯЗАТЕЛЬНО начни блок ровно со строки «## 🟢 Простыми словами» — чтобы человек опознал его с ходу.
+(Не можешь сказать просто, конкретно и в общем — что/зачем/почему/как → сам не до конца понял; это диагностика, не отчёт.)
+
+Цель сессии (из названия сессии / первого задания): «${anchor}».
+
+Первые 2 строки — так, чтобы человек без контекста понял с ходу:
+• Чем я сейчас занят — одной фразой, простым языком.
+• На той ли я цели — выбери ОДНО: НА ЦЕЛИ / УВЕЛО В СТОРОНУ <тема> (и почему) / СОЗНАТЕЛЬНО СВЕРНУЛ на <тема> (и зачем). Не «вроде на цели».
+
+Дальше для себя, по пункту, с именами (файл/функция/решение), без воды:
+• Что я только что сделал — конкретное изменение, не пересказ задачи.
+• Нетривиальные решения — «выбрал X вместо Y потому что Z», или честно «решений не было».
+• В чём меньше всего уверен — назови ОДНУ вещь, которую стоит перепроверить.
+• Следующий шаг и почему он следующий.
+Любой пункт не выходит конкретным → скажи прямо, не заполняй водой.
 EOF
 )
 else
-  reminder=$(cat <<'EOF'
-ОБЯЗАТЕЛЬНО допиши ВИДИМЫЙ блок — начни его ровно со строки «## 🟢 Простыми словами» (без этого заголовка блок не считается; пользователь должен его увидеть). Объясни заданный вопрос так, чтобы понял друг, не разбирающийся в коде.
-1-2 предложения, без жаргона: в чём суть выбора (не повторяя вопрос дословно) и что меняется между вариантами — на простом примере или метафоре.
-Если просто не складывается — это сигнал, что вопрос сформулирован неточно или ты не до конца понимаешь trade-off. Тогда честно напиши «упростить не получается, давай ещё подумаю» вместо имитации простоты.
+  reminder=$(cat <<EOF
+Ты остановился на вопросе. Прежде чем ждать — проверь сам вопрос, для себя в первую очередь.
+ОБЯЗАТЕЛЬНО начни блок ровно со строки «## 🟢 Простыми словами».
+
+Цель сессии: «${anchor}».
+
+1. Это настоящая развилка — или я перекладываю решение, которое могу принять сам? Если один вариант явно лучше по существу (по целям сессии и дисциплине проекта) — НЕ спрашивай: сделай его и скажи, что сделал. Вопрос резервируй для развилок, где честно не выбрать на мерилах.
+2. Если это правда развилка — сначала МОЯ обоснованная рекомендация: «Рекомендую <вариант>, потому что <причина против целей и трейдоффов>». Потом альтернативы коротко. Решает человек.
+3. Простыми словами: что именно решаем и почему это блокирует — на простом примере, не повтор текста вопроса.
+Суть выбора не объясняется просто → сам вопрос сформулирован неточно: скажи об этом.
 EOF
 )
 fi
 
+# `reason` is the field delivered to the MODEL when decision=block on a Stop hook
+# (the agent does not stop and gets one more turn with `reason` injected — so the
+# recap instruction MUST go here). `systemMessage` is user-UI only and does NOT
+# reach the model. Verified dual-channel 2026-05-21: Claude Code hooks docs (Stop
+# decision-control: "reason must be provided for Claude to know how to proceed")
+# + WebSearch corroboration; #81's systemMessage-delivery never reached the model.
 jq -n --arg msg "$reminder" '{
   decision: "block",
-  reason: "End-of-turn reminder injected",
-  systemMessage: $msg
+  reason: $msg,
+  systemMessage: "End-of-turn recap requested"
 }'
 exit 0
