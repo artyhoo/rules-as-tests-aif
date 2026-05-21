@@ -1,7 +1,7 @@
 <!-- scope: automerge→staging operational plan, branching flow + maintainer settings recipe -->
 # Automerge → staging integration plan
 
-> **Status:** **LIVE** (2026-05-22). `staging` branch created; `staging` + `main` branch-protected (required checks `ci-success` + `actionlint` + `zizmor`, `strict: true`); repo auto-merge enabled. Code prerequisites merged (#121/#123/#125).
+> **Status:** **LIVE** (2026-05-22). `staging` branch created; `staging` + `main` branch-protected (required check **`ci-success`** only — it `needs:`-aggregates actionlint + zizmor after they were moved into `audit-self.yml`; `strict: true`); repo auto-merge enabled. Code prerequisites merged (#121/#123/#125). Required-context fix: see §6 item 2.
 > **Authoritative for:** the automerge→staging operational plan — the branching flow (§2.1), decided shape, the maintainer GitHub-settings recipe (applied), and the open sub-decisions. Supersedes the `open-questions.md §13.40` placeholder home (open-questions hit its 500-line pre-commit cap; a dedicated plan doc fits better than the open-question registry).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). The CI-backstop mechanism it depends on — see [.claude/rules/no-paid-llm-in-ci.md](../../.claude/rules/no-paid-llm-in-ci.md) and the `pr-commit-trailers` job in [.github/workflows/audit-self.yml](../../.github/workflows/audit-self.yml).
 
@@ -79,19 +79,20 @@ git fetch origin && git branch staging origin/main && git push -u origin staging
 # 2. repo auto-merge.
 gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true
 
-# 3. protect staging — require the real ci-success aggregate (#125) + the two
-#    always-run cross-FILE checks (needs: can't cross workflow files; path-
-#    conditional discipline-self-check is intentionally NOT required — it would
-#    deadlock PRs that don't touch its paths).
+# 3. protect staging — require ONLY the real ci-success aggregate (#125).
+#    actionlint + zizmor now live in audit-self.yml and are needs:-aggregated by
+#    ci-success, so it gates them too (they no longer need separate required
+#    contexts). Requiring path-filtered contexts directly deadlocks PRs that don't
+#    touch their paths — the bug fixed by moving them under ci-success.
 gh api -X PUT repos/{owner}/{repo}/branches/staging/protection --input - <<'JSON'
-{"required_status_checks":{"strict":true,"contexts":["ci-success","actionlint — YAML & expression correctness","zizmor — supply-chain audits"]},"enforce_admins":false,"required_pull_request_reviews":null,"restrictions":null}
+{"required_status_checks":{"strict":true,"contexts":["ci-success"]},"enforce_admins":false,"required_pull_request_reviews":null,"restrictions":null}
 JSON
 
 # 4. protect main — owner-only merges. On this single-owner repo, owner-only =
 #    PR required + green checks + sole-owner write + the git-safety hook blocking
 #    agent merges to main. (`restrictions` push allow-list is org-only.)
 gh api -X PUT repos/{owner}/{repo}/branches/main/protection --input - <<'JSON'
-{"required_status_checks":{"strict":true,"contexts":["ci-success","actionlint — YAML & expression correctness","zizmor — supply-chain audits"]},"enforce_admins":false,"required_pull_request_reviews":{"required_approving_review_count":0},"restrictions":null}
+{"required_status_checks":{"strict":true,"contexts":["ci-success"]},"enforce_admins":false,"required_pull_request_reviews":{"required_approving_review_count":0},"restrictions":null}
 JSON
 ```
 
@@ -105,7 +106,7 @@ gh pr merge --auto --squash <PR>     # merges when CI goes green
 ## §6 Open sub-decisions (maintainer sign-off)
 
 1. **Branch name / reuse of the epic flow.** This plan uses a long-lived `staging`. The project also has an `epic/ID-<digits>-<topic>` flow where the *agent* merges sub-PRs into a per-umbrella epic branch (circuit-breaker at `epic→main`). Distinct mechanisms. Decide: keep separate, or fold one into the other. _(Open.)_
-2. ~~Required-check contexts.~~ **RESOLVED 2026-05-22** — real `ci-success` aggregate shipped (#125); `staging`+`main` require `ci-success` + `actionlint` + `zizmor`.
+2. ~~Required-check contexts.~~ **RESOLVED 2026-05-22** — real `ci-success` aggregate shipped (#125). Initial config required `ci-success` + `actionlint` + `zizmor`, but the two linters were path-filtered → they never reported on non-workflow PRs → deadlock. Fixed by moving actionlint + zizmor into `audit-self.yml` under `ci-success`'s `needs:`; `staging`+`main` now require **only `ci-success`** (it gates the linters transitively). Maintainer-side settings update: re-run the `gh api ... protection` calls above with the single-context payload.
 3. **Squash vs merge-commit** into staging — affects how `pr-commit-trailers` sees the range on the eventual `staging→main` PR. Squash recommended (one clean commit per sub-PR). _(Open — low stakes.)_
 
 ## §7 Cross-references

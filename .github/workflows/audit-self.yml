@@ -583,20 +583,59 @@ jobs:
       - name: Run canonical regen acceptance test (similarity ≥0.95)
         run: npm --prefix packages/core test --silent -- tests/acceptance/canonical-regen
 
+  # actionlint + zizmor live here (moved from workflow-integrity.yml) so the
+  # single required context `ci-success` can `needs:`-aggregate them — `needs:`
+  # works only WITHIN one workflow file. audit-self has no `paths:` filter, so
+  # they run on every PR and the required context always reports; a path-filtered
+  # required check would deadlock non-workflow PRs (the bug this fixes).
+  # workflow-integrity.yml keeps only the R11 branch-protection-assertion.
+  # See docs/meta-factory/automerge-staging-plan.md §5.
+  actionlint:
+    name: actionlint — YAML & expression correctness
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run actionlint via reviewdog wrapper
+        uses: reviewdog/action-actionlint@6fb7acc99f4a1008869fa8a0f09cfca740837d9d  # v1.72.0 — pin and bump via Dependabot
+        with:
+          fail_level: error
+
+  zizmor:
+    name: zizmor — supply-chain audits
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55  # v5.5.0
+        with:
+          python-version: '3.12'
+      - name: Install zizmor
+        run: pip install zizmor
+      - name: Run zizmor
+        # Plain console output. zizmor exits non-zero on findings; that's the gate.
+        # Avoiding SARIF upload keeps this runnable without GitHub Advanced Security.
+        run: zizmor --format plain .github/workflows/
+
   # Single aggregate context for branch protection. `needs:` every other
-  # audit-self PR job so requiring just `ci-success` gates them all — and stays
-  # correct as jobs are added/removed (vs listing each context in protection,
-  # which silently drifts). This is what workflow-integrity.yml's assertion has
-  # always expected `ci-success` to be; until now it was a phantom (asserted,
-  # never emitted). Cross-FILE checks (actionlint, zizmor) can't be `needs:`-ed
-  # here and are required alongside this context — see automerge-staging-plan.md §5.
-  # if: always() so the gate still runs (and can FAIL) when a need failed; the
-  # pass/fail logic lives in scripts/ci-success-gate.sh (paired-negative tested).
+  # audit-self PR job — including actionlint + zizmor above — so requiring just
+  # `ci-success` gates them all, and stays correct as jobs are added/removed (vs
+  # listing each context in protection, which silently drifts). if: always() so
+  # the gate still runs (and can FAIL) when a need failed; pass/fail logic lives
+  # in scripts/ci-success-gate.sh (paired-negative tested).
   ci-success:
     name: ci-success
     if: always()
     needs:
       - mechanical
+      - actionlint
+      - zizmor
       - rule-to-probe
       - probe-tests
       - manifest-render-check
