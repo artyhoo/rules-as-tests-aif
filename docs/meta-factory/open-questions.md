@@ -488,3 +488,11 @@ Superpowers uses **«Pressure scenarios»** for skill testing — adversarial-pr
 **Cross-references:** [companion-target-comparison.md §3.1](research-patches/2026-05-16-companion-target-comparison.md); [`packages/core/principles/`](../../packages/core/principles/) — current principle test surface; [`.claude/rules/ai-laziness-traps.md §2 T7`](../../.claude/rules/ai-laziness-traps.md) — adversarial counter-prompt discipline; [§13.32 Project foundations audit](#1332-project-foundations-audit--re-evaluation-phase-10-umbrella) — related re-evaluation umbrella.
 
 **Origin:** 2026-05-16 companion-target comparison R-phase. ADAPT-candidate flagged but not actioned per §7 Decision D2.
+
+---
+
+### 13.38 Claude Code v2.1.100+ token inflation tracking (GitHub issue #46917)
+
+Anthropic-acknowledged server-side `cache_creation` token inflation in Claude Code v2.1.100+ (~20K extra tokens/request vs v2.1.98; ~40% cost increase commonly, 10–20× worst-case; no public fix date as of 2026-05-13). Workaround: pin a pre-v2.1.100 release — this project downgraded v2.1.114 → v2.1.98 (per project memory), which predates the inflated versions. Materially raises cost for any session-scaling plan (Agent Teams, parallel sub-waves, Phase 10 swarming); inflation is silent — no in-session signal. **Status:** ARMED tracking entry — NOT subject to [no-paid-llm-in-ci.md](../../.claude/rules/no-paid-llm-in-ci.md) (version/cost issue, not LLM-API-in-CI).
+
+**Trigger to revisit:** Anthropic ships confirmed server-side fix for #46917 → decide whether a downgrade-policy note belongs in `CLAUDE.md`/`CONTRIBUTING.md`, then close; OR Phase 10 / Agent Teams work begins and the cost impact needs quantifying. **Origin:** research-tooling-evaluation R-phase §8 D4 (2026-05-16), entry opened 2026-05-21; refs [research-patches/2026-05-16-research-tooling-evaluation.md](research-patches/2026-05-16-research-tooling-evaluation.md) §8 D4 + §10.
