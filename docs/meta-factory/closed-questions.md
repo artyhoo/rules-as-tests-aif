@@ -24,6 +24,7 @@
 | [§13.27 Functional test for shipped AI-briefing templates](#1327-functional-test-for-shipped-ai-briefing-templates--closed-by-wave-7) | Closed | Wave 7 (2026-05-10/11) |
 | [§13.28 Operator-side discipline gap — non-git validation path](#1328-operator-side-discipline-gap--non-git-validation-path--closed-by-wave-7) | Closed | Wave 7 (2026-05-10/11) |
 | [§13.29 Substantive compliance verification](#1329-substantive-compliance-verification-deferred--wave-8-research) | Closed | Wave 8 (2026-05-12) |
+| [§13.36 TDD-for-Skills extension to .claude/skills/*/SKILL.md](#1336-tdd-for-skills-extension-to-claudeskillsskillmd--resolved-by-principle-15) | Closed | principle 15 / #112 (2026-05-21) |
 
 ---
 
@@ -230,3 +231,21 @@ Closed 2026-05-10/11 by sub-wave 7.4.a (`make validate-prompts`, commit `a008255
 **Status:** closed 2026-05-12. Wave 8 umbrella (PRs #38 research, #39 compliance-verifier, #40 D5-inverse-completeness, #41 §1.7-substance-CI, #42 pre-push-substance, #43 prior-art-escape-hatch, this PR Wave 8.5). Five-layer enforcement ladder active. Retroactive sweep → [`research-patches/2026-05-12-wave-8-retroactive-audit.md`](research-patches/2026-05-12-wave-8-retroactive-audit.md). Calibration window through 2026-06-10 for both substance arms.
 **Origin:** four incidents — §1.7 PR-section gaming (Waves 5-7, PRs #25-#36 generic «Checked — compliant» bodies), D-3 probe shipped without negative test (PR #37, externally surfaced not auto-detected), 2026-05-09 EXECUTION-PLAN goal drift (canonical-phrase presence passed; semantic equivalence not checked), D-3 enrollment list curated from memory not from grep (2026-05-11, surfaced pre-research; ≥2 active downstream docs containing canonical phrase missing from `DOWNSTREAM_DOCS` — incident-4 evidence at [`research-patches/2026-05-11-d3-downstream-docs-completeness.md`](research-patches/2026-05-11-d3-downstream-docs-completeness.md)).
 **Cross-references:** [`.claude/orchestrator-prompts/wave-8-substantive-compliance/research.md`](../../.claude/orchestrator-prompts/wave-8-substantive-compliance/research.md); research-patch `research-patches/2026-05-11-§13.29-substantive-compliance-research.md`; incident-4 evidence at [`research-patches/2026-05-11-d3-downstream-docs-completeness.md`](research-patches/2026-05-11-d3-downstream-docs-completeness.md); retroactive audit [`research-patches/2026-05-12-wave-8-retroactive-audit.md`](research-patches/2026-05-12-wave-8-retroactive-audit.md); §13.10 entry #4 (Gate 5 two-AI review — potential cascade overlap); §13.23 (closed Wave 7 — adjacent layer, presence-check not substance-check); §13.27/§13.28 (Wave 7 template-render + harness-hook — adjacent precedent).
+
+---
+
+### 13.36 TDD-for-Skills extension to .claude/skills/*/SKILL.md — resolved by principle 15
+
+> *Migrated from open-questions.md on closure (2026-05-21) to keep the open registry under its 500-line budget. Anchor preserved for backward links.*
+
+Superpowers explicitly applies **TDD discipline** to skill authoring: «NO SKILL WITHOUT A FAILING TEST FIRST»; RED-GREEN-REFACTOR for documentation. ADAPT-candidate for extending our paired-negative-test principle (`packages/core/principles/02-paired-negative-test.test.ts`) to skill files. Surfaced in [companion-target-comparison.md §3.1 + §7 Decision D](research-patches/2026-05-16-companion-target-comparison.md).
+
+**Status:** RESOLVED (2026-05-21) — shipped as [principle 15 — skill paired-negative](../../packages/core/principles/15-skill-paired-negative.test.ts) (#112; SSOT [#55](prior-art-evaluations.md)). A refinement of **candidate mechanism A** below: rather than a companion fixture file, each non-grandfathered `SKILL.md` must carry a body-section paired-negative block (`## Without this skill` / `## With this skill`, both non-trivial and differing — anti-tautology). Grandfather = explicit `EXEMPT_SKILLS` allowlist (the 5 current skills). Principle 02 enforces paired-negative at the rule layer; principle 15 now extends the same idea to the skill layer (ADAPT of Superpowers' «NO SKILL WITHOUT A FAILING TEST», substrate-pure — no dependency). *(Was: ARMED — track without commitment.)*
+
+**Candidate mechanisms (historical):**
+
+- A. Add a principle test — mechanical check that every SKILL.md evidences the failure mode it addresses. *(Shipped, refined: body-section block rather than companion fixture.)*
+- B. SKILL.md frontmatter `evidenced-failure:` linking to a research-patch/incident note. *(Not chosen — body-section needs no schema change.)*
+- C. Reject — overkill at single-maintainer scale. *(Not chosen.)*
+
+**Origin:** 2026-05-16 companion-target comparison R-phase (ADAPT-candidate per §7 Decision D2); resolved via N2 #5 → principle 15 (2026-05-21). **Cross-references:** [§13.39 Recommendation-moment gate](open-questions.md) (sibling N2/recommendation-discipline family); `packages/core/principles/02-paired-negative-test.test.ts` (rule-layer precedent).

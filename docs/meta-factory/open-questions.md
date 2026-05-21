@@ -453,26 +453,6 @@ Superpowers (`obra/superpowers`) introduces a **«1% Rule»** — mandate skill 
 
 ---
 
-### 13.36 TDD-for-Skills extension to .claude/skills/*/SKILL.md
-
-Superpowers explicitly applies **TDD discipline** to skill authoring: «NO SKILL WITHOUT A FAILING TEST FIRST»; RED-GREEN-REFACTOR for documentation. ADAPT-candidate for extending our paired-negative-test principle (`packages/core/principles/02-paired-negative-test.test.ts`) to skill files. Surfaced in [companion-target-comparison.md §3.1 + §7 Decision D](research-patches/2026-05-16-companion-target-comparison.md).
-
-**Status:** RESOLVED (2026-05-21) — shipped as [principle 15 — skill paired-negative](../../packages/core/principles/15-skill-paired-negative.test.ts) (#112; SSOT [#55](prior-art-evaluations.md)). A refinement of **candidate mechanism A** below: rather than a companion fixture file, each non-grandfathered `SKILL.md` must carry a body-section paired-negative block (`## Without this skill` / `## With this skill`, both non-trivial and differing — anti-tautology). Grandfather = explicit `EXEMPT_SKILLS` allowlist (the 5 current skills). Principle 02 enforces paired-negative at the rule layer; principle 15 now extends the same idea to the skill layer (ADAPT of Superpowers' «NO SKILL WITHOUT A FAILING TEST», substrate-pure — no dependency). *(Was: ARMED — track without commitment.)*
-
-**Candidate mechanisms:**
-
-- A. Add `packages/core/principles/N-skill-failure-evidence.test.ts` — mechanical check that every SKILL.md has a companion fixture (or research-patch link) showing the failure mode the skill addresses.
-- B. Add SKILL.md frontmatter requirement `evidenced-failure:` linking to a research-patch or incident note documenting the skill's motivating failure.
-- C. Reject — overkill at single-maintainer scale; SKILL.md scope is narrower than test-skill scope (skills are advice, tests are constraints).
-
-**Trigger to revisit:** ≥2 SKILL.md files authored where the skill turned out to address no real failure pattern (skill drift, theatre risk per [`ai-laziness-traps.md §2 T2`](../../.claude/rules/ai-laziness-traps.md)). OR maintainer commits to a skill-quality-audit session.
-
-**Cross-references:** [companion-target-comparison.md §3.1](research-patches/2026-05-16-companion-target-comparison.md); [`packages/core/principles/02-paired-negative-test.test.ts`](../../packages/core/principles/02-paired-negative-test.test.ts) — existing paired-negative-test discipline; [`.claude/skills/`](../../.claude/skills/) — current skill surface.
-
-**Origin:** 2026-05-16 companion-target comparison R-phase. ADAPT-candidate flagged but not actioned per §7 Decision D2.
-
----
-
 ### 13.37 «Pressure scenarios» adoption for principle tests
 
 Superpowers uses **«Pressure scenarios»** for skill testing — adversarial-probe pattern where a skill is run against scenarios designed to elicit incorrect behavior under time/scope pressure. ADAPT-candidate for our principle tests' adversarial-probe pattern. Surfaced in [companion-target-comparison.md §3.1 + §7 Decision D](research-patches/2026-05-16-companion-target-comparison.md).
@@ -498,3 +478,19 @@ Superpowers uses **«Pressure scenarios»** for skill testing — adversarial-pr
 Anthropic-acknowledged server-side `cache_creation` token inflation in Claude Code v2.1.100+ (~20K extra tokens/request vs v2.1.98; ~40% cost increase commonly, 10–20× worst-case; no public fix date as of 2026-05-13). Workaround: pin a pre-v2.1.100 release — this project downgraded v2.1.114 → v2.1.98 (per project memory), which predates the inflated versions. Materially raises cost for any session-scaling plan (Agent Teams, parallel sub-waves, Phase 10 swarming); inflation is silent — no in-session signal. **Status:** ARMED tracking entry — NOT subject to [no-paid-llm-in-ci.md](../../.claude/rules/no-paid-llm-in-ci.md) (version/cost issue, not LLM-API-in-CI).
 
 **Trigger to revisit:** Anthropic ships confirmed server-side fix for #46917 → decide whether a downgrade-policy note belongs in `CLAUDE.md`/`CONTRIBUTING.md`, then close; OR Phase 10 / Agent Teams work begins and the cost impact needs quantifying. **Origin:** research-tooling-evaluation R-phase §8 D4 (2026-05-16), entry opened 2026-05-21; refs [research-patches/2026-05-16-research-tooling-evaluation.md](research-patches/2026-05-16-research-tooling-evaluation.md) §8 D4 + §10.
+
+### 13.39 Recommendation-moment gate (D6 decision — H1 shipped, H2 rejected, H10 → research)
+
+Recommendation-gate iterative research (branch `research/recommendation-gate-iterative`, rounds 3–5) evaluated three mechanisms for catching an AI verdict/recommendation issued without evidence. **Maintainer D6 decision (2026-05-21):**
+
+- **H1 (turn-start reminder) — SHIPPED (#117):** a recommendation-discipline checklist injected into the UserPromptSubmit `inject-session-bootstrap.sh` digest. Context reminder, NOT enforcement (0% FP, ~0 build, instruction-compliance-dependent — honest, no theatre claim).
+- **H2 (Stop-hook keyword scanner) — REJECTED:** 67% false-positive rate (round-3 §3.7) = cry-wolf, which the #97 instruction-compliance finding showed erodes compliance. Disqualifying for a HOT gate.
+- **H10 (verdict-as-tool-call `issue_verdict` schema) — DEFERRED to research.** HIGH build (custom MCP) for a single maintainer (BFR §2); baseline groundedness already ~0.75 (#97/#98 → small headroom); fabrication-bypass caveat (schema enforces structure, not truth).
+
+**Status:** PARTIALLY RESOLVED — H1 shipped, H2 closed-rejected; **H10 ARMED** as a research item.
+
+**First action upon revisit (H10):** dispatch `.claude/orchestrator-prompts/h10-verdict-gate-research/kickoff.md` (gitignored local scaffold — re-verify the BUILD verdict adversarially via the 6-item search check; fabrication-bypass deterministic pairing; schema boundary for shortlist meta-decisions; build-cost-vs-headroom kill-question; go/no-go surfaced as decision-needed). Run Phase -1 on the kickoff before dispatch.
+
+**Trigger to revisit (H10):** maintainer commits to a HOT structural gate beyond H1; OR H1 + the #98 detector longitudinal data shows the reminder is insufficient (recommendation-class groundedness not improving). Keep **SEPARATE** from §13.34 (consolidation decided against — bounded scope, round-5 §5.3).
+
+**Origin:** recommendation-gate-iterative R-phase rounds 3–5 §5 decision surface; D6 decided by maintainer 2026-05-21. **Cross-references:** [§13.34 Autonomous self-audit triggering layer](#1334-autonomous-self-audit-triggering-layer-post-wave-10-research) (related per-verdict-gate vs session-level-self-trigger split); #117 (H1 implementation); branch `research/recommendation-gate-iterative` (full evidence base).
