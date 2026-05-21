@@ -222,6 +222,8 @@ jobs:
         run: npm --prefix packages/core run test:principles
       - name: Run prior-art trailer hook anti-tautology test (Phase 8.8 T9)
         run: bash tests/hooks/prior-art-trailer-hook.test.sh
+      - name: Run §1.7 discipline trailer hook anti-tautology test (Wave 10.3)
+        run: bash tests/hooks/s17-trailer-hook.test.sh
       - name: Run end-of-turn claim-scan hook test (autonomous-self-audit §11.1)
         run: bash tests/hooks/eot-claim-scan.test.sh
 

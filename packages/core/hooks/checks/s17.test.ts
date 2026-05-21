@@ -225,6 +225,20 @@ describe('isDisciplineIntroducing — section-marker discrimination', () => {
       isDisciplineIntroducing('s', fakeGit({ changedFiles: rule, diffForPaths: () => ' ## § unchanged heading' })),
     ).toBe(false);
   });
+  it('ignores a "## §" heading on a REMOVED (-) diff line (anchor ^+ required)', () => {
+    expect(
+      isDisciplineIntroducing('s', fakeGit({ changedFiles: rule, diffForPaths: () => '-## § deleted heading' })),
+    ).toBe(false);
+  });
+  it('does NOT bypass when an allow-list prefix appears mid-subject (anchor ^ required)', () => {
+    // "docs(research-patches):" only bypasses at the START of the subject.
+    const g = fakeGit({
+      commitSubject: () => 'feat: see docs(research-patches): note',
+      changedFiles: rule,
+      diffForPaths: () => '+## § new',
+    });
+    expect(isDisciplineIntroducing('s', g)).toBe(true);
+  });
   it('finds the discipline file among several non-discipline changes', () => {
     const g = fakeGit({
       changedFiles: () => [

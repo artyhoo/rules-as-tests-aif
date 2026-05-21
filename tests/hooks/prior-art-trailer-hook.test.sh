@@ -74,13 +74,6 @@ exit 0
 STUB
   chmod +x "$tmp/packages/core/audit-self/audit-ai-docs.test.sh"
 
-  # Stub pre-push.test.sh (section 3 — same isolation requirement)
-  cat > "$tmp/packages/core/audit-self/pre-push.test.sh" <<'STUB'
-#!/usr/bin/env bash
-exit 0
-STUB
-  chmod +x "$tmp/packages/core/audit-self/pre-push.test.sh"
-
   # Stub hook-stub-completeness.test.sh (section 3a — same isolation requirement)
   cat > "$tmp/packages/core/audit-self/hook-stub-completeness.test.sh" <<'STUB'
 #!/usr/bin/env bash
