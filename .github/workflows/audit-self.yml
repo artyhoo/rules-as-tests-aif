@@ -231,6 +231,8 @@ jobs:
         run: bash tests/hooks/s17-trailer-hook.test.sh
       - name: Run PREPUSH_UPSTREAM_REF override paired-negative (non-main base backstop)
         run: bash tests/hooks/prepush-upstream-ref.test.sh
+      - name: Run ci-success aggregate-gate paired-negative
+        run: bash scripts/ci-success-gate.test.sh
       - name: Run end-of-turn claim-scan hook test (autonomous-self-audit §11.1)
         run: bash tests/hooks/eot-claim-scan.test.sh
 
@@ -580,3 +582,48 @@ jobs:
         run: npm install --silent
       - name: Run canonical regen acceptance test (similarity ≥0.95)
         run: npm --prefix packages/core test --silent -- tests/acceptance/canonical-regen
+
+  # Single aggregate context for branch protection. `needs:` every other
+  # audit-self PR job so requiring just `ci-success` gates them all — and stays
+  # correct as jobs are added/removed (vs listing each context in protection,
+  # which silently drifts). This is what workflow-integrity.yml's assertion has
+  # always expected `ci-success` to be; until now it was a phantom (asserted,
+  # never emitted). Cross-FILE checks (actionlint, zizmor) can't be `needs:`-ed
+  # here and are required alongside this context — see automerge-staging-plan.md §5.
+  # if: always() so the gate still runs (and can FAIL) when a need failed; the
+  # pass/fail logic lives in scripts/ci-success-gate.sh (paired-negative tested).
+  ci-success:
+    name: ci-success
+    if: always()
+    needs:
+      - mechanical
+      - rule-to-probe
+      - probe-tests
+      - manifest-render-check
+      - principles-meta-tests
+      - pr-commit-trailers
+      - enforce-husky-presence
+      - framework-self-install-ts-server
+      - framework-self-install-react-next
+      - framework-self-detect
+      - framework-self-research
+      - framework-self-synth
+      - framework-self-validate
+      - framework-self-install-validated
+      - phase-8-canonical-regen-acceptance
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Aggregate required-job results
+        # results via env (not inline ${{…}} in run:) to avoid template-injection
+        # (zizmor). The tokens are GitHub-controlled (success|failure|skipped|
+        # cancelled); word-split intentionally into one arg per needed job.
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          # shellcheck disable=SC2086  # intentional word-split: one arg per job result
+          bash scripts/ci-success-gate.sh $RESULTS
