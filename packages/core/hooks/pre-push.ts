@@ -218,7 +218,16 @@ function main(): void {
   );
 
   // ── 3. Self-test pipeline ─────────────────────────────────────────────────────
-  requireSelfTest('packages/core/audit-self/audit-ai-docs.test.sh');
+  // audit-ai-docs.test.ts (Wave 10.4): run via vitest (replaces audit-ai-docs.test.sh)
+  {
+    const r = run('npx', [
+      'vitest', 'run', '--reporter=default',
+      'packages/core/audit-self/audit-ai-docs.test.ts',
+    ]);
+    if (r.notFound) die('❌ npx not found — install Node.js to run audit-ai-docs tests');
+    if (r.exitCode !== 0) die('❌ audit-ai-docs.test.ts failed:', r);
+    emit(r);
+  }
 
   // ── 3a. Hook stub completeness ────────────────────────────────────────────────
   requireSelfTest('packages/core/audit-self/hook-stub-completeness.test.sh');

@@ -17,6 +17,7 @@ export default defineConfig({
       'diff/**/*.test.ts',
       'tests/**/*.test.ts',
       'hooks/**/*.test.ts',
+      'audit-self/**/*.test.ts',
       'audit-self/**/*.audit.ts',
     ],
   },
