@@ -83,6 +83,16 @@ Three independent probes of `obra/superpowers`, 2026-05-21:
 - **Output:** clean coexistence; eventual `npx`-style scaffold replacing the current 8 manual steps.
 - **BFR verdict:** the «button» is the only new build; coexistence reuses C-1 resolution.
 
+### Wave N7 — Dogfood companions in our own dev (arm up: усиливаясь ими)
+- **Goal:** close the conflation the maintainer surfaced 2026-05-21 — «companion» has meant *product-positioning* (we ship alongside; §3), never *dev-tool* (we **use** companions to build this project). Today: **zero companion deps** in `package.json`, own homegrown skills (orchestrator/reviewer), own MCP-research tools — we REFERENCE/ADOPT-VOCABULARY but do not dogfood. This wave makes dogfooding an explicit, bounded choice.
+- **Scope split (load-bearing):** dogfood companions at the **dev-workflow/process layer ONLY** (e.g. use Superpowers' SDD skill + `using-git-worktrees` in our own development instead of maintaining homegrown equivalents). Keep the **enforcement substrate dependency-free** — coupling it to a vendor would forfeit the AI-agnostic weatherproofing the N0 storm just proved load-bearing (book Часть XIII: «оружие для процесса бери у союзников, броню субстрата куй свою»).
+- **N0 coupling:** this is the same action as de-risking the storm — if dispatch already runs on Superpowers/Agent-SDK patterns, the `claude -p` closure bites far less. N7 process-layer dogfooding ⊇ N0 migration target.
+- **Pairs with N5 (give back):** dogfooding first tells us empirically *which* of our unique artifacts (paired-negative, mutation gates, doc-authority) are worth contributing back — N5 follows N7, not the reverse.
+- **Checks:** every dogfood adoption carries a T16 problem-class-match note + SSOT entry; substrate-layer purity verified (`grep` of companion deps in `package.json` stays empty); §1.7 forward+backward whenever a homegrown skill is retired in favour of a companion's.
+- **BFR verdict:** ADOPT (process-layer skills) + KEEP-NARROW (substrate stays own). NOT a BUILD.
+
+> **DECISION-NEEDED (maintainer):** what does «companion» mean for this project — **(A)** product-positioning only (ship alongside, never couple); **(B)** dev-tool (dogfood them to build ourselves); or **(C)** both, on separate layers (substrate = A, process = B)? · *Reviewer's described consequences, not a pick:* A → keeps everything as today; symbiosis stays a claim, not practice; lowest risk, but «arm up with allies» (book Часть XIII) never materialises. B → maximal strengthening but risks coupling the substrate and eroding AI-agnosticism (the very property N0 proved load-bearing). C → the layered split this wave assumes; preserves the weatherproof moat while actually using allies where safe. **N7's whole shape presumes C; if the maintainer picks A or B, N7 is rescoped or dropped.** Per [`reviewer-discipline.md` §2](../../../.claude/rules/reviewer-discipline.md) this is a strategy call — surfaced, not decided here.
+
 ## §5 — Sequencing + dependencies
 
 ```text
@@ -91,8 +101,9 @@ NOW (cheap, parallel, lock the story):   N1 (validation) ∥ N2 (adopt)
 URGENT (unblocks Commit 7 + AIF claim):  N6a (C-1 impl PR)
 LONG POLE (after Wave 9 M1–M5):          N3 (TS core / Wave 10)
 RESEARCH (no deadline):                  N4a (detector fix) → N4b (gate)
-AFTER N2+N3:                             N5 (give-back)
-AFTER N3+N6a:                            N6b (one-button install)
+ARM UP (process-layer, ⊇ N0 target):     N7 (dogfood companions in dev) — gated on DECISION = C
+AFTER N7 → then N2+N3:                    N5 (give-back)
+AFTER N3+N6a:                             N6b (one-button install)
 ```
 
 - **N0 is the only wave with a hard external clock** — it outranks everything. But it threatens the non-moat layer, so worst case the project degrades orchestration to interactive and the substrate is untouched. Verify before migrating.
@@ -101,16 +112,17 @@ AFTER N3+N6a:                            N6b (one-button install)
 - **N6a (C-1 impl)** is the urgent unblock — gates the honest companion claim and Commit 7.
 - **N3** is the long pole; everything product-shaped (N5, N6b) waits on it.
 - **One-button install is LAST** — «coexistence first, button later», never the reverse.
+- **N7 gates on the DECISION-NEEDED** (companion = A/B/C). It is the operational twin of book Часть XIII («arm up with allies») and folds into N0: process-layer dogfooding *is* the storm-migration. N5 (give-back) sequences **after** N7 — you only know what's worth giving once you've used theirs.
 
 ## §6 — §1.7 self-reflexive note (per `phase-research-coverage.md` §1.7)
 
 - **Forward-check:** this roadmap complies with `build-first-reuse-default` (every wave carries a BFR verdict), `no-paid-llm-in-ci` (N1/N4 checks are DeepWiki/WebSearch/deterministic-scorer only), `doc-authority-hierarchy` (this patch declares scope + subordinates to README/EXECUTION-PLAN), `reviewer-discipline` (waves are *proposed*; admission is the maintainer's strategy call, not decided here).
-- **Backward-check:** no new rule introduced → no existing-artefact sweep owed. The roadmap *proposes* rule changes (N2 demotes `parallel-subwave-isolation`'s promotion ambition); those edits carry their own §1.7 when authored.
+- **Backward-check:** no new rule introduced → no existing-artefact sweep owed. The roadmap *proposes* rule changes (N2 demotes `parallel-subwave-isolation`'s promotion ambition); those edits carry their own §1.7 when authored. N7 raises a DECISION-NEEDED rather than deciding it — `reviewer-discipline.md` §2 compliant (consequences described, maintainer picks).
 - **Self-application:** the symbiosis verdict (§3) was itself produced by the project's own «verify, don't assert» discipline (§2 probes) — the recommendation walked its own talk before being written down.
 
 ## §7 — Tags
 
-`#niche-positioning` `#companion-symbiosis` `#build-first-reuse-as-strategy` `#enforcement-substrate-moat` `#give-back-residue`
+`#niche-positioning` `#companion-symbiosis` `#build-first-reuse-as-strategy` `#enforcement-substrate-moat` `#give-back-residue` `#dogfood-companions` `#arm-up-with-allies`
 
 ## §8 — See also
 
