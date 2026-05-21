@@ -227,6 +227,46 @@ jobs:
       - name: Run end-of-turn claim-scan hook test (autonomous-self-audit §11.1)
         run: bash tests/hooks/eot-claim-scan.test.sh
 
+  # Last-resort CI mirror of the pre-push §1.7 + §7 Prior-art trailer checks, run
+  # over the REAL PR commit range (origin/main..HEAD) through the PREPUSH_ONLY seam
+  # in packages/core/hooks/pre-push.ts. Closes the `--no-verify` bypass: pre-push
+  # runs only on the developer machine, so a bypassed push would otherwise reach
+  # main with no trailer enforcement and no record.
+  #   §1.7 is HARD-ENFORCED here (S17_WARN_ONLY=false on the step) so the last-resort
+  #     gate blocks regardless of the pre-push calibration default — without this the
+  #     step would be green-but-warn-only until the pre-push flip (#119) lands, i.e. a
+  #     named gate that never fires (false-negative theatre). The CI gate is strict.
+  #   §7 base (trailer missing/invalid) always blocks; §7 substance (`Prior-art:
+  #     skipped` on a capability commit) stays warn-only — Option B, the documented
+  #     CLAUDE.md escape hatch must not be hard-blocked here.
+  # PR-only gate (the merge-time backstop; reused logic, no duplication).
+  pr-commit-trailers:
+    name: PR commit trailers — §1.7 + Prior-art (real-commit backstop)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0  # full history so origin/main..HEAD resolves the PR commits
+          ref: ${{ github.event.pull_request.head.sha }}  # PR tip, not the synthetic merge commit
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install workspace deps (hoists tsx to root)
+        run: npm install --silent
+      - name: Ensure origin/main base ref is present
+        run: git fetch --no-tags --quiet origin main:refs/remotes/origin/main
+      - name: §1.7 discipline-trailer check over PR commits (hard-enforced)
+        env:
+          S17_WARN_ONLY: 'false'
+          S17_SUBSTANCE_WARN_ONLY: 'false'
+        run: PREPUSH_ONLY=s17 npx tsx packages/core/hooks/pre-push.ts
+      - name: §7 Prior-art trailer check over PR commits (base blocks; substance warn-only per Option B)
+        run: PREPUSH_ONLY=prior-art npx tsx packages/core/hooks/pre-push.ts
+
   enforce-husky-presence:
     name: Verify .husky/ hooks exist and are non-trivial
     runs-on: ubuntu-latest
