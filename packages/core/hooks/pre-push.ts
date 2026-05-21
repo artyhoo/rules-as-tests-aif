@@ -1,5 +1,5 @@
 /**
- * pre-push.ts — TS-core pre-push orchestrator (Wave 10.1).
+ * pre-push.ts — TS-core pre-push orchestrator (Wave 10.1 / 10.2).
  *
  * Invoked by the 10-line `.husky/pre-push` dispatcher via
  * `node --import tsx/esm packages/core/hooks/pre-push.ts`. Replaces the bash
@@ -10,11 +10,10 @@
  * shell-outs into thin, individually-tested call sites (closes C3 for the
  * delegation sections).
  *
- * The two trailer-PARSING sections (§7 Prior-art trailer, §1.7 discipline
- * trailer) remain in `legacy-trailer-checks.sh` for now and are invoked here via
- * runCheck('bash', …) so enforcement is uninterrupted. They migrate to TS in
- * Wave 10.2 (checks/prior-art.ts) and Wave 10.3 (checks/s17.ts); the shim then
- * shrinks to empty and is deleted.
+ * Wave 10.2: §7 Prior-art trailer (pa_* functions) is now handled directly by
+ * the TS module `checks/prior-art.ts` + `utils/git.ts`. The bash shim
+ * (`legacy-trailer-checks.sh`) is trimmed to §1.7-only (s17_* functions) and
+ * will be deleted after Wave 10.3 ports the §1.7 check.
  *
  * Behaviour parity with the former bash hook is byte-faithful for the delegation
  * sections; documented deviations:
@@ -28,6 +27,8 @@ import { existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runCheck, type CheckResult } from './utils/run-check.ts';
+import { runPriorArtCheck } from './checks/prior-art.ts';
+import { getCommits, upstreamExists, realGit } from './utils/git.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // packages/core/hooks → repo root
@@ -80,7 +81,66 @@ function requireSelfTest(scriptRelPath: string): void {
   emit(r);
 }
 
+/**
+ * §7 Prior-art trailer check. Extracted so it can run in isolation (PREPUSH_ONLY)
+ * — the anti-tautology end-to-end test exercises only this section and must not
+ * depend on the other sections' tools/deps.
+ */
+function priorArtSection(): void {
+  const UPSTREAM_REF = 'origin/main';
+  if (!upstreamExists(UPSTREAM_REF)) return;
+  const commits = getCommits(UPSTREAM_REF);
+  const substanceWarnOnly = (process.env['PA_SUBSTANCE_WARN_ONLY'] ?? 'true') !== 'false';
+  const report = runPriorArtCheck(commits, realGit);
+
+  if (report.failures.length > 0) {
+    process.stdout.write('\n❌ Prior-art trailer missing or invalid on capability commit(s):\n');
+    for (const f of report.failures) {
+      process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
+    }
+    process.stdout.write(
+      '\nFix: amend the commit body to include a `Prior-art:` line per CONTRIBUTING.md.\n' +
+        'Examples:\n' +
+        '  Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).\n' +
+        '  Prior-art: skipped — refactor only, no new capability\n\n' +
+        'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n' +
+        'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n\n',
+    );
+    process.exit(1);
+  }
+
+  if (report.substanceFailures.length > 0) {
+    if (substanceWarnOnly) {
+      process.stdout.write('\n⚠ Prior-art: escape-hatch on capability commit (substance arm, Wave 8.4):\n');
+      for (const f of report.substanceFailures) {
+        process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
+      }
+      process.stdout.write(
+        '\nCalibration window: warn-only through 2026-06-10.\n' +
+          'Fix: replace `Prior-art: skipped — …` with `Prior-art: prior-art-evaluations.md#N (verdict X — rationale)`.\n\n',
+      );
+    } else {
+      process.stdout.write('\n❌ Prior-art: escape-hatch on capability commit:\n');
+      for (const f of report.substanceFailures) {
+        process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
+      }
+      process.stdout.write(
+        '\nSet PA_SUBSTANCE_WARN_ONLY=true to downgrade locally (calibration window expired).\n\n',
+      );
+      process.exit(1);
+    }
+  }
+}
+
 function main(): void {
+  // Test seam: run a single section in isolation. The §7 anti-tautology
+  // end-to-end test (tests/hooks/prior-art-trailer-hook.test.sh) sets this so it
+  // exercises only the prior-art logic, independent of sections 1–6 deps/env.
+  if (process.env['PREPUSH_ONLY'] === 'prior-art') {
+    priorArtSection();
+    process.exit(0);
+  }
+
   // ── 1. actionlint ──────────────────────────────────────────────────────────
   const workflows = workflowYmlFiles();
   if (workflows.length > 0) {
@@ -158,10 +218,14 @@ function main(): void {
     }
   }
 
-  // ── 7 + §1.7. Trailer checks (delegated to legacy bash until 10.2 / 10.3) ─────
-  // Prior-art trailer (§7) + §1.7 discipline trailer. The bash handles its own
-  // warn-only calibration and exits non-zero only on hard failures; we always
-  // surface its output (warnings included) and propagate its exit code.
+  // ── 7. Prior-art trailer (§7) — TS-native since Wave 10.2 ────────────────────
+  // Capability-commit detection + `Prior-art:` trailer validation. Ported from
+  // pa_* functions in the former legacy-trailer-checks.sh (now §1.7-only).
+  priorArtSection();
+
+  // ── §1.7. Discipline trailer (§1.7) — delegated to legacy bash shim until Wave 10.3 ──
+  // The shim is now §1.7-only (pa_* functions removed in Wave 10.2). The bash
+  // handles its own warn-only calibration and exits non-zero only on hard failures.
   {
     const r = runCheck('bash', [resolve(HERE, 'legacy-trailer-checks.sh')], {
       cwd: REPO_ROOT,

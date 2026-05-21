@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # packages/core/audit-self/pre-push.test.sh
-# Paired-negative tests for .husky/pre-push §7 pa_check_trailer() and §9 s17_check_trailer() substance arms.
-# Covers Wave 8.3 (§9 substance), Wave 8.4 (§7 substance), Wave 8.5 (historical-cutoff bypass).
+# Paired-negative tests for .husky/pre-push §9 s17_check_trailer() substance arms.
+# Covers Wave 8.3 (§9 substance), Wave 8.5 (historical-cutoff bypass).
 # Mirrors audit-ai-docs.test.sh pattern.
+#
+# Wave 10.2 migration note: §7 pa_check_trailer() moved to TS
+# (packages/core/hooks/checks/prior-art.ts). The pa_* substance tests (5-8, 16)
+# moved to packages/core/hooks/checks/prior-art.test.ts (vitest). This file
+# now covers §1.7 (s17_*) only; it will retire when Wave 10.3 ports s17.ts.
+#
 # Usage: bash packages/core/audit-self/pre-push.test.sh
 # Exit: 0 = all pass, 1 = at least one failure.
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Wave 10.1: the §7/§1.7 trailer functions moved out of .husky/pre-push (now a
-# 10-line dispatcher) into packages/core/hooks/legacy-trailer-checks.sh, keeping
-# their 2-space indentation so the sed-extraction below still matches. They port
-# to TS in Wave 10.2 (prior-art.ts) / 10.3 (s17.ts), at which point these
-# scenarios move to vitest and this file is retired.
 HOOK="$SCRIPT_DIR/../hooks/legacy-trailer-checks.sh"
 if [ -t 1 ]; then RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
 else RED=''; GREEN=''; NC=''; fi
@@ -25,13 +26,11 @@ cat > "$TMPD/git" << 'EOF'
 if [ "$1" = "show" ]; then printf '%s' "$MOCK_BODY"; else command git "$@"; fi
 EOF
 chmod +x "$TMPD/git"; export PATH="$TMPD:$PATH"
-# Source §9 and §7 functions from the hook.
-eval "$(sed -n '/^  s17_is_discipline_introducing()/,/^  }/p; /^  s17_check_trailer()/,/^  }/p; /^  pa_check_trailer()/,/^  }/p' "$HOOK")"
+# Source §1.7 functions from the shim (§7 pa_* are now in TS — vitest covers them).
+eval "$(sed -n '/^  s17_is_discipline_introducing()/,/^  }/p; /^  s17_check_trailer()/,/^  }/p' "$HOOK")"
 GENERIC="§1.7: forward-check applied — Checked all rules, compliant. Backward-check — complete sweep performed."
 CITATION="§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:82 mutation arm verified; backward: 0 new .md files"
 BOOTSTRAP="§1.7 Bootstrap: introduces substance arm for §1.7 trailer with 2026-06-10 calibration window"
-PA_SKIPPED="Prior-art: skipped — refactor only, no new capability"
-PA_CITATION="Prior-art: prior-art-evaluations.md#38 (CodeRabbit, verdict DEFER — code-review focus, no overlap with capability-commit gate)"
 # 1. Negative: generic stub without file:line → exit 2 (substance failure).
 test_s17_substance_negative() {
   export MOCK_BODY="feat(test): dummy
@@ -76,59 +75,11 @@ $GENERIC"
   [ "$rc" -eq 2 ] && pass "substance_warn_only_default (rc=2; outer router warns only)" \
     || fail "substance_warn_only_default: expected rc=2, got $rc"
 }
-# §7 pa_check_trailer substance tests (Wave 8.4).
-# 5. Negative: skipped escape-hatch in capability context → exit 2 (substance failure).
-test_pa_substance_negative() {
-  export MOCK_BODY="feat(test): dummy
-
-$PA_SKIPPED"
-  export PA_SUBSTANCE_WARN_ONLY=false
-  local rc=0; pa_check_trailer "deadbeef00" >/dev/null 2>&1 || rc=$?
-  unset PA_SUBSTANCE_WARN_ONLY
-  [ "$rc" -eq 2 ] && pass "pa_substance_negative (rc=2 on skipped trailer in capability context)" \
-    || fail "pa_substance_negative: expected rc=2, got $rc"
-}
-# 6. Positive: real SSOT citation → exit 0.
-test_pa_substance_positive() {
-  export MOCK_BODY="feat(test): dummy
-
-$PA_CITATION"
-  export PA_SUBSTANCE_WARN_ONLY=false
-  local rc=0; pa_check_trailer "deadbeef00" >/dev/null 2>&1 || rc=$?
-  unset PA_SUBSTANCE_WARN_ONLY
-  [ "$rc" -eq 0 ] && pass "pa_substance_positive (rc=0 on SSOT-cited trailer)" \
-    || fail "pa_substance_positive: expected rc=0, got $rc"
-}
-# 7. Non-capability commit: outer router skips pa_check_trailer entirely — no substance failure.
-test_pa_substance_noncapability_unaffected() {
-  export MOCK_BODY="feat(test): dummy
-
-$PA_SKIPPED"
-  export PA_SUBSTANCE_WARN_ONLY=false
-  # Simulate non-capability: mock pa_detect_capability_reason to return 1.
-  pa_detect_capability_reason() { return 1; }
-  local failures="" reason="" err="" rc=0
-  if reason=$(pa_detect_capability_reason "deadbeef00"); then
-    err=$(pa_check_trailer "deadbeef00") || rc=$?
-    [ "$rc" -ne 0 ] && failures="rc=$rc"
-  fi
-  unset PA_SUBSTANCE_WARN_ONLY
-  unset -f pa_detect_capability_reason 2>/dev/null || true
-  [ -z "$failures" ] && pass "pa_substance_noncapability_unaffected (outer skips check on non-cap)" \
-    || fail "pa_substance_noncapability_unaffected: unexpected failure $failures"
-}
-# 8. Warn-only default (PA_SUBSTANCE_WARN_ONLY unset): function signals rc=2; outer router warns only.
-test_pa_substance_warn_only_default() {
-  export MOCK_BODY="feat(test): dummy
-
-$PA_SKIPPED"
-  unset PA_SUBSTANCE_WARN_ONLY 2>/dev/null || true
-  local rc=0; pa_check_trailer "deadbeef00" >/dev/null 2>&1 || rc=$?
-  [ "$rc" -eq 2 ] && pass "pa_substance_warn_only_default (rc=2; outer router warns only)" \
-    || fail "pa_substance_warn_only_default: expected rc=2, got $rc"
-}
+# NOTE: §7 pa_check_trailer tests (5-8, 16) moved to vitest in Wave 10.2.
+# See packages/core/hooks/checks/prior-art.test.ts — covers all pa_* substance
+# and historical-cutoff cases with Stryker ≥80% mutation coverage.
 # Wave 8.5 historical cutoff tests.
-# 9. §9 s17_check_trailer: commit with author-date before S17_HISTORICAL_CUTOFF
+# 5 (was 9). §9 s17_check_trailer: commit with author-date before S17_HISTORICAL_CUTOFF
 # must return 0 regardless of trailer content (pre-Wave-8 history replay protection).
 # MOCK_BODY starts with the date string so cut -d' ' -f1 extracts the ISO date.
 test_s17_historical_cutoff() {
@@ -214,23 +165,12 @@ Discipline applied.§1.7 forward and backward checks done."
   [ "$rc" -eq 2 ] && pass "body_prose_punctuation_caught (rc=2 on §1.7 after non-slash punctuation)" \
     || fail "body_prose_punctuation_caught: expected rc=2, got $rc"
 }
-# 16. §7 pa_check_trailer: same mechanism — pre-cutoff commits bypass the Prior-art check.
-test_pa_historical_cutoff() {
-  export MOCK_BODY="2026-05-01 00:00:00 +0000"
-  local rc=0; pa_check_trailer "deadbeef00" >/dev/null 2>&1 || rc=$?
-  unset MOCK_BODY
-  [ "$rc" -eq 0 ] && pass "pa_historical_cutoff (rc=0 on pre-cutoff author-date)" \
-    || fail "pa_historical_cutoff: expected rc=0, got $rc"
-}
-echo "── Running §7+§9 substance + Wave 8.5 historical-cutoff tests ──"
+echo "── Running §1.7 substance + Wave 8.5 historical-cutoff tests ──"
+echo "   (§7 pa_* tests moved to prior-art.test.ts vitest — Wave 10.2)"
 test_s17_substance_negative
 test_s17_substance_positive
 test_s17_substance_bootstrap_unaffected
 test_s17_substance_warn_only_default
-test_pa_substance_negative
-test_pa_substance_positive
-test_pa_substance_noncapability_unaffected
-test_pa_substance_warn_only_default
 test_s17_historical_cutoff
 test_s17_body_prose_negative
 test_s17_body_prose_positive
@@ -238,6 +178,5 @@ test_s17_body_prose_bootstrap_unaffected
 test_s17_body_prose_no_mention
 test_s17_body_prose_url_excluded
 test_s17_body_prose_punctuation_caught
-test_pa_historical_cutoff
 echo ""; echo "$PASS pass / $FAIL fail"
 [ "$FAIL" -eq 0 ] || exit 1; exit 0
