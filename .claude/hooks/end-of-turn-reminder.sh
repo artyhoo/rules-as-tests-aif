@@ -54,14 +54,30 @@ text_length=${#text}
 # regardless of length, and enumerates the exact hits so the re-verify ask is
 # item-specific (Agent Verifier `[P]`-tier idea), not a generic "be careful".
 # Honest limit: this raises salience, it does not structurally force compliance.
+#
+# Recall + precision fix (instruction-compliance-empirical R-phase §6.4/§9 Q-E4,
+# maintainer decision 2026-05-21): the v1 numeric regex required the count-noun
+# adjacent to the number, missing the majority of natural phrasings ("6 discipline
+# rules", "11 distinct principles" — §6.4 measured recall ~0.43). The numeric scan
+# now allows ≤2 intervening tokens. And precision: the v1 scan ran over raw text,
+# over-firing on numbers/paths inside fenced code (drafted prompts), blockquotes
+# (quoted material), and markdown link targets (§6.2 measured precision ~0.20-0.25,
+# cry-wolf). The scan now runs over a cleaned copy with those three classes stripped.
+# Inline `code` is KEPT so genuine `file:line` citations in prose still fire.
+# NOTE: this scan's regexes + cleaning are kept identical to the eval scorer
+# (tests/eval/claim-groundedness-scorer.py) so the eval measures the same surface.
 claim_hits=""
 if [ -n "$text" ]; then
+  scan_text=$(printf '%s\n' "$text" \
+    | awk 'BEGIN{f=0} /^[[:space:]]*```/{f=!f; next} f{next} {print}' \
+    | grep -vE '^[[:space:]]*>' \
+    | sed -E 's/\]\([^)]*\)/]/g')
   while IFS= read -r h; do [ -n "$h" ] && claim_hits+="  • число «${h}» — переrun команду подсчёта, процитируй вывод (не по памяти)"$'\n'; done \
-    < <(echo "$text" | grep -oiE '[0-9]+\+? *(files?|tests?|cases?|entries|entry|rules?|principles?|layers?|incidents?|candidates?|commits?|hooks?|lines?)' | head -5)
+    < <(echo "$scan_text" | grep -oiE '[0-9]+\+?( +[^[:space:]]+){0,2} +(files?|tests?|cases?|entries|entry|rules?|principles?|layers?|incidents?|candidates?|commits?|hooks?|lines?)' | head -5)
   while IFS= read -r h; do [ -n "$h" ] && claim_hits+="  • цитата «${h}» — переоткрой file:line, подтверди содержимое строки"$'\n'; done \
-    < <(echo "$text" | grep -oiE '[a-zA-Z0-9_./-]+\.(ts|tsx|js|jsx|md|sh|json|ya?ml):[0-9]+' | head -5)
+    < <(echo "$scan_text" | grep -oiE '[a-zA-Z0-9_./-]+\.(ts|tsx|js|jsx|md|sh|json|ya?ml):[0-9]+' | head -5)
   while IFS= read -r h; do [ -n "$h" ] && claim_hits+="  • negative-existence «${h}…» — назови, какие из 6 пунктов search-coverage прогнал"$'\n'; done \
-    < <(echo "$text" | grep -oiE 'no (production|existing|prod|known)[^.]{0,60}(exist|found|analog|implement)' | head -3)
+    < <(echo "$scan_text" | grep -oiE 'no (production|existing|prod|known)[^.]{0,60}(exist|found|analog|implement)' | head -3)
 fi
 has_claims=false
 [ -n "$claim_hits" ] && has_claims=true

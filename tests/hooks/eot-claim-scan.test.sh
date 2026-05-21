@@ -75,10 +75,12 @@ tr=$(make_transcript "поправил 10 tests")
 out=$(run_hook "$HOOK_FILE" "$tr")
 if printf '%s' "$out" | jq -e '.decision=="block" and (.reason|length>0)' >/dev/null 2>&1; then ok "fire emits valid block JSON with non-empty reason"; else bad "fire JSON invalid/incomplete (out: ${out:0:80})"; fi
 
-# ── 6. mutation — break numeric regex; sub-test 1 must now FAIL to enumerate ──
+# ── 6. mutation — break the count-noun alternation; sub-test 1 must FAIL to enum ──
 mut=$(mktemp)
-# Drop the count-noun alternation list so the numeric pattern can no longer match.
-sed -E "s/\[0-9\]\+\\\\\+\? \*\(files\?\|tests\?\|cases\?\|entries\|entry\|rules\?\|principles\?\|layers\?\|incidents\?\|candidates\?\|commits\?\|hooks\?\|lines\?\)/ZZZ_NO_MATCH_ZZZ/" "$HOOK_FILE" > "$mut"
+# Drop "files?|tests?|cases?" from the count-noun alternation so the numeric pattern
+# can no longer match "4 files". Shape-robust: targets the noun list, not the full
+# regex (survives the recall/precision rewrite that changed the number-prefix shape).
+sed -E "s/files\?\|tests\?\|cases\?/ZZZ_NO_MATCH_ZZZ/" "$HOOK_FILE" > "$mut"
 if ! grep -q 'ZZZ_NO_MATCH_ZZZ' "$mut"; then
   bad "mutation sed did not apply (regex shape changed?) — review test"
 else
@@ -88,6 +90,25 @@ else
   if printf '%s' "$reason" | grep -qiE '4 files'; then bad "MUTATION SURVIVED — numeric regex broken but '4 files' still enumerated (test has no substance)"; else ok "mutation killed — broken numeric regex stops enumeration"; fi
 fi
 rm -f "$mut"
+
+# ── 7. RECALL — numeric claim with intervening tokens ("6 discipline rules") ──
+# Q-E4 fix: v1 regex required adjacency and MISSED this (empirical-patch §6.4).
+tr=$(make_transcript "готово, поправил 6 discipline rules в проекте")
+out=$(run_hook "$HOOK_FILE" "$tr")
+reason=$(printf '%s' "$out" | jq -r '.reason // ""' 2>/dev/null)
+if printf '%s' "$reason" | grep -qiE '6 discipline rules'; then ok "recall: intervening-token numeric claim enumerated"; else bad "recall MISS: '6 discipline rules' not enumerated (out: ${out:0:80})"; fi
+
+# ── 8. PRECISION — number inside a fenced code block (drafted prompt) is IGNORED ─
+tr=$(make_transcript "$(printf 'Итоговая строка без цифр.\n```\nNew session: touch 9 files and run 3 tests\n```\nготово')")
+stdin=$(jq -cn --arg p "$tr" '{stop_hook_active:false, transcript_path:$p}')
+out=$(printf '%s' "$stdin" | bash "$HOOK_FILE" 2>/dev/null); rc=$?
+if printf '%s' "$out" | grep -qiE '9 files|3 tests'; then bad "precision: fenced-code number wrongly enumerated (out: ${out:0:80})"; else ok "precision: fenced-code numbers ignored"; fi
+
+# ── 9. PRECISION — file:line inside a markdown link TARGET is IGNORED ──────────
+tr=$(make_transcript "детали см. [the plan](docs/meta-factory/EXECUTION-PLAN.md:45) дальше")
+out=$(run_hook "$HOOK_FILE" "$tr")
+reason=$(printf '%s' "$out" | jq -r '.reason // ""' 2>/dev/null)
+if printf '%s' "$reason" | grep -qiE 'EXECUTION-PLAN\.md:45'; then bad "precision: markdown link-target citation wrongly enumerated"; else ok "precision: markdown link-target citation ignored"; fi
 
 echo "── eot-claim-scan: $PASS passed, $FAIL failed ──"
 [ "$FAIL" -eq 0 ]
