@@ -297,6 +297,17 @@ Three features surfaced for possible ADAPT:
 
 **Answer needs: maintainer judgement.**
 
+### §7.5 — Decisions recorded (maintainer, 2026-05-21)
+
+> Recorded by the orchestrator via `/orchestrator` closure session. The decision is the maintainer's (Art); §7 above is the reviewer-disciplined options surface. **§7 is now fully closed.**
+
+| Decision | Maintainer choice | State / note |
+|---|---|---|
+| **A — Commit 7 subline widening** | **A1** | Already live on `main` ([README.md](../../../README.md) line 8: Superpowers named + deployment-surface line for IDE runtimes). Closure formalises the already-shipped behaviour. |
+| **B — 5-item vocabulary codification** | **B1-lite** | Keep our terms (`Mode A/B`) primary; add a companion-equivalent mapping table rather than rename. Applied 2026-05-21 to `~/.claude/skills/orchestrator/SKILL.md` («Vocabulary alignment — companions»). ADOPT-VOCABULARY, no dependency (DECISION=C substrate-purity). |
+| **C — Deeper Aider research?** | **C2** | Accept condensed coverage; Aider stays `framework-consumer` (already live on `main` [README.md](../../../README.md) line 78). No new research cycle. |
+| **D — ADAPT-candidates as research-patches?** | **D2** (already actioned) | Tracked as ARMED [open-questions.md §13.35/§13.36/§13.37](../open-questions.md); re-evaluated by [N2 adopt-from-superpowers §3/§8](2026-05-21-n2-adopt-from-superpowers.md). Recorded for completeness; not part of the A/B/C closure. |
+
 ## §8 Drafts produced
 
 This patch is condensed; sketch designs for Commit 7 + §4.4 codification would normally ship as separate draft files under the kickoff's drafts/ directory. **Recommendation:** when Commit 7 is scheduled, author uses §4.1 proposed subline as direct draft source.
