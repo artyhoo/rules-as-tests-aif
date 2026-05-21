@@ -112,7 +112,7 @@ fi
 # Substance arm (Wave 8.4): on capability commits, the `Prior-art: skipped — …`
 # escape-hatch is rejected (exit 2 from pa_check_trailer); must cite a real SSOT
 # entry (prior-art-evaluations.md#N). PA_SUBSTANCE_WARN_ONLY gates independently.
-# TODO 2026-06-10: flip default to PA_SUBSTANCE_WARN_ONLY=false; promote enforcement.
+# Enforcing by default since 2026-05-21 (flipped early per maintainer directive); set PA_SUBSTANCE_WARN_ONLY=true for local downgrade.
 UPSTREAM_REF="origin/main"
 if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
   COMMITS=$(git rev-list "${UPSTREAM_REF}..HEAD" 2>/dev/null || true)
@@ -244,7 +244,7 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
     return 1
   }
 
-  PA_SUBSTANCE_WARN_ONLY="${PA_SUBSTANCE_WARN_ONLY:-true}"
+  PA_SUBSTANCE_WARN_ONLY="${PA_SUBSTANCE_WARN_ONLY:-false}"
   PRIOR_ART_FAILURES=""
   PA_SUBSTANCE_FAILURES=""
   for sha in $COMMITS; do
@@ -276,7 +276,7 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
     if [ "$PA_SUBSTANCE_WARN_ONLY" = "true" ]; then
       printf '\n⚠ Prior-art: escape-hatch on capability commit (substance arm, Wave 8.4):\n'
       printf '%b' "$PA_SUBSTANCE_FAILURES"
-      printf '\nCalibration window: warn-only through 2026-06-10.\n'
+      printf 'Local downgrade active (*_WARN_ONLY=true); default is enforcing.'
       printf 'Fix: replace `Prior-art: skipped — …` with `Prior-art: prior-art-evaluations.md#N (verdict X — rationale)`.\n\n'
     else
       printf '\n❌ Prior-art: escape-hatch on capability commit:\n'
@@ -304,16 +304,17 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
   # distinguish substance failures from missing-trailer failures (exit 1).
   # S17_SUBSTANCE_WARN_ONLY matures independently from S17_WARN_ONLY so the
   # substance arm can be calibrated without flipping the presence gate.
-  # TODO 2026-06-10: flip default to S17_WARN_ONLY=false; promote enforcement.
-  # TODO 2026-06-10: flip default to S17_SUBSTANCE_WARN_ONLY=false; promote substance enforcement.
+  # Enforcing by default since 2026-05-21 (flipped early per maintainer directive); set
+  # S17_WARN_ONLY=true / S17_SUBSTANCE_WARN_ONLY=true for local downgrade.
+
   # Wave 8.5 historical cutoff. Commits authored before this date predate
   # the substance arms; replayed (e.g. rebased) historical commits MUST NOT
   # be retroactively blocked by gates that didn't exist when they were authored.
   S17_HISTORICAL_CUTOFF="2026-05-12"
   PA_HISTORICAL_CUTOFF="2026-05-12"
 
-  S17_WARN_ONLY="${S17_WARN_ONLY:-true}"
-  S17_SUBSTANCE_WARN_ONLY="${S17_SUBSTANCE_WARN_ONLY:-true}"
+  S17_WARN_ONLY="${S17_WARN_ONLY:-false}"
+  S17_SUBSTANCE_WARN_ONLY="${S17_SUBSTANCE_WARN_ONLY:-false}"
   S17_ALLOWLIST_RE='^(docs\(research-patches\)|chore\(snapshot-regen\)|chore\(prior-art-update\)):'
 
   s17_is_discipline_introducing() {
@@ -427,7 +428,7 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
     if [ "$S17_WARN_ONLY" = "true" ]; then
       printf '\n⚠ §1.7 trailer missing or invalid on rule-introducing commit(s):\n'
       printf '%b' "$S17_FAILURES"
-      printf '\nCalibration window: warn-only through 2026-06-10 (30 days from ship). Set S17_WARN_ONLY=false to enforce locally.\n'
+      printf 'Local downgrade active (*_WARN_ONLY=true); default is enforcing.'
       printf 'Fix: add `§1.7: forward-check applied — …; backward-check sweep — …` to commit body.\n\n'
     else
       printf '\n❌ §1.7 trailer missing or invalid on rule-introducing commit(s):\n'
@@ -442,7 +443,7 @@ if git rev-parse --verify "$UPSTREAM_REF" &>/dev/null; then
     if [ "$S17_SUBSTANCE_WARN_ONLY" = "true" ]; then
       printf '\n⚠ §1.7 trailer lacks file:line citation on rule-introducing commit(s) (substance arm — Wave 8.3):\n'
       printf '%b' "$S17_SUBSTANCE_FAILURES"
-      printf '\nCalibration window: warn-only through 2026-06-10. Set S17_SUBSTANCE_WARN_ONLY=false to enforce locally.\n'
+      printf '\Local downgrade active (*_WARN_ONLY=true); default is enforcing.'
       printf 'Fix: include ≥1 file:line citation, e.g. `packages/core/principles/02.test.ts:82`.\n\n'
     else
       printf '\n❌ §1.7 trailer lacks file:line citation on rule-introducing commit(s) (substance arm — Wave 8.3):\n'
