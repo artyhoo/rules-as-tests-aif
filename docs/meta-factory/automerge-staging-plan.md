@@ -1,7 +1,7 @@
 <!-- scope: automerge→staging operational plan, branching flow + maintainer settings recipe -->
 # Automerge → staging integration plan
 
-> **Status:** **LIVE** (staging-as-trunk, 2026-05-22). `staging` is the trunk and GitHub default branch with Merge Queue enabled; `main` is prod-promotion-only (receives from staging by manual fast-forward). `ci-success` is the sole required check on both. git-safety.sh push-block inverted (staging pushable, main blocked).
+> **Status:** MIGRATION IN PROGRESS — agent PRs #144 (#146 follow-up) merged to `staging` (CI prerequisites: `merge_group` trigger, push-triggers, R11 repoint, pre-push default→origin/staging). STILL PENDING maintainer steps: git-safety.sh push-block inversion (M-1), Merge Queue enable (M-2), default-branch switch to `staging` (M-4). The default branch is still `main`. Status flips to LIVE only once M-1..M-4 are actually done (M-6). (A premature LIVE via #147 was reverted here — nothing was migrated yet.)
 > **Authoritative for:** the automerge→staging operational plan — the branching flow (§2.1), decided shape, the maintainer GitHub-settings recipe (applied), and the open sub-decisions.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). The CI-backstop mechanism it depends on — see [.claude/rules/no-paid-llm-in-ci.md](../../.claude/rules/no-paid-llm-in-ci.md) and the `pr-commit-trailers` job in [.github/workflows/audit-self.yml](../../.github/workflows/audit-self.yml).
 
