@@ -210,3 +210,5 @@ See §2.1 above. Key inversions from the old model:
 - [.github/workflows/workflow-integrity.yml](../../.github/workflows/workflow-integrity.yml) — R11 `ci-success` required-check assertion (now targets `staging`).
 - [.claude/rules/no-paid-llm-in-ci.md](../../.claude/rules/no-paid-llm-in-ci.md) — why variant A (native auto-merge + Merge Queue), not an autonomous paid agent.
 - [docs/meta-factory/closed-questions.md](../../docs/meta-factory/closed-questions.md) — §13.40 placeholder (superseded by this doc; open-questions hit 500-line cap).
+
+<!-- merge-queue dry-run 2026-05-22T14:22:33Z -->
