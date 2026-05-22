@@ -1,4 +1,9 @@
 node_modules/
+# Also ignore a node_modules *symlink* (worktree pattern: ln -s <main>/node_modules).
+# `node_modules/` matches only directories — a symlink slips through and can be
+# committed by accident (regression: a self-referencing symlink landed on staging).
+node_modules
+packages/*/node_modules
 .claude/orchestrator-prompts/*
 !.claude/orchestrator-prompts/README.md
 *.log

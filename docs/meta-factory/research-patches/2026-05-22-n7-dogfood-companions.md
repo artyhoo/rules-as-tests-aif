@@ -76,10 +76,38 @@ The 2026-06-15 billing change moves `claude -p` / Agent-SDK / CC-Actions to a se
 - **T-traps applied:** T11 (prior-art ×3+×3 before verdict), T13 (Step-5 empirical trial mandated; SDD headless-dep flagged; `isolation` compat verified not assumed), T16 (problem-class match column explicit per artefact), T3 (file:line / DeepWiki / WebSearch URL per claim), T15 (this patch is read-only; mutations surfaced as maintainer-owned).
 - **INCONCLUSIVE (honest residuals):** (a) whether `using-git-worktrees` Step 4 baseline-test conflicts with this repo's Stryker runs — Step-5 trial catches; (b) whether SDD v5.0.1–5.0.7 made the two-stage review inline vs separate-subagent — needs reading the shipped v5.x SKILL.md; (c) exact global install dir (`claude plugin add` vs `npx skills add`) may vary by CC version.
 
+## §9 — N7 execution closure (2026-05-22, execution session)
+
+> Appended by the execution session that landed the N7 adoption (separate from the §1–§8 research session). The §6 rows were *proposed*; this section records what was *applied*, the corrections found, and the maintainer-delegated retention verdict.
+
+### §9.1 — Source-verification trial (the resolvable half of §4 step 5)
+
+The §4-step-5 empirical trial has two halves. The **live-dogfood** half (install Superpowers, run SDD/`using-git-worktrees` on a real umbrella) is **blocked**: the Claude Code auto-mode classifier denied `claude plugin marketplace add obra/superpowers` as untrusted external-code execution, independent of the maintainer's in-session authorization — it needs a Bash permission rule or a manual run. The **source-verification** half ran instead (read-only, no install, per [phase-research-coverage.md §1.11](../../../.claude/rules/phase-research-coverage.md) verify-against-source-of-truth), dual-channel DeepWiki + raw `raw.githubusercontent.com/obra/superpowers/main/...`, 2026-05-22:
+
+- **SDD two-stage review = separate fresh subagents** (`spec-reviewer-prompt.md` → `code-quality-reviewer-prompt.md`, sequential, fix-loops between). **Resolves §7(b) INCONCLUSIVE** — it is *not* inline.
+- **`using-git-worktrees` Step 0 detects `GIT_DIR != GIT_COMMON_DIR`** (submodule-guarded) and **skips nested creation** → compatible with CC `isolation:"worktree"`. The §3 critical-compatibility finding is now **source-verified, not assumed** (T16 countermeasure satisfied).
+- **Step 4 baseline test** runs `npm test`/`pytest` on consent. **Resolves §7(c)/§7(a) partially:** in this repo `npm test` is the full vitest+principle suite (slow, *not* corrupting; consent-gated). Full §7(a) Stryker-conflict check still needs the live run.
+- **Neither skill needs npm deps or headless `claude`** — SDD dispatches via the harness's *native* subagent capability, not `claude -p`. **Sharpens §5:** SDD *runtime* is off the post-2026-06-15 Agent-SDK credit pool; only SDD's *own test harness* uses headless `claude` (never imported). Substrate-purity boundary (§3) holds, reasoning tightened.
+
+### §9.2 — Corrections to §6 (found during application, per §1.11)
+
+- **Proposed IDs #60/#61 were already taken** — the parallel channel-selection wave consumed #60–#63 on `staging` (the exact "premature ID claim + parallel-session conflict" §6 warned about). Applied as **#64 (SDD)** and **#65 (`using-git-worktrees`)**.
+- **"aif-handoff Git-Isolation (SSOT #27)" is a misattribution.** Actual #27 = `HANDOFF_MODE` env-var fork; #45 = Watchdogs; #46 = Subagents-vs-Skills. There is **no** registered Git-Isolation SSOT row. aif-handoff's Git-Isolation is an *unregistered* REFERENCE precedent (roadmap N2 vocabulary table); cited as such, not by a wrong number. The §6 "#27 (update)" instruction is void (same misattribution) and was **not** applied.
+
+### §9.3 — Orchestrator-skill retention verdict (§6 step 6) — **A (coexist)**
+
+Maintainer-delegated (2026-05-22, «Твоё решение»; companion DECISION=C). Verdict **A — coexist** (the §6-recommended option), now backed by source evidence: SDD's review is **post-implementation** (spec + code-quality of produced code); the orchestrator's **Phase -1** is **pre-dispatch** (kickoff quality *before* any work), and the orchestrator also owns quota-zone economics, Mode A/B selection, and bootstrap discovery — none of which SDD has. Different problem classes (T16): ADOPT SDD for the per-task dispatch+review inner loop; KEEP-NARROW the orchestrator for the umbrella+quota+mode+Phase-1 meta-layer. **B (slim)** rejected — would discard the meta-layer SDD doesn't cover; **C (replace)** rejected — 800+ lines of project-specific protocol with no SDD equivalent.
+
+### §9.4 — What landed vs what remains
+
+- **Landed (this PR):** SSOT #64/#65; [parallel-subwave-isolation.md §4](../../../.claude/rules/parallel-subwave-isolation.md) demotion (drop AST build-target → REFERENCE #65) + its §5 §1.7 note; roadmap §4 banner reconciliation; this closure.
+- **Blocked (maintainer-applied):** (a) orchestrator-skill worktree-section REFERENCE note (`~/.claude/skills/orchestrator/SKILL.md`, §4 step 3) — classifier denied as self-modification of the agent's startup config; (b) global Superpowers install (§4 step 1) — classifier denied as untrusted external-code execution. Both need a maintainer run / Bash permission rule. Exact snippets handed to the maintainer in the PR/session summary.
+- **Remains (maintainer / next session):** apply the two blocked items above, then the live-dogfood half — `claude plugin marketplace add obra/superpowers && claude plugin install superpowers@superpowers` (or `npx skills add …`), dogfood SDD + `using-git-worktrees` on one real umbrella; confirm the §7(a) Stryker-conflict residual. Until then **N7 = repo-side applied, live-trial incomplete** — not fully closed by the patch's own "trial mandatory before done" bar.
+
 ## §8 — See also
 
 - [2026-05-21-niche-strategy-and-growth-roadmap.md §4 Wave N7](2026-05-21-niche-strategy-and-growth-roadmap.md) — parent roadmap.
 - [2026-05-21-n2-adopt-from-superpowers.md](2026-05-21-n2-adopt-from-superpowers.md) — axis-A sibling (vocabulary/idea alignment under DECISION=C).
 - [.claude/rules/build-first-reuse-default.md](../../../.claude/rules/build-first-reuse-default.md) — the rule this patch operationalises at process scale.
 - [.claude/rules/parallel-subwave-isolation.md](../../../.claude/rules/parallel-subwave-isolation.md) — the homegrown rule `using-git-worktrees` references/complements.
-- [docs/meta-factory/prior-art-evaluations.md](../prior-art-evaluations.md) — SSOT register (#60/#61 proposed in §6).
+- [docs/meta-factory/prior-art-evaluations.md](../prior-art-evaluations.md) — SSOT register (#60/#61 proposed in §6; **applied as #64/#65** per §9.2 ID correction).
