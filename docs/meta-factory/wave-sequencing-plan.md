@@ -19,15 +19,19 @@
 | N3 | enforcement substrate (= Wave 10) | ✅ DONE | #107/#114/#116/#119/#120/#127/#129 MERGED |
 | N4a | claim-detector fix | ✅ DONE | #98 MERGED |
 | N4b | recommendation-moment gate | 🟡 D6 resolved: H1 SHIPPED (#117), H2 REJECTED, H10 DEFERRED/trigger-gated | `2026-05-22-n4b-recommendation-gate-design.md`; open-questions §13.39 |
-| N5 | give the conscience back | 🔲 not started (sequences after N7) | — |
+| N5 | give the conscience back | 🔲 not started — **BLOCKED** (dependency): gated on N7 *live-dogfood trial* (N7 decision=C ✅ + repo-side applied, but live trial still pending) + N2 application. By design you can't give back until dogfooding reveals what's genuinely unique (niche-roadmap line 91/116) | niche-roadmap §N5 |
 | N6a | coexistence / C-1 | ✅ DONE | #79/#82 MERGED |
-| N6b | one-button install | 🔲 not started (last build) | — |
-| N7 | dogfood companions | 🟡 verdicts done → application pending; **DECISION=C confirmed** | `2026-05-22-n7-dogfood-companions.md` |
+| N6b | one-button install | 🔲 not started — **NOT blocked** (deps met): N3 portable TS-core ✅ (`packages/core/hooks/pre-push.ts` + `checks/`; the 7 `.claude/hooks/*.sh` are thin CC-event glue, not the engine) + N6a ✅. Sequenced "last" by *choice*, **startable anytime**. Scaffold (`npx`) must also template the 7 CC-event hooks | niche-roadmap §N6 (line 82/107) |
+| N7 | dogfood companions | 🟡 **repo-side applied** (SSOT #64/#65, rule §4 demotion, retention=A coexist) → **live-dogfood trial pending** (global Superpowers install blocked by classifier); **DECISION=C** | `2026-05-22-n7-dogfood-companions.md` §9 |
 | N8 | deterministic-offload autonomy economy | ✅ **R-phase DONE** (#158→staging; autonomous Queue-mode: Worker→Reviewer **GO**→orchestrator anti-collusion passed). A-phase (impl) 🔲 pending maintainer D1/D2/D3 | findings `2026-05-22-n8-rphase-findings.md` (R1–R4) + plan `2026-05-22-deterministic-offload-autonomy-economy.md` |
 
 **Infra:** I.1 staging-trunk migration **DONE** (#144/#150 — default branch = `staging`, `main` push-blocked, `ci-success` on both; native Merge Queue unavailable on this repo → `strict:false` substitute). I.2 channel-selection promote + SSOT #60–#63 still maintainer-click. I.3 DN-4 incremental.
 
-**What actually remains:** N0 decision (15 Jun) · apply N2 + N7 verdicts (maintainer-owned rule/SSOT edits) · **N8 A-phase** (gated on maintainer D1 cost-lever A/B/C · D2 local-model validation bench go/no-go · D3 offload-migration priority — all surfaced in `2026-05-22-n8-rphase-findings.md` §7; SSOT rows #64–#68 ship with the capability, not now) · N4b H10 (deferred, trigger-gated) · N5 + N6b (not started). *(0.3 promote→`EXECUTION-PLAN.md` CLOSED 2026-05-22 — see §5.2.)*
+**What actually remains:** N0 decision (15 Jun) · apply N2 + N7 verdicts (maintainer-owned rule/SSOT edits) · **N8 A-phase** (gated on maintainer D1 cost-lever A/B/C · D2 local-model validation bench go/no-go · D3 offload-migration priority — all surfaced in `2026-05-22-n8-rphase-findings.md` §7) · N4b H10 (deferred, trigger-gated) · **N6b** (NOT blocked — deps met, deprioritized) · N5 (blocked on N7 live-dogfood). *(0.3 promote→`EXECUTION-PLAN.md` CLOSED 2026-05-22 — see §5.2.)*
+
+> **⚠ SSOT-ID collision:** N8 findings §7 proposed rows **#64–#68**, but N7 application already **took #64/#65** (see N7 row). When N8 A-phase admits its SSOT rows they must renumber to **#66+** (next free). The N8 findings file's §7 numbers are stale on this point — corrected at A-phase admission, not now (findings is a research deliverable, ID assignment happens at capability-commit).
+
+> **🔲 legend (read the cell, don't assume):** 🔲 = *not started* — the cell says **why**. **BLOCKED** = unmet dependency (N5). **NOT blocked** = deps met, just deprioritized → startable now (N6b). 🟡 = partially done (research/repo-side done, application/live-trial pending). ✅ = done+merged. Distinguishing blocked-🔲 from deprioritized-🔲 is the thing sessions keep confusing.
 
 **Mostly research-complete:** the bulk of per-wave *research* across N1/N2/N4b/N7/N8 is done; the open frontier is **application** of verdicts + N0/N8 cost work, not new research.
 
@@ -51,7 +55,7 @@
 |---|---|---|---|
 | 1.1 | **N8 R-phase** (free: local-model dispatch / batch / caching / offload-sweep + «$ above subscription» estimate) | ✅ **DONE** (#158→staging, 2026-05-22) | — |
 | 1.2 | **N0 decision** — how to stay autonomous + cheap, informed by 1.1 | after 1.1, **before 2026-06-15** | 1.1 |
-| 1.3 | **N8 A-phase** — apply cheap wins (migrate checks into hooks, autonomy hooks) | start high-ROI items before June 15 | 1.1 |
+| 1.3 | **N8 A-phase** — apply cheap wins (migrate checks into hooks, autonomy hooks) | start high-ROI items before June 15 | 1.1 + maintainer gates: **D1** (cost-lever A/B/C) · **D2** (R4 bench go/no-go) · **D3** (offload-migration priority) — [findings §7](research-patches/2026-05-22-n8-rphase-findings.md) |
 
 ### Track 2 — cheap, no deadline, parallel-safe
 | # | Task | Note |
@@ -125,7 +129,7 @@ N4a (done, #98) ──────────────→ N4b (recommendatio
 N3 (done) + N6a (done) ───────→ N6b (one-button install)
 DECISION=C (0.2) ─────────────→ N7 (dogfood) ──→ N5 (give-back)
 N8 R-phase (1.1) ─────────────→ N0 decision (1.2)
-                └─────────────→ N8 A-phase (1.3)
+                └─→ D1·D2·D3 (findings §7) ──→ N8 A-phase (1.3)
 N8 A3 (hybrid dispatch) ⇄ N7   (overlap — coordinate, don't double-build)
 ```
 
