@@ -14,7 +14,7 @@ git clone https://github.com/Yhooi2/rules-as-tests-aif /tmp/rules-as-tests-aif
 cd /tmp/rules-as-tests-aif
 ```
 
-(Or, when Phase 4 lands: `npm i -D @yhooi2/rules-as-tests-aif`.)
+(An npm package is not yet published. Use Path B — `install.sh` — as the current install method.)
 
 ---
 
@@ -27,13 +27,13 @@ cd /tmp/rules-as-tests-aif
 
 **ASK FIRST — pause and report your reasoning before acting:**
 - Removing or skipping any rule R1–R20 (e.g. R8 OTel because the project doesn't use OpenTelemetry yet).
-- Modifying `factory/RULES.md` or any file under `factory/` after install.
+- Modifying `.ai-factory/RULES.md` or any file under `.ai-factory/` after install.
 - Adding a new rule R21+ — propose it in `INSTALL-DECISIONS.md` first.
 - Disabling a probe in `audit-ai-docs.sh`.
 
 **NEVER — refuse if asked, redirect to a senior or to `/aif-rules` discussion:**
 - Edit files under `eslint-rules-local/` (these are vendored copies; edit upstream in `templates/shared/eslint-rules/` and reinstall).
-- Edit generated `RULES.md` if Phase 2's `rules-manifest.json` exists — regenerate via `scripts/render-rules.ts` instead.
+- Edit generated `RULES.md` if Phase 2's `rules-manifest.json` exists — regenerate via `packages/core/render/render-rules.ts` instead.
 - Pass `--no-verify`, `--no-gpg-sign`, or any hook-skip flag in commits.
 - Push to `main` directly or force-push any shared branch.
 - Add `// audit:exempt` to silence a rule the agent doesn't understand — investigate first.
@@ -199,7 +199,10 @@ project/
 │   ├── ARCHITECTURE.md                ← edit this (layer rules)
 │   ├── RULES.md                       ← R1-R11 (review and adjust)
 │   ├── RULES.react-next.md            ← R12-R20 (only react-next)
-│   └── rules/integration-rules.md     ← only for microservices
+│   ├── rules/integration-rules.md     ← only for microservices
+│   └── skill-context/
+│       ├── aif-review/SKILL.md        ← anti-tautology content for AIF review sidecar
+│       └── aif-rules-check/SKILL.md   ← R10-naming + test-existence content for AIF rules-check
 ├── .claude/
 │   ├── agents/                        ← AIF agents + our additions
 │   │   ├── best-practices-sidecar.md  ← AIF's (KEEP-AIF); R1–R20 enforced earlier via ESLint+pre-push+AIF rules-sidecar
