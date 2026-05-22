@@ -83,6 +83,17 @@ Before asserting a state-claim or taking an irreversible ship-step, verify again
 
 The failure mode is the **verify-against-source-of-truth family**: 4+ incidents — 2026-05-16 stale HEAD on a long iterative cycle; 2026-05-21 re-litigated an already-decided call + edited a stale hook fork; 2026-05-21 PR #106 inverted-diff near-miss (caught by markdownlint luck); #80 duplicated parallel-merged #79. *(Distilled from memory entries codified per [memory-codification.md §3](memory-codification.md); DN-4 tracker rows #16/#17/#22/#28 in [memory-codification-gap-tracker.md](../../docs/meta-factory/memory-codification-gap-tracker.md).)*
 
+### §1.12 Lead with a reasoned recommendation; act when the best path is clear (introduced 2026-05-22, DN-4 memory-codification)
+
+The complement to §1.7 (back a verdict) and [reviewer-discipline.md §2](reviewer-discipline.md) (surface true strategy forks): when the next step — or the choice among options — has a clear best on the merits, **commit to it**; don't offload a decision you can make.
+
+**How to apply:**
+
+1. **Lead with your own reasoned pick.** When presenting options or a fork, open with «Recommend X, because <reason against goals / trade-offs>» — genuinely reasoned, not a neutral option-dump. The human still decides; a recommendation is not a usurpation. Do **not** hide behind reviewer-discipline §2 to avoid committing — that rule is for *true* strategy forks the reviewer cannot pick, not an excuse to dodge every call. *(codifies `reasoned_recommendation_default`)*
+2. **Act when the best path is obvious; reserve questions for genuine forks.** When one next-step is clearly best on the merits (e.g. run the load-bearing probe before writing the PR; read the existing plan before recommending against it), just do it and say what you did. Reserve `AskUserQuestion` for forks you genuinely cannot resolve on the merits. An unnecessary clarifying question costs a round-trip and signals you did not reason it through. *(codifies `dont_ask_when_best_path_clear`)*
+
+The two are one discipline from both ends — **commit to a reasoned position** rather than option-dumping (1) or over-asking (2). Boundary with reviewer-discipline §2: surface as decision-needed only when the options are *both legitimate and the call is the maintainer's project-strategy*; otherwise pick and proceed. Mechanical enforcement of (1) is blocked until the recommendation-detector recall is fixed (per #97/#98) — prose-only meanwhile. *(Distilled from memory entries codified per [memory-codification.md §3](memory-codification.md); DN-4 tracker rows #20/#27.)*
+
 ## §2 Self-reflection prompts (retro Self-reflection block)
 
 When writing the Self-reflection section of a phase retro that involved prior-art research, answer all five:

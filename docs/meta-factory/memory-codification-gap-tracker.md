@@ -21,14 +21,14 @@ Status legend: **PENDING** (still memory-only) · **CODIFIED** (in repo + memory
 | 17 | `check_inflight_prs_before_building` | `.claude/rules/*` / orchestrator skill (scan `gh pr list --state open` before building a tracked item) | CODIFIED → phase-research-coverage.md §1.11 |
 | 18 | `ci_runner_allocation_diagnostic` | troubleshooting doc/skill (heuristic, not a rule-to-enforce) | PENDING |
 | 19 | `claude_code_guide_worker_inaccessible` | CC-harness fact → kickoff-authoring habit (plan D4 fallback); queue-mode.md §10 already partly covers | PENDING |
-| 20 | `dont_ask_when_best_path_clear` | `.claude/rules/*` (pairs with reviewer-discipline §2 + reasoned-recommendation) | PENDING |
+| 20 | `dont_ask_when_best_path_clear` | `.claude/rules/*` (pairs with reviewer-discipline §2 + reasoned-recommendation) | CODIFIED → phase-research-coverage.md §1.12 |
 | 21 | `no_human_verification_ai_self_verifies` | **major** — project-thesis-one-layer-up; codify via research-patch; widens §13.34 (hard to mechanize — it IS the recursive thesis) | PENDING |
 | 22 | `orchestrator_verify_state_before_claim` | `.claude/rules/*` (re-verify HEAD/closure before ship / negative-existence claim); §13.34-adjacent | CODIFIED → phase-research-coverage.md §1.11 |
-| 23 | `own_qa_before_handoff` | AI-agnostic `agents/*.md` cold-review run per load-bearing PR (session-time, no CI) | PENDING |
+| 23 | `own_qa_before_handoff` | AI-agnostic `agents/*.md` cold-review run per load-bearing PR (session-time, no CI) | CODIFIED → ai-laziness-traps.md T19 |
 | 24 | `phase_minus_1_no_memory_inheritance` | orchestrator skill (keyword-grep step is deterministic; "absorb constraints" is judgment) | PENDING |
-| 25 | `preserve_before_destructive_delegation` | `.claude/rules/*` or ai-laziness-traps T17 (incident counter 1/3 → promote at 3) | PENDING |
-| 26 | `preserve_unique_residue_via_skill_context` | discipline note (judgment-heavy directive) | PENDING |
-| 27 | `reasoned_recommendation_default` | `.claude/rules/*` (mechanization blocked until detector recall fixed, per #97) | PENDING |
+| 25 | `preserve_before_destructive_delegation` | `.claude/rules/*` or ai-laziness-traps T17 (incident counter 1/3 → promote at 3) | CODIFIED → ai-laziness-traps.md T17 |
+| 26 | `preserve_unique_residue_via_skill_context` | discipline note (judgment-heavy directive) | CODIFIED → ai-laziness-traps.md T18 |
+| 27 | `reasoned_recommendation_default` | `.claude/rules/*` (mechanization blocked until detector recall fixed, per #97) | CODIFIED (prose) → phase-research-coverage.md §1.12; mechanization deferred per #97/#98 |
 | 28 | `verify_diff_direction_before_live_claim` | `.claude/rules/*` (per-file content-probe is mechanical; invocation is judgment) | CODIFIED → phase-research-coverage.md §1.11 |
 | 29 | `worktree_node_modules_symlink` | orchestrator setup step / script (dev-env convenience; mechanizable) | PENDING |
 | 30 | `ai_doc_research_priority_pool` | fold into `phase-research-coverage.md` / an AI-doc research doc | PENDING |

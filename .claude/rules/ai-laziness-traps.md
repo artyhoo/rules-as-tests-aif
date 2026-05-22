@@ -125,6 +125,24 @@ Tempted output: «we adopted Stryker → mutation testing covered», «we adopte
 Concrete shape: driving nails with a screwdriver / screwing screws with a hammer — the tool is real and well-built, but it's the wrong tool for our actual problem because someone matched names instead of functions.
 Counter: for every ADOPTED-MECHANISM or ADAPTED item, write explicitly: **«Upstream problem class: X. Our problem class: Y. Match? evidence: …»**. If X and Y differ, the upstream validation does NOT transfer — escalate to OWN-BUILD-class audit. This is the `#pattern-matching-on-name` antipattern in operational form (see [phase-research-coverage.md §4](phase-research-coverage.md) candidates; documented in [`prior-art-evaluations.md` AIF Handoff overlap analysis](../../docs/meta-factory/prior-art-evaluations.md) entries #27/#28).
 
+### T17 — Destructive delegation without preserving future-value content first
+
+Trigger: about to write a destructive prompt (REMOVE / DELETE / revert) for a junior, or run a destructive op, on content that may have future value.
+Tempted output: dispatch the delete/revert immediately — the junior follows scope strictly and the content is gone with no undo.
+Counter: **BEFORE** writing the destructive prompt, the orchestrator saves deletable content with future value (extract to a preservation note / research-patch / skill-context). Preservation is the *orchestrator's* job — the junior is instructed to follow scope strictly and will not save it for you. *(codifies memory `preserve_before_destructive_delegation`; incident counter 1/3 → promote to a principle test at 3)*
+
+### T18 — Deleting a redundant artifact instead of preserving its unique residue
+
+Trigger: an ours-vs-adopted-upstream collision / redundancy surfaces across docs or agents.
+Tempted output: «it's redundant with the upstream we adopted → delete it».
+Counter: verify the redundancy **empirically** first; keep the file (deletion is the irreversible branch, keeping is reversible); preserve genuinely-unique residue via the upstream-native mechanism (e.g. a skill-context override) — never just delete. *(codifies memory `preserve_unique_residue_via_skill_context`)*
+
+### T19 — Handoff without own cold-QA (CI ≠ design review)
+
+Trigger: a load-bearing / discipline-bearing PR is ready and CI is green.
+Tempted output: «CI green → hand to the maintainer to review and merge».
+Counter: run your **own** adversarial cold-review of the diff (a fresh reviewer over the actual change) BEFORE handoff. CI checks form/structure (lint, trailers, schema), not design substance — the 2026-05-22 DN-4 round-1 (§1.11) and round-2 (§1.12) cold-reviews each caught real MAJOR findings a green CI missed. «Merge» is the maintainer's decision; «QA» is yours. *(codifies memory `own_qa_before_handoff`)*
+
 ## §3 Obligations on kickoff authors
 
 A kickoff document (R-phase brief, audit prompt, multi-session umbrella doc) that delegates work to an AI session MUST:
