@@ -27,7 +27,7 @@
 
 **Infra:** I.1 staging-trunk migration **DONE** (#144/#150 — default branch = `staging`, `main` push-blocked, `ci-success` on both; native Merge Queue unavailable on this repo → `strict:false` substitute). I.2 channel-selection promote + SSOT #60–#63 still maintainer-click. I.3 DN-4 incremental.
 
-**What actually remains:** N0 decision (15 Jun) · apply N2 + N7 verdicts (maintainer-owned rule/SSOT edits) · N8 implementation · N4b H10 (deferred, trigger-gated) · N5 + N6b (not started) · 0.3 promote N0–N8 into `EXECUTION-PLAN.md`.
+**What actually remains:** N0 decision (15 Jun) · apply N2 + N7 verdicts (maintainer-owned rule/SSOT edits) · N8 implementation · N4b H10 (deferred, trigger-gated) · N5 + N6b (not started). *(0.3 promote→`EXECUTION-PLAN.md` CLOSED 2026-05-22 — see §5.2.)*
 
 **Mostly research-complete:** the bulk of per-wave *research* across N1/N2/N4b/N7/N8 is done; the open frontier is **application** of verdicts + N0/N8 cost work, not new research.
 
@@ -44,7 +44,7 @@
 |---|---|---|---|
 | 0.1 | Commit books (facts + chronicle v3) + N8 patch + this doc | «don't lose plans» (session theme); currently uncommitted | maintainer commits |
 | 0.2 | ✅ **CLOSED — companion = C** (both, on separate layers) | unblocks N7 | maintainer-delegated decision 2026-05-22 («Твоё решение»); rationale below |
-| 0.3 | Promote N0–N8 from research-patches → `EXECUTION-PLAN.md` | makes plans «active tasks», not archived patches | maintainer decision |
+| 0.3 | ✅ **CLOSED — promote via pointer** (cross-ref, not duplication) | plans «active» from canonical plan; SSOT stays single | maintainer-delegated 2026-05-22; see §5.2 |
 
 ### Track 1 — critical path to June 15 (maintainer's stated top priority: autonomy without extra spend)
 | # | Task | When | Depends on |
@@ -94,7 +94,7 @@
 ## §5 — Open maintainer decisions embedded above
 
 1. ~~companion = A / B / C (gates N7) — 0.2~~ → **CLOSED 2026-05-22: C** (see §5.1)
-2. promote N0–N8 into `EXECUTION-PLAN.md` (plans «active» vs archived) — 0.3 — **still open**
+2. ~~promote N0–N8 into `EXECUTION-PLAN.md` — 0.3~~ → **CLOSED 2026-05-22: pointer-promote** (see §5.2)
 3. ~~staging-trunk migration: execute or hold — I.1~~ → **DONE 2026-05-22** (#144/#150)
 4. first launch: N8 R-phase (recommended) vs another track — §4 — **still open**
 
@@ -108,6 +108,14 @@ Maintainer-delegated («Твоё решение», /orchestrator session 2026-05
 - **Falsified if** the layers prove inseparable, or AI-agnosticism turns out not to be the moat — neither holds (substrate = `packages/core/principles/*` + `.husky/` + deterministic bash; process = swappable markdown skills; moat verified N1 PR #102 / N0).
 
 **Unblocks:** N7 (task 3.1) and N2's already-completed vocab alignment. The prior memory claim of «decided #103 2026-05-21» was premature — surfaced-not-closed in [research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md §line 95](research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md); this §5.1 is the formal closure.
+
+### §5.2 — Decision record: 0.3 promote = **pointer, not duplication** (closed 2026-05-22)
+
+Maintainer-delegated («Твоё решение», /orchestrator 2026-05-22). N0–N8 are promoted into [EXECUTION-PLAN.md](EXECUTION-PLAN.md) **by cross-reference** — a "Post-1.0 growth waves N0–N8" pointer under Phase 9+ naming this `wave-sequencing-plan.md` as ordering-SSOT (incl. §0 status snapshot) and the two research-patches as content-SSOT.
+
+- **Why pointer, not full inline:** inlining N0–N8 as phases would create a *second* sequencing authority inside EXECUTION-PLAN, duplicating this doc → guaranteed drift (`#contradicting-authority-claims` / `#two-prompts-drift`). Doc-authority hierarchy + build-first-reuse (DRY) favour single-source. The pointer makes the waves *active/discoverable from the canonical plan* without copying content.
+- **Effect:** EXECUTION-PLAN now references the active growth waves; this doc + patches remain the live trackers (each keeps its `Authoritative-for` header).
+- **Falsified if** the maintainer wants N0–N8 *inlined* as full phases and this doc retired into one tracker — a larger restructure not implied by 0.3; redirect and I'll inline instead.
 
 ## §6 — Parallelism + dependency matrix (orchestrator-facing)
 

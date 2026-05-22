@@ -680,6 +680,14 @@ Manual baseline: 1-2 дня создание `preset-next-16-manual`. Затем
 
 После каждой sub-фазы — тот же retrospective gate.
 
+### Post-1.0 growth waves N0–N8 (active — tracked elsewhere by reference)
+
+The post-build growth waves (**N0** June-15 metered-dispatch storm, **N1** niche-validation, **N2** adopt-from-companions, **N3** bash→TS core, **N4** recommendation-moment gate, **N5** give-back, **N6** coexistence + one-button, **N7** dogfood companions, **N8** deterministic-offload autonomy economy) are **active tasks**, not archived patches (decision 0.3, 2026-05-22). To avoid a second sequencing authority inside this file (drift), they are promoted **by reference**, single-source:
+
+- **Ordering / deps / gates / launch order + verified status snapshot** → [wave-sequencing-plan.md](wave-sequencing-plan.md) (`Authoritative for` execution ordering of N0–N8; §0 holds the reconciled status — re-verify before relying).
+- **Wave content / rationale** → [research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md](research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md) (N0–N7) + [research-patches/2026-05-22-deterministic-offload-autonomy-economy.md](research-patches/2026-05-22-deterministic-offload-autonomy-economy.md) (N8).
+- **Single hard date:** 2026-06-15 (N0). Cost-first invariant: free research before paid build ([no-paid-llm-in-ci.md](../../.claude/rules/no-paid-llm-in-ci.md)).
+
 ---
 
 ## 7. Decision matrix для Phase 1 (отсюда выводятся artifacts)
