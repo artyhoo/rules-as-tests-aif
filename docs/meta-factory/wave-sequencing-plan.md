@@ -13,7 +13,7 @@
 
 | Wave | What | Verified status | Evidence |
 |---|---|---|---|
-| N0 | headless billing change (15 Jun) | 🔲 decision open, hard date | niche-roadmap §N0 |
+| N0 | headless billing change (15 Jun) | ✅ **decision CLOSED 2026-05-22** — defer-action + arm utilisation trigger (D1/D2/D3 resolved) | §5.3; niche-roadmap §N0 |
 | N1 | niche-validation research | ✅ research deliverable complete | `2026-05-21-n1-niche-validation.md` §4 verdict («research deliverable only») |
 | N2 | adopt-from-Superpowers | 🟡 verdicts done → application (rule/SSOT edits) pending, maintainer-owned | `2026-05-21-n2-adopt-from-superpowers.md` §3 |
 | N3 | enforcement substrate (= Wave 10) | ✅ DONE | #107/#114/#116/#119/#120/#127/#129 MERGED |
@@ -23,11 +23,11 @@
 | N6a | coexistence / C-1 | ✅ DONE | #79/#82 MERGED |
 | N6b | one-button install | 🔲 not started (last build) | — |
 | N7 | dogfood companions | 🟡 verdicts done → application pending; **DECISION=C confirmed** | `2026-05-22-n7-dogfood-companions.md` |
-| N8 | deterministic-offload autonomy economy | ✅ **R-phase DONE** (#158→staging; autonomous Queue-mode: Worker→Reviewer **GO**→orchestrator anti-collusion passed). A-phase (impl) 🔲 pending maintainer D1/D2/D3 | findings `2026-05-22-n8-rphase-findings.md` (R1–R4) + plan `2026-05-22-deterministic-offload-autonomy-economy.md` |
+| N8 | deterministic-offload autonomy economy | ✅ **R-phase DONE** (#158→staging; autonomous Queue-mode: Worker→Reviewer **GO**→orchestrator anti-collusion passed). A-phase (impl) 🔲 D1/D2/D3 resolved by N0 §5.3 (defer-build + arm utilisation trigger; R4 NO-GO; C1 first for correctness) → A-phase now gated on the utilisation trigger, not on a fresh decision | findings `2026-05-22-n8-rphase-findings.md` (R1–R4) + plan `2026-05-22-deterministic-offload-autonomy-economy.md` |
 
 **Infra:** I.1 staging-trunk migration **DONE** (#144/#150 — default branch = `staging`, `main` push-blocked, `ci-success` on both; native Merge Queue unavailable on this repo → `strict:false` substitute). I.2 channel-selection promote + SSOT #60–#63 still maintainer-click. I.3 DN-4 incremental.
 
-**What actually remains:** N0 decision (15 Jun) · apply N2 + N7 verdicts (maintainer-owned rule/SSOT edits) · **N8 A-phase** (gated on maintainer D1 cost-lever A/B/C · D2 local-model validation bench go/no-go · D3 offload-migration priority — all surfaced in `2026-05-22-n8-rphase-findings.md` §7; SSOT rows #64–#68 ship with the capability, not now) · N4b H10 (deferred, trigger-gated) · N5 + N6b (not started). *(0.3 promote→`EXECUTION-PLAN.md` CLOSED 2026-05-22 — see §5.2.)*
+**What actually remains:** apply N2 + N7 verdicts (maintainer-owned rule/SSOT edits) · **N8 A-phase** (D1/D2/D3 now answered by the N0 decision §5.3 = defer-build, arm utilisation trigger, R4 NO-GO; the *correctness* offload C1 still worth landing — SSOT rows #64–#68 ship with the capability, not now) · N4b H10 (deferred, trigger-gated) · N5 + N6b (not started). *(N0 decision CLOSED 2026-05-22 — see §5.3; 0.3 promote→`EXECUTION-PLAN.md` CLOSED 2026-05-22 — see §5.2.)*
 
 **Mostly research-complete:** the bulk of per-wave *research* across N1/N2/N4b/N7/N8 is done; the open frontier is **application** of verdicts + N0/N8 cost work, not new research.
 
@@ -50,7 +50,7 @@
 | # | Task | When | Depends on |
 |---|---|---|---|
 | 1.1 | **N8 R-phase** (free: local-model dispatch / batch / caching / offload-sweep + «$ above subscription» estimate) | ✅ **DONE** (#158→staging, 2026-05-22) | — |
-| 1.2 | **N0 decision** — how to stay autonomous + cheap, informed by 1.1 | after 1.1, **before 2026-06-15** | 1.1 |
+| 1.2 | **N0 decision** — how to stay autonomous + cheap, informed by 1.1 | ✅ **DONE 2026-05-22** (§5.3: defer-build + arm trigger) | 1.1 |
 | 1.3 | **N8 A-phase** — apply cheap wins (migrate checks into hooks, autonomy hooks) | start high-ROI items before June 15 | 1.1 |
 
 ### Track 2 — cheap, no deadline, parallel-safe
@@ -97,6 +97,7 @@
 2. ~~promote N0–N8 into `EXECUTION-PLAN.md` — 0.3~~ → **CLOSED 2026-05-22: pointer-promote** (see §5.2)
 3. ~~staging-trunk migration: execute or hold — I.1~~ → **DONE 2026-05-22** (#144/#150)
 4. first launch: ✅ **N8 R-phase launched + DONE** (#158, autonomous Queue-mode 2026-05-22) — §4 recommendation actioned
+5. ~~N0 response: which cost lever + R4 bench go/no-go + offload priority — 1.2~~ → **CLOSED 2026-05-22: defer-build + arm utilisation trigger; R4 NO-GO** (see §5.3)
 
 ### §5.1 — Decision record: companion = **C** (closed 2026-05-22)
 
@@ -116,6 +117,29 @@ Maintainer-delegated («Твоё решение», /orchestrator 2026-05-22). N0
 - **Why pointer, not full inline:** inlining N0–N8 as phases would create a *second* sequencing authority inside EXECUTION-PLAN, duplicating this doc → guaranteed drift (`#contradicting-authority-claims` / `#two-prompts-drift`). Doc-authority hierarchy + build-first-reuse (DRY) favour single-source. The pointer makes the waves *active/discoverable from the canonical plan* without copying content.
 - **Effect:** EXECUTION-PLAN now references the active growth waves; this doc + patches remain the live trackers (each keeps its `Authoritative-for` header).
 - **Falsified if** the maintainer wants N0–N8 *inlined* as full phases and this doc retired into one tracker — a larger restructure not implied by 0.3; redirect and I'll inline instead.
+
+### §5.3 — Decision record: N0 response = **defer-build + arm utilisation trigger** (closed 2026-05-22)
+
+Maintainer-delegated (/orchestrator «N0 decision, го итеративно и автономно», 2026-05-22). The June-15 change is a **meter on the headless/programmatic dispatch layer, not a removal** — `claude -p` stays supported (verified, [niche-roadmap, Wave N0 section](research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md)). N0 resolves the three [findings §7](research-patches/2026-05-22-n8-rphase-findings.md) decisions D1/D2/D3.
+
+**D1 — cost lever → defer ALL options + arm a trigger (no optimisation build now; Option A was *not* selected — the verdict is status-quo until the trigger fires, then jump to Option B).**
+- The enforcement substrate never touched `claude -p` and is weatherproof by [no-paid-llm-in-ci](../../.claude/rules/no-paid-llm-in-ci.md) — load-bearing fact, not at risk.
+- At the current ~10 sessions/month load the metered spend is negligible *even fully unoptimised* (findings §3: ≈$13.50/mo → ~6.8% of a $200 credit; the 50-session scaling ceiling is ≈$67.50/mo → ~34% unoptimised, dropping to ≈$33–40 → ~17–20% only *after* the Option-B levers are applied). Building Option B's routing classifier or Option C's local dispatcher now is premature-BUILD for a cost problem that does not yet bind (`#own-stack-blind-spot` / [build-first-reuse-default §4](../../.claude/rules/build-first-reuse-default.md)). Note the findings' own irony flag: the routing classifier itself burns tokens.
+- The one cheap ADOPT — prompt caching via SDK `cache_control` (proposed SSOT #65, not yet landed) — is **folded into any future programmatic-dispatcher work, not built standalone**: interactive Claude Code already caches automatically, so there is nothing to "adopt" until a headless/SDK path exists.
+- **Armed trigger (revisit → execute Option B = caching + batch + Haiku routing):** Agent-SDK credit utilisation > ~50% of plan in any month, **OR** the maintainer commits to unattended headless loops (`claude -p` cron / GitHub Actions). Until then: pay-the-meter-as-billed, monitor utilisation.
+
+**D2 — R4 local-model bench → NO-GO now (REFERENCE-only).**
+- Local-model dispatch stays proposed SSOT #67 (REFERENCE → conditional-BUILD). Capability floor is INCONCLUSIVE — arXiv 2604.02367 front-door routing (0.793 acc) is an *adjacent* problem class, not our session-loop dispatch (`#pattern-matching-on-name`, [ai-laziness-traps §2 T16](../../.claude/rules/ai-laziness-traps.md)). A 2–3-week bench for a problem that does not bind at current scale is not justified.
+- Gate the bench on the **same trigger** as D1's escalation to Option C.
+
+**D3 — R1 offload migration priority → decoupled from N0 (→ N8 A-phase).**
+- This is N8 A-phase sequencing, already maintainer-gated in §0; not an N0 blocker. The N0 cost-urgency answer is "defer", but the *correctness* value of deterministic offload is independent of billing. Recommended A-phase order by correctness ROI (not cost): **C1** (SSOT existence check — strengthens the substrate regardless of the meter) first, then C2, C4, C3, C5 per findings §7 D3.
+
+**Open factual question (does not change the verdict):** whether inline `Agent`/Task-tool subagents spawned *inside* an interactive `claude` session bill against the interactive pool or the metered credit is **officially undefined**. Checked this closing /orchestrator session (2026-05-22) via `claude-code-guide` against the Anthropic help-center article ([support.claude.com/.../15036540](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan)): the article draws the billing line at the *entry point* (interactive terminal/IDE explicitly stays on the subscription; SDK / `-p` / Actions metered) and is **silent on the interactive→subagent hybrid** — a documented gap, not a confirmed rule; the only public read (third-party) leans "likely SDK-billed, unconfirmed". This is the broader billing-change verification (niche-roadmap §N0 Task 0, 2-channel) extended to the hybrid sub-case, which that prior check did not cover. If it resolves to "interactive subagents ARE metered" the urgency rises — but the armed utilisation trigger already catches that, so the verdict is robust either way.
+
+**Falsified if:** the maintainer wants an unattended `claude -p` / Actions autonomous loop *now* (→ jump straight to Option B, don't wait for the trigger); or session rate jumps to 50+/month before June 15 (trigger fires immediately). Neither holds at 2026-05-22.
+
+**§1.7 forward-check:** complies with [no-paid-llm-in-ci](../../.claude/rules/no-paid-llm-in-ci.md) (zero CI-side paid calls; substrate untouched), [build-first-reuse-default](../../.claude/rules/build-first-reuse-default.md) (defers BUILD of dispatcher/router/local-model until evidence justifies; ADOPT caching folded into future work), [reviewer-discipline §2](../../.claude/rules/reviewer-discipline.md) (maintainer-delegated; records the delegated call, does not self-initiate strategy). No new rule introduced → no backward sweep required.
 
 ## §6 — Parallelism + dependency matrix (orchestrator-facing)
 

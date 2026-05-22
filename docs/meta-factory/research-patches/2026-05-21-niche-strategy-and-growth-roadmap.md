@@ -44,6 +44,7 @@ Three independent probes of `obra/superpowers`, 2026-05-21:
 - **Real decision (by June 15, maintainer call):** not "migrate before the door shuts" but "how to pay the meter" — (a) cost-aware dispatch within the credit; (b) pay overage at API rates; (c) upgrade plan for more credit; (d) human-in-loop interactive (free pool); (e) hand orchestration to a companion runtime (aif-handoff). Overlaps Wave N7 (dogfood-companions): process-layer migration is the same action.
 - **Checks:** `no-paid-llm-in-ci` preserved; substrate stays harness-independent; estimate per-dispatch credit burn before committing to a fan-out shape.
 - **BFR verdict:** ADOPT (Agent-SDK / companion path) — orchestration is not the moat; do not BUILD a custom dispatcher. Urgency: **moderate** (cost-planning by a firm date), downgraded from the earlier "beats all" once verification showed it is a meter, not a removal.
+- **✅ CLOSED 2026-05-22 → formal decision record at [wave-sequencing-plan.md §5.3](../wave-sequencing-plan.md):** defer-build + arm a utilisation trigger (revisit Option B at >~50% credit utilisation or on commitment to unattended headless loops); R4 local-model bench **NO-GO now**; offload C1 decoupled into N8 A-phase. This roadmap bullet is the content-source; §5.3 is the single-source decision — no duplication.
 
 ### Wave N1 — Niche-validation research
 - **Goal:** lock the positioning empirically. Is there ANY tool combining enforcement-substrate **+** recursive-self-application? (negative-existence → `phase-research-coverage.md` §1 6-item checklist).
