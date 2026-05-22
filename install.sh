@@ -289,7 +289,11 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJEC
 mkdir_safe "$PROJECT_ROOT/.husky"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-commit.sh" "$PROJECT_ROOT/.husky/pre-commit"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-push.sh" "$PROJECT_ROOT/.husky/pre-push"
-chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" 2>/dev/null || true
+# Wave 10.5: also install the bash critical-only fallback so the dispatcher can find it.
+# The runtime dispatcher (husky-pre-push.sh) selects between TS-core and fallback at each push.
+copy_safe "$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh" "$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh"
+chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" \
+  "$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh" 2>/dev/null || true
 
 # ─── 5b. Custom ESLint rules plugin (used by eslint.config.mjs) ───
 echo "▶ Custom ESLint rules → eslint-rules-local/"

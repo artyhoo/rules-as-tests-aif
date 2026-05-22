@@ -84,15 +84,6 @@ function requireTool(
   emit(r);
 }
 
-/** A bash self-test script that must exist and exit 0. */
-function requireSelfTest(scriptRelPath: string): void {
-  if (!existsSync(resolve(REPO_ROOT, scriptRelPath))) {
-    die(`❌ ${scriptRelPath} missing or not executable`);
-  }
-  const r = run('bash', [scriptRelPath]);
-  if (r.exitCode !== 0) die(`❌ ${scriptRelPath} failed:`, r);
-  emit(r);
-}
 
 /**
  * §7 Prior-art trailer check. Extracted so it can run in isolation (PREPUSH_ONLY)
@@ -242,8 +233,7 @@ function main(): void {
     emit(r);
   }
 
-  // ── 3a. Hook stub completeness ────────────────────────────────────────────────
-  requireSelfTest('packages/core/audit-self/hook-stub-completeness.test.sh');
+  // ── 3a. Hook stub completeness — ported to principle 16 (Wave 10.6 TS migration) ──
 
   // ── 3b. Skill drift check (D-AuditC-5 channel 2) ──────────────────────────────
   if (existsSync(resolve(REPO_ROOT, 'scripts/check-skill-drift.sh'))) {

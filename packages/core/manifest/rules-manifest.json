@@ -106,7 +106,7 @@
   "R11": {
     "title": "CI integrity",
     "stack": ["ts-server", "react-next"],
-    "check": { "type": "command", "command": ".github/workflows/workflow-integrity.yml (actionlint + zizmor + branch-protection-assertion)" },
+    "check": { "type": "command", "command": "audit-self.yml (actionlint + zizmor → ci-success aggregate) + workflow-integrity.yml (branch-protection-assertion)" },
     "examples": {
       "bad": "# in .github/workflows/ci.yml:\n- uses: actions/checkout@main",
       "good": "- uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1"

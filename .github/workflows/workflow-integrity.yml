@@ -16,40 +16,10 @@ permissions:
   contents: read
 
 jobs:
-  actionlint:
-    name: actionlint — YAML & expression correctness
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
-        with:
-          persist-credentials: false
-      - name: Run actionlint via reviewdog wrapper
-        uses: reviewdog/action-actionlint@6fb7acc99f4a1008869fa8a0f09cfca740837d9d  # v1.72.0 — pin and bump via Dependabot
-        with:
-          fail_level: error
-
-  zizmor:
-    name: zizmor — supply-chain audits
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55  # v5.5.0
-        with:
-          python-version: '3.12'
-      - name: Install zizmor
-        run: pip install zizmor
-      - name: Run zizmor
-        # Plain console output. zizmor exits non-zero on findings; that's the gate.
-        # Avoiding SARIF upload keeps this workflow runnable in repos without
-        # GitHub Advanced Security enabled (free public repos, etc.).
-        run: zizmor --format plain .github/workflows/
-
+  # actionlint + zizmor moved to audit-self.yml so the single required context
+  # `ci-success` can `needs:`-aggregate them (cross-file `needs:` is impossible,
+  # and a path-filtered required check deadlocks non-workflow PRs). This workflow
+  # now carries only the R11 branch-protection self-assertion.
   branch-protection-assertion:
     name: ci-success required-check assertion
     if: github.event_name == 'pull_request'

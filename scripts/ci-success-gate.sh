@@ -7,8 +7,9 @@
 # every audit-self PR job; the job passes its `${{ join(needs.*.result, ' ') }}`
 # here. It exits 0 iff every job result is `success` or `skipped`, else 1 — so a
 # single required context (`ci-success`) gates all of audit-self.yml at once.
-# (Cross-file checks — actionlint, zizmor in workflow-integrity.yml — are required
-# alongside `ci-success`; see docs/meta-factory/automerge-staging-plan.md §5.)
+# (actionlint + zizmor were moved into audit-self.yml so they too are `needs:`-ed
+# here — a path-filtered required check in another file deadlocks non-workflow
+# PRs; see docs/meta-factory/automerge-staging-plan.md §5.)
 #
 # `skipped` counts as OK: an `if:`-gated job (e.g. pr-commit-trailers on a push
 # event) is legitimately skipped, not failed. `failure` and `cancelled` fail the
