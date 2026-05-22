@@ -68,7 +68,7 @@ Method: WebSearch ≥3 phrasings per category + DeepWiki on specific repos. T1 f
 | **Budget Governor MCP server** (`gvnrdev/budget-governor`) | Per-agent hard spend limit | Upstream: MCP tool that intercepts each LLM request, deducts estimated cost from a budget envelope, kills agent if envelope exceeded. Ours: hard cap on `claude -p` session spend. **DIRECT MATCH** conceptually, but ties us to MCP server dependency + per-call billing estimation. | **ADAPT** (concept: pre-call envelope deduction; implementation: deterministic counter in our own hook rather than external MCP server, per substrate-independence invariant) | Wrong if: MCP server overhead is negligible and our hook would duplicate it without benefit. Counter: substrate must stay vendor-independent (N7); external MCP adds dependency and coupling. |
 | **HyEvo / Compiled AI (hybrid deterministic+LLM)** | Hybrid workflow (deterministic + minimal LLM) | Upstream: research pattern — deterministic code nodes for predictable steps, LLM nodes only for semantic reasoning. HyEvo: up to 19× cost reduction, 16× latency reduction by routing predictable operations to deterministic code. Ours: our existing hook+test substrate IS already this pattern; what we lack is a formal dispatch layer that routes "is this step deterministic?" | **REFERENCE** (vocabulary + architecture; our existing substrate already implements this pattern; R4 local-model dispatcher is the missing routing layer) | Wrong if: a production framework implementing this pattern for Claude Code specifically exists. No evidence found; SSOT row proposed in §7. |
 
-**Coverage check (T1 floor met):** 8 candidates across 6 categories. Categories covered: budget-capped scheduler, async/batch, prompt caching, local runner, semantic caching, hybrid deterministic+LLM. All had ≥3 search phrasings. T13: each ADOPTED item has explicit "our problem class vs upstream problem class" stated above.
+**Coverage check (T1 candidate-floor NOT met):** 8 candidates across 6 categories, but 5 of 6 categories have n=1 candidate (async/batch, prompt caching, local runner, semantic caching, hybrid det+LLM each have exactly 1 entry; only budget-capped scheduler has 3). The ≥3-phrasings floor (search-query diversity) was met; the ≥3-candidates-per-category floor was NOT. Coverage insufficient to conclude category-completeness — treat R2 verdicts as provisional. T13: each ADOPTED item has explicit "our problem class vs upstream problem class" stated above. (T14 correction applied 2026-05-22: original line 71 incorrectly labelled this "T1 floor met" — see §10 correction log.)
 
 ---
 
@@ -104,7 +104,7 @@ One autonomous wave session burns roughly 200K–500K tokens (based on MEMORY.md
 
 ### Capability floor evidence
 
-**Front-door routing classification benchmark (arXiv 2604.02367, March 2026 — the most directly applicable study found):**
+**Front-door routing classification benchmark (arXiv 2604.02367 — "Evaluating Small Language Models for Front-Door Routing: A Harmonized Benchmark and Synthetic-Traffic Experiment", Johnson & Lee, 2026 — link-verified 2026-05-22 — the most directly applicable study found):**
 - Best self-hosted model: **Qwen-2.5-3B** — 0.793 accuracy, 988 ms median latency, $0 marginal cost, 100% parse rate
 - No model meets the standalone viability criterion: ≥0.85 accuracy AND ≤2,000 ms P95
 - Accuracy gap to production viability: 6–8 percentage points
@@ -222,6 +222,27 @@ Which of C1–C5 should enter the A-phase first? Recommendation order by ROI: C1
 - [.claude/rules/no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md) — hard constraint; all R-phase mechanisms comply.
 - [.claude/rules/build-first-reuse-default.md](../../../.claude/rules/build-first-reuse-default.md) — verdict discipline applied in §2.
 - [docs/meta-factory/prior-art-evaluations.md](../prior-art-evaluations.md) — SSOT for proposed rows #64–#68 (§7; not yet written; maintainer serializes).
-- arXiv 2604.02367 — "Evaluating Small Language Models for Front-Door Routing" (Qwen-2.5-3B 0.793 accuracy finding; best direct evidence for R4 capability floor).
-- arXiv 2604.05150 — "Compiled AI: Deterministic Code Generation for LLM-Based Workflow Automation" (hybrid deterministic+LLM architecture precedent).
-- arXiv 2603.19639 — "HyEvo: Self-Evolving Hybrid Agentic Workflows" (19× cost reduction by deterministic offload; REFERENCE vocabulary).
+- arXiv 2604.02367 — "Evaluating Small Language Models for Front-Door Routing: A Harmonized Benchmark and Synthetic-Traffic Experiment" (Johnson & Lee; Qwen-2.5-3B 0.793 accuracy finding; best direct evidence for R4 capability floor; link-verified 2026-05-22).
+- arXiv 2604.05150 — "Compiled AI: Deterministic Code Generation for LLM-Based Workflow Automation" (Trooskens et al.; hybrid deterministic+LLM architecture precedent; link-verified 2026-05-22).
+- arXiv 2603.19639 — "HyEvo: Self-Evolving Hybrid Agentic Workflows for Efficient Reasoning" (Xu et al.; 19× cost reduction, 16× latency reduction by deterministic offload; REFERENCE vocabulary; link-verified 2026-05-22).
+
+---
+
+## §10 — Correction log (2026-05-22)
+
+**Origin:** post-merge audit of PR #158. Two substance gaps fixed; maintainer-approved correction task.
+
+**Fix A — arXiv link-verification (R4 capability floor sources):**
+
+| arXiv ID | Verdict | Evidence |
+|---|---|---|
+| 2604.02367 | **VERIFIED** | Title confirmed: "Evaluating Small Language Models for Front-Door Routing: A Harmonized Benchmark and Synthetic-Traffic Experiment" (Johnson & Lee). Abstract confirms: Qwen-2.5-3B, 0.793 accuracy (Study 2), 988 ms median, $0 marginal cost, 1.000 parse rate, 6–8pp gap to ≥0.85 viability criterion. Fetched from <https://arxiv.org/abs/2604.02367> and <https://arxiv.org/html/2604.02367>. |
+| 2604.05150 | **VERIFIED** | Title confirmed: "Compiled AI: Deterministic Code Generation for LLM-Based Workflow Automation" (Trooskens et al.). Abstract confirms: deterministic-after-compilation paradigm, 57× token reduction at 1,000 transactions, 96% task completion with zero execution tokens on BFCL benchmark. Fetched from <https://arxiv.org/abs/2604.05150>. |
+| 2603.19639 | **VERIFIED** | Title confirmed: "HyEvo: Self-Evolving Hybrid Agentic Workflows for Efficient Reasoning" (Xu et al.). Abstract confirms: hybrid LLM+deterministic-code nodes, "reducing inference cost and execution latency by up to 19× and 16×, respectively, compared to the state-of-the-art open-source baseline." Fetched from <https://arxiv.org/abs/2603.19639>. |
+
+Changes made: full verified titles added inline in §4 R4 section and §9 See also, with link-verification date. No claim removed or downgraded (all three IDs exist and say what R4 claims).
+
+**Fix B — R2 candidate-floor honesty (line 71):**
+Option taken: **B2 (honest downgrade)**. The original "T1 floor met" assertion conflated the ≥3-search-phrasings floor with the ≥3-candidates-per-category floor. Actual state: 5 of 6 categories have n=1 candidate; only budget-capped scheduler has 3. The line was rewritten to state "T1 candidate-floor NOT met" with the actual counts, and a note that R2 verdicts should be treated as provisional. Adding ≥12 new properly-analyzed candidates to reach the B1 floor (3 per thin category × 5 categories) was out of scope for this correction task. B2 is the honest fallback per kickoff §1.
+
+**What changed + why:** Two lines edited in the target file (line 107 — arXiv title expanded; line 71 — floor claim corrected) plus §9 three arXiv lines updated with full titles and verification dates. §10 correction log appended. No other sections touched. Reason: the original R-phase session asserted arXiv IDs from training-memory without link-verification (T12) and mislabeled thin coverage as floor-met (T14).
