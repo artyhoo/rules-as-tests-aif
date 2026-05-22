@@ -3,7 +3,33 @@
 > **Authoritative for:** execution *ordering* of the open waves (N0–N8) + infra tracks — the «when / in what order / gated by what» layer. Sequencing rationale: single hard date, dependency edges, cost-first (free research before paid build).
 > **NOT authoritative for:** project goal — see [../../README.md#why-this-exists](../../README.md#why-this-exists); each wave's *content* — see [research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md](research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md) (N0–N7) and [research-patches/2026-05-22-deterministic-offload-autonomy-economy.md](research-patches/2026-05-22-deterministic-offload-autonomy-economy.md) (N8); the storm/billing facts — see N0 in the niche roadmap; the automerge/staging infra — see [automerge-staging-plan.md](automerge-staging-plan.md).
 >
-> **Status:** PLANNING ONLY (2026-05-22). Nothing in this doc has been executed or committed by its authoring session. Wave *admission* + launch order = maintainer call per [reviewer-discipline.md §2](../../.claude/rules/reviewer-discipline.md). This doc records the proposed schedule so it is not lost; it does not start any work.
+> **Status:** ACTIVE — committed to staging (#151, 2026-05-22). Wave *admission* + launch order = maintainer call per [reviewer-discipline.md §2](../../.claude/rules/reviewer-discipline.md). The ordering/dependency structure (§2–§6) is the durable layer; **per-wave statuses drift** — §0 holds the snapshot reconciled 2026-05-22 against merged PRs + per-wave research-patches. Re-verify §0 before relying on it.
+
+---
+
+## §0 — Verified status snapshot (reconciled 2026-05-22)
+
+> Verified against merged PRs (`gh pr view`) + per-wave research-patches present in `research-patches/`. Supersedes any «pending/next» framing in older prose below — mirrors the `#stale-claim` correction the niche roadmap §STATUS-RECONCILIATION already needed once.
+
+| Wave | What | Verified status | Evidence |
+|---|---|---|---|
+| N0 | headless billing change (15 Jun) | 🔲 decision open, hard date | niche-roadmap §N0 |
+| N1 | niche-validation research | ✅ research deliverable complete | `2026-05-21-n1-niche-validation.md` §4 verdict («research deliverable only») |
+| N2 | adopt-from-Superpowers | 🟡 verdicts done → application (rule/SSOT edits) pending, maintainer-owned | `2026-05-21-n2-adopt-from-superpowers.md` §3 |
+| N3 | enforcement substrate (= Wave 10) | ✅ DONE | #107/#114/#116/#119/#120/#127/#129 MERGED |
+| N4a | claim-detector fix | ✅ DONE | #98 MERGED |
+| N4b | recommendation-moment gate | 🟡 D6 resolved: H1 SHIPPED (#117), H2 REJECTED, H10 DEFERRED/trigger-gated | `2026-05-22-n4b-recommendation-gate-design.md`; open-questions §13.39 |
+| N5 | give the conscience back | 🔲 not started (sequences after N7) | — |
+| N6a | coexistence / C-1 | ✅ DONE | #79/#82 MERGED |
+| N6b | one-button install | 🔲 not started (last build) | — |
+| N7 | dogfood companions | 🟡 verdicts done → application pending; **DECISION=C confirmed** | `2026-05-22-n7-dogfood-companions.md` |
+| N8 | deterministic-offload autonomy economy | 🟡 R-phase plan committed (#151); implementation pending | `2026-05-22-deterministic-offload-autonomy-economy.md` |
+
+**Infra:** I.1 staging-trunk migration **DONE** (#144/#150 — default branch = `staging`, `main` push-blocked, `ci-success` on both; native Merge Queue unavailable on this repo → `strict:false` substitute). I.2 channel-selection promote + SSOT #60–#63 still maintainer-click. I.3 DN-4 incremental.
+
+**What actually remains:** N0 decision (15 Jun) · apply N2 + N7 verdicts (maintainer-owned rule/SSOT edits) · N8 implementation · N4b H10 (deferred, trigger-gated) · N5 + N6b (not started) · 0.3 promote N0–N8 into `EXECUTION-PLAN.md`.
+
+**Mostly research-complete:** the bulk of per-wave *research* across N1/N2/N4b/N7/N8 is done; the open frontier is **application** of verdicts + N0/N8 cost work, not new research.
 
 ---
 
@@ -43,7 +69,7 @@
 ### Track I — infra (independent of niche waves; maintainer-gated)
 | # | Task | Note |
 |---|---|---|
-| I.1 | Staging-trunk migration | research GO; awaits «execute»; does not block niche waves |
+| I.1 | ✅ **DONE** — staging-trunk migration | shipped #144/#150; default = `staging`, `main` push-blocked, `ci-success` both; queue unavailable on repo → `strict:false` substitute |
 | I.2 | Channel-selection wave → promote staging→main + SSOT #60–#63 | maintainer click |
 | I.3 | DN-4 (15 stage-0 memory-codification gaps) | incremental, low priority, any window |
 
@@ -68,9 +94,9 @@
 ## §5 — Open maintainer decisions embedded above
 
 1. ~~companion = A / B / C (gates N7) — 0.2~~ → **CLOSED 2026-05-22: C** (see §5.1)
-2. promote N0–N8 into `EXECUTION-PLAN.md` (plans «active» vs archived) — 0.3
-3. staging-trunk migration: execute or hold — I.1
-4. first launch: N8 R-phase (recommended) vs another track — §4
+2. promote N0–N8 into `EXECUTION-PLAN.md` (plans «active» vs archived) — 0.3 — **still open**
+3. ~~staging-trunk migration: execute or hold — I.1~~ → **DONE 2026-05-22** (#144/#150)
+4. first launch: N8 R-phase (recommended) vs another track — §4 — **still open**
 
 ### §5.1 — Decision record: companion = **C** (closed 2026-05-22)
 
