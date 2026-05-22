@@ -18,7 +18,7 @@
 |---|---|---|---|
 | 0.1 | Commit books (facts + chronicle v3) + N8 patch + this doc | «don't lose plans» (session theme); currently uncommitted | maintainer commits |
 | 0.2 | ✅ **CLOSED — companion = C** (both, on separate layers) | unblocks N7 | maintainer-delegated decision 2026-05-22 («Твоё решение»); rationale below |
-| 0.3 | Promote N0–N8 from research-patches → `EXECUTION-PLAN.md` | makes plans «active tasks», not archived patches | maintainer decision |
+| 0.3 | ✅ **CLOSED — promote via pointer** (cross-ref, not duplication) | plans become «active» from canonical plan; SSOT stays single | maintainer-delegated 2026-05-22; see §5.2 |
 
 ### Track 1 — critical path to June 15 (maintainer's stated top priority: autonomy without extra spend)
 | # | Task | When | Depends on |
@@ -43,7 +43,7 @@
 ### Track I — infra (independent of niche waves; maintainer-gated)
 | # | Task | Note |
 |---|---|---|
-| I.1 | Staging-trunk migration | research GO; awaits «execute»; does not block niche waves |
+| I.1 | ✅ **CLOSED — already EXECUTED/LIVE** (default=`staging`, ci-success-only, strict removed; main=prod strict) | migration done; merge-queue deferred (GitHub won't expose); see §5.3 |
 | I.2 | Channel-selection wave → promote staging→main + SSOT #60–#63 | maintainer click |
 | I.3 | DN-4 (15 stage-0 memory-codification gaps) | incremental, low priority, any window |
 
@@ -68,9 +68,9 @@
 ## §5 — Open maintainer decisions embedded above
 
 1. ~~companion = A / B / C (gates N7) — 0.2~~ → **CLOSED 2026-05-22: C** (see §5.1)
-2. promote N0–N8 into `EXECUTION-PLAN.md` (plans «active» vs archived) — 0.3
-3. staging-trunk migration: execute or hold — I.1
-4. first launch: N8 R-phase (recommended) vs another track — §4
+2. ~~promote N0–N8 into `EXECUTION-PLAN.md` — 0.3~~ → **CLOSED 2026-05-22: pointer-promote** (see §5.2)
+3. ~~staging-trunk migration: execute or hold — I.1~~ → **CLOSED 2026-05-22: already EXECUTED/LIVE** (see §5.3)
+4. first launch: N8 R-phase (recommended) vs another track — §4 *(remains open)*
 
 ### §5.1 — Decision record: companion = **C** (closed 2026-05-22)
 
@@ -82,6 +82,21 @@ Maintainer-delegated («Твоё решение», /orchestrator session 2026-05
 - **Falsified if** the layers prove inseparable, or AI-agnosticism turns out not to be the moat — neither holds (substrate = `packages/core/principles/*` + `.husky/` + deterministic bash; process = swappable markdown skills; moat verified N1 PR #102 / N0).
 
 **Unblocks:** N7 (task 3.1) and N2's already-completed vocab alignment. The prior memory claim of «decided #103 2026-05-21» was premature — surfaced-not-closed in [research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md §line 95](research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md); this §5.1 is the formal closure.
+
+### §5.2 — Decision record: 0.3 promote = **pointer, not duplication** (closed 2026-05-22)
+
+Maintainer-delegated («Твоё решение», /orchestrator 2026-05-22). N0–N8 are promoted into [EXECUTION-PLAN.md](EXECUTION-PLAN.md) **by cross-reference** — a "Phase 9+ → niche/growth waves" pointer naming this `wave-sequencing-plan.md` as the ordering SSOT and the two research-patches as the content SSOT.
+
+- **Why pointer, not full inline:** inlining N0–N8 as phases would create a *second* sequencing authority inside EXECUTION-PLAN, duplicating this doc → guaranteed drift (the `#two-prompts-drift` shape). Doc-authority hierarchy + build-first-reuse (DRY) favour single-source. The pointer makes the waves *active/discoverable from the canonical plan* without copying content.
+- **Effect:** EXECUTION-PLAN now references the active growth waves; this doc + patches remain the live trackers (each keeps its `Authoritative-for` header).
+- **Falsified if** the maintainer wants N0–N8 *inlined* as full phases and this doc retired into one tracker — that is a larger restructure not implied by 0.3; redirect and I'll inline instead.
+
+### §5.3 — Decision record: I.1 staging-trunk = **already EXECUTED/LIVE** (closed 2026-05-22)
+
+Not an "execute or hold" question anymore — verified live state (GitHub API, 2026-05-22): **default branch = `staging`**; staging protection = required `ci-success` only, `strict=false` (no BEHIND stalls on parallel auto-merge); `main` = required `ci-success`, `strict=true` (manual prod promote). This is the migrated model from [automerge-staging-plan.md](automerge-staging-plan.md) (PR #150 LIVE). The "research GO; awaits execute" wording was **stale**.
+
+- **Remaining:** merge-queue stays **deferred** — GitHub won't expose the merge-queue UI for this repo (per [automerge-staging-plan.md](automerge-staging-plan.md)); not a pending decision.
+- **Observation (not actioned here):** `docs/meta-factory/staging-trunk-migration/` holds the migration wave's uncommitted research/review deliverables (A-inventory, review-A..D, `automerge-staging-plan.NEW.md`, `migrate/`). Whether to commit those as the migration record is a separate maintainer call — surfaced, not done.
 
 ## §6 — Parallelism + dependency matrix (orchestrator-facing)
 
