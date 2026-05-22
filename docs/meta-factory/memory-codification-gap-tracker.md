@@ -11,7 +11,9 @@ Each row below is a durable convention living **only** in user-scope agent memor
 
 **Not a big-bang.** Close opportunistically. Most rows are Class-C (judgment-gated, no mechanical test) or xt (enforceable only at write-time/session) — codification = prose-in-repo + a pointer, not necessarily a test. Re-audit cadence per [phase-research-coverage.md §1.6](../../.claude/rules/phase-research-coverage.md) push-sweep.
 
-Status legend: **PENDING** (still memory-only) · **CODIFIED** (in repo + memory reduced to pointer) · **DEFERRED** (codification blocked, reason noted).
+Status legend: **PENDING** (still memory-only) · **CODIFIED** (in repo + memory reduced to pointer) · **DEFERRED** (codification blocked / lower-priority, reason noted) · **OUT-OF-REPO** (correct home is a non-version-controlled global artefact).
+
+**Progress (2026-05-22 DN-4 sweep):** 11 CODIFIED (#16/#17/#22/#28 → §1.11 via #159; #20/#23/#25/#26/#27 → §1.12 + T17-T19 via #161; #29 → CONTRIBUTING, #30 → §1.13 this PR) · 3 DEFERRED (#18/#19 reference-facts; #21 thesis-level research-patch) · 1 OUT-OF-REPO (#24). No row remains bare-PENDING — every gap is codified or has a noted disposition.
 
 ## The 15 stage-0 gaps
 
@@ -19,19 +21,19 @@ Status legend: **PENDING** (still memory-only) · **CODIFIED** (in repo + memory
 |---|---|---|---|
 | 16 | `check_decided_status_before_recommending` | `.claude/rules/*` (session-discipline: grep memory + decision docs before recommending) | CODIFIED → phase-research-coverage.md §1.11 |
 | 17 | `check_inflight_prs_before_building` | `.claude/rules/*` / orchestrator skill (scan `gh pr list --state open` before building a tracked item) | CODIFIED → phase-research-coverage.md §1.11 |
-| 18 | `ci_runner_allocation_diagnostic` | troubleshooting doc/skill (heuristic, not a rule-to-enforce) | PENDING |
-| 19 | `claude_code_guide_worker_inaccessible` | CC-harness fact → kickoff-authoring habit (plan D4 fallback); queue-mode.md §10 already partly covers | PENDING |
+| 18 | `ci_runner_allocation_diagnostic` | troubleshooting doc/skill (heuristic, not a rule-to-enforce) | DEFERRED — reference-fact, not a behavioural rule; codify into a troubleshooting doc on next CI-runner incident |
+| 19 | `claude_code_guide_worker_inaccessible` | CC-harness fact → kickoff-authoring habit (plan D4 fallback); queue-mode.md §10 already partly covers | DEFERRED — CC-harness fact, already partly covered by queue-mode.md §10; low-priority |
 | 20 | `dont_ask_when_best_path_clear` | `.claude/rules/*` (pairs with reviewer-discipline §2 + reasoned-recommendation) | CODIFIED → phase-research-coverage.md §1.12 |
-| 21 | `no_human_verification_ai_self_verifies` | **major** — project-thesis-one-layer-up; codify via research-patch; widens §13.34 (hard to mechanize — it IS the recursive thesis) | PENDING |
+| 21 | `no_human_verification_ai_self_verifies` | **major** — project-thesis-one-layer-up; codify via research-patch; widens §13.34 (hard to mechanize — it IS the recursive thesis) | DEFERRED — thesis-level; needs a dedicated research-patch + §13.34 widening, not a quick rule fold (out of DN-4 round scope) |
 | 22 | `orchestrator_verify_state_before_claim` | `.claude/rules/*` (re-verify HEAD/closure before ship / negative-existence claim); §13.34-adjacent | CODIFIED → phase-research-coverage.md §1.11 |
 | 23 | `own_qa_before_handoff` | AI-agnostic `agents/*.md` cold-review run per load-bearing PR (session-time, no CI) | CODIFIED → ai-laziness-traps.md T19 |
-| 24 | `phase_minus_1_no_memory_inheritance` | orchestrator skill (keyword-grep step is deterministic; "absorb constraints" is judgment) | PENDING |
+| 24 | `phase_minus_1_no_memory_inheritance` | orchestrator skill (keyword-grep step is deterministic; "absorb constraints" is judgment) | OUT-OF-REPO — home is the global orchestrator skill (`~/.claude/skills/orchestrator`), not version-controlled per-project; cannot be codified into this repo |
 | 25 | `preserve_before_destructive_delegation` | `.claude/rules/*` or ai-laziness-traps T17 (incident counter 1/3 → promote at 3) | CODIFIED → ai-laziness-traps.md T17 |
 | 26 | `preserve_unique_residue_via_skill_context` | discipline note (judgment-heavy directive) | CODIFIED → ai-laziness-traps.md T18 |
 | 27 | `reasoned_recommendation_default` | `.claude/rules/*` (mechanization blocked until detector recall fixed, per #97) | CODIFIED (prose) → phase-research-coverage.md §1.12; mechanization deferred per #97/#98 |
 | 28 | `verify_diff_direction_before_live_claim` | `.claude/rules/*` (per-file content-probe is mechanical; invocation is judgment) | CODIFIED → phase-research-coverage.md §1.11 |
-| 29 | `worktree_node_modules_symlink` | orchestrator setup step / script (dev-env convenience; mechanizable) | PENDING |
-| 30 | `ai_doc_research_priority_pool` | fold into `phase-research-coverage.md` / an AI-doc research doc | PENDING |
+| 29 | `worktree_node_modules_symlink` | orchestrator setup step / script (dev-env convenience; mechanizable) | CODIFIED → CONTRIBUTING.md «Working in a git worktree» |
+| 30 | `ai_doc_research_priority_pool` | fold into `phase-research-coverage.md` / an AI-doc research doc | CODIFIED → phase-research-coverage.md §1.13 |
 
 > Two non-stage-0 residues from the audit also belong on the radar (not counted in the 15): row 4 `pr_s17_authoring_checklist` author pre-flight grep (stage-0 xt — PR body is GitHub-side, pre-push can't see it; recurred 4×); row 8 `no_paid_llm_in_ci` (stage 1→2 — the ready grep is not yet wired to a workflow-diff check). Track these alongside.
 

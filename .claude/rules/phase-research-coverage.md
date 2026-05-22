@@ -94,6 +94,10 @@ The complement to §1.7 (back a verdict) and [reviewer-discipline.md §2](review
 
 The two are one discipline from both ends — **commit to a reasoned position** rather than option-dumping (1) or over-asking (2). Boundary with reviewer-discipline §2: surface as decision-needed only when the options are *both legitimate and the call is the maintainer's project-strategy*; otherwise pick and proceed. Mechanical enforcement of (1) is blocked until the recommendation-detector recall is fixed (per #97/#98) — prose-only meanwhile. *(Distilled from memory entries codified per [memory-codification.md §3](memory-codification.md); DN-4 tracker rows #20/#27.)*
 
+### §1.13 AI-doc research source priority (introduced 2026-05-22, DN-4 memory-codification)
+
+For AI-documentation / agent-doc / goal-hierarchy research, **start the candidate sweep with the Tier-1 cutting-edge sources** — Claude Code (harness-native), AIF / aif-handoff, OhMyOpencode — *before* Anthropic's general «best-practices» pages. The fast-moving conventions live in the active companion projects; the evergreen docs lag the frontier. Refines §1.1-§1.5 candidate-surfacing for the AI-doc domain specifically (does not relax the ≥3-phrasing / 6-item checklist — it orders *where to look first*). *(codifies memory `ai_doc_research_priority_pool`; DN-4 tracker row #30.)*
+
 ## §2 Self-reflection prompts (retro Self-reflection block)
 
 When writing the Self-reflection section of a phase retro that involved prior-art research, answer all five:

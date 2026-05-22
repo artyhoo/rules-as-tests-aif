@@ -15,6 +15,15 @@ This sets `core.hooksPath = .husky` via `git config` (no npm/husky package requi
 and makes both hooks executable. After this, Git will automatically run the hooks
 on `git commit` and `git push`.
 
+### Working in a git worktree
+
+The pre-push hook runs TypeScript checks via `tsx`, which resolve dependencies from `node_modules`. A fresh `git worktree` has none, so the hook fails with `ERR_MODULE_NOT_FOUND`. Symlink the main checkout's `node_modules` (root **and** `packages/core`) into the worktree before pushing — do **not** bypass with `--no-verify`:
+
+```bash
+ln -s /abs/path/to/main-checkout/node_modules node_modules
+ln -s /abs/path/to/main-checkout/packages/core/node_modules packages/core/node_modules
+```
+
 ## What hooks check
 
 ### pre-commit (target: <5 seconds)
