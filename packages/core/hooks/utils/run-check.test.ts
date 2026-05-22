@@ -129,6 +129,16 @@ describe('runCheck', () => {
     expect(options.encoding).toBe('utf8');
   });
 
+  // Guards the ArithmeticOperator mutants on maxBuffer (32 * 1024 * 1024).
+  // Mutations produce 32 (32 * 1024 / 1024) or 32 (32 / 1024 * 1024 ≈ 32).
+  // Both are far below the intended 32 MB; asserting > 1 MB kills both survivors.
+  it('passes a maxBuffer of at least 1 MB to spawnSync (guards 32*1024*1024 arithmetic)', () => {
+    spawnSyncMock.mockReturnValue(ret({}));
+    runCheck('git', ['status']);
+    const options = spawnSyncMock.mock.calls[0][2];
+    expect(options.maxBuffer).toBe(32 * 1024 * 1024); // exact: 33_554_432
+  });
+
   it('defaults the timeout to DEFAULT_TIMEOUT_MS', () => {
     spawnSyncMock.mockReturnValue(ret({}));
     runCheck('git', ['status']);
