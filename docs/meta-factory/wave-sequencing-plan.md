@@ -23,11 +23,11 @@
 | N6a | coexistence / C-1 | ✅ DONE | #79/#82 MERGED |
 | N6b | one-button install | 🔲 not started (last build) | — |
 | N7 | dogfood companions | 🟡 verdicts done → application pending; **DECISION=C confirmed** | `2026-05-22-n7-dogfood-companions.md` |
-| N8 | deterministic-offload autonomy economy | 🟡 R-phase plan committed (#151); implementation pending | `2026-05-22-deterministic-offload-autonomy-economy.md` |
+| N8 | deterministic-offload autonomy economy | ✅ **R-phase DONE** (#158→staging; autonomous Queue-mode: Worker→Reviewer **GO**→orchestrator anti-collusion passed). A-phase (impl) 🔲 pending maintainer D1/D2/D3 | findings `2026-05-22-n8-rphase-findings.md` (R1–R4) + plan `2026-05-22-deterministic-offload-autonomy-economy.md` |
 
 **Infra:** I.1 staging-trunk migration **DONE** (#144/#150 — default branch = `staging`, `main` push-blocked, `ci-success` on both; native Merge Queue unavailable on this repo → `strict:false` substitute). I.2 channel-selection promote + SSOT #60–#63 still maintainer-click. I.3 DN-4 incremental.
 
-**What actually remains:** N0 decision (15 Jun) · apply N2 + N7 verdicts (maintainer-owned rule/SSOT edits) · N8 implementation · N4b H10 (deferred, trigger-gated) · N5 + N6b (not started). *(0.3 promote→`EXECUTION-PLAN.md` CLOSED 2026-05-22 — see §5.2.)*
+**What actually remains:** N0 decision (15 Jun) · apply N2 + N7 verdicts (maintainer-owned rule/SSOT edits) · **N8 A-phase** (gated on maintainer D1 cost-lever A/B/C · D2 local-model validation bench go/no-go · D3 offload-migration priority — all surfaced in `2026-05-22-n8-rphase-findings.md` §7; SSOT rows #64–#68 ship with the capability, not now) · N4b H10 (deferred, trigger-gated) · N5 + N6b (not started). *(0.3 promote→`EXECUTION-PLAN.md` CLOSED 2026-05-22 — see §5.2.)*
 
 **Mostly research-complete:** the bulk of per-wave *research* across N1/N2/N4b/N7/N8 is done; the open frontier is **application** of verdicts + N0/N8 cost work, not new research.
 
@@ -49,7 +49,7 @@
 ### Track 1 — critical path to June 15 (maintainer's stated top priority: autonomy without extra spend)
 | # | Task | When | Depends on |
 |---|---|---|---|
-| 1.1 | **N8 R-phase** (free: local-model dispatch / batch / caching / offload-sweep + «$ above subscription» estimate) | **launch first** | — |
+| 1.1 | **N8 R-phase** (free: local-model dispatch / batch / caching / offload-sweep + «$ above subscription» estimate) | ✅ **DONE** (#158→staging, 2026-05-22) | — |
 | 1.2 | **N0 decision** — how to stay autonomous + cheap, informed by 1.1 | after 1.1, **before 2026-06-15** | 1.1 |
 | 1.3 | **N8 A-phase** — apply cheap wins (migrate checks into hooks, autonomy hooks) | start high-ROI items before June 15 | 1.1 |
 
@@ -96,7 +96,7 @@
 1. ~~companion = A / B / C (gates N7) — 0.2~~ → **CLOSED 2026-05-22: C** (see §5.1)
 2. ~~promote N0–N8 into `EXECUTION-PLAN.md` — 0.3~~ → **CLOSED 2026-05-22: pointer-promote** (see §5.2)
 3. ~~staging-trunk migration: execute or hold — I.1~~ → **DONE 2026-05-22** (#144/#150)
-4. first launch: N8 R-phase (recommended) vs another track — §4 — **still open**
+4. first launch: ✅ **N8 R-phase launched + DONE** (#158, autonomous Queue-mode 2026-05-22) — §4 recommendation actioned
 
 ### §5.1 — Decision record: companion = **C** (closed 2026-05-22)
 
