@@ -18,6 +18,8 @@ import {
   detectCapabilityReason,
   checkTrailerBody,
   runPriorArtCheck,
+  extractCitedSsotIds,
+  loadSsotIds,
   PA_HISTORICAL_CUTOFF,
 } from './prior-art.ts';
 import type { GitProvider } from '../utils/git.ts';
@@ -446,5 +448,137 @@ describe('runPriorArtCheck() — paired-negative', () => {
     const report = runPriorArtCheck([longSha], g);
     expect(report.failures[0].sha).toBe('abcdef1234');
     expect(report.failures[0].sha.length).toBe(10);
+  });
+
+  it('brokenCitations is empty when ssotIds is not supplied (arm disabled)', () => {
+    const g = fakeGit({
+      packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
+      commitBody: () => 'feat: dep\n\nPrior-art: prior-art-evaluations.md#999 (verdict X — rationale here).',
+      authorDate: () => FUTURE,
+    });
+    const report = runPriorArtCheck(['sha1'], g); // no ssotIds → no existence check
+    expect(report.brokenCitations).toHaveLength(0);
+    expect(report.failures).toHaveLength(0);
+  });
+});
+
+// ─── C1: SSOT-existence arm (Wave N8) ─────────────────────────────────────────
+
+describe('extractCitedSsotIds()', () => {
+  it('returns [] when no citation present', () => {
+    expect(extractCitedSsotIds('Prior-art: free-form prose, no entry reference')).toEqual([]);
+  });
+
+  it('extracts a single cited id', () => {
+    expect(extractCitedSsotIds('Prior-art: prior-art-evaluations.md#42 (verdict)')).toEqual([42]);
+  });
+
+  it('extracts multiple cited ids on one line', () => {
+    expect(
+      extractCitedSsotIds('see prior-art-evaluations.md#1 and prior-art-evaluations.md#65'),
+    ).toEqual([1, 65]);
+  });
+
+  it('is not stateful across calls (lastIndex reset)', () => {
+    const line = 'prior-art-evaluations.md#7';
+    expect(extractCitedSsotIds(line)).toEqual([7]);
+    expect(extractCitedSsotIds(line)).toEqual([7]); // second call must not return []
+  });
+});
+
+describe('loadSsotIds()', () => {
+  it('parses §4 numeric table rows', () => {
+    const ssot = '| ID | desc |\n|---|---|\n| 1 | Autogrep |\n| 2 | thing |\n| 65 | worktrees |\n';
+    const ids = loadSsotIds(ssot);
+    expect([...ids].sort((a, b) => a - b)).toEqual([1, 2, 65]);
+  });
+
+  it('ignores non-numeric schema-header rows (e.g. "| ID | string |")', () => {
+    const ssot = '| Field | Type | Required |\n|---|---|---|\n| ID | integer | yes |\n| 3 | real entry |\n';
+    const ids = loadSsotIds(ssot);
+    expect(ids.has(3)).toBe(true);
+    expect(ids.size).toBe(1); // "| ID |" and "| Field |" rows excluded
+  });
+
+  it('returns empty set for content with no rows', () => {
+    expect(loadSsotIds('# just prose\nno tables here').size).toBe(0);
+  });
+});
+
+describe('checkTrailerBody() — C1 existence arm', () => {
+  const ssotIds = new Set([1, 2, 65]);
+
+  it('PAIRED-POSITIVE: valid citation to an EXISTING entry → code 0', () => {
+    const body = 'feat: x\n\nPrior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).';
+    expect(checkTrailerBody(body, FUTURE, undefined, ssotIds).code).toBe(0);
+  });
+
+  it('PAIRED-NEGATIVE: citation to a NON-EXISTENT entry → code 3 (broken citation)', () => {
+    const body = 'feat: x\n\nPrior-art: prior-art-evaluations.md#999 (verdict X — some rationale text).';
+    const result = checkTrailerBody(body, FUTURE, undefined, ssotIds);
+    expect(result.code).toBe(3);
+    expect(result.message).toMatch(/#999.*no such entry/);
+  });
+
+  it('reports every missing id when several are cited', () => {
+    const body = 'feat: x\n\nPrior-art: see prior-art-evaluations.md#1 and prior-art-evaluations.md#998 and prior-art-evaluations.md#999';
+    const result = checkTrailerBody(body, FUTURE, undefined, ssotIds);
+    expect(result.code).toBe(3);
+    expect(result.message).toMatch(/#998, #999/); // #1 exists, only the missing pair reported
+  });
+
+  it('free-form (non-citation) valid trailer passes even with ssotIds supplied', () => {
+    // A ≥20-char positive trailer with no #N reference has nothing to resolve.
+    const body = 'feat: x\n\nPrior-art: novel capability, no upstream analog after 6-item sweep.';
+    expect(checkTrailerBody(body, FUTURE, undefined, ssotIds).code).toBe(0);
+  });
+
+  it('existence arm does not run for escape-hatch (code 2 wins before citation parse)', () => {
+    const body = `feat: x\n\n${VALID_ESCAPE}`;
+    expect(checkTrailerBody(body, FUTURE, undefined, ssotIds).code).toBe(2);
+  });
+
+  it('pre-cutoff commit bypasses the existence arm too', () => {
+    const body = 'feat: x\n\nPrior-art: prior-art-evaluations.md#999 (broken but historical).';
+    expect(checkTrailerBody(body, PAST, undefined, ssotIds).code).toBe(0);
+  });
+});
+
+describe('runPriorArtCheck() — C1 paired-negative end-to-end', () => {
+  const ssotIds = new Set([1, 2, 65]);
+
+  it('PAIRED-NEGATIVE: capability commit citing a missing entry → brokenCitations non-empty', () => {
+    const g = fakeGit({
+      packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
+      commitBody: () => 'feat: dep\n\nPrior-art: prior-art-evaluations.md#999 (verdict X — rationale).',
+      authorDate: () => FUTURE,
+    });
+    const report = runPriorArtCheck(['sha1'], g, undefined, ssotIds);
+    expect(report.brokenCitations).toHaveLength(1);
+    expect(report.brokenCitations[0].sha).toBe('sha1');
+    expect(report.failures).toHaveLength(0);
+    expect(report.substanceFailures).toHaveLength(0);
+  });
+
+  it('PAIRED-POSITIVE: capability commit citing an existing entry → all lists empty', () => {
+    const g = fakeGit({
+      packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
+      commitBody: () => `feat: dep\n\n${VALID_CITATION}`, // cites #1 (in ssotIds)
+      authorDate: () => FUTURE,
+    });
+    const report = runPriorArtCheck(['sha1'], g, undefined, ssotIds);
+    expect(report.failures).toHaveLength(0);
+    expect(report.substanceFailures).toHaveLength(0);
+    expect(report.brokenCitations).toHaveLength(0);
+  });
+
+  it('non-capability commit is skipped even with a broken citation', () => {
+    const g = fakeGit({
+      // no dep / no large file → not a capability commit
+      commitBody: () => 'chore: note\n\nPrior-art: prior-art-evaluations.md#999 (irrelevant here).',
+      authorDate: () => FUTURE,
+    });
+    const report = runPriorArtCheck(['sha1'], g, undefined, ssotIds);
+    expect(report.brokenCitations).toHaveLength(0);
   });
 });
