@@ -236,6 +236,27 @@ jobs:
       - name: Run end-of-turn claim-scan hook test (autonomous-self-audit §11.1)
         run: bash tests/hooks/eot-claim-scan.test.sh
 
+  # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
+  # --noEmit` was a local-only `package.json` script, never gated, so a type
+  # error could (and did, Wave 10.4) reach main green. Runs every workspace via
+  # the root `npm run typecheck --workspaces` aggregate; fails on any error.
+  typecheck:
+    name: TypeScript typecheck (tsc --noEmit, all workspaces)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install workspace deps
+        run: npm install --silent
+      - name: Typecheck all workspaces (tsc --noEmit)
+        run: npm run typecheck
+
   # Last-resort CI mirror of the pre-push §1.7 + §7 Prior-art trailer checks, run
   # over the REAL PR commit range (origin/main..HEAD) through the PREPUSH_ONLY seam
   # in packages/core/hooks/pre-push.ts. Closes the `--no-verify` bypass: pre-push
@@ -640,6 +661,7 @@ jobs:
       - probe-tests
       - manifest-render-check
       - principles-meta-tests
+      - typecheck
       - pr-commit-trailers
       - enforce-husky-presence
       - framework-self-install-ts-server
