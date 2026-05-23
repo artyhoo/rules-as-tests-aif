@@ -1,3 +1,4 @@
+<!-- scope:guard-liveness-gate -->
 # Guard-liveness gate — design + prior-art (research-patch)
 
 > Scope: design record + build-vs-reuse verdict for a change-scoped gate that proves each rule's `bad`-example corpus actually trips its real guard. Folder-level authority per [research-patches README](README.md); scope-bound by this gap. NOT authoritative for project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
