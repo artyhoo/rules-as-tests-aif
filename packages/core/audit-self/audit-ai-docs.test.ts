@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, utimesSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -1287,6 +1287,980 @@ describe('runAudit() — orchestration layer', () => {
     // D3 should fail; everything else should be pass or warn (D1: no AGENTS.md)
     expect(report.failCount).toBeGreaterThanOrEqual(1);
     expect(report.passCount + report.warnCount + report.failCount).toBe(report.results.length);
+  });
+});
+
+// ─── Wave 4 mutation-hardening additions ─────────────────────────────────────
+// Each block targets a specific survivor (file:line · mutator).
+
+// ── L68-69: return 'skip' → '' in extractProseText() visit() callback ────────
+// visit() in unist-util-visit treats 'skip' as a special signal to skip the subtree.
+// If mutated to '', the subtree is NOT skipped, and children of html/code nodes
+// would be visited, potentially collecting their text content.
+describe('extractProseText() — return-skip sentinel value (L68-69)', () => {
+  it('code fence children are truly skipped, not just the fence node itself', () => {
+    // A fenced code block wraps a text node as child.
+    // 'skip' stops visit() from descending; '' would not stop it.
+    // If '' were returned, the inner text of the fence would be collected.
+    const md = '```\nSECRET_INSIDE_FENCE\n```\nOutside text.\n';
+    const prose = extractProseText(md);
+    // The text INSIDE the fence must NOT appear
+    expect(prose).not.toContain('SECRET_INSIDE_FENCE');
+    // Text outside the fence IS extracted
+    expect(prose).toContain('Outside text');
+  });
+
+  it('html comment children are truly skipped (html node subtree)', () => {
+    // An HTML comment node <!-- ... --> should have its content fully excluded.
+    // Returning '' instead of 'skip' would allow child traversal on any child nodes.
+    const md = '<!-- SECRET_HTML_COMMENT -->\n\nReal prose.\n';
+    const prose = extractProseText(md);
+    expect(prose).not.toContain('SECRET_HTML_COMMENT');
+    expect(prose).toContain('Real prose');
+  });
+
+  it('inlineCode content is skipped — returns skip not empty string', () => {
+    // inlineCode is in CODE_NODE_TYPES; the return 'skip' prevents visiting its value.
+    // With '' instead of 'skip', visit() might still descend into inlineCode children.
+    const md = 'Text before `INLINE_SECRET` text after.\n';
+    const prose = extractProseText(md);
+    expect(prose).not.toContain('INLINE_SECRET');
+    expect(prose).toContain('Text before');
+    expect(prose).toContain('text after');
+  });
+});
+
+// ── L76: join('\n') → join('') in extractProseText() ────────────────────────
+describe('extractProseText() — join separator is newline not empty string (L76)', () => {
+  it('multiple prose fragments are joined with \\n not concatenated', () => {
+    // Two paragraphs produce two text fragments; join('\\n') puts a newline between them.
+    // join('') would merge them without separator.
+    const md = 'Alpha paragraph.\n\nBeta paragraph.\n';
+    const prose = extractProseText(md);
+    // Must contain a newline between the two fragments
+    expect(prose).toMatch(/Alpha paragraph\.\nBeta paragraph\./);
+  });
+
+  it('heading and paragraph are separated by a newline in output', () => {
+    const md = '# HeadingText\n\nBodyText.\n';
+    const prose = extractProseText(md);
+    // Both texts present, separated by a newline
+    expect(prose).toMatch(/HeadingText\nBodyText\./);
+  });
+});
+
+// ── L107: Regex /\bskill\s*$/ → /\bskill\s$/ (0 or more spaces vs exactly 1) ─
+describe('extractDeclaredSkills() — SKILL_END_RE matches "skill" with 0 spaces before backtick (L107)', () => {
+  it('extracts skill when "skill" immediately precedes backtick with no trailing space', () => {
+    // "skill`name`" — zero spaces between "skill" and the backtick
+    // \s* matches 0 occurrences; \s requires exactly 1 → mutant would fail to match
+    const md = 'Use skill`no-space-skill` for tasks.\n';
+    const skills = extractDeclaredSkills(md);
+    // The remark AST splits "Use skill" as text and "no-space-skill" as inlineCode.
+    // SKILL_END_RE must match "Use skill" (ends with "skill", zero spaces between text and code)
+    expect(skills).toContain('no-space-skill');
+  });
+});
+
+// ── L113: if (!node.children) return; → if (false) return; ──────────────────
+// ── L115: if (CODE_NODE_TYPES.has(node.type)) return; → if (false) return; ──
+describe('extractDeclaredSkills() — walkBlock guards (L113, L115)', () => {
+  it('leaf nodes without children do not cause errors (L113 no-children guard)', () => {
+    // A leaf node (no children property) should trigger the !node.children guard
+    // and return early. If guard is false, node.children iteration would error or be skipped.
+    // We verify walkBlock handles a doc with only text-only leaf nodes safely
+    const md = 'Just plain text, no lists or anything.\n';
+    // If the guard were removed (if false), walkBlock might iterate undefined children
+    // and either throw or silently skip — either way the result changes
+    const skills = extractDeclaredSkills(md);
+    expect(skills).toHaveLength(0); // no skills declared
+  });
+
+  it('code fence blocks are completely skipped (L115 CODE_NODE_TYPES guard in walkBlock)', () => {
+    // walkBlock must skip fenced code blocks. If the guard is removed (if false),
+    // the for...of loop at the end of walkBlock would attempt to recurse into code block
+    // children — which could produce phantom skill extractions.
+    const md = '## Title\n\n```\nUse skill `fence-skill` here\n```\n\nNormal prose.\n';
+    const skills = extractDeclaredSkills(md);
+    // The code fence guard must prevent fence-skill from being extracted
+    expect(skills).not.toContain('fence-skill');
+    expect(skills).toHaveLength(0);
+  });
+});
+
+// ── L123: curr.type==='text' && next.type==='inlineCode' ─────────────────────
+// L123 LogicalOperator: && → || means ANY pair where curr=text OR next=inlineCode fires.
+// L123 ConditionalExpression (true && next=inlineCode): always treats curr as text
+// L123 ConditionalExpression (curr=text && true): always treats next as inlineCode
+describe('extractDeclaredSkills() — type guards on curr/next (L123)', () => {
+  it('does NOT extract when curr is inlineCode and next is text (guards curr.type===text)', () => {
+    // `code` followed by text — curr.type is 'inlineCode', not 'text'
+    // With && → ||, this would match because next might be anything
+    // With true on left, it always passes the curr check
+    const md = '`some-code` skill then text.\n';
+    const skills = extractDeclaredSkills(md);
+    // curr is inlineCode, not text → must NOT match → no skill extracted
+    expect(skills).not.toContain('then');
+    expect(skills).toHaveLength(0);
+  });
+
+  it('does NOT extract when curr is text ending with "skill" but next is plain text (guards next.type===inlineCode)', () => {
+    // "Use skill plainname" — next node is text, not inlineCode
+    // With && → ||, curr=text would be true → would try to extract "plainname"
+    const md = 'Use skill plainname here.\n';
+    const skills = extractDeclaredSkills(md);
+    // next is text, not inlineCode → must NOT match
+    expect(skills).toHaveLength(0);
+  });
+
+  it('extracts ONLY when curr=text ending with "skill" AND next=inlineCode (both guards together)', () => {
+    // Positive control: both conditions true → extract
+    const md = 'Use skill `correct-skill` for tasks.\n';
+    const skills = extractDeclaredSkills(md);
+    expect(skills).toContain('correct-skill');
+    // Also: a node that fails either condition → NOT extracted in same doc
+    // "skill code" pair exists AND "text plain" pair exists → only code pair extracted
+    const md2 = '`code` skill plain-text.\n\nAlso use skill `the-skill` here.\n';
+    const skills2 = extractDeclaredSkills(md2);
+    expect(skills2).toContain('the-skill');
+    expect(skills2).not.toContain('plain-text');
+  });
+});
+
+// ── L130: after.type === 'text' check → true ─────────────────────────────────
+describe('extractDeclaredSkills() — after.type===text guard (L130)', () => {
+  it('does NOT skip skill when after node is strong (not text), even if strong text would match NEGATIVE_RE', () => {
+    // after.type === 'text' ensures we only look at text nodes following inlineCode
+    // With true instead, a strong/em/link node's value would be tested (undefined → '' → no match anyway)
+    // The distinguishing case: after is non-text with a truthy value → type guard prevents skip
+    // Verified via the existing test: "after-nontext-skill" IS extracted when after is "strong"
+    const md = 'Use skill `was-nontext-skill` **was removed**.\n';
+    // "**was removed**" → strong node, not text; 'was' would match NEGATIVE_RE
+    // But after.type === 'text' is false → the check is skipped → skill IS extracted
+    const skills = extractDeclaredSkills(md);
+    expect(skills).toContain('was-nontext-skill');
+  });
+
+  it('DOES skip skill when after node IS a text node containing negative word', () => {
+    // Confirms the after guard fires when after IS a text node
+    const md = 'Use skill `skipped-after-skill` was deprecated.\n';
+    const skills = extractDeclaredSkills(md);
+    expect(skills).not.toContain('skipped-after-skill');
+  });
+});
+
+// ── L131: codeName.length > 0 → true / >= 0 ──────────────────────────────────
+describe('extractDeclaredSkills() — codeName.length > 0 guard (L131)', () => {
+  it('does NOT add empty string to skills when backtick span is empty (> 0 vs >= 0)', () => {
+    // `` produces an inlineCode node with value="" — length is 0
+    // length > 0 excludes it; length >= 0 would include it; true would always include it
+    const md = 'Use skill `` for tasks.\n';
+    const skills = extractDeclaredSkills(md);
+    // Empty string must NOT be added regardless of which operator fires
+    expect(skills).not.toContain('');
+    expect(skills).toHaveLength(0);
+  });
+
+  it('adds single-char skill name (length === 1, satisfies > 0 but not if guard were > 1)', () => {
+    // A skill with a single-char name: length=1 → satisfies > 0 → should be added
+    // This confirms > 0 is correct (not > 1 or similar)
+    const md = 'Use skill `x` for tasks.\n';
+    const skills = extractDeclaredSkills(md);
+    expect(skills).toContain('x');
+  });
+});
+
+// ── L160-171: execSync string/object mutations in probeR4() ──────────────────
+// These mutants change the command string to "" or change the options object.
+// The test structure for R4 already verifies the result shape; we need to
+// verify the actual command content matters.
+describe('probeR4() — execSync call content (L160-171)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('execSync command is not empty — real "npx --version" succeeds, mutant "" throws to npx-not-found warn (L161 StringLiteral)', () => {
+    // Source flow with real command: execSync('npx --version') succeeds (npx is in PATH) →
+    //   falls through to tsconfig/ts-morph check → both missing → early-return WARN("no tsconfig and ts-morph")
+    // Mutant: execSync('') throws TypeError → catch fires → WARN("npx not found") specifically
+    //
+    // Distinguishing assertion: real path message must NOT contain "npx not found"
+    // (real path hits either the tsconfig-skip warn OR the execSync fail path — never "npx not found")
+    mkdirSync(join(dir, 'src/domain'), { recursive: true });
+    writeFile(dir, 'src/domain/greet.ts', 'export function greet() {}\n');
+    // No tsconfig.json, no ts-morph installed in this temp dir
+    const result = probeR4(dir);
+    // Real code: npx found → tsconfig+ts-morph both absent → 'warn' with "no tsconfig and ts-morph" message
+    // Mutant: execSync('') throws → catch → 'warn' with "npx not found" message
+    // Both produce 'warn' BUT with DIFFERENT messages → assert on message content
+    expect(result.result).toBe('warn');
+    expect(result.message).not.toMatch(/npx not found/);
+    expect(result.message).toContain('R4');
+  });
+
+  it('hasTsconfig && !hasTsMorph path: does NOT warn-skip (hasTsconfig=true gates the early-return)', () => {
+    // Only tsconfig present (no ts-morph) → condition !hasTsconfig && !hasTsMorph is false
+    // LogicalOperator mutant !hasTsconfig || !hasTsMorph would be TRUE → early-return
+    // So the mutant would produce 'warn' instead of 'fail'/'warn' from execSync
+    mkdirSync(join(dir, 'src/domain'), { recursive: true });
+    writeFile(dir, 'src/domain/a.ts', 'export const x = 1;\n');
+    writeFile(dir, 'tsconfig.json', '{"compilerOptions":{}}\n');
+    const result = probeR4(dir);
+    // hasTsconfig=true → condition !hasTsconfig && !hasTsMorph = false → does NOT early-return
+    // → execSync runs → result is fail or warn (from execSync failure)
+    expect(['warn', 'fail']).toContain(result.result);
+    // If it were the || mutant, result.message would contain 'skipped' (early-return warning)
+    // The real code should NOT early-return here
+    if (result.result === 'warn') {
+      // 'warn' is OK (npx not found) but the message should NOT be the "no tsconfig and ts-morph" skip
+      // The "both missing" message is exactly: '(skipped: no tsconfig.json and ts-morph not installed)'
+      expect(result.message).not.toMatch(/no tsconfig\.json and ts-morph not installed/);
+    }
+  });
+
+  it('hasTsMorph present path: does NOT warn-skip either (both present prevents early-return)', () => {
+    // With || mutant: !hasTsconfig || !hasTsMorph → if only hasTsMorph is true (hasTsconfig=false)
+    // → condition is true → early-return warn (wrong!)
+    // Real code: !hasTsconfig && !hasTsMorph → false when either is present
+    mkdirSync(join(dir, 'src/domain'), { recursive: true });
+    writeFile(dir, 'src/domain/a.ts', 'export const x = 1;\n');
+    // Make ts-morph "present" via the existence check
+    mkdirSync(join(dir, 'node_modules/ts-morph'), { recursive: true });
+    writeFile(dir, 'node_modules/ts-morph/package.json', '{"name":"ts-morph"}\n');
+    const result = probeR4(dir);
+    // hasTsMorph=true → !hasTsconfig && !hasTsMorph = false → does NOT early-return
+    // The result should be 'fail' or 'warn' (execSync fails, not the early-return warn)
+    expect(['warn', 'fail']).toContain(result.result);
+    if (result.result === 'warn') {
+      expect(result.message).not.toMatch(/no tsconfig\.json and ts-morph not installed/);
+    }
+  });
+});
+
+// ── L167: !hasTsconfig && !hasTsMorph → if (true) (always skip) ─────────────
+describe('probeR4() — hasTsconfig/hasTsMorph early-return condition (L167)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('WARN with message "no tsconfig.json and ts-morph not installed" when BOTH absent', () => {
+    // Both conditions absent → early-return with specific warn message
+    // if (true) mutant also early-returns but we verify the message content
+    mkdirSync(join(dir, 'src/domain'), { recursive: true });
+    writeFile(dir, 'src/domain/a.ts', 'export const x = 1;\n');
+    // No tsconfig.json, no node_modules/ts-morph
+    const result = probeR4(dir);
+    // If npx is available: warn with specific message; if npx not found: warn(npx not found)
+    expect(result.result).toMatch(/^(warn|pass)$/);
+    // Either npx-not-found warn OR tsconfig+tsmorph-missing warn — both are 'warn' (or pass if no src/domain but src/domain exists here)
+    // The critical check: when both missing AND npx exists, message must be exact
+    if (result.message.includes('no tsconfig')) {
+      expect(result.message).toContain('no tsconfig.json and ts-morph not installed');
+    }
+  });
+});
+
+// ── L187: readFileSync encoding 'utf8' → '' in probeD1() ─────────────────────
+describe('probeD1() — readFileSync encoding (L187)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('reads AGENTS.md as a string (not Buffer) — encoding utf8 matters', () => {
+    // If encoding is '' (empty), readFileSync returns a Buffer, not a string.
+    // extractDeclaredSkills(buffer) would receive a Buffer object, which when passed
+    // to remark().parse() may fail or produce different results.
+    // The test: AGENTS.md with a skill → must extract correctly (requires string result)
+    writeFile(dir, 'AGENTS.md', '# Agents\n\nUse skill `utf8-skill` for tasks.\n');
+    const viols = probeD1(dir);
+    // skill not on disk → violation should be found; if Buffer was passed, extraction might fail
+    expect(viols.some((v) => v.includes('utf8-skill'))).toBe(true);
+  });
+});
+
+// ── L221: val===null check → false ───────────────────────────────────────────
+describe('walkJson() via probeD2() — null value handling (L221)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('null value in JSON does not produce a finding (null branch returns early)', () => {
+    // val===null → returns early (no finding pushed)
+    // Mutant: false || typeof val !== 'object' → val===null fails the null check
+    // but typeof null === 'object' so the typeof branch also fails → FALLS THROUGH
+    // to the object branch → would try to Object.entries(null) → TypeError or wrong behavior
+    writeFile(dir, '.mcp.json', JSON.stringify({ nullKey: null, mcpServers: {} }));
+    // Must NOT throw and must produce zero findings
+    expect(() => probeD2(dir)).not.toThrow();
+    const findings = probeD2(dir);
+    expect(findings.filter((f) => f.reason.includes('nullKey'))).toHaveLength(0);
+  });
+
+  it('null at array position does not produce finding either', () => {
+    writeFile(dir, '.mcp.json', JSON.stringify({ items: [null, 'http://ok'] }));
+    expect(() => probeD2(dir)).not.toThrow();
+    const findings = probeD2(dir);
+    // null item → no TODO/FIXME → no finding from the null
+    expect(findings).toHaveLength(0);
+  });
+});
+
+// ── L222: typeof val === 'string' check → true ───────────────────────────────
+describe('walkJson() — typeof val === string check (L222)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('number value does NOT produce TODO/FIXME finding (string type guard matters)', () => {
+    // typeof val === 'string' → only strings are checked for TODO/FIXME
+    // Mutant: true && TODO_VALUE_RE.test(val) → would call .test() on a number
+    // TODO_VALUE_RE.test(42) → calls val.toString first? No — RegExp.test coerces.
+    // But the test is: number 42 does NOT contain TODO text → finding would still be 0
+    // Distinguishing case: a number whose string representation looks like TODO? Not realistic.
+    // Better: verify a non-string doesn't accidentally match via coercion
+    writeFile(dir, '.mcp.json', JSON.stringify({ count: 42, flag: true }));
+    const findings = probeD2(dir);
+    // numbers and booleans must NOT produce TODO findings
+    expect(findings).toHaveLength(0);
+  });
+
+  it('boolean value does NOT produce finding (string type guard)', () => {
+    writeFile(dir, '.mcp.json', JSON.stringify({ enabled: true, disabled: false }));
+    const findings = probeD2(dir);
+    expect(findings).toHaveLength(0);
+  });
+
+  it('string with TODO DOES produce finding (string type guard passes for actual strings)', () => {
+    // Positive control: string value matching TODO_VALUE_RE → finding pushed
+    writeFile(dir, '.mcp.json', JSON.stringify({ endpoint: 'TODO: set this' }));
+    const findings = probeD2(dir);
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings[0]!.reason).toContain('TODO');
+  });
+});
+
+// ── L246: existsSync(aiFactoryDir) → true ────────────────────────────────────
+describe('probeD2() — aiFactory dir existence check (L246)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('does NOT throw when .ai-factory/ dir is absent (existsSync guard prevents readdirSync call)', () => {
+    // If existsSync is mutated to true, readdirSync('.ai-factory') would be called
+    // even when the directory doesn't exist → throws ENOENT (or returns empty caught by try/catch)
+    // But the catch around readdirSync returns early — so the mutant may survive if catch handles it.
+    // The key assertion: no crash AND no findings from the non-existent dir
+    expect(() => probeD2(dir)).not.toThrow();
+    const findings = probeD2(dir);
+    expect(findings).toHaveLength(0);
+  });
+
+  it('returns findings only from .ai-factory/ when dir EXISTS (positive path)', () => {
+    mkdirSync(join(dir, '.ai-factory'), { recursive: true });
+    writeFile(dir, '.ai-factory/settings.json', JSON.stringify({ _comment: 'remove me' }));
+    const findings = probeD2(dir);
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings.some((f) => f.file.includes('.ai-factory'))).toBe(true);
+  });
+});
+
+// ── L249: .endsWith('.json') filter + MethodExpression (filter removed) ──────
+describe('probeD2() — .json extension filter in .ai-factory/ (L249)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('non-.json files in .ai-factory/ are NOT scanned (filter matters)', () => {
+    mkdirSync(join(dir, '.ai-factory'), { recursive: true });
+    // A .md file with TODO content — should NOT be scanned
+    writeFile(dir, '.ai-factory/readme.md', 'TODO: document this\n');
+    // A .sh file with _comment content — should NOT be scanned
+    writeFile(dir, '.ai-factory/setup.sh', '# _comment placeholder\n');
+    // No .json files → no findings
+    const findings = probeD2(dir);
+    // Without the filter, .md and .sh would be attempted as JSON → JSON.parse fails → caught silently
+    // But if filter is `endsWith("")` → ALL files match → .md → JSON.parse fails → caught → no finding
+    // So this test is not enough alone. Need a second: txt file with valid JSON content and TODO
+    writeFile(dir, '.ai-factory/data.txt', JSON.stringify({ key: 'TODO: value' }));
+    const findings2 = probeD2(dir);
+    // data.txt ends with '.txt' not '.json' → must NOT be scanned
+    expect(findings2.filter((f) => f.file.includes('data.txt'))).toHaveLength(0);
+  });
+
+  it('endsWith("") mutation would match ALL files — verify only .json files produce findings', () => {
+    mkdirSync(join(dir, '.ai-factory'), { recursive: true });
+    // A valid JSON file with TODO — should be found
+    writeFile(dir, '.ai-factory/config.json', JSON.stringify({ key: 'TODO: fix this' }));
+    // A non-JSON file with TODO content but not valid JSON → JSON.parse would throw
+    writeFile(dir, '.ai-factory/notes.yaml', 'key: TODO: fix this');
+    const findings = probeD2(dir);
+    // config.json → parsed → finding exists
+    expect(findings.some((f) => f.file.includes('config.json'))).toBe(true);
+    // notes.yaml → not .json → not scanned (even if endsWith("") would match, JSON.parse would fail silently)
+    expect(findings.filter((f) => f.file.includes('notes.yaml'))).toHaveLength(0);
+  });
+});
+
+// ── L256: !existsSync(filePath) → false (never skip) ─────────────────────────
+describe('probeD2() — per-file existence check (L256)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('candidates that do not exist are skipped (no throw) — .mcp.json not present', () => {
+    // No .mcp.json and no .claude/settings.json — both are in candidates
+    // existsSync returns false → skip; mutant (false) never skips → readFileSync throws
+    // But the try/catch in the loop catches it → mutant survives silently
+    // So we need to distinguish: with guard=false, readFileSync on non-existent file throws
+    // The catch block is OUTSIDE the guard (for JSON.parse errors), so the readFileSync
+    // would throw ENOENT inside the try block → caught → skipped silently → same result?
+    // Wait: the catch block IS at the filePath level — but the guard is BEFORE the try block.
+    // Let me re-read the source:
+    //   if (!existsSync(filePath)) continue;  ← guard is before try
+    //   try { JSON.parse(readFileSync...) } catch { }
+    // Mutant: if (false) continue → never skips → readFileSync(nonExistent) throws OUTSIDE try
+    // → uncaught ENOENT → test would throw → mutant is KILLED by the test
+    expect(() => probeD2(dir)).not.toThrow();
+    const findings = probeD2(dir);
+    expect(findings).toHaveLength(0);
+  });
+
+  it('existence check: file that exists IS read (positive path)', () => {
+    writeFile(dir, '.mcp.json', JSON.stringify({ _comment: 'test' }));
+    const findings = probeD2(dir);
+    expect(findings.length).toBeGreaterThan(0);
+  });
+});
+
+// ── L258-259: readFileSync encoding '' + startsWith path separator ────────────
+describe('probeD2() — readFileSync/rel path (L258-259)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('file content is read as string (utf8 encoding), not Buffer', () => {
+    // If encoding is '' → readFileSync returns Buffer → JSON.parse(Buffer) works but
+    // the relative path computation is still correct → mutant may survive silently
+    // Key test: a JSON file with TODO must produce a finding with correct content
+    writeFile(dir, '.mcp.json', JSON.stringify({ key: 'TODO: fix this' }));
+    const findings = probeD2(dir);
+    expect(findings.length).toBeGreaterThan(0);
+    // The finding reason must contain the actual string value (requires string, not Buffer)
+    expect(findings[0]!.reason).toContain('TODO: fix this');
+  });
+
+  it('file path in finding is relative to cwd (not absolute) — path separator matters', () => {
+    // startsWith(cwd + '/') must use '/' not '' separator
+    // If mutated to cwd + '', then startsWith(cwd) would match every path under cwd
+    // including paths like /tmp/cwd-prefix-coincidence/ — broader match
+    // Concrete: the file path must be exactly '.mcp.json' (relative)
+    writeFile(dir, '.mcp.json', JSON.stringify({ _comment: 'x' }));
+    const findings = probeD2(dir);
+    expect(findings.length).toBeGreaterThan(0);
+    // File must be relative (no leading slash)
+    expect(findings[0]!.file).toBe('.mcp.json');
+    expect(findings[0]!.file).not.toContain('/');  // relative path has no leading slash
+  });
+});
+
+// ── L280: readFileSync encoding '' in probeD3() ──────────────────────────────
+describe('probeD3() — readFileSync encoding (L280)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('reads doc file as string and includes() check works correctly', () => {
+    // If encoding is '' → readFileSync returns Buffer; Buffer.includes() also works
+    // but as a Buffer search, not a substring search — may miss string matches.
+    // Test: file with CANON_PHRASE → must NOT produce violation
+    for (const doc of DOWNSTREAM_DOCS) {
+      writeFile(dir, doc, `# Doc\n\n${CANON_PHRASE}\n`);
+    }
+    const viols = probeD3(dir);
+    // All docs have the phrase → no violations
+    expect(viols).toHaveLength(0);
+  });
+});
+
+// ── L306: pkgMtime > decMtime → >= ───────────────────────────────────────────
+describe('probeD4() — strict inequality pkgMtime > decMtime (L306)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('PASS when tool-decisions.md is newer than package.json (strictly newer)', async () => {
+    writeFile(dir, 'package.json', '{"name":"test"}\n');
+    await new Promise((r) => setTimeout(r, 20));
+    writeFile(dir, '.ai-factory/tool-decisions.md', '# decisions\n');
+    const result = probeD4(dir);
+    // pkgMtime < decMtime → condition pkgMtime > decMtime is false → pass
+    expect(result.result).toBe('pass');
+    // >= mutant would also pass here (pkgMtime < decMtime → not >=) — need the equal-mtime case
+  });
+
+  it('WARN when package.json is strictly newer (pkgMtime > decMtime — not just >=)', async () => {
+    writeFile(dir, '.ai-factory/tool-decisions.md', '# decisions\n');
+    await new Promise((r) => setTimeout(r, 20));
+    writeFile(dir, 'package.json', '{"name":"test"}\n');
+    const result = probeD4(dir);
+    // pkgMtime > decMtime → warn
+    expect(result.result).toBe('warn');
+  });
+
+  it('PASS when mtime is equal (strictly > fails, >= would warn — kills >= mutant) [utimesSync deterministic]', () => {
+    // Force EXACTLY equal mtime on both files using utimesSync — no timing dependency.
+    // Real code (>):  pkgMtime > decMtime → false when equal → returns 'pass'
+    // Mutant  (>=): pkgMtime >= decMtime → true when equal → returns 'warn'
+    writeFile(dir, 'package.json', '{"name":"test"}\n');
+    writeFile(dir, '.ai-factory/tool-decisions.md', '# decisions\n');
+    const pkgPath = join(dir, 'package.json');
+    const decPath = join(dir, '.ai-factory/tool-decisions.md');
+    const t = new Date('2026-01-01T00:00:00.000Z');
+    utimesSync(pkgPath, t, t);
+    utimesSync(decPath, t, t);
+    // Sanity: verify the mtimes are actually equal
+    expect(statSync(pkgPath).mtimeMs).toBe(statSync(decPath).mtimeMs);
+    const result = probeD4(dir);
+    // Equal mtime → pkgMtime > decMtime is false → real code returns 'pass'
+    // >= mutant: pkgMtime >= decMtime is true → returns 'warn' — test would FAIL → kills mutant
+    expect(result.result).toBe('pass');
+    expect(result.message).toContain('D4');
+  });
+});
+
+// ── L328-331: Regex anchor ^ removed from D5 patterns ────────────────────────
+describe('probeD5() — regex anchor ^ in exemption patterns (L328-331)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('D5_FROZEN_RE: file NOT starting with docs/meta-factory/research-patches/ is NOT exempt (L328 anchor)', () => {
+    // Without ^ anchor: a file like 'other/docs/meta-factory/research-patches/x.md' would match
+    // With ^ anchor: only paths STARTING with the pattern match
+    // Create a file whose path contains the pattern but doesn't START with it
+    writeFile(dir, 'other/docs/meta-factory/research-patches/x.md', `${CANON_PHRASE}\n`);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    // 'other/docs/meta-factory/research-patches/x.md' does NOT start with the pattern
+    // → must NOT be exempt → must appear in findings
+    const orphan = findings.find((f) => f.file.includes('other/docs'));
+    expect(orphan).toBeDefined();
+  });
+
+  it('D5_FROZEN_RE: file properly starting with docs/meta-factory/research-patches/ IS exempt (L328 positive)', () => {
+    writeFile(dir, 'docs/meta-factory/research-patches/patch.md', `${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    expect(findings.find((f) => f.file.includes('research-patches'))).toBeUndefined();
+  });
+
+  it('D5_TEST_INFRA_RE: file that does NOT start with packages/core/audit-self/ is NOT exempt (L329 first anchor)', () => {
+    // Remove first ^ anchor: 'other/packages/core/audit-self/audit-ai-docs.ts' would match
+    writeFile(dir, 'other/packages/core/audit-self/audit-ai-docs.ts', `${CANON_PHRASE}\n`);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    // Must NOT be exempt (path doesn't start with packages/core/audit-self/)
+    const orphan = findings.find((f) => f.file.includes('other/packages'));
+    expect(orphan).toBeDefined();
+  });
+
+  it('D5_ROOT_SOURCE_RE: file named docs/README.md is NOT exempt (L330 anchor prevents partial match)', () => {
+    // Without ^: /README\.md$/ matches 'docs/README.md' — should NOT be exempt
+    // With ^: /^README\.md$/ only matches the root 'README.md'
+    writeFile(dir, 'docs/README.md', `${CANON_PHRASE}\n`);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    // docs/README.md is NOT root README.md → must be flagged
+    const docReadme = findings.find((f) => f.file === 'docs/README.md');
+    expect(docReadme).toBeDefined();
+  });
+
+  it('D5_ROOT_SOURCE_RE: only root README.md (exactly) is exempt (L330 $ end anchor)', () => {
+    // Without $ anchor: /^README\.md/ would match 'README.md.bak' or 'README.md.old'
+    writeFile(dir, 'README.md.bak', `${CANON_PHRASE}\n`);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    // README.md.bak does NOT match /^README\.md$/ → must be flagged
+    const bakFinding = findings.find((f) => f.file === 'README.md.bak');
+    expect(bakFinding).toBeDefined();
+  });
+
+  it('D5_GITIGNORED_RE: file not starting with .claude/orchestrator-prompts/ is NOT exempt (L331 anchor)', () => {
+    // Without ^: 'other/.claude/orchestrator-prompts/kickoff.md' would match
+    writeFile(dir, 'other/.claude/orchestrator-prompts/kickoff.md', `${CANON_PHRASE}\n`);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    const orphan = findings.find((f) => f.file.includes('other/.claude'));
+    expect(orphan).toBeDefined();
+  });
+
+  it('D5_TEST_INFRA_RE: template-render.audit.ts NOT starting with packages/core/audit-self/ is NOT exempt (L329 second anchor)', () => {
+    // Mutant A removes ^ from second alternative:
+    //   /^packages\/...audit-ai-docs...| packages\/...template-render\.audit\.ts/  (no ^ on second alt)
+    // → 'other/packages/core/audit-self/template-render.audit.ts' would match mutant second alt
+    // → incorrectly treated as exempt
+    // Real: ^ requires the path to START with packages/core/...
+    writeFile(dir, 'other/packages/core/audit-self/template-render.audit.ts', `${CANON_PHRASE}\n`);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    // Real regex: 'other/packages/.../template-render.audit.ts' does NOT start with packages/... → not exempt → flagged
+    // Mutant regex: second alt matches without ^ → incorrectly exempt → NOT flagged
+    const orphan = findings.find((f) => f.file.includes('other/packages') && f.file.includes('template-render'));
+    expect(orphan).toBeDefined();
+    expect(orphan!.reason).toContain('not in DOWNSTREAM_DOCS');
+  });
+});
+
+// ── L345: sort() removed from [...found].sort() in probeD5() ─────────────────
+describe('probeD5() — findings returned in sorted order (L345)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('orphan files are returned in strictly ascending alphabetical order', () => {
+    // Create multiple orphan files out of alphabetical order
+    writeFile(dir, 'docs/zzz-file.md', `${CANON_PHRASE}\n`);
+    writeFile(dir, 'docs/aaa-file.md', `${CANON_PHRASE}\n`);
+    writeFile(dir, 'docs/mmm-file.md', `${CANON_PHRASE}\n`);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    const orphans = findings.filter((f) => f.file.startsWith('docs/') &&
+      (f.file.includes('aaa') || f.file.includes('mmm') || f.file.includes('zzz')));
+    expect(orphans.length).toBeGreaterThanOrEqual(2);
+    // Verify sorted order: each file must be <= next
+    for (let i = 0; i < orphans.length - 1; i++) {
+      expect(orphans[i]!.file.localeCompare(orphans[i + 1]!.file)).toBeLessThanOrEqual(0);
+    }
+  });
+});
+
+// ── L365: SKIP_DIRS StringLiteral mutations (.stryker-tmp → '' and .stryker → '') ─
+describe('grepFilesContaining() via probeD5() — SKIP_DIRS entries (L365)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('.stryker-tmp/ directory is skipped during file walk (entry name matters)', () => {
+    // SKIP_DIRS.has('.stryker-tmp') must be true; mutant changes '.stryker-tmp' to ''
+    // → SKIP_DIRS.has('.stryker-tmp') becomes false → walk enters .stryker-tmp/
+    writeFile(dir, '.stryker-tmp/sandbox123/some.md', `${CANON_PHRASE}\n`);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    // .stryker-tmp/ files must be skipped both by SKIP_DIRS and D5_GITIGNORED_RE
+    // But if SKIP_DIRS doesn't skip it, grepFilesContaining returns the file,
+    // and D5_GITIGNORED_RE still exempts it in probeD5 → might still survive
+    // The key: if SKIP_DIRS skips the entry, the file is never even read → performance
+    // For correctness: the D5_GITIGNORED_RE provides backup exemption
+    // To kill L365 specifically, we need a case where SKIP_DIRS miss causes a difference
+    // that D5_GITIGNORED_RE doesn't cover → use '.stryker' directory specifically
+    const strykerFinding = findings.find((f) => f.file.startsWith('.stryker-tmp'));
+    expect(strykerFinding).toBeUndefined();
+  });
+
+  it('.stryker/ directory is skipped during file walk (.stryker entry name matters)', () => {
+    // If '.stryker' is mutated to '' in SKIP_DIRS, .stryker/ directory is walked
+    // D5_GITIGNORED_RE /^(\.claude\/orchestrator-prompts\/|\.stryker-tmp\/|\.stryker\/)/ also exempts it
+    // So a .stryker/ file would still be exempt via D5_GITIGNORED_RE even if not skipped
+    // The test confirms it's excluded regardless of whether SKIP_DIRS or D5_GITIGNORED_RE catches it
+    writeFile(dir, '.stryker/sandbox99/file.md', `${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    const strykerFinding = findings.find((f) => f.file.startsWith('.stryker/'));
+    expect(strykerFinding).toBeUndefined();
+  });
+});
+
+// ── L378: content.includes(phrase) → true in grepFilesContaining() ───────────
+describe('grepFilesContaining() — content.includes(phrase) check (L378)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('files NOT containing canonical phrase are not returned by D5 grep', () => {
+    // If includes(phrase) → true, ALL files would be considered to contain the phrase
+    // → many enrolled or exempt files would be returned, then pass their exemption
+    // But NON-enrolled, NON-exempt files WITHOUT the phrase would also be returned → false findings
+    // We create a non-exempt file WITHOUT the phrase → with mutant it gets flagged; without, it doesn't
+    writeFile(dir, 'docs/no-phrase-file.md', '# No phrase here.\n\nSome other content.\n');
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    // docs/no-phrase-file.md does NOT contain CANON_PHRASE or CANON_ALT
+    // → must NOT appear in findings
+    const falseFinding = findings.find((f) => f.file === 'docs/no-phrase-file.md');
+    expect(falseFinding).toBeUndefined();
+  });
+
+  it('files containing CANON_ALT are found but enrolled ones do not flag', () => {
+    // D5 scans for both CANON_PHRASE and CANON_ALT; if includes → true, every file would match
+    // A file with CANON_ALT but not CANON_PHRASE → should be found but if enrolled → no finding
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_ALT}\n`); }
+    writeFile(dir, 'README.md', `${CANON_ALT}\n`);
+    const findings = probeD5(dir);
+    // All enrolled → no findings (whether or not phrase-check fires)
+    expect(findings).toHaveLength(0);
+  });
+});
+
+// ── L377/380: readFileSync encoding '' and path separator in grepFilesContaining ─
+describe('grepFilesContaining() — readFileSync encoding and path relativization (L377/380)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('relative paths returned by grepFilesContaining have no leading slash', () => {
+    // full.startsWith(cwd + '/') → slice → relative; mutant: startsWith(cwd + '')
+    // With '' separator: startsWith(cwd) would still match (cwd is a prefix of the full path)
+    // and cwd.length + 1 would still slice correctly... so the mutant is mostly equivalent here.
+    // But: if full === cwd (exact match), the mutant would produce '' while real produces cwd.
+    // More concretely: the test verifies relative paths don't contain the dir prefix
+    writeFile(dir, 'docs/test.md', `${CANON_PHRASE}\n`);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    // Any orphan finding must have a relative path
+    const orphan = findings.find((f) => f.file === 'docs/test.md');
+    expect(orphan).toBeDefined();
+    expect(orphan!.file.startsWith('/')).toBe(false);
+    expect(orphan!.file).not.toContain(dir);
+  });
+});
+
+// ── L428-497: ArrayDeclaration details:[] → ["Stryker was here"] ──────────────
+// Surviving probes: R4, D1-warn, D1-pass, D2-pass, D3-pass, D4-any, D5-fail-empty
+describe('runAudit() — probe result details[] must be empty for pass/warn (L428-497)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('R4 pass result has empty details array (L428)', () => {
+    // No src/domain → R4 pass; details must be []
+    const report = runAudit(dir, 'R4');
+    const r4 = report.results.find((r) => r.probe === 'R4');
+    expect(r4!.details).toHaveLength(0);
+  });
+
+  it('D1 warn (no AGENTS.md) result has empty details array (L435)', () => {
+    // No AGENTS.md → D1 warn; details must be []
+    const report = runAudit(dir, 'D1');
+    const d1 = report.results.find((r) => r.probe === 'D1');
+    expect(d1!.level).toBe('warn');
+    expect(d1!.details).toHaveLength(0);
+  });
+
+  it('D1 pass (AGENTS.md present, no skills) result has empty details array (L439)', () => {
+    writeFile(dir, 'AGENTS.md', '# Agents\n\nNo skills.\n');
+    const report = runAudit(dir, 'D1');
+    const d1 = report.results.find((r) => r.probe === 'D1');
+    expect(d1!.level).toBe('pass');
+    expect(d1!.details).toHaveLength(0);
+  });
+
+  it('D2 pass (no JSON files) result has empty details array (L451)', () => {
+    const report = runAudit(dir, 'D2');
+    const d2 = report.results.find((r) => r.probe === 'D2');
+    expect(d2!.level).toBe('pass');
+    expect(d2!.details).toHaveLength(0);
+  });
+
+  it('D3 pass result has empty details array (L467)', () => {
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    const report = runAudit(dir, 'D3');
+    const d3 = report.results.find((r) => r.probe === 'D3');
+    expect(d3!.level).toBe('pass');
+    expect(d3!.details).toHaveLength(0);
+  });
+
+  it('D4 result has empty details array regardless of level (L476)', () => {
+    // D4 never populates details in any outcome
+    writeFile(dir, 'package.json', '{"name":"test"}\n');
+    const report = runAudit(dir, 'D4');
+    const d4 = report.results.find((r) => r.probe === 'D4');
+    expect(d4!.details).toHaveLength(0);
+  });
+
+  it('D4 pass result (no package.json) also has empty details array (L476 alternate path)', () => {
+    const report = runAudit(dir, 'D4');
+    const d4 = report.results.find((r) => r.probe === 'D4');
+    expect(d4!.details).toHaveLength(0);
+  });
+});
+
+// ── L457/491: ArrowFunction + StringLiteral in details.map() ──────────────────
+describe('runAudit() — details.map() content format (L457, L491)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('D2 warn details items are "file: reason" strings (not empty strings from map(() => ``))', () => {
+    // L457 ArrowFunction mutant: map(() => undefined) → undefined items in details
+    // L457 StringLiteral mutant: map((f) => ``) → empty string items
+    writeFile(dir, '.mcp.json', JSON.stringify({ _comment: 'remove me' }));
+    const report = runAudit(dir, 'D2');
+    const d2 = report.results.find((r) => r.probe === 'D2');
+    expect(d2!.level).toBe('warn');
+    // Details must contain non-empty strings with the expected format
+    expect(d2!.details.length).toBeGreaterThan(0);
+    expect(d2!.details[0]).toBeTruthy();
+    expect(d2!.details[0]).toMatch(/\.mcp\.json:/);
+    expect(d2!.details[0]).toContain('_comment');
+  });
+
+  it('D5 fail details items include "file: reason" string (L491 StringLiteral map)', () => {
+    // L491 StringLiteral: ...d5Findings.map((f) => ``) → empty strings instead of "file: reason"
+    writeFile(dir, 'docs/orphan-map.md', `${CANON_PHRASE}\n`);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    const report = runAudit(dir, 'D5');
+    const d5 = report.results.find((r) => r.probe === 'D5');
+    expect(d5!.level).toBe('fail');
+    // First element must be "file: reason" format (not empty string)
+    const fileReasonLines = d5!.details.filter((d) => d.includes(':') && d.includes('orphan-map'));
+    expect(fileReasonLines.length).toBeGreaterThan(0);
+    expect(fileReasonLines[0]).toMatch(/docs\/orphan-map\.md:/);
+  });
+
+  it('D5 fail details empty-string separator line (\'\' not \'Stryker was here!\') (L492)', () => {
+    // L492 StringLiteral: '' → 'Stryker was here!' — the separator line must be exactly ''
+    writeFile(dir, 'docs/orphan-sep.md', `${CANON_PHRASE}\n`);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    const report = runAudit(dir, 'D5');
+    const d5 = report.results.find((r) => r.probe === 'D5');
+    // The separator line (empty string '') must appear in details between findings and fix hint
+    const emptyLines = d5!.details.filter((d) => d === '');
+    expect(emptyLines.length).toBeGreaterThan(0);
+  });
+});
+
+// ── L518: argv.slice(2).find() mutations ──────────────────────────────────────
+describe('main() — argv parsing (L518)', () => {
+  let dir: string;
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutLines: string[];
+
+  beforeEach(() => {
+    dir = makeTmpDir();
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: string | number | null) => {
+      throw new Error(`process.exit(${_code})`);
+    });
+    stdoutLines = [];
+    vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      stdoutLines.push(args.join(' '));
+    });
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it('argv[0] and argv[1] (node/script) are ignored — --only= in argv[2] is used', () => {
+    // MethodExpression mutant: argv.find() instead of argv.slice(2).find()
+    // → would find '--only=D1' even in argv[0] or argv[1] if present there
+    // If argv[0] is 'node' and argv[1] is '--only=D1', slice(2) skips them
+    // Without slice: find() would match argv[1] '--only=D1' when it shouldn't
+    // Test: --only=D1 in argv[1] (script position) must NOT be picked up
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    try { main(dir, ['node', '--only=D1', 'audit-ai-docs.ts']); } catch { /* exit */ }
+    // Without slice: --only=D1 is at argv[1], find() without slice(2) would match it
+    // → only D1 runs → D1 warn (no AGENTS.md) → exit 0 (no fails)
+    // With slice(2): --only=D1 is at argv[1], skipped → no --only arg found → all probes run
+    // The output should contain more than just D1 (all probes ran)
+    const d3Lines = stdoutLines.filter((l) => l.includes('D3'));
+    const d1Lines = stdoutLines.filter((l) => l.includes('D1'));
+    // All probes ran → both D1 and D3 appear
+    expect(d1Lines.length).toBeGreaterThan(0);
+    expect(d3Lines.length).toBeGreaterThan(0);
+  });
+
+  it('startsWith("--only=") not endsWith — correctly identifies --only= flag (L518 endsWith mutant)', () => {
+    // Mutant: a.endsWith('--only=') → matches strings like 'something--only='
+    // Real: a.startsWith('--only=') → matches '--only=D1' correctly
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    try { main(dir, ['node', 'script.ts', '--only=D5']); } catch { /* exit */ }
+    // --only=D5 starts with '--only=' → D5 probe selected
+    // D5: all enrolled → pass
+    const d5Lines = stdoutLines.filter((l) => l.includes('D5'));
+    expect(d5Lines.length).toBeGreaterThan(0);
+    // D3 must NOT appear (only D5 ran)
+    const d3Lines = stdoutLines.filter((l) => l.includes('D3'));
+    expect(d3Lines).toHaveLength(0);
+  });
+
+  it('startsWith("--only=") not startsWith("") — empty string matches everything (L518 "" literal)', () => {
+    // Mutant: startsWith("") → EVERY argv element matches → find() returns argv[2] (first element after slice)
+    // With argv = ['node', 'script.ts', 'somearg'], find returns 'somearg'
+    // onlyArg.slice('--only='.length) = 'somearg'.slice(7) = 'earg' → invalid probe name → no probe matches
+    // With real code: startsWith("") on argv with no --only= → find returns undefined → only = '' → all probes
+    // Distinguishing test: argv with no --only= → all probes should run, not just an invalid one
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    try { main(dir, ['node', 'audit-ai-docs.ts']); } catch { /* exit */ }
+    // All probes ran → both D1 and D3 and D5 appear in output
+    const d3Lines = stdoutLines.filter((l) => l.includes('D3'));
+    const d5Lines = stdoutLines.filter((l) => l.includes('D5'));
+    expect(d3Lines.length).toBeGreaterThan(0);
+    expect(d5Lines.length).toBeGreaterThan(0);
+  });
+});
+
+// ── L533-534: console.log('') and console.log('───...') ─────────────────────
+describe('main() — separator lines in output (L533-534)', () => {
+  let dir: string;
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutLines: string[];
+
+  beforeEach(() => {
+    dir = makeTmpDir();
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: string | number | null) => {
+      throw new Error(`process.exit(${_code})`);
+    });
+    stdoutLines = [];
+    vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      stdoutLines.push(args.join(' '));
+    });
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it('prints exactly one blank line (empty string) before the separator (L533)', () => {
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    try { main(dir, ['node', 'audit-ai-docs.ts']); } catch { /* exit */ }
+    // A blank line ('') must appear in the output before the separator bar
+    const blankLines = stdoutLines.filter((l) => l === '');
+    expect(blankLines.length).toBeGreaterThanOrEqual(1);
+    // The separator must also appear
+    const sepLine = stdoutLines.find((l) => l.includes('─────'));
+    expect(sepLine).toBeDefined();
+    // Blank line must appear BEFORE the separator line
+    const blankIdx = stdoutLines.lastIndexOf('');
+    const sepIdx = stdoutLines.findIndex((l) => l.includes('─────'));
+    expect(blankIdx).toBeLessThan(sepIdx);
+  });
+
+  it('prints a separator bar (─ characters) before the summary (L534)', () => {
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
+    try { main(dir, ['node', 'audit-ai-docs.ts']); } catch { /* exit */ }
+    // A line containing '─' (not empty) must appear
+    const sepLines = stdoutLines.filter((l) => l.includes('─'));
+    expect(sepLines.length).toBeGreaterThan(0);
+    // The separator must NOT be empty (mutant changes it to '')
+    expect(sepLines[0]).not.toBe('');
+    expect(sepLines[0]!.length).toBeGreaterThan(10);
   });
 });
 

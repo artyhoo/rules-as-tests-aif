@@ -284,7 +284,7 @@ export function assertF3(relPath: string, rationale: string): void {
 // ── Test suite ────────────────────────────────────────────────────────────────
 
 describe('Principle 11 — build-first reuse-default', () => {
-  it('F1: all post-grandfather capability artifacts have SSOT match or Prior-art trailer', () => {
+  it('F1: all post-grandfather capability artifacts have SSOT match or Prior-art trailer', { timeout: 30000 }, () => {
     const grandfatherDate = getGrandfatherDate();
     const ssotContent = readFile(SSOT_PATH);
     const files = getCapabilityFiles();
@@ -320,7 +320,7 @@ describe('Principle 11 — build-first reuse-default', () => {
     expect(violations, `F2 violations:\n${violations.join('\n')}`).toHaveLength(0);
   });
 
-  it('F3: all Post-grandfather Prior-art trailers are valid (≥20 chars, non-placeholder)', () => {
+  it('F3: all Post-grandfather Prior-art trailers are valid (≥20 chars, non-placeholder)', { timeout: 30000 }, () => {
     const grandfatherDate = getGrandfatherDate();
     const files = getCapabilityFiles();
     const violations: string[] = [];

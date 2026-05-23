@@ -51,5 +51,19 @@ ruleTester.run('no-direct-time-randomness', noDirectTimeRandomness, {
       code: `import https from 'https';`,
       errors: [{ messageId: 'noDirectIO' }],
     },
+    // Paired-negative: ensure each FORBIDDEN_MODULES entry is individually covered
+    // (kills string-literal mutants that blank individual set members)
+    {
+      code: `import http from 'http';`,
+      errors: [{ messageId: 'noDirectIO', data: { module: 'http' } }],
+    },
+    {
+      code: `import { readdir } from 'node:fs';`,
+      errors: [{ messageId: 'noDirectIO', data: { module: 'node:fs' } }],
+    },
+    {
+      code: `import { request } from 'node:https';`,
+      errors: [{ messageId: 'noDirectIO', data: { module: 'node:https' } }],
+    },
   ],
 });

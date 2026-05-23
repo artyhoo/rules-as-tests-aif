@@ -48,5 +48,38 @@ ruleTester.run('require-otel-span', requireOtelSpan, {
       code: `export async function process() { await save(); }`,
       errors: [{ messageId: 'missingSpan' }],
     },
+    // Kills L27 ConditionalExpression: property.name === 'startActiveSpan' → true.
+    // A function calling tracer.otherMethod() has NO valid span; the mutant falsely
+    // treats any member-expression call as a span and suppresses the error.
+    {
+      code: `export async function logMetric() { tracer.otherMethod('metric'); }`,
+      errors: [{ messageId: 'missingSpan' }],
+    },
+    // Kills L14 ConditionalExpression: if (!body) return false → if (false) return false.
+    // An expression-body async arrow has no BlockStatement, so body=undefined is passed
+    // to functionHasSpan. The real rule returns false safely; the mutant crashes on
+    // undefined, causing an unexpected error that fails the RuleTester assertion.
+    {
+      code: `export const fn = async () => doSomething();`,
+      errors: [{ messageId: 'missingSpan' }],
+    },
+    // Kills L115 NoCoverage mutants: exercises the FunctionExpression arm of
+    // `node.init.type === ArrowFunctionExpression || FunctionExpression`.
+    // Without this test, the FunctionExpression branch is never exercised;
+    // blanking it (→ false) or inverting (→ !==) goes undetected.
+    {
+      code: `export const handler = async function() { return { ok: true }; };`,
+      errors: [{ messageId: 'missingSpan' }],
+    },
+    // Kills L47 DFS guard mutants: sparse array [, 1] produces an ArrayExpression
+    // with elements = [null, NumericLiteral]. The real guard
+    // `child && typeof child === 'object' && 'type' in child` safely skips null.
+    // Mutants that replace this with `true` (or loosen the &&/|| logic) push null
+    // onto the DFS stack; the next stack.pop() yields null, and `null.type` throws
+    // TypeError — which RuleTester surfaces as an unexpected crash, failing the test.
+    {
+      code: `export async function f() { const x = [, 1]; }`,
+      errors: [{ messageId: 'missingSpan' }],
+    },
   ],
 });
