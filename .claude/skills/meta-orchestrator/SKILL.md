@@ -1,0 +1,478 @@
+---
+name: meta-orchestrator
+description: Plan-preflight + cross-umbrella priority + launch-table + stage-gate-aware dispatch for multi-wave umbrellas. Use when invoking /meta-orchestrator [<umbrella>] to verify wave-sequencing-plan currency + decide next wave + generate meta-kickoff + dispatch with real git gates.
+when_to_use: User explicit invocation only via /meta-orchestrator slash command. Not auto-triggered.
+arguments: [umbrella]
+argument-hint: "[umbrella-name]"
+disable-model-invocation: true
+model: opus
+allowed-tools:
+  - Bash(git *)
+  - Bash(gh *)
+  - Bash(ls *)
+  - Bash(cat *)
+  - Read
+  - Write
+  - Edit
+  - Agent
+---
+
+> **Class:** B (mixed): §0/§7.1 + §10/§7.12 = Class A (CC primitive enforces structurally — slash-command exists or not, Write tool writes file or not, frontmatter parses or not). §4/§7.5 = partial Class A via principle 12 test enforcing §5 AI-traps section presence in generated kickoffs. §1/§7.2 · §2/§7.3 · §3/§7.4 · §5/§7.6 · §6/§7.7 · §7/§7.8 · §9/§7.11 · §11/§7.13 = **Class C** (prose-only enforcement; AI can ignore `!shell`-injected data and proceed; acceptable per [parallel-subwave-isolation.md §4](../../rules/parallel-subwave-isolation.md) precedent and [research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md](../../../docs/meta-factory/research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md) maintainer-owned tension). **Re-promotion triggers per Class C:** ≥2 stage-gate-ignored incidents within 6 months → consider mechanical post-hoc check (commit-on-branch-B-only-if-PR-on-branch-A-merged via pre-push hook).
+> **Authoritative for:** /meta-orchestrator slash-command behaviour — §0 invocation through §11 failures; plan-currency check discipline; cross-umbrella priority scoring; Mode A/B/SDD/Queue launch-table generation; meta-kickoff authoring; stage-gate enforcement; reviewer dispatch.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Existing global `~/.claude/skills/orchestrator/` (agent-uncommittable, owner=maintainer). The actual R-phase verdict — see [research-patches/2026-05-23-meta-orchestrator-prior-art.md](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md).
+
+# /meta-orchestrator — plan-preflight + launch-table + stage-gate dispatch
+
+**Origin:** BUILD verdict 2026-05-23. R-phase patch: [research-patches/2026-05-23-meta-orchestrator-prior-art.md](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md). Closes 4 named gaps in the global `orchestrator` skill (plan-actuality / cross-umbrella priority / auto-launch-table / stage-gate-vs-flat-queue).
+
+**Binding spec:** `.claude/orchestrator-prompts/meta-orchestrator-prior-art/kickoff.md §7` (gitignored, 14 sub-sections §7.1-§7.14).
+
+**Substrate:** CC slash-command primitive + `!shell` injection + Write tool + Agent tool. Zero npm deps. Zero paid-LLM-in-CI calls (all dispatch is session-bound per [no-paid-llm-in-ci.md §1](../../rules/no-paid-llm-in-ci.md)).
+
+---
+
+## §0 Invocation
+
+**Slash command:** `/meta-orchestrator [<umbrella-name>]`
+
+**`disable-model-invocation: true`** — this skill is NOT preloaded automatically or injected into subagents. It fires ONLY on explicit `/meta-orchestrator` invocation. This prevents subagents from recursively self-invoking the meta-orchestrator (desired per kickoff §4 key-points, MINOR-5).
+
+**With `<umbrella>` argument:** skill operates on the named umbrella — runs §1 plan-currency check for that umbrella, then §3 launch-table, then §4 meta-kickoff write, then offers §5 dispatch.
+
+**Without argument:** skill runs §1 global plan-currency check, then §2 cross-umbrella priority scoring, recommends a winner, and proceeds on confirmation.
+
+**Permissions model:** `allowed-tools` list above constrains the skill to read/git/gh/write — no arbitrary Bash. If a check requires a command outside the list, escalate to maintainer.
+
+**§7.14 gap closed by this section:** none (trigger mechanism; CC primitive verbatim-ADOPT per R-phase patch §3).
+
+---
+
+## §1 Plan-currency check
+
+> **§7.2 binding.** Runs before ANY other action. Skipping this section = T4 anti-pattern (premature closure without plan verification).
+
+**Step 1 — inject live state:**
+
+```!
+git status --short && echo "---" && git branch --show-current && echo "---" && git rev-list --count --left-right origin/staging...HEAD 2>/dev/null || echo "(no upstream)"
+```
+
+```!
+gh pr list --search "is:open" --json number,title,state,headRefName,baseRefName --limit 20 2>/dev/null || echo "gh unavailable"
+```
+
+```!
+head -200 docs/meta-factory/wave-sequencing-plan.md 2>/dev/null || echo "MISSING: wave-sequencing-plan.md"
+```
+
+```!
+${CLAUDE_SKILL_DIR}/helpers/plan-currency-check.sh "${umbrella:-}" 2>/dev/null
+```
+
+**Step 2 — drift detection (judgment call on injected data):**
+
+Compare the `wave-sequencing-plan.md` claims against the live `gh pr list` output:
+
+1. For every wave marked «✅ merged» — verify a merged PR with that head branch exists in `gh pr list --state merged`. If not found → **DRIFT**.
+2. For every wave marked «🟡 partial» — verify at least one open PR matches. If none → **DRIFT**.
+3. For every kickoff path referenced — verify `ls .claude/orchestrator-prompts/<path>/kickoff.md` returns a file (the `plan-currency-check.sh` output provides this). Missing file → **STALE REF**.
+4. For every research-patch cited — verify `ls docs/meta-factory/research-patches/<file>.md` exists. Missing → **STALE REF**.
+
+**Step 3 — emit verdict:**
+
+- «**План актуален**» if zero drift or stale-ref items found.
+- OR emit a numbered list: `DRIFT-N: <wave-name> — plan says <claim>, gh shows <reality>. Proposed correction: <update wave-sequencing-plan.md line X to Y>.`
+
+**If `wave-sequencing-plan.md` is MISSING entirely:** skill writes a stub from `README.md` + `EXECUTION-PLAN.md` + `ls .claude/orchestrator-prompts/` listing, presents to maintainer for OK, then halts until confirmed.
+
+**§7.14 gap closed:** plan-actuality verification (gap 1).
+
+---
+
+## §2 Priority
+
+> **§7.3 binding.** Runs only in no-argument mode after §1 confirms plan is current (or after drift items are accepted). Skip to §3 if `<umbrella>` was provided.
+
+**Step 1 — inject candidate list:**
+
+```!
+${CLAUDE_SKILL_DIR}/helpers/priority-score.sh 2>/dev/null
+```
+
+**Step 2 — score each candidate (multi-criteria, judgment):**
+
+For each candidate umbrella from `priority-score.sh` output, assign scores on four axes:
+
+| Axis | Weight | Signal |
+|---|---|---|
+| blocks-other-waves | 3× | Does this umbrella's output unblock ≥1 other candidate? (check kickoff §0 for cross-wave deps) |
+| give-back-value | 2× | Does this close a N5 give-back gap or ship a consumer-facing artifact? |
+| size-fit | 1× | Smaller is preferred when score is tied (S < M < L volume signal from launch-table §3) |
+| maintainer-prefs | 2× | Explicit preference signals in wave-sequencing-plan §0 (e.g. «do next», «urgent», «after C-1») |
+
+**Step 3 — emit ranked list:**
+
+```text
+Priority ranking (as of <date> <git-HEAD-short>):
+1. <umbrella-A> — score <N> — rationale: <one line>
+2. <umbrella-B> — score <N> — rationale: <one line>
+...
+```
+
+**Step 4 — clear winner or true fork:**
+
+- If winner score ≥ 1.5× runner-up AND no explicit maintainer override → commit: «Recommend **<umbrella-A>**, proceeding.» (per phase-research-coverage.md §1.12: lead with reasoned recommendation).
+- If genuine tie OR strategy fork (e.g. «should we do N8 or C-1?») → ask maintainer. Do NOT pick strategy. Surface as: «DECISION-NEEDED: <A> and <B> are tied on all axes — which is the project priority?» (reviewer-discipline.md §2 pattern).
+
+**§7.14 gap closed:** cross-umbrella priority resolution (gap 2).
+
+---
+
+## §3 Launch-table
+
+> **§7.4 binding.** Produces the per-sub-wave Mode decision table for the selected umbrella.
+
+**Step 1 — inject umbrella kickoff:**
+
+```!
+${CLAUDE_SKILL_DIR}/helpers/launch-table-generator.sh "${umbrella}" 2>/dev/null
+```
+
+```!
+cat ".claude/orchestrator-prompts/${umbrella}/kickoff.md" 2>/dev/null | head -120 || echo "MISSING kickoff"
+```
+
+**Step 2 — classify each sub-wave (judgment on injected data):**
+
+Read the kickoff's sub-wave decomposition (§2 or §3 table). For each sub-wave, fill columns:
+
+| Column | Decision rule |
+|---|---|
+| Sub-wave id | from kickoff (e.g. A, B, C, D or 1, 2, 3) |
+| Type | R-phase / execution-build / wiring / manual-liveness — from kickoff §0 `Type:` header |
+| Mode | **Mode A** (inline Opus) if execution-build single OR wiring OR R-phase single; **Mode B × N worktrees** if execution-parallel ≥2 sub-waves in the same stage (per parallel-subwave-isolation.md §1); **Queue mode (sequential)** if R-phase-only or maintainer-specified sequential |
+| SDD? | Yes if execution-build with ≥3 independent tasks (SSOT #64 mechanism); No for wiring / single-task R-phase / borderline (overhead > value). Threshold rationale: 1-2 tasks → SDD review overhead roughly equals catch-rate; 3+ → net positive |
+| Stage | 1 / 2 / 3 — from kickoff dependency declaration (what must land before this sub-wave starts) |
+| Parallel sibling | which other sub-wave runs concurrently (same stage, compatible scope) |
+| Volume | small / medium / large — NOT calendar time; based on estimated LOC + files changed. S=<100 LOC, M=100-500 LOC, L=>500 LOC |
+
+**Step 3 — emit table:**
+
+```text
+Launch table — <umbrella> (as of <git-HEAD-short>):
+
+| Sub-wave | Type | Mode | SDD? | Stage | Parallel sibling | Volume |
+|---|---|---|---|---|---|---|
+| A | <type> | <mode> | <Y/N> | 1 | B or — | <S/M/L> |
+| B | <type> | <mode> | <Y/N> | 1 | A or — | <S/M/L> |
+...
+```
+
+**Blocking rule:** if `launch-table-generator.sh` returns «MISSING kickoff» → halt and report. Do NOT produce a launch-table without reading the actual kickoff.
+
+**§7.14 gap closed:** auto-generated launch-table (gap 3, partial — §4 completes it with meta-kickoff).
+
+---
+
+## §4 Meta-kickoff write
+
+> **§7.5 binding.** Writes `.claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md` using the template.
+
+**Step 1 — read template:**
+
+```!
+cat "${CLAUDE_SKILL_DIR}/templates/meta-kickoff.template.md"
+```
+
+**Step 2 — instantiate template (Write tool):**
+
+Substitute all `{{PLACEHOLDER}}` values from the §3 launch-table and §1 plan-currency output:
+
+- `{{UMBRELLA}}` → the selected umbrella name
+- `{{STAGE_1_SUBWAVES}}` → comma-separated sub-wave IDs at Stage 1
+- `{{STAGE_N_DEPENDENCIES}}` → list of PRs that must be merged before Stage N
+- `{{T_TRAP_ENUMERATION}}` → explicit T-numbers for this umbrella (from kickoff §5 or composed by inference — DO NOT blanket-reference)
+- `{{DOMAIN_TRAPS}}` → ≥1 umbrella-specific trap (NOT in canonical catalogue; label `T-<UMBRELLA-SHORT>-A`)
+- `{{LAUNCH_TABLE}}` → the table from §3
+- `{{GIT_GATE_STAGE_N}}` → actual `gh pr list --search 'is:merged head:<branch> base:<base>'` command for Stage N dependency
+
+**Step 3 — write file:**
+
+Target path: `.claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md`
+
+**Mandatory sections in generated kickoff (principle 12 will validate):**
+
+1. `## §5 AI-traps active` with explicit T-number list (NOT «see ai-laziness-traps.md» alone — that is a T7 anti-pattern per ai-laziness-traps.md §3).
+2. Stage-gate rules as ACTUAL `gh pr list --search 'is:merged head:<branch> base:<base>'` commands (not prose).
+3. Recursive-self-application clause.
+4. Stop conditions per stage.
+
+**Write the state.md companion:**
+
+Target path: `.claude/orchestrator-prompts/<umbrella>-meta-launch/state.md`
+
+Use `${CLAUDE_SKILL_DIR}/templates/state.md.template` as the skeleton; fill §1 Inputs from plan-currency check output.
+
+---
+
+## §5 Dispatch tree
+
+> **§7.6 binding.** Mutually exclusive routing per sub-wave type. Pick exactly ONE row that matches the sub-wave's nature.
+
+**Decision table (rows are mutually exclusive):**
+
+| Sub-wave nature | Dispatch mode | Mechanism |
+|---|---|---|
+| R-phase, single | Queue mode sequential | Per orchestrator skill Queue mode references (queue-mode.md §1 Triggers). Each kickoff completes before next begins. |
+| R-phase, multiple parallel | Mode A × N inline Agents | Single-session multi-dispatch via Agent tool calls in one message. No worktrees needed (R-phases produce docs, not code). |
+| Execution-build, single | Mode A inline | Direct Opus session with kickoff pasted or Read. |
+| Execution-build, parallel ≥2 in same stage | Mode B × N worktrees | Per parallel-subwave-isolation.md §1: `git worktree add ../<repo>-<wave>-<N> staging && git checkout -b <branch>` for each session. SP `using-git-worktrees` SSOT #65 is the preventive mechanism (dogfooded, not rebuilt). |
+| Wiring (thin CI/config) | Mode A inline | Single session; low blast radius; worktrees add overhead without isolation benefit. |
+| Manual liveness probing | Session-bound | Never CI-side. SP companion-type. |
+
+**SDD sub-wave dispatch (within execution-build):**
+
+When SDD?=Yes per §3 launch-table:
+- Implementer session: standard Mode A or B kickoff.
+- Spec-reviewer session: Agent tool with explicit spec-review role (reads kickoff, verifies implementation matches spec).
+- Code-quality-reviewer session: Agent tool with code-quality role (lints, tests, structure).
+
+Use SP `subagent-driven-development` SSOT #64 vocabulary for role names (ADOPT-VOCABULARY per R-phase patch §3 leapfrog table).
+
+**Mode A parallel workaround (nesting constraint):**
+
+When Mode B worktrees are unavailable (e.g. filesystem constraints per parallel-subwave-isolation.md §2), fall back to sequential Mode A — NOT concurrent shared-dir execution (§3 anti-pattern `#shared-workdir-parallel`).
+
+**Vocabulary alignment (T16 verified):**
+
+- «Mode A / Mode B» = primary orchestrator skill vocabulary (SSOT in orchestrator SKILL.md).
+- «SDD» = `subagent-driven-development` SSOT #64, verified T16 match: upstream problem class = «single complex feature implemented iteratively with spec+code+quality reviewers»; ours = same, used at sub-wave level.
+- «Queue mode» = orchestrator skill queue-mode.md vocabulary.
+
+---
+
+## §6 Stage gates
+
+> **§7.7 binding.** Between stages: REAL git merge check, not in-memory FIFO.
+
+**Step 1 — inject merge state before each stage transition:**
+
+```!
+gh pr list --search "is:merged head:<stage-N-branch> base:staging created:>=2026-05-23" --json number,title,mergedAt,headRefName --limit 10 2>/dev/null || echo "gh unavailable — cannot verify stage gate"
+```
+
+Replace `<stage-N-branch>` with the actual head branch from the Stage N sub-wave (derived from kickoff or launch-table).
+
+**Step 2 — evaluate gate:**
+
+If Stage N PRs are NOT merged → **HALT**. Emit:
+
+```text
+STAGE GATE: Stage N is NOT clear.
+Required: <list of PRs that must be merged>
+Current state: <gh output>
+Action: do NOT dispatch Stage N+1 until the above PRs are merged to staging.
+```
+
+If Stage N PRs ARE merged → proceed to Stage N+1 dispatch.
+
+**Step 3 — Phase -1 cold-review between every stage (mandatory):**
+
+After Stage N lands and before Stage N+1 dispatch, invoke §7 Reviewer dispatch. This is NOT optional. Auto-continuing without GO = T4 anti-pattern.
+
+**Class C compromise (honest):**
+
+This section is **prose enforcement** — the `!shell` injection surfaces the PR merge state, but the AI can technically ignore the injected data and dispatch Stage N+1 anyway. This is the same cost-benefit compromise as [parallel-subwave-isolation.md §4](../../rules/parallel-subwave-isolation.md) (Class C accepted; re-promotion trigger = ≥2 stage-gate-ignored incidents within 6 months). The `!shell` data is surfaced so the AI has no excuse for ignorance; the discipline relies on session-bound AI judgment.
+
+**T-MOB-B anti-pattern (search gotcha):** `gh pr list --search 'is:merged head:<branch>'` returns ALL merged PRs ever with that head. The `base:<base>` + `created:>=<date>` filters above prevent false-positives from recycled branch names.
+
+**§7.14 gap closed:** stage-gate vs flat-queue distinction (gap 4).
+
+---
+
+## §7 Reviewer dispatch
+
+> **§7.8 binding.** Phase -1 cold-review between stages. Required before Stage N+1 admission.
+
+**Trigger:** after each stage completes (all sub-wave PRs merged, §6 gate confirmed green).
+
+**Dispatch via Agent tool:**
+
+```text
+Agent: Phase -1 cold-review for <umbrella> Stage <N>
+Role: reviewer (not orchestrator, not implementer)
+Skill: requesting-code-review (SP SSOT, REFERENCE — see R-phase patch §3 leapfrog table)
+```
+
+**Reviewer discipline (reviewer-discipline.md §2 pattern — mandatory):**
+
+The dispatched reviewer:
+1. Reads the Stage N diff (`git diff staging...<stage-N-head>`).
+2. Reads the meta-kickoff Stage N acceptance criteria.
+3. Emits GO / REVISE / STOP verdict with BLOCKER/MAJOR/MINOR classification.
+4. For any finding requiring strategy choice: emits «DECISION-NEEDED: <one-line>. Option A → consequence X. Option B → consequence Y. Maintainer decides.» — does NOT pick the strategy.
+
+The reviewer does NOT:
+- Edit any file.
+- Pick project strategy.
+- Approve on behalf of the maintainer.
+- Skip surface review if «CI is green» (T19 — CI ≠ design review).
+
+**Verdict routing:**
+
+- **GO** → proceed to §5 Dispatch tree for Stage N+1.
+- **REVISE** → surface findings to maintainer; worker fixes; repeat Phase -1.
+- **STOP** → escalate to maintainer; halt Stage N+1 dispatch.
+
+**T16 verification (upstream problem-class match):**
+
+SP `requesting-code-review` upstream problem class = «dispatch a reviewer subagent with git SHA references to review a specific change». Our problem class = same. **Match: YES** (per R-phase patch §3 leapfrog table — SP `requesting-code-review` row). ADOPT the SP dispatch template; add reviewer-discipline.md §2 strategy-fork-surface discipline on top.
+
+---
+
+## §8 Anti-scope
+
+> **§7.9 binding.** What this skill MUST NOT do.
+
+- **Does NOT write sub-wave code.** Writing implementation code is the Worker's job. If invoked on an execution-build sub-wave, meta-orchestrator generates the kickoff and dispatch instructions — it does NOT implement.
+- **Does NOT finalize project strategy.** Meta-orchestrator can recommend a priority winner (§2) and say «proceeding»; it asks the maintainer on genuine strategy forks (§7.3 item 5).
+- **Does NOT modify `~/.claude/skills/orchestrator/`.** That is the global orchestrator, agent-uncommittable, owner=maintainer. Meta-orchestrator wraps and calls it; it never forks or modifies it. All paths in this skill begin with `.claude/skills/meta-orchestrator/` or consumer-repo relative refs.
+- **Does NOT violate no-paid-llm-in-ci.md §1.** All dispatch is session-bound CC subscription. Zero API-billed calls in CI. `!shell` injections are deterministic bash.
+- **Does NOT add npm deps.** Substrate stays bash + markdown + CC primitives + existing `gh` CLI.
+- **Does NOT re-litigate R-phase verdicts.** If a missed candidate is noticed, write `docs/meta-factory/research-patches/2026-<date>-meta-orchestrator-followup-<gap>.md` and surface to maintainer.
+
+**§7.10 one-button-install coupling (load-bearing):** this skill lives at `.claude/skills/meta-orchestrator/` (project-scope, committed). It is templatable for N6b `npx` scaffold via `install.sh` payload. All cross-references use `${CLAUDE_SKILL_DIR}` or repo-relative paths — no absolute paths inside skill body. Mirrors at repo-root `skills/meta-orchestrator/` for `install.sh` consumption (per `install.sh:168-198` pattern verified against `tool-bootstrapping` precedent). Sub-wave D wired this.
+
+---
+
+## §9 Dogfood test
+
+> **§7.11 binding.** The FIRST live invocation of this skill MUST run on the BUILD umbrella that produced the skill itself. This is the recursive-self-application gate (T15 from ai-laziness-traps.md §2 — cannot be skipped).
+
+**How to invoke the dogfood test:**
+
+1. From the worktree `rules-as-tests-aif-meta-orchestrator-iphase/`, run:
+
+   ```bash
+   bash .claude/skills/meta-orchestrator/helpers/plan-currency-check.sh meta-orchestrator-iphase
+   bash .claude/skills/meta-orchestrator/helpers/priority-score.sh
+   bash .claude/skills/meta-orchestrator/helpers/launch-table-generator.sh meta-orchestrator-iphase
+   gh pr list --search "is:merged head:feat/meta-orchestrator-build base:staging" \
+     --json number,title,mergedAt,headRefName --limit 10
+   ```
+
+2. Capture all output to `.claude/orchestrator-prompts/meta-orchestrator-iphase/dogfood-run-output.md` with sections:
+   - `## Step 1 — plan-currency-check` (command + output)
+   - `## Step 2 — priority-score` (command + output)
+   - `## Step 3 — launch-table-generator` (command + output)
+   - `## Step 4 — stage-gate gh pr list` (command + output)
+   - `## Coherence call` — judgment paragraph: is the launch-table coherent for this umbrella?
+
+**Expected output shape for meta-orchestrator-iphase:**
+
+The launch-table-generator will detect sub-waves from the kickoff (A, B, C, D). The expected coherent launch-table:
+
+```text
+| Sub-wave | Type | Mode | SDD? | Stage | Parallel sibling | Volume |
+|---|---|---|---|---|---|---|
+| A | I-phase build | Mode A | No | 1 | — | M |
+| B | I-phase build | Mode A | No | 1 | — | S |
+| C | I-phase build | Mode A | No | 1 | — | S |
+| D | I-phase build | Mode A | No | 1 | — | M |
+```
+
+**HARD GATE:** if the helpers produce no sub-waves (empty table), STOP and report «Dogfood gate: HARD FAIL — launch-table-generator found no sub-waves in kickoff.md». Do NOT commit. Surface failure trace to orchestrator.
+
+**Note on dogfood coherence for this BUILD:** sub-waves A+B+C were dispatched as a single Mode A session (reasonable for a single worker covering skeleton + helpers + templates). Sub-wave D is this session. The launch-table helper detects sub-wave rows from kickoff §2/§3 tables — it may or may not find them depending on kickoff structure. If it finds rows: coherent. If it finds no rows but the kickoff is real: partial tool limitation (not a HARD FAIL — document as «tool limitation: kickoff table format not auto-parseable; manual launch-table produced above»).
+
+---
+
+## §10 Output artifacts
+
+> **§7.12 binding.** Specifies exactly what files this skill writes per invocation — paths, format, and cleanup policy.
+
+**Per invocation, this skill writes:**
+
+1. **Meta-kickoff:** `.claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md`
+   - Template: `${CLAUDE_SKILL_DIR}/templates/meta-kickoff.template.md`
+   - Required sections: `## §5 AI-traps active` with explicit T-numbers; stage-gate commands; recursive-self-application clause; stop conditions per stage.
+   - Validated by: `packages/core/principles/12-ai-laziness-traps.test.ts` (checks `## §5 AI-traps` presence and T-enumeration syntax).
+
+2. **State companion:** `.claude/orchestrator-prompts/<umbrella>-meta-launch/state.md`
+   - Template: `${CLAUDE_SKILL_DIR}/templates/state.md.template`
+   - Filled sections: §1 Inputs (from plan-currency-check output) · §2 Launch-table (from §3) · §3 Dispatch log (updated per stage).
+   - Lifecycle: updated in-place as stages complete (not append-only).
+
+3. **Inline session report** (not a file — written to the conversation):
+   ```text
+   ## /meta-orchestrator — preflight + launch-table for <umbrella>
+   Plan status: [актуален / DRIFT-N: <details>]
+   Launch-table: [table]
+   Recommended next action: [dispatch Stage 1 / ask maintainer: <decision>]
+   Awaiting: [maintainer GO / maintainer DECISION on <fork>]
+   ```
+
+4. **Dogfood evidence** (first invocation only): `.claude/orchestrator-prompts/<umbrella>/dogfood-run-output.md`
+   - Contains: 4-step helper invocation outputs + coherence-call paragraph.
+   - This path is gitignored (`.claude/orchestrator-prompts/` in `.gitignore`) — evidence for session tracing only, not repo-committed.
+
+**File cleanup policy:**
+
+- `<umbrella>-meta-launch/` directory is NOT auto-deleted. It persists as the dispatch record for that umbrella's lifecycle.
+- If a second invocation occurs on the same umbrella, state.md is updated; kickoff.md is preserved (not overwritten) unless `--force` arg is passed.
+
+**Failure path:** if Write tool fails on any output artifact, skill emits a diagnostic and halts before dispatch. No partial state left unrecorded.
+
+---
+
+## §11 Failures
+
+> **§7.13 binding.** Class C prose enforcement — `!shell` data is surfaced so AI has no excuse for ignorance; correct response in each case is stated. Re-promotion trigger: ≥2 stage-gate-ignored incidents within 6 months → add pre-push hook verifying stage dependency merged before sub-wave commit.
+
+**F1 — Plan stale (drift detected):** emit numbered `DRIFT-N: <wave> — plan says <claim>, gh shows <reality>. Proposed correction: update line X to Y.` Halt. Do NOT proceed to §2/§3 until maintainer acknowledges.
+
+**F2 — Plan missing entirely:** write stub using Read+Write from README.md + EXECUTION-PLAN.md + `ls .claude/orchestrator-prompts/`. Halt until maintainer confirms.
+
+**F3 — Priority deadlock (true tie):** emit `DECISION-NEEDED: <A> and <B> tied on all axes.` with Option A/B consequences. Do NOT pick strategy (reviewer-discipline.md §2).
+
+**F4 — Stage gate not merged:** emit `STAGE GATE: Stage N NOT clear. Required: <PR list>. Action: HALT Stage N+1.` Hard halt; do not dispatch next stage.
+
+**F5 — Reviewer REVISE (max iterations):** after 3 REVISE cycles with no convergence, emit `ESCALATION: 3 consecutive REVISE on Stage N. Halting — maintainer review required.` Do NOT auto-retry.
+
+**F6 — `gh` CLI unavailable:** emit `DIAGNOSTIC: gh CLI unavailable. Manual verification required.` Ask maintainer; do NOT assume gate is clear.
+
+**F7 — launch-table-generator returns MISSING kickoff:** emit `MISSING kickoff. Halting — create kickoff first.` Do NOT generate launch-table from memory.
+
+---
+
+## With this skill
+
+`/meta-orchestrator` provides a single slash-command entry point that:
+
+1. **Verifies plan currency** — compares `wave-sequencing-plan.md` claims to live `gh pr list` output; surfaces DRIFT items before any dispatch.
+2. **Scores cross-umbrella priority** — multi-criteria scoring (blocks-other-waves × 3, give-back-value × 2, size-fit × 1, maintainer-prefs × 2) with a structured ranked list.
+3. **Generates a launch-table** — auto-detected sub-waves with Mode A/B/SDD/Queue decisions, Stage, Parallel-sibling, Volume columns; written to a meta-kickoff file.
+4. **Enforces stage gates** — real `gh pr list --search "is:merged head:<branch> base:staging"` checks before each stage transition; HALT on unmerged dependencies.
+
+## Without this skill
+
+Without `/meta-orchestrator`, multi-wave umbrella orchestration relies on:
+
+- **Manual plan-currency check:** the orchestrator must manually scan `wave-sequencing-plan.md`, compare to `gh pr list` output, and notice drift — error-prone under time pressure (T3 without verification).
+- **Flat queue dispatch:** orchestrator dispatches sub-waves sequentially without verifying Stage N dependencies are merged first (`#flat-queue-no-gates` anti-pattern — dispatching Stage 2 before Stage 1 PRs merge leads to branch contamination or rebase work).
+- **Ad-hoc launch-table:** Mode / SDD / Stage / Volume decisions are made inline without a structured decision framework — inconsistent across sessions, no audit trail.
+- **No structured meta-kickoff:** each umbrella kickoff is hand-authored with variable §5 AI-traps enumeration quality — principle 12 violations go undetected until pre-push.
+
+The cost of absence: orchestrator surgery time when a parallel branch contaminates main (incident 2026-05-12, the origin event), plus AI-trap violations accumulating in kickoffs.
+
+## See also
+
+- [R-phase patch (binding spec)](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md)
+- R-phase kickoff §7 (functional spec — 14 sub-sections) — `.claude/orchestrator-prompts/meta-orchestrator-prior-art/kickoff.md` (gitignored executor reference)
+- Global `~/.claude/skills/orchestrator/SKILL.md` — the queue/dispatch primitive this skill wraps. Agent-uncommittable. (tilde-path, not a repo link)
+- [parallel-subwave-isolation.md §1](../../rules/parallel-subwave-isolation.md) — worktree isolation discipline (§5 Mode B)
+- [reviewer-discipline.md §2](../../rules/reviewer-discipline.md) — reviewer role boundaries (§7)
+- [no-paid-llm-in-ci.md §1](../../rules/no-paid-llm-in-ci.md) — hard constraint on all dispatch
+- [ai-laziness-traps.md §3](../../rules/ai-laziness-traps.md) — §5 T-enumeration obligation in generated kickoffs
+- [principle 12 test](../../../packages/core/principles/12-ai-laziness-traps.test.ts) — validates §5 T-enumeration in kickoffs
+- [SSOT rows #66-#70](../../../docs/meta-factory/prior-art-evaluations.md) — R-phase survey evidence

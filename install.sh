@@ -196,6 +196,20 @@ else
   cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
+if [ -e "$PROJECT_ROOT/.claude/skills/meta-orchestrator" ] && [ "$FORCE" != "--force" ]; then
+  SKIPPED+=("$PROJECT_ROOT/.claude/skills/meta-orchestrator")
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would skip: .claude/skills/meta-orchestrator (exists)"
+  else
+    echo "  ⊝ .claude/skills/meta-orchestrator (exists — skipping)"
+  fi
+elif [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "  [dry-run] would copy: $PKG_ROOT/skills/meta-orchestrator → $PROJECT_ROOT/.claude/skills/meta-orchestrator"
+else
+  rm -rf "$PROJECT_ROOT/.claude/skills/meta-orchestrator"
+  cp -r "$PKG_ROOT/skills/meta-orchestrator" "$PROJECT_ROOT/.claude/skills/meta-orchestrator"
+  echo "  ✓ .claude/skills/meta-orchestrator/"
+fi
 
 # ─── 1b. Hooks ──────────────────────────────────────────
 echo "▶ Claude hooks → .claude/hooks/"
