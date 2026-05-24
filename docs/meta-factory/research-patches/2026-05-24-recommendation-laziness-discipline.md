@@ -6,6 +6,8 @@
 > **NOT authoritative for:** I-phase mechanism implementation (отдельный kickoff); project goal (see [README.md#why-this-exists](../../../README.md#why-this-exists)); existing T11/T12/T19 catalogue (see [ai-laziness-traps.md §2](../../../.claude/rules/ai-laziness-traps.md)).
 
 > **Origin:** 2026-05-24. Sub-wave G dispatch + post-dispatch maintainer dialogue. Три события за одну сессию — D-G-1 (fabricated keyword-filter recommendation), зеркало false-alarm, и §1.3 неправильный Stop-hook field — всё это под живой H1 напоминалкой (`.claude/hooks/inject-session-bootstrap.sh:11`). Kickoff: `.claude/orchestrator-prompts/recommendation-laziness-discipline/kickoff.md`. Phase -1 cold-review применён и зафиксирован в kickoff §9.
+>
+> **Post-merge amend (2026-05-25):** исходный PR #206 позиционировал этот патч как «новое правило для inline-chat surface». Это неверная фреймировка: `.claude/rules/phase-research-coverage.md §1.12` (введён 2026-05-22, за 2 дня до PR #206) **уже кодифицирует** inline-chat recommendation-grounding discipline на уровне prose («Lead with a reasoned recommendation; act when the best path is clear»). Данный патч является **механизмовым слоем для существующего §1.12 правила**, а не новым правилом. Пассивная H1 напоминалка эмпирически недостаточна (3 события в одной сессии под живым H1) — именно этот механизм-gap закрывается. §1.2 Layer 6 дополнен тремя пропущенными in-repo prior-art записями; §1.6 backward-check расширен явными `EXTENDS`/`OPERATIONALISES` параграфами; §1.5 добавлен caveat об обязательном narrow-B benchmark перед I-phase ship. Подробнее: §10.
 
 ---
 
@@ -160,7 +162,13 @@ Source: alexlavaee.me/blog/engineering-discipline-ai-agents
 - `dual-implementation-discipline.md` — overlap на Options A (strengthen H1 = один канал) vs D (combination = dual channel). Confirms нам нужно рассмотреть dual-channel (Option D).
 - **`docs/meta-factory/research-patches/2026-05-22-n4b-recommendation-gate-design.md`** — самый прямой prior-art в репо. §3 N4b устанавливает: H10 = единственный HOT-class gate (tool-call observable); H2 keyword scanner = REJECTED (67% FP). **Наш gap vs N4b:** N4b не codified trap в ai-laziness-traps.md и не дала binding I-phase scope. Этот патч = N4b продолжение (не supersede).
 
-**Общий prior-art вывод:** S1 не срабатывает (нет mature upstream mechanism для ADOPT verbatim). BUILD verdict для новой T-trap + Class C rule sustained. Ближайший upstream = N4b in-repo (extend, не duplicate). AgentSpec (arxiv 2503.18666) = ADOPT VOCABULARY для «trigger–check–enforce» vocabulary, no runtime coupling.
+**Три пропущенных in-repo prior-art записи (own-stack-blind-spot — обнаружены post-merge, 2026-05-25):**
+
+- **`.claude/rules/phase-research-coverage.md §1.12`** (введён 2026-05-22, за 2 дня до этого патча) — «Lead with a reasoned recommendation; act when the best path is clear». **Наиболее прямой prior-art для scope этого патча.** Кодифицирует inline-chat recommendation grounding на prose уровне. **Вердикт: данный патч является механизмовым слоем для §1.12, а не новым правилом.** Должен был быть основной cross-reference в §1.2; был пропущен в исходном sweep (own-stack-blind-spot per `build-first-reuse-default.md §4`).
+- **`.claude/rules/phase-research-coverage.md §1.11`** (введён 2026-05-22) — «Verify against source-of-truth before claim or ship-step». Операциональное обобщение §1.7 на любой claim (не только рекомендации). Смежная дисциплина; T21 trap данного патча срабатывает и на surface §1.11.
+- **`.claude/rules/phase-research-coverage.md §4` `#recommendation-skips-own-discipline`** — именованный anti-pattern того же семейства. T21 trap операционализирует предотвращение этого anti-pattern.
+
+**Общий prior-art вывод:** S1 не срабатывает (нет mature upstream mechanism для ADOPT verbatim). BUILD verdict для новой T-trap + Class C rule sustained. Ближайший upstream = N4b in-repo (extend, не duplicate) + **§1.12 in-repo rule (mechanism layer, не supersede)**. AgentSpec (arxiv 2503.18666) = ADOPT VOCABULARY для «trigger–check–enforce» vocabulary, no runtime coupling.
 
 ---
 
@@ -309,6 +317,8 @@ Per rule-enforcement-channel-selection.md §3:
 
 3. **Memory-codification re-audit dimension:** следующий re-audit (memory-codification.md §4(c)) добавить T21 как scanning dimension — «memory entries that describe inline-verdict-without-evidence incidents без `TODO-codify:` marker». Trigger: re-audit scheduled per memory-codification.md §4(c).
 
+4. **Narrow-B production-corpus benchmark — REQUIRED before I-phase ship.** §1.3 Option B тест использовал 12 ad-hoc constructed предложений (50/50 split true-positive vs false-positive «by design»), НЕ репрезентативную выборку из реальных PR-body / commit messages / chat output. Reported «50% FP ceiling» является FLOOR (Worker подтверждает в §1.7 counter-prompt item 3: «На реальном техническом тексте FP rate превышает 50%»). Узкий вариант (short turn + zero tool calls + verdict-word AND-condition) — load-bearing компонент рекомендованного Option D — НЕ тестирован вообще (§1.7 counter-prompt item 3: «Не тестирован узкий вариант. I-phase автор должен benchmark narrow B variant в production»). Отдельный benchmark patch должен запустить narrow-B на ≥100 реальных assistant turns из session transcripts ДО того как I-phase commit'ится к Option D. Если narrow-B FP-rate >20% на реальном corpus → исключить narrow-B из Option D, поставить Option D только как A+C (без B компонента вообще).
+
 ---
 
 ## §1.6 §1.7 self-reflexive check (forward + backward per phase-research-coverage.md §1.7)
@@ -351,7 +361,16 @@ AUGMENTS — Option A предлагает minor wording tweak, не rewrite. Fa
 **docs/meta-factory/research-patches/2026-05-22-n4b-recommendation-gate-design.md:**
 EXTENDS (добавляет trap + binding I-phase scope, N4b не codified rule). НЕ supersedes. ✅
 
-**Вывод backward-check:** no silent supersedure. Этот патч = disciplinary codification layer поверх N4b research.
+**`.claude/rules/phase-research-coverage.md §1.12` (введён 2026-05-22):**
+EXTENDS на уровне механизма — §1.12 кодифицирует prose дисциплину («open with reasoned recommendation, with reason against trade-offs»); Option D данного патча добавляет отсутствующий enforcement mechanism (H1 wording tweak + narrow Stop-hook + T21 trap). НЕ supersedes §1.12 — последний остаётся source-of-truth для правила; данный патч поставляет только механизм.
+
+**`.claude/rules/phase-research-coverage.md §1.11`:**
+ADJACENT — §1.11 применяется к «любому claim или ship-step»; данный патч scoped на verdict/recommendation acts specifically. T21 trap является sibling-экземпляром `#recommendation-skips-own-discipline` для inline-chat surface. НЕ supersedes.
+
+**`.claude/rules/phase-research-coverage.md §4` `#recommendation-skips-own-discipline`:**
+OPERATIONALISES — T21 trap данного патча является catalogue-entry формой именованного anti-pattern. Anti-pattern остаётся в §4 как авторитативное именование; T21 — его T-family entry в `ai-laziness-traps.md`. Вместе они образуют rule+trap пару (параллельно другим anti-pattern + trap парам в репо).
+
+**Вывод backward-check:** no silent supersedure. Этот патч = mechanism layer поверх существующего §1.12 prose rule + disciplinary codification layer поверх N4b research.
 
 ---
 
@@ -411,7 +430,21 @@ EXTENDS (добавляет trap + binding I-phase scope, N4b не codified rule
 - [.claude/hooks/inject-session-bootstrap.sh:11](../../../.claude/hooks/inject-session-bootstrap.sh) — H1 reminder (Option A target)
 - [.claude/rules/build-first-reuse-default.md §3](../../../.claude/rules/build-first-reuse-default.md) — 6-layer prior-art mechanism applied in §1.2
 - [.claude/rules/phase-research-coverage.md §1.7](../../../.claude/rules/phase-research-coverage.md) — forward+backward self-check applied in §1.6
+- [.claude/rules/phase-research-coverage.md §1.11](../../../.claude/rules/phase-research-coverage.md) — verify-against-source-of-truth; смежная дисциплина (T21 firing на её surface тоже)
+- [.claude/rules/phase-research-coverage.md §1.12](../../../.claude/rules/phase-research-coverage.md) — inline-chat recommendation grounding (prose rule, source-of-truth; данный патч = mechanism layer для §1.12)
+- [.claude/rules/phase-research-coverage.md §4 `#recommendation-skips-own-discipline`](../../../.claude/rules/phase-research-coverage.md) — named anti-pattern; T21 trap = его T-family entry
 - [.claude/rules/doc-authority-hierarchy.md §3](../../../.claude/rules/doc-authority-hierarchy.md) — header format; Class C declaration
 - [docs/meta-factory/prior-art-evaluations.md](../prior-art-evaluations.md) — SSOT consulted in §1.2 (rows #20, #41, #60-63, #71)
 - Memory `project_stryker_mutation_hardening_done.md` — T20 reservation (Stryker equivalence-claim-without-evidence, queued)
 - arxiv 2503.18666 (AgentSpec, ICSE 2026) — ADOPT VOCABULARY verdict: «trigger–check–enforce» DSL vocabulary (per N4b §2)
+
+---
+
+## §10 Post-merge amend log (2026-05-25, follow-up to PR #206)
+
+Post-merge maintainer review surfaced два gap'а; исправлены в данном follow-up PR:
+
+- **Gap 1 (own-stack-blind-spot в §1.2):** Worker пропустил три in-repo prior-art записи — `phase-research-coverage.md §1.12` (наиболее прямой; кодифицирует inline-chat recommendation grounding на prose уровне, введён 2026-05-22, за 2 дня до PR #206), `§1.11` (операциональное обобщение), и `§4 #recommendation-skips-own-discipline` (именованный anti-pattern того же семейства). Перефреймирование: данный патч является **mechanism layer для существующего §1.12 rule**, а не новым правилом. Правки: §0 framing downgrade (Origin blockquote) + §1.2 Layer 6 явные записи + §1.6 backward-check extends-vs-supersedes параграфы. Per `build-first-reuse-default.md §4 #own-stack-blind-spot`.
+- **Gap 2 (narrow-B feasibility unverified):** §1.3 Option B тест использовал constructed sample (50/50 by design), не репрезентативную выборку. Narrow-B вариант (load-bearing для Option D) не тестирован. Правка: §1.5 добавляет явный item «Narrow-B production-corpus benchmark REQUIRED before I-phase ship» с falsifier (исключить narrow-B если FP >20% на реальном corpus).
+
+Phase -1 self-application gap в PR #206: Phase -1 cold-reviewer сфокусировался на stale filenames + T10 + recursive coherence, но НЕ задал вопрос «does this rule already exist?» — именно BFR-default `#own-stack-blind-spot`. R-phase про recommendation-laziness поставил рекомендацию, которая сама пропустила BFR-check. T15 (self-application) явно применяется к Phase -1 reviewer briefs начиная с данного патча.
