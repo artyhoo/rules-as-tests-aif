@@ -40,18 +40,61 @@ echo ""
 #   | **1** |       bold-wrapped digit
 # Filters:
 #   - the header row (first cell == 'Sub-wave' literal) and divider rows (cells of `-`/`:`)
-#   - Gap-1 fix (F.3, 2026-05-24): rows that match the shape but are NOT actually sub-waves
-#     (e.g. §1 hook tables, §2 dispatch tables). Keyword filter on the row content keeps
-#     only rows whose value column names a kickoff phase/mode that a sub-wave can hold.
-#     If a kickoff uses non-standard sub-wave terminology, add the keyword here and smoke-test.
+#
+# Gap-1 fix history:
+#   F.3 (2026-05-24): shipped Option A — keyword filter kept only rows whose value column
+#     names a kickoff phase/mode (R-phase|execution|wiring|Mode [AB]|Direct Edit|…). This
+#     fixed spurious matches from §1 hook tables and §2 dispatch tables. But it false-negatives
+#     on kickoffs whose sub-wave content column describes SKILL.md sections rather than
+#     orchestration-mode keywords (e.g. meta-orchestrator-iphase: columns contain "SKILL.md §3",
+#     "helpers/launch-table-generator.sh", etc. — not matched by any keyword).
+#   F.3 follow-up (2026-05-25): replaced with Option B5 — hybrid section-scoped + keyword fallback.
+#     Smoke-test gap closed: now tests meta-orchestrator-iphase (4 sub-waves, was false-negative)
+#     + meta-orchestrator-followup-audit (8 sub-waves, regression check)
+#     + mutation-discipline-umbrella (0 sub-waves, false-positive check — uses ### Stage N, not rows)
+#     + meta-orchestrator-linear-autonomous (0 sub-waves, dogfood T15).
+#
+# Option B5 — hybrid section-scoped + keyword fallback:
+#   PRIMARY PATH: detect a "## §N <Sub-wave|sub-wave>*" section heading via awk state machine.
+#     Within that section ALL row-shaped lines are treated as sub-waves (the section heading IS
+#     the scope marker — no keyword filter needed). Section ends at the next "## " heading or EOF.
+#     Example heading matches: "## §3 Sub-wave decomposition (Mode B × N worktrees if parallel)"
+#                               "## §2 Sub-wave order + dispatch mode"
+#   FALLBACK PATH: if no Sub-wave section heading found, fall back to original keyword-filter
+#     behavior. Preserves backward compatibility for kickoffs without such headings (e.g.
+#     template-generated kickoffs where launch-table vocabulary names orchestration modes directly).
 detect_subwaves() {
-  grep -E '^\| *(\*\*)?([A-D]|[0-9]+)(\*\*)? *\|' "${KICKOFF}" 2>/dev/null \
-    | grep -vE '^\|[[:space:]:|-]*\|[[:space:]:|-]*$' \
-    | grep -E 'R-phase|execution|wiring|Mode [AB]|Direct Edit|SDD|Queue mode|I-phase|implementer|reviewer|sub-wave|Sub-wave' \
-    | while IFS='|' read -r _ sw_raw _; do
-        sw="$(echo "${sw_raw}" | tr -d ' *')"
-        [[ -n "${sw}" ]] && echo "${sw}"
-      done
+  # Check whether a "Sub-wave" section heading exists in this kickoff.
+  if grep -qE '^## §[0-9]+ [Ss]ub-wave' "${KICKOFF}" 2>/dev/null; then
+    # PRIMARY PATH: section-scoped extraction via awk state machine.
+    # in_section=1 from "## §N Sub-wave*" heading until next "## " heading.
+    # Only pipe-delimited rows matching the shape regex are emitted; header/divider rows
+    # are filtered; no keyword filter needed (section scope is the discriminator).
+    awk '
+      /^## §[0-9]+ [Ss]ub-wave/ { in_section=1; next }
+      in_section && /^## /        { in_section=0 }
+      in_section && /^\| *(\*\*)?([A-D]|[0-9]+)(\*\*)? *\|/ &&
+                    !/^\|[[:space:]:|-]*\|[[:space:]:|-]*$/ {
+        # Strip leading "| " and capture first cell (sub-wave id)
+        line=$0
+        gsub(/^\| */, "", line)
+        gsub(/ *\|.*/, "", line)
+        gsub(/[* ]/, "", line)
+        if (line != "" && line != "Sub-wave" && line != "#") print line
+      }
+    ' "${KICKOFF}"
+  else
+    # FALLBACK PATH: original keyword-filter behavior (F.3 Option A).
+    # Handles kickoffs that don't have a recognizable Sub-wave section heading,
+    # including template-generated kickoffs where column content names orchestration modes.
+    grep -E '^\| *(\*\*)?([A-D]|[0-9]+)(\*\*)? *\|' "${KICKOFF}" 2>/dev/null \
+      | grep -vE '^\|[[:space:]:|-]*\|[[:space:]:|-]*$' \
+      | grep -E 'R-phase|execution|wiring|Mode [AB]|Direct Edit|SDD|Queue mode|I-phase|implementer|reviewer|sub-wave|Sub-wave' \
+      | while IFS='|' read -r _ sw_raw _; do
+          sw="$(echo "${sw_raw}" | tr -d ' *')"
+          [[ -n "${sw}" ]] && echo "${sw}"
+        done
+  fi
 }
 
 echo "--- sub-wave candidates (auto-detected) ---"

@@ -410,6 +410,8 @@ detect_subwaves() {
 
 **Owner:** F.3 inline edit (helper ≤80 LOC — не capability commit per CLAUDE.md). Mirror sync required.
 
+**F.3 follow-up 2026-05-25:** Option A keyword filter replaced by Option B5 hybrid section-scoped + keyword fallback; 3rd smoke-test gap closed. See `docs/meta-factory/research-patches/2026-05-25-meta-orchestrator-f3-substance-followup.md` + PR `fix/meta-orchestrator-item10-b5`.
+
 ---
 
 ### Item 11 — §1 Step 2: Add REPORT reconciliation clause
