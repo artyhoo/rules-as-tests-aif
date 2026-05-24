@@ -14,8 +14,11 @@ UMBRELLA="${1:-}"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 if [[ -z "${UMBRELLA}" ]]; then
-  echo "Usage: launch-table-generator.sh <umbrella-name>" >&2
-  exit 1
+  # Called without arg — legitimate when skill is loaded but §2 hasn't selected
+  # an umbrella yet. Quiet skip (exit 0) so CC doesn't flag the §3 !shell block
+  # as failed. Direct CLI invocation can still discover usage via this echo.
+  echo "(launch-table-generator: no umbrella — §3 launch-table runs after §2 selects winner)"
+  exit 0
 fi
 
 KICKOFF="${REPO_ROOT}/.claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"
