@@ -100,3 +100,8 @@ When operating under this skill, these rationalizations mean STOP:
 | «`see ai-laziness-traps.md` is enough in meta-kickoff §5» | Blanket reference is itself T7 — explicit T-enumeration mandatory |
 
 For the full behaviour specification (§1 Plan-currency through §11 Failures, including all anti-patterns and red-flag counters), see `.claude/skills/meta-orchestrator/SKILL.md` after install.
+
+<!-- Channel-recommendation markers per round-2 audit Sub-wave B Invariant 4 (commit d212dae). Today the upstream `inject-matching-rule.sh` hook scans `.claude/rules/*.md` only; these markers are forward-going annotation that activates when the hook is extended to also scan `.claude/skills/*/SKILL.md`. Once active, narrows discoverability delivery from manual recall to per-edit JIT reminder on orchestrator-prompts and wave-sequencing-plan touches. -->
+<!-- globs: .claude/orchestrator-prompts/**, docs/meta-factory/wave-sequencing-plan.md -->
+<!-- inject: Meta-orchestrator — ≥2 in-flight wave umbrellas or wave-sequencing-plan.md drift: /meta-orchestrator (plan-currency + priority + launch-table + stage-gate dispatch). -->
+

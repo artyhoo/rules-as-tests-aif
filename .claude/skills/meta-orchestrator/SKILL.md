@@ -485,7 +485,8 @@ Without `/meta-orchestrator`, multi-wave umbrella orchestration relies on:
 - **No structured meta-kickoff:** each umbrella kickoff is hand-authored with variable §5 AI-traps enumeration quality — principle 12 violations go undetected until pre-push.
 
 The cost of absence: orchestrator surgery time when a parallel branch contaminates main (incident 2026-05-12, the origin event), plus AI-trap violations accumulating in kickoffs.
-
+<!-- globs: .claude/orchestrator-prompts/**, docs/meta-factory/wave-sequencing-plan.md -->
+<!-- inject: Meta-orchestrator — ≥2 in-flight wave umbrellas or wave-sequencing-plan.md drift: /meta-orchestrator (plan-currency + priority + launch-table + stage-gate dispatch). Forward-going annotation: activates when inject-matching-rule.sh is extended to scan .claude/skills/*/SKILL.md (today scans .claude/rules/ only). -->
 ## See also
 
 - [R-phase patch (binding spec)](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md)
