@@ -34,7 +34,7 @@ allowed-tools:
 
 **Slash command:** `/meta-orchestrator [<umbrella-name>]`
 
-**`disable-model-invocation: true`** — this skill is NOT preloaded automatically or injected into subagents. It fires ONLY on explicit `/meta-orchestrator` invocation. This prevents subagents from recursively self-invoking the meta-orchestrator (desired per kickoff §4 key-points, MINOR-5).
+**`disable-model-invocation: true`** — fires ONLY on explicit `/meta-orchestrator` invocation. The flag suppresses CC's default auto-load into subagent contexts when description matches a subagent's task — it is **not** a recursive-invocation guard (no such risk exists: subagent depth is hard-capped at 2 by CC's harness, per [sub-agents.md](https://code.claude.com/docs/en/sub-agents.md)).
 
 **With `<umbrella>` argument:** skill operates on the named umbrella — runs §1 plan-currency check for that umbrella, then §3 launch-table, then §4 meta-kickoff write, then offers §5 dispatch.
 
@@ -76,6 +76,7 @@ Compare the `wave-sequencing-plan.md` claims against the live `gh pr list` outpu
 2. For every wave marked «🟡 partial» — verify at least one open PR matches. If none → **DRIFT**.
 3. For every kickoff path referenced — verify `ls .claude/orchestrator-prompts/<path>/kickoff.md` returns a file (the `plan-currency-check.sh` output provides this). Missing file → **STALE REF**.
 4. For every research-patch cited — verify `ls docs/meta-factory/research-patches/<file>.md` exists. Missing → **STALE REF**.
+5. **REPORT reconciliation:** if a maintainer-passed REPORT contradicts the `gh pr list` injection (e.g. REPORT says «Stage 1 merged» but `gh pr list` shows nothing), emit «REPORT says X; mechanical state shows Y; trusting `gh pr list`; possible causes: stale REPORT / pending GitHub-API sync (<60s) / different branch. Proceeding on mechanical state.» REPORT is welcome **supplementary** input, not load-bearing — mechanical state always wins (3-layer responsibility model; memory `feedback_no_human_verification_ai_self_verifies`).
 
 **Step 3 — emit verdict:**
 
@@ -233,7 +234,8 @@ Use `${CLAUDE_SKILL_DIR}/templates/state.md.template` as the skeleton; fill §1 
 
 | Sub-wave nature | Dispatch mode | Mechanism |
 |---|---|---|
-| R-phase, single | Queue mode sequential | Per orchestrator skill Queue mode references (queue-mode.md §1 Triggers). Each kickoff completes before next begins. |
+| R-phase, single | Mode A inline | Single-focus R-phase = one Opus session. Queue mode is for ≥2 sequential kickoffs (queue-mode.md §1 Triggers). |
+| R-phase, multiple sequential | Queue mode (sequential) | ≥2 R-phase kickoffs queued; each completes before the next begins (queue-mode.md §1 Triggers: «≥2 sequential kickoffs»). |
 | R-phase, multiple parallel | Mode A × N inline Agents | Single-session multi-dispatch via Agent tool calls in one message. No worktrees needed (R-phases produce docs, not code). |
 | Execution-build, single | Mode A inline | Direct Opus session with kickoff pasted or Read. |
 | Execution-build, parallel ≥2 in same stage | Mode B × N worktrees | Per parallel-subwave-isolation.md §1: `git worktree add ../<repo>-<wave>-<N> staging && git checkout -b <branch>` for each session. SP `using-git-worktrees` SSOT #65 is the preventive mechanism (dogfooded, not rebuilt). |
@@ -259,6 +261,9 @@ When Mode B worktrees are unavailable (e.g. filesystem constraints per parallel-
 - «SDD» = `subagent-driven-development` SSOT #64, verified T16 match: upstream problem class = «single complex feature implemented iteratively with spec+code+quality reviewers»; ours = same, used at sub-wave level.
 - «Queue mode» = orchestrator skill queue-mode.md vocabulary.
 
+**Antipatterns (§7.6 binding):**
+- `#worker-dispatch-via-subagent` — Worker dispatch via Agent tool from the meta-orchestrator session. Agent tool is ONLY for Phase -1 read-only reviewer (`reviewer-discipline.md §2`) + read-only research subagents (text return). Write-task Worker dispatch belongs in a fresh CC session opened by the maintainer pasting a §10 1-liner block. Channel matters — maintainer-paste = external loop-close; Agent-tool = subagent = wrong channel for writes. **Falsifier:** the channel boundary holds even when prompt shapes converge — the test is «who invokes», not «what the prompt looks like».
+- `#commit-on-behalf-of-worker` — the meta-orchestrator running `git commit` / `gh pr create` for work it dispatched. Worker commits its own work under its own audit trail. **Falsifier:** Worker session crashed mid-task with the diff fully authored there → surface to maintainer, never silently absorb.
 ---
 
 ## §6 Stage gates
@@ -268,10 +273,10 @@ When Mode B worktrees are unavailable (e.g. filesystem constraints per parallel-
 **Step 1 — inject merge state before each stage transition:**
 
 ```!
-gh pr list --search "is:merged head:<stage-N-branch> base:staging created:>=2026-05-23" --json number,title,mergedAt,headRefName --limit 10 2>/dev/null || echo "gh unavailable — cannot verify stage gate"
+gh pr list --search "is:merged head:<stage-N-branch> base:staging" --json number,title,mergedAt,headRefName --limit 10 2>/dev/null || echo "gh unavailable — cannot verify stage gate"
 ```
 
-Replace `<stage-N-branch>` with the actual head branch from the Stage N sub-wave (derived from kickoff or launch-table).
+Replace `<stage-N-branch>` with the actual head branch from the Stage N sub-wave (derived from kickoff or launch-table). See T-MOB-B below for the recycled-branch case.
 
 **Step 2 — evaluate gate:**
 
@@ -294,7 +299,7 @@ After Stage N lands and before Stage N+1 dispatch, invoke §7 Reviewer dispatch.
 
 This section is **prose enforcement** — the `!shell` injection surfaces the PR merge state, but the AI can technically ignore the injected data and dispatch Stage N+1 anyway. This is the same cost-benefit compromise as [parallel-subwave-isolation.md §4](../../rules/parallel-subwave-isolation.md) (Class C accepted; re-promotion trigger = ≥2 stage-gate-ignored incidents within 6 months). The `!shell` data is surfaced so the AI has no excuse for ignorance; the discipline relies on session-bound AI judgment.
 
-**T-MOB-B anti-pattern (search gotcha):** `gh pr list --search 'is:merged head:<branch>'` returns ALL merged PRs ever with that head. The `base:<base>` + `created:>=<date>` filters above prevent false-positives from recycled branch names.
+**T-MOB-B anti-pattern (search gotcha):** `gh pr list --search 'is:merged head:<branch>'` returns ALL merged PRs ever with that head. The `base:staging` filter above prevents false-positives from recycled branch names that landed on a different base. If a branch name has been reused across umbrellas and a date scope is genuinely needed, pass `created:>=<YYYY-MM-DD>` derived from the umbrella's kickoff timestamp — never a hardcoded literal.
 
 **§7.14 gap closed:** stage-gate vs flat-queue distinction (gap 4).
 
@@ -413,15 +418,8 @@ The launch-table-generator will detect sub-waves from the kickoff (A, B, C, D). 
    - Filled sections: §1 Inputs (from plan-currency-check output) · §2 Launch-table (from §3) · §3 Dispatch log (updated per stage).
    - Lifecycle: updated in-place as stages complete (not append-only).
 
-3. **Inline session report** (not a file — written to the conversation):
-   ```text
-   ## /meta-orchestrator — preflight + launch-table for <umbrella>
-   Plan status: [актуален / DRIFT-N: <details>]
-   Launch-table: [table]
-   Recommended next action: [dispatch Stage 1 / ask maintainer: <decision>]
-   Awaiting: [maintainer GO / maintainer DECISION on <fork>]
-   ```
-   **§10.3a Plain-language checkpoint tail** <!-- @dual-pair: plain-language-tail --> <!-- spec: references/plain-language-tail.md + .claude/hooks/end-of-turn-reminder.sh --> — mandatory `## 🟢 Простыми словами` block at 3 orchestrator-checkpoint moments (sub-wave boundary / mid-session quota / final umbrella). Content names orchestration artefacts (sub-wave, AC item, REPORT-trace), distinct from the hook's per-turn personal-reasoning. Full table + anti-patterns: [`references/plain-language-tail.md`](references/plain-language-tail.md). Falsifier: verbatim-copyable from `end-of-turn-reminder.sh` reminder → `#two-prompts-drift` per `.claude/rules/dual-implementation-discipline.md §4`.
+3. **Inline session report** (not a file — written to the conversation) — emitted as a **3-layer structure**: `## Dependency graph` (Argo-style `├── / └──` ASCII tree, prospective; inter-stage edge `↓`), `## Action queue` (5-column markdown table: `Paste в новый CC tab` / `Когда` / `Ждёшь` / `Можно параллельно с`), and one `### Stage N` heading per stage carrying the 1-liner `/orchestrator <umbrella> §<section> — <NL: Mode/role/autonomous?>, остальное в kickoff`. Full grammar + 4 worked examples (Mode A / SDD / Mode B × N / Queue mode) + ASCII templates live in [`references/output-format.md`](references/output-format.md); principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces those substrings literally in `references/output-format.md`, with SKILL.md §10 required to point at it.
+   **§10.3a Plain-language checkpoint tail** <!-- @dual-pair: plain-language-tail --> <!-- spec: references/plain-language-tail.md + .claude/hooks/end-of-turn-reminder.sh --> — mandatory `## 🟢 Простыми словами` block at 3 orchestrator-checkpoint moments (sub-wave boundary / mid-session quota / final umbrella); content names orchestration artefacts (sub-wave, AC item, REPORT-trace), not per-turn personal reasoning. Full table + anti-patterns: [`references/plain-language-tail.md`](references/plain-language-tail.md). Falsifier: verbatim-copyable from `end-of-turn-reminder.sh` → `#two-prompts-drift`.
 4. **Dogfood evidence** (first invocation only): `.claude/orchestrator-prompts/<umbrella>/dogfood-run-output.md`
    - Contains: 4-step helper invocation outputs + coherence-call paragraph.
    - This path is gitignored (`.claude/orchestrator-prompts/` in `.gitignore`) — evidence for session tracing only, not repo-committed.
@@ -487,6 +485,7 @@ Without `/meta-orchestrator`, multi-wave umbrella orchestration relies on:
 The cost of absence: orchestrator surgery time when a parallel branch contaminates main (incident 2026-05-12, the origin event), plus AI-trap violations accumulating in kickoffs.
 <!-- globs: .claude/orchestrator-prompts/**, docs/meta-factory/wave-sequencing-plan.md -->
 <!-- inject: Meta-orchestrator — ≥2 in-flight wave umbrellas or wave-sequencing-plan.md drift: /meta-orchestrator (plan-currency + priority + launch-table + stage-gate dispatch). Forward-going annotation: activates when inject-matching-rule.sh is extended to scan .claude/skills/*/SKILL.md (today scans .claude/rules/ only). -->
+
 ## See also
 
 - [R-phase patch (binding spec)](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md)

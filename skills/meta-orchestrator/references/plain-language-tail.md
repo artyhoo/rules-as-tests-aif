@@ -5,7 +5,7 @@
 
 > Companion to SKILL.md §10.3a (which carries the one-line stub binding); this file defines the orchestrator-checkpoint substance shape.
 
-Generic per-turn end-of-turn substance is enforced by `.claude/hooks/end-of-turn-reminder.sh` (Stop hook, fires on long-text / question / claim-bearing turns). It injects `## 🟢 Простыми словами` as a mechanical presence gate with anti-rationalization wording (Branch A/B/C/D + factual-claim scan).
+Generic per-turn end-of-turn substance is enforced by `.claude/hooks/end-of-turn-reminder.sh` (Stop hook, fires on long-text / question / claim-bearing turns). It enforces presence of the `## 🟢 Простыми словами` block via the Stop hook `decision:block` mechanism with anti-rationalization wording (Branch A/B/C/D + factual-claim scan): the hook fires `decision:block` with a `reason` payload, and the model adds the section in the next turn to unblock. The hook does NOT inject the section text directly — only the requirement.
 
 ## What this section adds — orchestrator-CHECKPOINT-specific substance
 

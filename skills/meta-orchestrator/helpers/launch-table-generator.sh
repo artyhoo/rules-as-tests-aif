@@ -38,10 +38,16 @@ echo ""
 #   | **A** |       bold-wrapped letter (Markdown emphasis)
 #   | 1 |           plain digit
 #   | **1** |       bold-wrapped digit
-# Filters: the header row (first cell == 'Sub-wave' literal) and divider rows (cells of `-`/`:`).
+# Filters:
+#   - the header row (first cell == 'Sub-wave' literal) and divider rows (cells of `-`/`:`)
+#   - Gap-1 fix (F.3, 2026-05-24): rows that match the shape but are NOT actually sub-waves
+#     (e.g. §1 hook tables, §2 dispatch tables). Keyword filter on the row content keeps
+#     only rows whose value column names a kickoff phase/mode that a sub-wave can hold.
+#     If a kickoff uses non-standard sub-wave terminology, add the keyword here and smoke-test.
 detect_subwaves() {
   grep -E '^\| *(\*\*)?([A-D]|[0-9]+)(\*\*)? *\|' "${KICKOFF}" 2>/dev/null \
     | grep -vE '^\|[[:space:]:|-]*\|[[:space:]:|-]*$' \
+    | grep -E 'R-phase|execution|wiring|Mode [AB]|Direct Edit|SDD|Queue mode|I-phase|implementer|reviewer|sub-wave|Sub-wave' \
     | while IFS='|' read -r _ sw_raw _; do
         sw="$(echo "${sw_raw}" | tr -d ' *')"
         [[ -n "${sw}" ]] && echo "${sw}"

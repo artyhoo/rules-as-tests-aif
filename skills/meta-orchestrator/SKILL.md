@@ -34,7 +34,7 @@ allowed-tools:
 - **With `<umbrella>` argument:** skill operates on the named umbrella — runs plan-currency check, launch-table, meta-kickoff write, offers dispatch.
 - **Without argument:** skill runs global plan-currency check, cross-umbrella priority scoring, recommends winner, proceeds on confirmation.
 
-`disable-model-invocation: true` — fires ONLY on explicit `/meta-orchestrator` invocation (prevents recursive self-invocation in subagents).
+`disable-model-invocation: true` — fires ONLY on explicit `/meta-orchestrator` invocation. The flag suppresses CC's default auto-load into subagent contexts; it is **not** a recursive-invocation guard (no such risk exists: subagent depth is hard-capped at 2 by CC's harness per [sub-agents.md](https://code.claude.com/docs/en/sub-agents.md)).
 
 ---
 
@@ -60,6 +60,12 @@ Three bash helpers are included in `helpers/`:
 ## Without this skill
 
 Without `/meta-orchestrator`, multi-wave umbrella orchestration relies on manual plan-currency checks, flat queue dispatch without real stage-gate verification, ad-hoc launch-table decisions, and hand-authored kickoffs with variable AI-trap enumeration quality. The skill closes the four named gaps: plan-actuality, cross-umbrella priority, auto-generated launch-table, and stage-gate vs flat-queue.
+
+---
+
+## §10 Output artifacts
+
+The `/meta-orchestrator <umbrella>` invocation writes a meta-kickoff + state.md and emits an **inline session report** in a 3-layer structure: `## Dependency graph` (Argo-style `├── / └──` ASCII tree, prospective; inter-stage edge `↓`), `## Action queue` (5-column markdown table: `Paste в новый CC tab` / `Когда` / `Ждёшь` / `Можно параллельно с`), and one `### Stage N` heading per stage carrying the 1-liner `/orchestrator <umbrella> §<section> — <NL>, остальное в kickoff`. Full grammar + 4 worked examples (Mode A / SDD / Mode B × N / Queue mode) + ASCII templates live in `references/output-format.md`; principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces those substrings.
 
 ---
 
