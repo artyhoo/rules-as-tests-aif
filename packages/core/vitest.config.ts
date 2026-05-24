@@ -19,6 +19,7 @@ export default defineConfig({
       'hooks/**/*.test.ts',
       'audit-self/**/*.test.ts',
       'audit-self/**/*.audit.ts',
+      'skills/**/*.test.ts',
     ],
   },
 });
