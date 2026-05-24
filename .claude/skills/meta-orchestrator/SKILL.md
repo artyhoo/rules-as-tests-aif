@@ -135,11 +135,11 @@ Priority ranking (as of <date> <git-HEAD-short>):
 **Step 1 — inject umbrella kickoff:**
 
 ```!
-${CLAUDE_SKILL_DIR}/helpers/launch-table-generator.sh "${umbrella}" 2>/dev/null
+${CLAUDE_SKILL_DIR}/helpers/launch-table-generator.sh "${umbrella:-}" 2>/dev/null
 ```
 
 ```!
-cat ".claude/orchestrator-prompts/${umbrella}/kickoff.md" 2>/dev/null | head -120 || echo "MISSING kickoff"
+cat ".claude/orchestrator-prompts/${umbrella:-}/kickoff.md" 2>/dev/null | head -120 || echo "MISSING kickoff"
 ```
 
 **Step 2 — classify each sub-wave (judgment on injected data):**
