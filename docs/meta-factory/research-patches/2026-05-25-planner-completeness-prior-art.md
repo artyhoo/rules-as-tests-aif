@@ -1,3 +1,4 @@
+<!-- scope:planner-completeness-prior-art -->
 # Prior-art survey: planner-completeness L3 / L4 / L5
 
 > **Stage:** 1 of 5 — R-phase prior-art survey for umbrella `meta-orchestrator-planner-completeness`.
