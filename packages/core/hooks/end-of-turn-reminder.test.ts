@@ -293,6 +293,50 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // this as a fixed BLOCKER. This test pins the fix in place.
   // ---------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------
+//  BOUNDARY — already-recapped guard (hook:48-54). The current assistant turn
+//  itself contains "## 🟢 Простыми словами" → re-firing would inject the recap
+//  instruction over an existing recap. Complements stop_hook_active guard for
+//  natural-turn proactive recaps (stop_hook_active=false). Paired-negative
+//  per ~/.claude/rules/testing.md: must skip on exact marker, must NOT
+//  over-suppress on look-alike marker that misses "Простыми словами".
+//  ---------------------------------------------------------------------------
+
+  it('already-recapped guard: current turn contains "## 🟢 Простыми словами" → exit 0 silent', () => {
+    const tr = writeTranscript([
+      aiTitle('Цель сессии'),
+      userTurn('первое задание'),
+      assistantText(
+        '## 🟢 Простыми словами\n\nЗакрыл шаг X. Дальше — Y.\n\n' + longMarkdownText(),
+      ),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    expect(r.status).toBe(0);
+    expect(
+      r.stdout,
+      'already-recapped guard: long markdown turn that ALREADY contains the canonical recap marker must not re-inject reminder',
+    ).toBe('');
+  });
+
+  it('already-recapped guard does NOT over-fire: "## 🟢" without "Простыми словами" → reminder still fires', () => {
+    // Negative companion to the previous test. Confirms the guard matches the
+    // FULL canonical marker, not just the 🟢 emoji — so a long markdown turn
+    // that mentions "## 🟢 Что-то ещё" must still trigger Branch A.
+    const tr = writeTranscript([
+      aiTitle('Цель сессии'),
+      userTurn('первое задание'),
+      assistantText('## 🟢 Прогресс\n\n' + longMarkdownText()),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    expect(r.status).toBe(0);
+    expect(
+      r.stdout,
+      'partial marker (🟢 without "Простыми словами") must NOT trigger the guard — Branch A must still fire',
+    ).not.toBe('');
+    const payload = JSON.parse(r.stdout);
+    expect(payload.decision).toBe('block');
+  });
+
   it('B2 fix: AskUserQuestion-only turn after prior "## 🟢" recap → must FIRE (not suppressed)', () => {
     // Scenario: previous assistant turn produced a recap (contains "## 🟢"),
     // current turn is AskUserQuestion-only with empty text. Without the B2
