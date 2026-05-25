@@ -28,9 +28,17 @@ EXECUTION PLAN — <umbrella> (<YYYY-MM-DD>)
 
 ### Stage 1 — <name> (<Mode>, ~<cost>)
 
+**Что делает:** <1-2 sentences plain language — что эта fresh CC-сессия сделает; что НЕ сделает если scope узкий>
+**Deliverable:** <конкретный артефакт — путь к файлу / PR shape / verdict tag>
+**Почему сейчас:** <зачем именно эта стадия именно в этот момент — какой gate она открывает / какой trap counter'ит / какая зависимость её admit'нула>
+
 <1-liner — §4>
 
 ### Stage 2 — <name> (<Mode>, ~<cost>)
+
+**Что делает:** <…>
+**Deliverable:** <…>
+**Почему сейчас:** <…>
 
 <1-liner — §4>
 
@@ -39,6 +47,8 @@ EXECUTION PLAN — <umbrella> (<YYYY-MM-DD>)
 ```
 
 The three layers (`## Dependency graph` / `## Action queue` / `### Stage N` blocks) are **mandatory** — principle 18 fails if any of the literal headings or the column substrings (§3) is missing from this file.
+
+**Description block (3 lines `Что делает / Deliverable / Почему сейчас`) is mandatory above every `<1-liner>`** — see §4.1 below for rationale + falsifiers. The block is not principle-18-checked (per maintainer scope decision 2026-05-25, Option A); enforcement is prose-discipline at session time. The block exists because `### Stage X — name (Mode, cost)` heading answers «how» but not «what / why now»; without it the receiving fresh CC-session can be paste'd without the maintainer-reader understanding what they just dispatched.
 
 ---
 
@@ -122,6 +132,39 @@ Exactly one block per stage. Maintainer pastes the entire block into a fresh CC 
 - Maintainer (2026-05-24) explicitly rated the earlier `/Mode-A /Roles-worker /Skills-foo /Autonomous-yes /Iterative-review-no` draft «не удобный формат мне не нравится».
 - The global orchestrator skill at `~/.claude/skills/orchestrator/SKILL.md` parses natural-language payload (no structured-args parser).
 
+## §4.1 Description block above each 1-liner (mandatory, prose-discipline)
+
+> **Origin:** 2026-05-25 maintainer feedback («А почему нет описание что каждая делает? … разве в meta-orchestrator не должны быть с описанием промты»). Spec gap identified post-F.3-ship: §1 template + §5 examples produced heading + 1-liner with no plain-language context, which is paste-able but not *reader-comprehensible* without opening the kickoff. Maintainer chose **Option A** (template + examples patch, no principle 18 extension) over Option B (mechanical gate via `**Что делает:**` substring grep).
+
+Every `### Stage X — <name> (<Mode>, <cost>)` heading MUST be followed by a 3-line description block BEFORE the `/orchestrator …` 1-liner:
+
+```text
+### Stage X — <name> (<Mode>, <cost>)
+
+**Что делает:** <1-2 sentences plain language — what the fresh CC-session will do; what it explicitly will NOT do if scope is narrow>
+**Deliverable:** <concrete artefact — file path / PR shape / verdict tag / data point captured>
+**Почему сейчас:** <why this stage at this moment — what gate it opens / what trap it counters / what dependency admitted it>
+
+/orchestrator <umbrella> §<anchor> — <NL payload>, остальное в kickoff
+```
+
+**Why this block is load-bearing:**
+
+- `/meta-orchestrator`'s entire purpose is to dispatch *fresh CC-sessions without the maintainer's current session context*. Each paste = one autonomous world. The 1-liner starts with `/orchestrator` and is optimised for the **receiving** session (it re-reads kickoff). The description block is optimised for the **maintainer-reader who must decide whether to paste**.
+- Without the block, the reader must open `kickoff.md §<anchor>` to learn what the dispatched session will produce — which defeats the one-message-one-session pattern.
+- `### Stage X — <name> (<Mode>, <cost>)` heading answers «**how** big / **what** mode» — not «**what** the work is / **why** now». The three triplet fields close that gap.
+
+**Falsifiers / when the block is allowed to be terser:**
+
+- One-line stages where the heading already names the deliverable verbatim (e.g. `### Stage 1 — Append SSOT row #79 (Mode A, ~5k)`) — `**Что делает:**` may be a single noun phrase, but **must still appear** to keep the format machine-readable for future grep promotion.
+- Description block is **NOT principle-18-checked** (per maintainer scope decision 2026-05-25). Promotion to mechanical gate (Option B) is a separate trigger — if 3+ sessions ship dispatches without the block within 6 months, promote to principle 18 substring check on `**Что делает:**` presence between `### Stage` and `/orchestrator`.
+
+**Anti-patterns:**
+
+- `#description-as-restated-heading` — content of `**Что делает:**` paraphrases the `### Stage X — <name>` heading. Adds zero context. Counter: name what the SESSION will execute (verbs: «опрашивает», «пишет», «extends», «runs»), not what the stage is called.
+- `#deliverable-without-path` — `**Deliverable:**` says «a research-patch» without naming the file path. Reader can't grep for it post-merge. Counter: give the actual path or PR-title shape.
+- `#why-now-as-tautology` — `**Почему сейчас:**` says «это следующий шаг» (it's the next step). Adds zero reasoning. Counter: name the gate / trap / dependency edge.
+
 ---
 
 ## §5 Four worked examples
@@ -149,6 +192,10 @@ Stage 1 — СЕЙЧАС:
 ## 1-liner blocks (копируй ОДИН блок = ОДНА новая CC сессия)
 
 ### Stage 1 — Cold review (Mode A, ~30k)
+
+**Что делает:** прогоняет cold-eye review по SKILL.md как fresh-reader (без контекста твоей сессии), ищет structural drift / missing sections / broken refs; **НЕ** редактирует файлы — только REPORT.
+**Deliverable:** REPORT с GO/REVISE/STOP verdict + по-секционные findings (file:line + предложения) inline в session output, никаких commits.
+**Почему сейчас:** F.1+G-design + F.3 UX shipped; перед закрытием audit umbrella нужна независимая проверка что F.2 deliverable (cold-review of SKILL.md) consistent с binding spec G §1.5 — иначе T19 (own QA before handoff).
 
 /orchestrator meta-orchestrator-followup-audit §1 Sub-wave F.2 — Mode A reviewer cold-eye по SKILL.md, return REPORT, no edits, остальное в kickoff
 ═══════════════════════════════════════════════════════════════
@@ -184,9 +231,17 @@ Stage 2 — после merge Stage 1 PR:
 
 ### Stage 1 — SDD build (Mode SDD, ~80k)
 
+**Что делает:** Implementer пишет feature-X end-to-end (~50k); spec reviewer subagent проверяет соответствие kickoff §3 binding spec (~15k); code-quality reviewer subagent гоняет lint+tests+style (~15k). Все три в одной session через Agent tool, NOT в worktrees.
+**Deliverable:** PR feature-X с code + tests + spec-review GO + code-quality-review GO, ready для merge to staging.
+**Почему сейчас:** kickoff §3 binding spec frozen, dependencies все resolved; SDD threshold (≥3 independent tasks: implementer + 2 reviewer roles) пройден; single complex feature без parallel-decomposition surface = SDD beats Mode A solo по catch-rate.
+
 /orchestrator feature-X-SDD-build §3 — Mode SDD implementer + 2 reviewers (spec + code-quality), full autonomous, остальное в kickoff
 
 ### Stage 2 — Smoke test (Mode A, ~10k)
+
+**Что делает:** запускает feature-X integration smoke (curl endpoints / `npm test -- smoke` / любая manual-liveness probe per kickoff §4), не редактирует код.
+**Deliverable:** smoke output (pass/fail per probe) inline в session report, либо BLOCKER finding если что-то не работает после merge.
+**Почему сейчас:** Stage 1 PR merged, feature-X в staging; CI pass ≠ runtime-verified (T19), нужна independent post-merge probe BEFORE umbrella closure.
 
 /orchestrator feature-X-SDD-build §4 — Mode A runner проверяет smoke, остальное в kickoff
 ═══════════════════════════════════════════════════════════════
@@ -224,17 +279,33 @@ Stage 2 — после merge всех Stage 1 PRs:
 
 ### Stage 1 Worker-1 — auth refactor (Mode B worktree, ~50k)
 
+**Что делает:** рефакторит `module/auth` в отдельном worktree (parallel-subwave-isolation §1 + §4a node_modules links MANDATORY); все edits внутри `module/auth/**`, тесты в `module/auth/__tests__/`.
+**Deliverable:** PR `refactor/auth-<scope>` с green CI, file:line evidence для cold-review.
+**Почему сейчас:** kickoff §4 декомпозировал refactor на 3 независимых модуля (auth/api/db); auth не имеет dependency edges к api/db → safe для parallel dispatch; запуск всех 3 worker'ов одновременно сокращает wall-clock ×3 при том же quota total.
+
 /orchestrator refactor-large-module §4 Worker-1 auth — Mode B implementer в worktree, автономно, остальное в kickoff
 
 ### Stage 1 Worker-2 — api refactor (Mode B worktree, ~50k)
+
+**Что делает:** рефакторит `module/api` в worktree #2; scope ограничен `module/api/**`; не трогает auth и db (shared file race trap counter).
+**Deliverable:** PR `refactor/api-<scope>` с green CI.
+**Почему сейчас:** parallel-safe с Worker-1 и Worker-3 (разные file-scopes); один из 3 sub-waves Stage 1.
 
 /orchestrator refactor-large-module §4 Worker-2 api — Mode B implementer в worktree, автономно, остальное в kickoff
 
 ### Stage 1 Worker-3 — db refactor (Mode B worktree, ~50k)
 
+**Что делает:** рефакторит `module/db` в worktree #3; scope `module/db/**`.
+**Deliverable:** PR `refactor/db-<scope>` с green CI.
+**Почему сейчас:** третий из 3 parallel-safe sub-waves; завершает Stage 1.
+
 /orchestrator refactor-large-module §4 Worker-3 db — Mode B implementer в worktree, автономно, остальное в kickoff
 
 ### Stage 2 — Integration smoke (Mode A, ~20k)
+
+**Что делает:** прогоняет integration tests на staging после merge всех 3 refactor-PRs, проверяет что auth↔api↔db не сломались на границах (regression surface от parallel refactor).
+**Deliverable:** integration test output inline; либо BLOCKER finding если cross-module contracts нарушены.
+**Почему сейчас:** Stage 1 ×3 PRs merged → staging имеет all 3 refactored modules; unit tests в каждом PR ОК, но integration surface ловит только cross-module post-merge — критично для validate parallel-refactor pattern.
 
 /orchestrator refactor-large-module §5 — Mode A runner integration smoke по 3 модулям, остальное в kickoff
 ═══════════════════════════════════════════════════════════════
@@ -266,6 +337,10 @@ Stage 1 — СЕЙЧАС (sequential queue):
 ## 1-liner blocks (копируй ОДИН блок = ОДНА новая CC сессия)
 
 ### Stage 1 — Queue mode R1→R4 (Queue mode, ~120k)
+
+**Что делает:** одна Opus session iterates R1 (prior-art sweep) → Reviewer GO/REVISE → R2 (gap analysis) → Reviewer GO → R3 (verdict synthesis) → Reviewer GO → R4 (patch draft) → Reviewer GO; каждая R-итерация produces inkremental output, между ними cold-review checkpoint автоматически.
+**Deliverable:** один research-patch с R1-R4 sections + Reviewer GO chain logged; либо REVISE-loop with explicit escalation.
+**Почему сейчас:** kickoff §2 enumerated 4 sequential R-iterations с iterative-review-каждой semantics; Queue mode threshold (≥2 sequential R-kickoffs) пройден; flat-queue dispatch без stage-gates ОК потому что R-only umbrella (no I-phase build downstream).
 
 /orchestrator research-umbrella-Q §2 — Mode Queue iterative review каждой итерации (R1 → R2 → R3 → R4), автономно, остальное в kickoff
 ═══════════════════════════════════════════════════════════════
