@@ -55,6 +55,25 @@ function writeFile(dir: string, relPath: string, content: string): string {
   return full;
 }
 
+/**
+ * Fast execSync stub for warm-path probeR4 tests (DN-1 Path C, 2026-05-25).
+ *
+ * Mirrors the subprocess outcomes probeR4 cares about without spawning npx:
+ *   - `npx --version` → returns '8.0.0\n' (npx is available)
+ *   - `npx --no-install tsx scripts/audit-r4.ts` → throws ENOENT (tsx not installed)
+ *
+ * These assertions exercise CONDITIONAL LOGIC (early-return branches), not
+ * real-subprocess contract. The :344 contract test deliberately omits this
+ * stub — semantic preservation is the design intent of Option C.
+ */
+const fastExecSyncStub = ((cmd: string): Buffer => {
+  if (cmd.startsWith('npx --version')) return Buffer.from('8.0.0\n');
+  // `npx --no-install tsx ...` → simulate tsx absent (real behaviour on warm-path test envs)
+  const err: NodeJS.ErrnoException = new Error('ENOENT: tsx not found');
+  err.code = 'ENOENT';
+  throw err;
+}) as unknown as typeof import('node:child_process').execSync;
+
 // ─── extractProseText() — remark code-fence-aware extraction ─────────────────
 
 describe('extractProseText()', () => {
@@ -1502,10 +1521,13 @@ describe('probeR4() — execSync call content (L160-171)', () => {
     // Only tsconfig present (no ts-morph) → condition !hasTsconfig && !hasTsMorph is false
     // LogicalOperator mutant !hasTsconfig || !hasTsMorph would be TRUE → early-return
     // So the mutant would produce 'warn' instead of 'fail'/'warn' from execSync
+    //
+    // Uses fastExecSyncStub (DN-1 Path C) — this test asserts on conditional logic,
+    // not on real-subprocess contract. The :344 sibling keeps real execSync.
     mkdirSync(join(dir, 'src/domain'), { recursive: true });
     writeFile(dir, 'src/domain/a.ts', 'export const x = 1;\n');
     writeFile(dir, 'tsconfig.json', '{"compilerOptions":{}}\n');
-    const result = probeR4(dir);
+    const result = probeR4(dir, { execSync: fastExecSyncStub });
     // hasTsconfig=true → condition !hasTsconfig && !hasTsMorph = false → does NOT early-return
     // → execSync runs → result is fail or warn (from execSync failure)
     expect(['warn', 'fail']).toContain(result.result);
@@ -1522,12 +1544,14 @@ describe('probeR4() — execSync call content (L160-171)', () => {
     // With || mutant: !hasTsconfig || !hasTsMorph → if only hasTsMorph is true (hasTsconfig=false)
     // → condition is true → early-return warn (wrong!)
     // Real code: !hasTsconfig && !hasTsMorph → false when either is present
+    //
+    // Uses fastExecSyncStub (DN-1 Path C) — see sibling test above for rationale.
     mkdirSync(join(dir, 'src/domain'), { recursive: true });
     writeFile(dir, 'src/domain/a.ts', 'export const x = 1;\n');
     // Make ts-morph "present" via the existence check
     mkdirSync(join(dir, 'node_modules/ts-morph'), { recursive: true });
     writeFile(dir, 'node_modules/ts-morph/package.json', '{"name":"ts-morph"}\n');
-    const result = probeR4(dir);
+    const result = probeR4(dir, { execSync: fastExecSyncStub });
     // hasTsMorph=true → !hasTsconfig && !hasTsMorph = false → does NOT early-return
     // The result should be 'fail' or 'warn' (execSync fails, not the early-return warn)
     expect(['warn', 'fail']).toContain(result.result);

@@ -151,14 +151,23 @@ export function extractDeclaredSkills(agentsMarkdown: string): string[] {
  * R4 probe: every domain export in src/domain has a matching .unit.ts file.
  * Delegates to `scripts/audit-r4.ts` in the consumer project via npx tsx.
  * Falls back to WARN(skipped) when env lacks Node/tsx/tsconfig.
+ *
+ * `opts.execSync` is the dependency-injection seam for warm-path tests
+ * (DN-1 Path C, 2026-05-25); omit it in prod and contract tests — defaults
+ * to the real `execSync` from node:child_process, preserving byte-for-byte
+ * subprocess behaviour.
  */
-export function probeR4(cwd: string): { result: 'pass' | 'fail' | 'warn'; message: string } {
+export function probeR4(
+  cwd: string,
+  opts?: { execSync?: typeof execSync },
+): { result: 'pass' | 'fail' | 'warn'; message: string } {
+  const exec = opts?.execSync ?? execSync;
   const RULE = 'R4: Every public export in src/domain has matching .unit.ts (ts-morph)';
   if (!existsSync(join(cwd, 'src/domain'))) {
     return { result: 'pass', message: `${RULE} (skipped: no src/domain)` };
   }
   try {
-    execSync('npx --version', { stdio: 'ignore' });
+    exec('npx --version', { stdio: 'ignore' });
   } catch {
     return { result: 'warn', message: `${RULE} (skipped: npx not found)` };
   }
@@ -168,7 +177,7 @@ export function probeR4(cwd: string): { result: 'pass' | 'fail' | 'warn'; messag
     return { result: 'warn', message: `${RULE} (skipped: no tsconfig.json and ts-morph not installed)` };
   }
   try {
-    execSync('npx --no-install tsx scripts/audit-r4.ts', { cwd, stdio: 'pipe' });
+    exec('npx --no-install tsx scripts/audit-r4.ts', { cwd, stdio: 'pipe' });
     return { result: 'pass', message: RULE };
   } catch {
     return { result: 'fail', message: RULE };
