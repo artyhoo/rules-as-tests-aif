@@ -53,6 +53,10 @@ allowed-tools:
 **Step 1 — inject live state:**
 
 ```!
+cat .claude/orchestrator-prompts/_plan-cache.md 2>/dev/null | head -200 || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"
+```
+
+```!
 git status --short && echo "---" && git branch --show-current && echo "---" && git rev-list --count --left-right origin/staging...HEAD 2>/dev/null || echo "(no upstream)"
 ```
 
@@ -77,6 +81,7 @@ Compare the `wave-sequencing-plan.md` claims against the live `gh pr list` outpu
 3. For every kickoff path referenced — verify `ls .claude/orchestrator-prompts/<path>/kickoff.md` returns a file (the `plan-currency-check.sh` output provides this). Missing file → **STALE REF**.
 4. For every research-patch cited — verify `ls docs/meta-factory/research-patches/<file>.md` exists. Missing → **STALE REF**.
 5. **REPORT reconciliation:** if a maintainer-passed REPORT contradicts the `gh pr list` injection (e.g. REPORT says «Stage 1 merged» but `gh pr list` shows nothing), emit «REPORT says X; mechanical state shows Y; trusting `gh pr list`; possible causes: stale REPORT / pending GitHub-API sync (<60s) / different branch. Proceeding on mechanical state.» REPORT is welcome **supplementary** input, not load-bearing — mechanical state always wins (3-layer responsibility model; memory `feedback_no_human_verification_ai_self_verifies`).
+6. **Cache reconciliation:** if cache (Step 1 first `!shell` block) «Last invocation» Git HEAD diverges from current `git rev-parse HEAD` AND `wave-sequencing-plan.md` was touched in the SHA diff → emit «CACHE STALE …»; cache stays supplementary, never load-bearing (T-mem-A counter — re-verify «PR merged» / «umbrella DONE» claims via `gh pr list`). Full rule + anti-patterns: [`references/plan-cache.md §2`](references/plan-cache.md).
 
 **Step 3 — emit verdict:**
 
@@ -423,6 +428,8 @@ The launch-table-generator will detect sub-waves from the kickoff (A, B, C, D). 
 4. **Dogfood evidence** (first invocation only): `.claude/orchestrator-prompts/<umbrella>/dogfood-run-output.md`
    - Contains: 4-step helper invocation outputs + coherence-call paragraph.
    - This path is gitignored (`.claude/orchestrator-prompts/` in `.gitignore`) — evidence for session tracing only, not repo-committed.
+
+5. **Plan-cache update:** at end of invocation, `bash ${CLAUDE_SKILL_DIR}/helpers/update-cache.sh "<umbrella-or-no-arg>" "<outcome-one-liner>"` (helper writes `## Last invocation` only; non-«Last invocation» sections populated by direct `Edit` before invocation). Detail + helper-scope contract + anti-patterns: [`references/plan-cache.md §3`](references/plan-cache.md). <!-- @dual-pair: meta-orchestrator-plan-cache -->
 
 **File cleanup policy:**
 
