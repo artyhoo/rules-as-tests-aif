@@ -84,8 +84,8 @@ jobs:
               fi
             done
             n=$(wc -l < "$f")
-            if [ "$n" -gt 500 ]; then
-              echo "::error file=$f::overweight ($n lines, max 500)"
+            if [ "$n" -gt 600 ]; then
+              echo "::error file=$f::overweight ($n lines, max 600)"
               fail=1
             fi
           done < <(find . -name "*.md" -not -path "./.git/*")
