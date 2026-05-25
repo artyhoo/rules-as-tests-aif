@@ -17,11 +17,13 @@ export default defineConfig({
     ],
     // 5s default times out audit-ai-docs probeR4 tests on slow-npx machines
     // (execSync('npx tsx ...') bootstraps tsx + tries to resolve ts-morph from
-    // npm registry before the WARN/FAIL branch fires). Local measurement: ~24s
-    // on slow connection. 36s = tight margin while bounding deadlock-class
-    // hangs. Longer-term fix: skip-if-no-ts-morph or move probeR4 sandbox tests
-    // to a slow suite — see .claude/orchestrator-prompts/slow-test-triage/.
-    // Same root cause class as the principle 11 testTimeout bump from PR #183.
-    testTimeout: 36_000,
+    // npm registry before the WARN/FAIL branch fires). Local best-case ~24s
+    // but real network variance under TLS jitter goes higher; 36s tested
+    // insufficient under real push load. 60s covers worst-case while bounding
+    // deadlock-class hangs. Longer-term fix: skip-if-no-ts-morph or move
+    // probeR4 sandbox tests to a slow suite — see
+    // .claude/orchestrator-prompts/slow-test-triage/. Same root cause class as
+    // the principle 11 testTimeout bump from PR #183.
+    testTimeout: 60_000,
   },
 });
