@@ -1,3 +1,4 @@
+<!-- scope:plan-memory-rphase -->
 # R-phase — meta-orchestrator plan-memory feature
 
 > **Authoritative for:** R-phase verdict for the `meta-orchestrator-plan-memory-rphase` umbrella — Q1–Q8 evidence answers, prior-art extension (§3 items a–d), verdict, SSOT row proposal, I-phase scope hint, §1.7 self-reflexive check.
