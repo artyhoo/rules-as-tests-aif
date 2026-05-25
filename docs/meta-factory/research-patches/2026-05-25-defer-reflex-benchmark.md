@@ -1,3 +1,4 @@
+<!-- scope:defer-reflex-benchmark -->
 # Stage 2 Benchmark — Defer-Reflex Detection Precision + Recall
 
 > **Scope:** Stage 2 benchmark measuring precision and recall of the §3 detection mechanism designed in Stage 1 (`2026-05-25-defer-reflex-detection.md`). One commit — do NOT push. Stage 3 trigger: §5 = STAGE 3 GO only.
