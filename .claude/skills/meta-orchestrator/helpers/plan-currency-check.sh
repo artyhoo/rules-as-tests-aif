@@ -6,12 +6,26 @@
 # Outputs deterministic data that SKILL.md body uses for drift detection (judgment).
 # This helper surfaces facts; SKILL.md performs the comparison and emits verdict.
 #
+# L2 extension (Stage 3, meta-orchestrator-planner-completeness): adds reverse-currency
+# checks — reality → plan mismatches emitted as UNTRACKED-<N> and UNTRACKED-KICKOFF lines.
+#
+# Seams for testing (reuse L1 vocabulary verbatim — T13):
+#   REPO_ROOT    — override repo root (default: git rev-parse --show-toplevel)
+#   MO_GH_BIN   — override the `gh` binary (default: gh)
+#   MO_WAVE_PLAN — override the wave-sequencing-plan.md path
+#                  (default: <REPO_ROOT>/docs/meta-factory/wave-sequencing-plan.md)
+#
 # @cc-only-rationale: meta-orchestrator skill helper — runs in-session via !shell injection;
 #   no portable equivalent fires at the same moment (PostToolUse timing is CC-specific).
 set -euo pipefail
 
 UMBRELLA="${1:-}"
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+# Seam overrides (used by tests to inject fixtures; set BEFORE git-derived defaults)
+# REPO_ROOT may be pre-set by caller (e.g. test harness); if not, derive from git.
+REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+MO_GH_BIN="${MO_GH_BIN:-gh}"
+MO_WAVE_PLAN="${MO_WAVE_PLAN:-${REPO_ROOT}/docs/meta-factory/wave-sequencing-plan.md}"
 
 echo "=== plan-currency-check: umbrella='${UMBRELLA}' ==="
 echo "--- git status (short) ---"
@@ -80,3 +94,47 @@ find "${REPO_ROOT}/docs/meta-factory/research-patches" -maxdepth 1 -name "*.md" 
   || find "${REPO_ROOT}/docs/meta-factory/research-patches" -maxdepth 1 -name "*.md" \
     2>/dev/null | sort -r | head -10 \
   || echo "(no research-patches dir)"
+
+# ── L2 REVERSE-CURRENCY (Stage 3 — reality → plan) ───────────────────────────
+# Emits UNTRACKED-<N> and UNTRACKED-KICKOFF lines for items that exist in git
+# reality but are absent from wave-sequencing-plan.md §0.
+# Both checks additive — existing plan-claims-vs-reality DRIFT detection above
+# is preserved intact (T17).
+echo "--- reverse-currency (L2 extension — reality → plan): UNTRACKED entries ---"
+
+if [[ ! -f "${MO_WAVE_PLAN}" ]]; then
+  echo "(WARN: ${MO_WAVE_PLAN} not found — skipping reverse-currency checks)"
+else
+  # (a) Merged PRs (last 30 days) not referenced in wave-sequencing-plan.md
+  # Uses MO_GH_BIN seam; gracefully skips if gh unavailable or jq absent.
+  if command -v jq &>/dev/null; then
+    ${MO_GH_BIN} pr list \
+      --state merged \
+      --limit 100 \
+      --json number,title,mergedAt \
+      2>/dev/null \
+      | jq -r --argjson cutoff "$(date -v-30d +%s 2>/dev/null || date -d '30 days ago' +%s 2>/dev/null || echo 0)" \
+          '.[] | select((.mergedAt | fromdateiso8601) >= $cutoff)
+           | "\(.number)\t\(.title)"' \
+      2>/dev/null \
+      | while IFS='	' read -r pr_num pr_title; do
+          if ! grep -qF "#${pr_num}" "${MO_WAVE_PLAN}" 2>/dev/null; then
+            # Truncate title to 60 chars
+            short_title="${pr_title:0:60}"
+            echo "UNTRACKED-${pr_num}: merged PR #${pr_num} \"${short_title}\" not referenced in wave-sequencing-plan.md"
+          fi
+        done || true
+  fi
+
+  # (b) Kickoff.md files whose umbrella name is absent from wave-sequencing-plan.md
+  PROMPTS_DIR="${REPO_ROOT}/.claude/orchestrator-prompts"
+  if [[ -d "${PROMPTS_DIR}" ]]; then
+    find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'kickoff.md' 2>/dev/null \
+      | while read -r kickoff_path; do
+          umbrella_name="$(basename "$(dirname "${kickoff_path}")")"
+          if ! grep -qF "${umbrella_name}" "${MO_WAVE_PLAN}" 2>/dev/null; then
+            echo "UNTRACKED-KICKOFF: ${umbrella_name} has kickoff.md but not in §0"
+          fi
+        done || true
+  fi
+fi
