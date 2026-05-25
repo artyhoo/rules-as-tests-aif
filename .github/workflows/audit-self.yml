@@ -236,6 +236,8 @@ jobs:
         run: bash scripts/ci-success-gate.test.sh
       - name: Run end-of-turn claim-scan hook test (autonomous-self-audit §11.1)
         run: bash tests/hooks/eot-claim-scan.test.sh
+      - name: Run install.sh internal-refs transform test (Item 12 mirror-sync, SSOT)
+        run: bash tests/install-sh/transform-internal-refs.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type

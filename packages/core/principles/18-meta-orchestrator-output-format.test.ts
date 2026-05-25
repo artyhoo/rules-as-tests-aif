@@ -5,16 +5,21 @@
  *         docs/meta-factory/research-patches/2026-05-24-meta-orchestrator-refactor-f3-scope.md §1.5 Item 8
  *
  * Invariant: the /meta-orchestrator slash-command emits a 3-layer inline session
- * report — Dependency graph + Action queue + 1-liner blocks. The skill body and
- * its consumer mirror must both communicate the 3 substructures literally, and
- * the full grammar + 4 worked examples must live in references/output-format.md
- * (per kickoff §4 #10 — split when SKILL.md would exceed 500-line gate).
+ * report — Dependency graph + Action queue + 1-liner blocks. The skill body
+ * communicates the 3 substructures literally, and the full grammar + 4 worked
+ * examples live in references/output-format.md (per kickoff §4 #10 — split when
+ * SKILL.md would exceed 500-line gate).
  *
- * Mechanical check: for each of the 4 surface files
+ * **2026-05-25 update (Item 12 closure):** consumer mirror at `skills/meta-orchestrator/`
+ * was deleted; install.sh now ships from authoring `.claude/skills/meta-orchestrator/`
+ * directly (single source of truth per `.claude/rules/dual-implementation-discipline.md §7`).
+ * The two mirror SURFACES entries were removed because the files no longer exist —
+ * keeping them would assert against a structure that the project intentionally
+ * abandoned. The remaining authoring surfaces still enforce the structural invariant.
+ *
+ * Mechanical check: for each of the 2 surface files
  *   - .claude/skills/meta-orchestrator/SKILL.md §10
- *   - skills/meta-orchestrator/SKILL.md §10
  *   - .claude/skills/meta-orchestrator/references/output-format.md
- *   - skills/meta-orchestrator/references/output-format.md
  * assert the 6 required substrings appear:
  *   (1) '## Dependency graph'
  *   (2) '↓'                       — inter-stage edge symbol
@@ -54,6 +59,9 @@ interface Surface {
   readonly scope: 'section-10' | 'whole-file';
 }
 
+// Consumer-mirror surfaces removed 2026-05-25 (Item 12 closure): install.sh now
+// generates the consumer copy at install time from these authoring files via
+// transform_internal_refs() — see install.sh:39-47 + tests/install-sh/transform-internal-refs.test.sh.
 const SURFACES: readonly Surface[] = [
   {
     label: 'authoring SKILL.md §10',
@@ -61,18 +69,8 @@ const SURFACES: readonly Surface[] = [
     scope: 'section-10',
   },
   {
-    label: 'consumer-mirror SKILL.md §10',
-    path: 'skills/meta-orchestrator/SKILL.md',
-    scope: 'section-10',
-  },
-  {
     label: 'authoring references/output-format.md',
     path: '.claude/skills/meta-orchestrator/references/output-format.md',
-    scope: 'whole-file',
-  },
-  {
-    label: 'consumer-mirror references/output-format.md',
-    path: 'skills/meta-orchestrator/references/output-format.md',
     scope: 'whole-file',
   },
 ];
@@ -127,15 +125,12 @@ describe('Principle 18 — meta-orchestrator output-format structural check', ()
     });
   }
 
-  it('all surfaces agree on the 6 substrings (mirror sync at structural level — round-2 MAJOR-1)', () => {
-    // SKILL.md mirror and output-format.md mirror diverge from authoring at the
-    // *link-syntax level* on purpose (relative path depth differs by 1 between
-    // authoring `.claude/skills/...` and mirror `skills/...`, and consumer-facing
-    // mirror omits project-internal markdown links per principle 14 skill-drift
-    // requirements). What MUST agree across both copies is the STRUCTURAL spec —
-    // the 6 required substrings encoding the 3-layer output shape. The per-surface
-    // tests above already enforce that. This block is a final sweep: each surface
-    // is independently checked, and we verify all four passed.
+  it('all authoring surfaces agree on the 6 substrings (final sweep)', () => {
+    // Both authoring SKILL.md §10 and references/output-format.md must contain the
+    // structural substrings encoding the 3-layer output shape. Per-surface tests
+    // above already enforce that; this block is the final sweep that returns a
+    // single aggregate failure list. Consumer mirror surfaces removed 2026-05-25
+    // (Item 12 closure — install.sh now generates the consumer copy).
     const results = SURFACES.map((s) => ({ ...s, ...checkSurface(s) }));
     const failed = results.filter((r) => !r.ok);
     expect(

@@ -8,7 +8,11 @@
 #   ./install.sh react-next --dry-run --force   # preview overwrite plan
 #
 # What it does:
-#   1. Copies skills/  → .claude/skills/rules-as-tests/
+#   1. Copies skills/ + .claude/skills/meta-orchestrator/ → .claude/skills/
+#      (meta-orchestrator is shipped from .claude/skills/ as single source of truth;
+#       cross-refs to repo-internal paths get sed-transformed to GitHub blob URLs —
+#       see UPSTREAM_BLOB_URL + transform_internal_refs() below;
+#       per .claude/rules/dual-implementation-discipline.md §7 SSOT)
 #   2. Copies agents/  → .claude/agents/
 #   3. Copies factory templates → .ai-factory/  (templates: as-is, you fill in placeholders)
 #   4. Copies packages/core/audit-self/ + packages/preset-*/audit-self/ → scripts/
@@ -21,6 +25,36 @@ set -euo pipefail
 
 PKG_ROOT="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(pwd)"
+
+# Repo-internal cross-refs (paths to docs/, packages/, README.md) get rewritten to
+# GitHub blob URLs at install time. One source of truth: .claude/skills/<skill>/SKILL.md
+# Override via env var if forking to a different repo.
+UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/Yhooi2/rules-as-tests-aif/blob/main}"
+
+# transform_internal_refs <markdown-file>
+# Rewrites markdown links `](../../../{docs,packages}/...)` and `](../../../README.md...)`
+# in-place to `](${UPSTREAM_BLOB_URL}/...)`. Leaves consumer-resolvable refs intact
+# (e.g. `](../../rules/...)` resolves to consumer's .claude/rules/ post-install).
+# Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
+transform_internal_refs() {
+  local f="$1"
+  [ -f "$f" ] || return 0
+  sed -E -i.bak \
+    -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
+    -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
+    -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
+    "$f"
+  rm -f "${f}.bak"
+}
+
+# Library-only mode: when INSTALL_SH_LIB_ONLY=1, source this file to expose
+# transform_internal_refs() (defined above) without running the install pipeline
+# (which would `read -rp` interactively + write files). Used by
+# tests/install-sh/*.test.sh. copy_safe/mkdir_safe/chmod_safe are NOT exposed —
+# they sit further down and would require deeper guard placement.
+if [ "${INSTALL_SH_LIB_ONLY:-}" = "1" ]; then
+  return 0 2>/dev/null || true
+fi
 
 STACK=""
 FORCE=""
@@ -196,6 +230,9 @@ else
   cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
+# meta-orchestrator: shipped from authoring location .claude/skills/meta-orchestrator/
+# as single source of truth (no separate mirror under skills/). Repo-internal cross-refs
+# in .md files get rewritten to GitHub blob URLs via transform_internal_refs().
 if [ -e "$PROJECT_ROOT/.claude/skills/meta-orchestrator" ] && [ "$FORCE" != "--force" ]; then
   SKIPPED+=("$PROJECT_ROOT/.claude/skills/meta-orchestrator")
   if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -204,11 +241,15 @@ if [ -e "$PROJECT_ROOT/.claude/skills/meta-orchestrator" ] && [ "$FORCE" != "--f
     echo "  ⊝ .claude/skills/meta-orchestrator (exists — skipping)"
   fi
 elif [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "  [dry-run] would copy: $PKG_ROOT/skills/meta-orchestrator → $PROJECT_ROOT/.claude/skills/meta-orchestrator"
+  echo "  [dry-run] would copy: $PKG_ROOT/.claude/skills/meta-orchestrator → $PROJECT_ROOT/.claude/skills/meta-orchestrator (+ transform internal refs)"
 else
   rm -rf "$PROJECT_ROOT/.claude/skills/meta-orchestrator"
-  cp -r "$PKG_ROOT/skills/meta-orchestrator" "$PROJECT_ROOT/.claude/skills/meta-orchestrator"
-  echo "  ✓ .claude/skills/meta-orchestrator/"
+  cp -r "$PKG_ROOT/.claude/skills/meta-orchestrator" "$PROJECT_ROOT/.claude/skills/meta-orchestrator"
+  # Rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
+  while IFS= read -r -d '' mdfile; do
+    transform_internal_refs "$mdfile"
+  done < <(find "$PROJECT_ROOT/.claude/skills/meta-orchestrator" -name '*.md' -print0)
+  echo "  ✓ .claude/skills/meta-orchestrator/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 fi
 
 # ─── 1b. Hooks ──────────────────────────────────────────
