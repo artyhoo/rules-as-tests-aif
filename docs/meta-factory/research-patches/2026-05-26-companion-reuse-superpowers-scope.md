@@ -1,3 +1,4 @@
+<!-- scope:companion-reuse-superpowers-scope -->
 # Companion-reuse R-phase — Superpowers brainstorming scope-assessment
 
 > **Status:** Sub-wave D of `companion-reuse-deep-dive` umbrella.
