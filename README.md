@@ -5,7 +5,7 @@
 [![Audit Self](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml/badge.svg?branch=main)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml)
 [![Workflow Integrity](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml/badge.svg?branch=main)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml)
 
-> Companion to AI Factory + aif-handoff + Superpowers (today) — broader AI-runtime integration on roadmap. Deploys into Claude Code / Cursor / Cline / Codex / Aider via standard project install. Converts every codebase rule into an executable artifact that fails at the earliest reachable channel (edit-time → pre-commit → pre-push → CI → production audit). Adds Living Documentation enforcement and 5-layer framework for AI-resistant codebases — server-side TypeScript and React/Next.js stacks.
+> Companion to AI Factory + aif-handoff + Superpowers (today) — broader AI-runtime integration on roadmap. Deploys into Claude Code / Cursor / Codex via standard project install. Converts every codebase rule into an executable artifact that fails at the earliest reachable channel (edit-time → pre-commit → pre-push → CI → production audit). Adds Living Documentation enforcement and 5-layer framework for AI-resistant codebases — server-side TypeScript and React/Next.js stacks.
 
 ## What this package gives you
 
@@ -71,11 +71,11 @@ If recursive self-application breaks, the framework becomes documentation that l
 
 **Is:** companion to AI Factory + aif-handoff + Superpowers (today) focused on Living Documentation enforcement (R1-R20 rules-as-tests, `audit-ai-docs.sh` drift detection, mutation testing, principle tests, 5-layer framework, methodology discipline). One-button install of pre-configured opinionated discipline.
 
-**Isn't:** workflow framework (use AI Factory); task orchestration / swarm coordination (use `aif-handoff`); standalone CI tool. **Not the IDE/CLI runtime our framework deploys into** — Claude Code, Cursor, Cline, Codex, Aider are *deployment surfaces*, not companions; the framework installs into their workspace via standard project install.
+**Isn't:** workflow framework (use AI Factory); task orchestration / swarm coordination (use `aif-handoff`); standalone CI tool. **Not the IDE/CLI runtime our framework deploys into** — Claude Code, Cursor, Codex are *deployment surfaces*, not companions; the framework installs into their workspace via standard project install.
 
 **Reuse stance:** see [`.claude/rules/build-first-reuse-default.md`](.claude/rules/build-first-reuse-default.md). Default = adopt upstream when problem-class matches. Build ourselves only what is structurally missing — currently: Living Documentation, 5-layer framework, methodology discipline, AST-based hooks (shipped Wave 10 / N3 ✅).
 
-**Roadmap signals:** companion-target comparison shipped 2026-05-16 — see [research-patch §3-§4](docs/meta-factory/research-patches/2026-05-16-companion-target-comparison.md). Verdicts: **Superpowers** added as 3rd named companion (rules-as-tests alignment confirmed via TDD-for-Skills discipline). **OhMyOpencode + microsoft/agent-framework** = REFERENCE-only (different lifecycle / problem class). **Cline / Cursor / Codex / Aider** = framework-consumers (different architectural layer — runtimes we install into, not companions at our framework layer). Future widening pending only if new discipline-framework candidates appear.
+**Roadmap signals:** companion-target comparison shipped 2026-05-16 — see [research-patch §3-§4](docs/meta-factory/research-patches/2026-05-16-companion-target-comparison.md). Verdicts: **Superpowers** added as 3rd named companion (rules-as-tests alignment confirmed via TDD-for-Skills discipline). **OhMyOpencode + microsoft/agent-framework** = REFERENCE-only (different lifecycle / problem class). **Cursor / Codex** = framework-consumers (different architectural layer — runtimes we install into, not companions at our framework layer). Future widening pending only if new discipline-framework candidates appear.
 
 ## The 5-layer framework
 
