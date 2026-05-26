@@ -47,6 +47,9 @@ let promptsDir: string; // tmpRoot/.claude/orchestrator-prompts
 let memDir: string; // MO_MEM_DIR
 let wavePlan: string; // MO_WAVE_PLAN path
 let mockGhBin: string; // MO_GH_BIN path
+let openQuestionsFile: string;     // (f) MO_OPEN_QUESTIONS path
+let packagesDir: string;           // (g) MO_PACKAGES_DIR path
+let patchesDir: string;            // (h) MO_PATCHES_DIR path
 
 /** Run priority-score.sh with all fixture env vars injected. */
 function runScript(extraEnv: Record<string, string> = {}): string {
@@ -58,6 +61,9 @@ function runScript(extraEnv: Record<string, string> = {}): string {
       MO_MEM_DIR: memDir,
       MO_GH_BIN: mockGhBin,
       MO_WAVE_PLAN: wavePlan,
+      MO_OPEN_QUESTIONS: openQuestionsFile,  // NEW (f)
+      MO_PACKAGES_DIR: packagesDir,          // NEW (g)
+      MO_PATCHES_DIR: patchesDir,            // NEW (h)
       // Silence git operations inside the script — tmpRoot is not a real repo
       GIT_DIR: '', // unset so `git rev-parse` falls back to `pwd`
       ...extraEnv,
@@ -120,6 +126,81 @@ beforeEach(() => {
     ].join('\n'),
   );
   chmodSync(mockGhBin, 0o755);
+
+  // (f) open-questions fixture
+  const docsMetaDir = join(tmpRoot, 'docs', 'meta-factory');
+  mkdirSync(docsMetaDir, { recursive: true });
+  openQuestionsFile = join(docsMetaDir, 'open-questions.md');
+  write(
+    openQuestionsFile,
+    [
+      '# Open questions',
+      '',
+      '### 13.42 Some open question',
+      '',
+      'Some content.',
+      '',
+      '### 13.43 Another open question',
+      '',
+      'More content.',
+      '',
+      '### 13.44 Yet another question',
+      '',
+      'Even more content.',
+      '',
+      '### Random thing',
+      '',
+      'This heading is NOT §13 — must not be emitted.',
+      '',
+    ].join('\n'),
+  );
+
+  // (g) packages-TODO fixtures
+  packagesDir = join(tmpRoot, 'packages');
+  mkdirSync(join(packagesDir, 'core'), { recursive: true });
+  // positive: real // TODO:
+  write(join(packagesDir, 'core', 'sample-real.ts'), '// TODO: do thing\nexport const x = 1;\n');
+  // positive: real // FIXME:
+  write(join(packagesDir, 'core', 'sample-fixme.ts'), '// FIXME: bug\nexport const y = 2;\n');
+  // negative: string literal TODO without // prefix
+  write(join(packagesDir, 'core', 'sample-string-todo.ts'), "const msg = 'TODO: fixture data';\nexport { msg };\n");
+  // negative: .test.ts file (must be excluded)
+  write(join(packagesDir, 'core', 'sample-real.test.ts'), '// TODO: skip via .test.ts\nit("x", () => {});\n');
+  // negative: node_modules (must be excluded)
+  mkdirSync(join(packagesDir, 'node_modules', 'some-pkg'), { recursive: true });
+  write(join(packagesDir, 'node_modules', 'some-pkg', 'index.ts'), '// TODO: ignored\nexport {};\n');
+
+  // (h) research-patches fixtures
+  patchesDir = join(tmpRoot, 'docs', 'meta-factory', 'research-patches');
+  mkdirSync(patchesDir, { recursive: true });
+  // positive: patch with residual sections
+  write(
+    join(patchesDir, '2026-05-26-sample-patch.md'),
+    [
+      '# Sample patch',
+      '',
+      '## §future',
+      '',
+      'Future work here.',
+      '',
+      '## Known residuals',
+      '',
+      'Some residuals here.',
+      '',
+    ].join('\n'),
+  );
+  // negative: clean patch with no residual sections
+  write(
+    join(patchesDir, '2026-05-26-clean-patch.md'),
+    [
+      '# Clean patch',
+      '',
+      '## §summary',
+      '',
+      'No residuals here.',
+      '',
+    ].join('\n'),
+  );
 
   // (a) cold-review-fixes.md fixture
   const coldDir = join(promptsDir, 'test-umbrella-a');
@@ -212,6 +293,63 @@ describe('priority-score.sh — L1 synthetic discovery surfaces (positive cases)
     expect(out).toContain('source=open-pr');
     expect(out).toContain('source=wave-plan');
   });
+
+  it('(f) open-questions §13.x entries → emit source=open-questions entries', () => {
+    const out = runScript();
+    expect(out).toContain('source=open-questions');
+    expect(out).toContain('openq-§13-42');
+    expect(out).toContain('openq-§13-43');
+    expect(out).toContain('type=open-question');
+  });
+
+  it('(f) non-§13 headings → NOT emitted', () => {
+    const out = runScript();
+    expect(out).not.toContain('openq-§13-Random');
+    expect(out).not.toMatch(/openq-[^§]/); // namespace must always carry §
+  });
+
+  it('(g) // TODO: in packages/**/*.ts → emit source=code-todo entry', () => {
+    const out = runScript();
+    expect(out).toContain('source=code-todo');
+    expect(out).toContain('todo-packages/core/sample-real.ts');
+    expect(out).toContain('type=code-todo');
+  });
+
+  it('(g) // FIXME: also emits', () => {
+    const out = runScript();
+    expect(out).toContain('todo-packages/core/sample-fixme.ts');
+  });
+
+  it('(g) string literal "TODO:" without // prefix → NOT emitted', () => {
+    const out = runScript();
+    expect(out).not.toContain('todo-packages/core/sample-string-todo.ts');
+  });
+
+  it('(g) .test.ts files excluded → NOT emitted', () => {
+    const out = runScript();
+    expect(out).not.toContain('todo-packages/core/sample-real.test.ts');
+  });
+
+  it('(g) node_modules excluded → NOT emitted', () => {
+    const out = runScript();
+    expect(out).not.toContain('todo-packages/node_modules');
+  });
+
+  it('(h) research-patches with §future / Known residuals → emit source=research-patch-residual entries', () => {
+    const out = runScript();
+    expect(out).toContain('source=research-patch-residual');
+    // m3 fix: assert full namespace including anchor slug (not just patch basename)
+    expect(out).toMatch(/residual-2026-05-26-sample-patch-(future|known-residuals)/);
+    expect(out).toContain('type=residual');
+    // anchor slug discipline: § stripped, spaces→dash, lowercased
+    expect(out).not.toContain('residual-2026-05-26-sample-patch-§future'); // § must be stripped
+    expect(out).not.toMatch(/residual-2026-05-26-sample-patch- /); // no raw spaces
+  });
+
+  it('(h) patch without residual sections → NOT emitted', () => {
+    const out = runScript();
+    expect(out).not.toContain('residual-2026-05-26-clean-patch');
+  });
 });
 
 // ── PAIRED-NEGATIVE TESTS (principle 02) ─────────────────────────────────────
@@ -290,6 +428,28 @@ describe('priority-score.sh — L1 paired-negative (each surface individually re
     expect(out).toContain('source=state.md');
     expect(out).toContain('source=memory');
   });
+
+  it('PAIRED-NEGATIVE (f): remove open-questions §13 entries → that surface drops, others remain', () => {
+    write(openQuestionsFile, '# Open questions\n\n## §1 Closed\n\n(empty)\n');
+    const out = runScript();
+    expect(out).not.toContain('source=open-questions');
+    expect(out).toContain('source=cold-review-fixes'); // others remain
+  });
+
+  it('PAIRED-NEGATIVE (g): remove all // TODO in packages → that surface drops, others remain', () => {
+    unlinkSync(join(packagesDir, 'core', 'sample-real.ts'));
+    unlinkSync(join(packagesDir, 'core', 'sample-fixme.ts'));
+    const out = runScript();
+    expect(out).not.toContain('source=code-todo');
+    expect(out).toContain('source=cold-review-fixes');
+  });
+
+  it('PAIRED-NEGATIVE (h): remove residual section → that surface drops, others remain', () => {
+    write(join(patchesDir, '2026-05-26-sample-patch.md'), '# Sample patch\n\nNo residuals.\n');
+    const out = runScript();
+    expect(out).not.toContain('source=research-patch-residual');
+    expect(out).toContain('source=cold-review-fixes');
+  });
 });
 
 // ── ANTI-TAUTOLOGY CHECK ──────────────────────────────────────────────────────
@@ -349,6 +509,9 @@ describe('priority-score.sh — T15 self-application documentation', () => {
       expect(src).toContain('source=memory');
       expect(src).toContain('source=open-pr');
       expect(src).toContain('source=wave-plan');
+      expect(src).toContain('source=open-questions');
+      expect(src).toContain('source=code-todo');
+      expect(src).toContain('source=research-patch-residual');
       expect(src).toContain('MO_GH_BIN');
       expect(src).toContain('@cc-only-rationale');
     },
