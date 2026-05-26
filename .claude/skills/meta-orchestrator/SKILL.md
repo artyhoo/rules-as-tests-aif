@@ -152,6 +152,83 @@ This re-surface bounds the maintainer's effort (one question or one coin-flip, n
 
 ---
 
+## §2.5 Dedup + classify + assign + route
+
+> **Integration layer (no separate §7.x binding).** Runs after §2 priority winner selected (no-arg mode) OR after §1 (arg mode). Wires §7.3 (priority) → §7.4 (launch-table) via L3/L4/L5 helpers + design §5 routing tree. Skipping = T7 anti-pattern (premature dispatch without routing).
+
+**Step 1 — read prior delta state:**
+
+```!
+if [[ -f .claude/orchestrator-prompts/_master-backlog-delta.json ]]; then
+  jq -r '.untracked_seen[]?.id' .claude/orchestrator-prompts/_master-backlog-delta.json 2>/dev/null || echo "(delta file present but unreadable; treat as empty)"
+else
+  echo "(no delta file — first invocation; will be created at end via update-delta.sh)"
+fi
+```
+
+**Step 2 — L3 dup-detect:**
+
+```!
+${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh "${umbrella:-}" 2>/dev/null || ${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh --all 2>/dev/null
+```
+
+`POTENTIAL_DUPE:` → surface as confirmation-needed per [reviewer-discipline.md §2](../../rules/reviewer-discipline.md). `MISSING:` → drift item.
+
+**Step 3 — L4 classify (per surviving candidate):**
+
+```!
+${CLAUDE_SKILL_DIR}/helpers/classify-work.sh ".claude/orchestrator-prompts/${umbrella}/kickoff.md" 2>/dev/null
+```
+
+Capture `TYPE` / `DISPATCH` / `LOC` / `SURFACES` / `RATIONALE`. Helper is authoritative — do NOT re-classify.
+
+**Step 4 — L5 assign-skill:**
+
+```!
+${CLAUDE_SKILL_DIR}/helpers/assign-skill.sh "<TYPE-from-Step-3>" "<one-line description from kickoff title>" 2>/dev/null
+```
+
+Advisory: `recommended_skill: <slug>` / `recommended_agent: <path>` / `recommended: none`.
+**Step 5 — routing decision tree (judgment on injected data):**
+
+6 predicates: `load_bearing` (paths ∩ principle-09 REQUIRED_HEADER_DOCS), `sibling_count` (same-TYPE disjoint candidates), `scope_decided` (kickoff §binding non-empty OR non-DEFER research-patch; else FALSE → RESEARCH), `parallel_safe` (explicit decl OR disjoint scopes; default=FALSE → PAIR), `bundle_opt_in` (`--mode-bundle` OR silent TRUE for fix), `review_required` (`--mode-pair` OR kickoff hint OR `load_bearing`).
+
+```text
+if TYPE == "R-phase":
+    Mode = RESEARCH
+elif TYPE == "fix":
+    if sibling_count >= 3 AND bundle_opt_in: Mode = BUNDLE
+    else: Mode = DIRECT
+elif TYPE == "I-phase-small":
+    if review_required: Mode = PAIR
+    else: Mode = SOLO
+elif TYPE == "I-phase-large":
+    if not scope_decided: Mode = RESEARCH
+    elif SURFACES >= 2 AND parallel_safe: Mode = DECOMPOSE
+    else: Mode = PAIR
+```
+
+**Step 6 — ALIAS mapping (single source — computed AFTER routing tree; `classify-work.sh` UNCHANGED per DN-3):**
+
+| ALIAS | DISPATCH (internal) | Fires when Step 5 resolves to |
+|---|---|---|
+| DIRECT | direct-Edit | TYPE=fix AND (sibling_count<3 OR NOT bundle_opt_in) |
+| BUNDLE | Mode-A-bundle | TYPE=fix AND sibling_count≥3 AND bundle_opt_in |
+| SOLO | Mode-A | TYPE=I-phase-small AND NOT review_required |
+| PAIR | Mode-SDD | (TYPE=I-phase-small AND review_required) OR (TYPE=I-phase-large AND scope_decided AND (SURFACES<2 OR NOT parallel_safe)) |
+| DECOMPOSE | Mode-B | TYPE=I-phase-large AND scope_decided AND SURFACES≥2 AND parallel_safe |
+| RESEARCH | R-phase-session (single) / Queue-mode (≥2 sequential) | TYPE=R-phase OR (TYPE=I-phase-large AND NOT scope_decided) |
+
+1:1 with Step 5 routing tree. Principle 19 (`packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts`) enforces mechanically. `Mode-A-bundle` sub-dispatch defined in bundle-autonomous umbrella.
+
+**Step 7 — emit ALIAS in §10 rendered output:** Stage heading: `### Stage N — <name> (<ALIAS> / <Mode>, ~<cost>)`. Dep-graph bullet: `├── <name>   (<ALIAS> / <Mode>, ~<cost>, <role>)`. Template update deferred to follow-up PR per `feedback_no_drive_by_prs`.
+**Step 8 — delta diff:** Compare candidate `id` set vs Step 1 `untracked_seen[].id`. Emit `NEW-SINCE-LAST: <id>` / `RESOLVED-SINCE-LAST: <id>`. Maintainer updates `wave-sequencing-plan.md §0` manually (Direction A REJECTED per R-phase β-2).
+**Step 9 — write-back to `_master-backlog-delta.json`:** `untracked_seen` ← current candidate set (overwrite-shape; `first_seen` = current ts). `closed_since_last` ← prior ids that no longer surface. Concrete `jq` shape in §10 step 5 — do NOT re-specify here.
+
+**§7.14 gap closed:** routing-tree alias-mapping consistency (Stage 2C gap).
+
+---
+
 ## §3 Launch-table
 
 > **§7.4 binding.** Produces the per-sub-wave Mode decision table for the selected umbrella.
@@ -429,7 +506,23 @@ The launch-table-generator will detect sub-waves from the kickoff (A, B, C, D). 
    - Contains: 4-step helper invocation outputs + coherence-call paragraph.
    - This path is gitignored (`.claude/orchestrator-prompts/` in `.gitignore`) — evidence for session tracing only, not repo-committed.
 
-5. **Plan-cache update:** at end of invocation, `bash ${CLAUDE_SKILL_DIR}/helpers/update-cache.sh "<umbrella-or-no-arg>" "<outcome-one-liner>"` (helper writes `## Last invocation` only; non-«Last invocation» sections populated by direct `Edit` before invocation). Detail + helper-scope contract + anti-patterns: [`references/plan-cache.md §3`](references/plan-cache.md). <!-- @dual-pair: meta-orchestrator-plan-cache -->
+5. **Plan-cache + delta update:** at end of invocation, run TWO writes in this order:
+
+   a. **Cache (existing):** `bash ${CLAUDE_SKILL_DIR}/helpers/update-cache.sh "<umbrella-or-no-arg>" "<outcome-one-liner>"` — helper writes `## Last invocation` only; non-«Last invocation» sections populated by direct `Edit` before invocation. Detail + helper-scope contract + anti-patterns: [`references/plan-cache.md §3`](references/plan-cache.md). <!-- @dual-pair: meta-orchestrator-plan-cache -->
+
+   b. **Delta arrays (new for Stage 2C):** populate the two arrays in `_master-backlog-delta.json` via inline `!shell` `jq` rewrite, THEN run `bash ${CLAUDE_SKILL_DIR}/helpers/update-delta.sh "<umbrella-or-no-arg>" "<outcome-one-liner>"` for metadata-only update. Concrete shape (`<current_ids_json_array>` and `<resolved_ids_json_array>` are angle-bracket placeholders that the rendering AI substitutes with real JSON-array literals derived from §2.5 Step 8/9; the syntax is correct only after substitution):
+
+      ```!
+      DELTA=.claude/orchestrator-prompts/_master-backlog-delta.json
+      NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      # Arrays populated from §2.5 Step 9 (overwrite-shape — first_seen = current ts):
+      jq --arg now "$NOW" --argjson current '<current_ids_json_array>' --argjson resolved '<resolved_ids_json_array>' \
+        '.untracked_seen = ($current | map({id: ., first_seen: $now})) | .closed_since_last = ($resolved | map({id: ., closed_at: $now}))' \
+        "$DELTA" > "$DELTA.tmp" && mv "$DELTA.tmp" "$DELTA"
+      bash ${CLAUDE_SKILL_DIR}/helpers/update-delta.sh "${umbrella:-no-arg}" "<outcome-one-liner>"
+      ```
+
+      The TWO writes are deliberately split: helper owns metadata (idempotent paired-negative test at `packages/core/hooks/update-delta.test.ts`); body owns arrays (per DN-2 binding + helper-scope mirror of `update-cache.sh` round-3 reduction). **`first_seen` semantics are «most recent sighting», NOT «first-ever sighting»** — the overwrite-shape above is the bound choice (matches §2.5 Step 9 prose; simpler atomic write; trades historical-first-seen for shape simplicity). DO NOT introduce a preserve-shape variant. <!-- @dual-pair: meta-orchestrator-master-backlog-delta -->
 
 **File cleanup policy:**
 
