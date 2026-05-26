@@ -347,7 +347,9 @@ When Mode B worktrees are unavailable (e.g. filesystem constraints per parallel-
 - `#worker-dispatch-via-subagent` — Worker dispatch via Agent tool from the meta-orchestrator session. Agent tool is ONLY for Phase -1 read-only reviewer (`reviewer-discipline.md §2`) + read-only research subagents (text return). Write-task Worker dispatch belongs in a fresh CC session opened by the maintainer pasting a §10 1-liner block. Channel matters — maintainer-paste = external loop-close; Agent-tool = subagent = wrong channel for writes. **Falsifier:** the channel boundary holds even when prompt shapes converge — the test is «who invokes», not «what the prompt looks like».
 - `#commit-on-behalf-of-worker` — the meta-orchestrator running `git commit` / `gh pr create` for work it dispatched. Worker commits its own work under its own audit trail. **Falsifier:** Worker session crashed mid-task with the diff fully authored there → surface to maintainer, never silently absorb.
 ---
-
+## §5.5 Bundle composition
+> **B1/B2/B3a binding.** After §2.5 BUNDLE routing, before §6. Meta-orchestrator = planner/router; executor = downstream `orchestrator` skill. Full spec: [`references/bundle-composition.md`](references/bundle-composition.md). **B1:** `bundle-curate.sh "<backlog>"` → eligibility filter (`fix`/`I-phase-small`), file-overlap reject, max-5 cap. **T-BA-C:** `R-phase`/`I-phase-large` in output = BLOCKER. **B2:** save `composed-plan.md` (gitignored) + emit one-way launch-prompt. **Auto-approve FORBIDDEN.** **B3a (5 checks):** Independence · Mode coherence · Skill coherence · Order rationale · Caps respected. ≥1 BLOCKER → DO NOT emit. Anti-patterns: `#bundle-execution-loop` · `#auto-approve-bypass` · `#bundle-with-ineligible`.
+---
 ## §6 Stage gates
 
 > **§7.7 binding.** Between stages: REAL git merge check, not in-memory FIFO.
@@ -591,10 +593,7 @@ The cost of absence: orchestrator surgery time when a parallel branch contaminat
 - [R-phase patch (binding spec)](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md)
 - R-phase kickoff §7 (functional spec — 14 sub-sections) — `.claude/orchestrator-prompts/meta-orchestrator-prior-art/kickoff.md` (gitignored executor reference)
 - Global `~/.claude/skills/orchestrator/SKILL.md` — the queue/dispatch primitive this skill wraps. Agent-uncommittable. (tilde-path, not a repo link)
-- [parallel-subwave-isolation.md §1](../../rules/parallel-subwave-isolation.md) — worktree isolation discipline (§5 Mode B)
-- [reviewer-discipline.md §2](../../rules/reviewer-discipline.md) — reviewer role boundaries (§7)
-- [no-paid-llm-in-ci.md §1](../../rules/no-paid-llm-in-ci.md) — hard constraint on all dispatch
-- [ai-laziness-traps.md §3](../../rules/ai-laziness-traps.md) — §5 T-enumeration obligation in generated kickoffs
-- [principle 12 test](../../../packages/core/principles/12-ai-laziness-traps.test.ts) — validates §5 T-enumeration in kickoffs
-- [SSOT rows #66-#70](../../../docs/meta-factory/prior-art-evaluations.md) — R-phase survey evidence
-- [references/plan-cache.md](references/plan-cache.md) + [references/master-backlog-delta.md](references/master-backlog-delta.md) — parallel cache + delta discipline (§2.5 Step 1/8 + §10 item 5)
+- [parallel-subwave-isolation.md §1](../../rules/parallel-subwave-isolation.md) — worktree isolation (§5 Mode B) · [reviewer-discipline.md §2](../../rules/reviewer-discipline.md) — reviewer role (§7)
+- [no-paid-llm-in-ci.md §1](../../rules/no-paid-llm-in-ci.md) — hard constraint on all dispatch · [ai-laziness-traps.md §3](../../rules/ai-laziness-traps.md) — T-enumeration + [principle 12 test](../../../packages/core/principles/12-ai-laziness-traps.test.ts)
+- [SSOT rows #66-#70](../../../docs/meta-factory/prior-art-evaluations.md) — R-phase survey evidence; [references/bundle-composition.md](references/bundle-composition.md) — §5.5 full spec (B1/B2/B3a)
+- [references/plan-cache.md](references/plan-cache.md) + [references/master-backlog-delta.md](references/master-backlog-delta.md) — §2.5 Step 1/8 + §10 item 5
