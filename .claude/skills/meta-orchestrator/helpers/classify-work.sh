@@ -23,6 +23,20 @@ fi
 
 INPUT="$1"
 
+# ── PATH-SHAPE STRICT CHECK (J1 fix, 2026-05-26) ─────────────────────────────
+# Stage 5 dogfood §5 J1: a non-existent path-shape input would silently fall
+# through to string-mode, classifying as TYPE=fix (LOC=1 SURFACES=1) — poisoning
+# the routing cascade for any synthetic candidate whose kickoff is absent.
+# Counter: detect path-shape (contains '/' AND ends in code/doc extension);
+# if path-shape AND file absent → emit MISSING-FILE on stderr + exit 3.
+# Reserve string-mode fallback for inputs that don't look like file paths.
+if [[ "${INPUT}" == */* ]] \
+  && [[ "${INPUT}" =~ \.(md|ts|tsx|js|sh|yml|yaml|json|toml|py)$ ]] \
+  && [[ ! -f "${INPUT}" ]]; then
+  echo "MISSING-FILE: ${INPUT}" >&2
+  exit 3
+fi
+
 # ── BODY ACQUISITION ─────────────────────────────────────────────────────────
 # File-vs-string detection: if INPUT is an existing file, read it; else treat
 # the INPUT value as a literal description string.

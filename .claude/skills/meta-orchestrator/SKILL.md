@@ -177,10 +177,10 @@ ${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh "${umbrella:-}" 2>/dev/null || ${CLAUD
 **Step 3 — L4 classify (per surviving candidate):**
 
 ```!
-${CLAUDE_SKILL_DIR}/helpers/classify-work.sh ".claude/orchestrator-prompts/${umbrella}/kickoff.md" 2>/dev/null
+${CLAUDE_SKILL_DIR}/helpers/classify-work.sh ".claude/orchestrator-prompts/${umbrella}/kickoff.md"
 ```
 
-Capture `TYPE` / `DISPATCH` / `LOC` / `SURFACES` / `RATIONALE`. Helper is authoritative — do NOT re-classify.
+Capture `TYPE` / `DISPATCH` / `LOC` / `SURFACES` / `RATIONALE` from stdout. Helper is authoritative — do NOT re-classify. **stderr NOT suppressed** (per J1 fix from Stage 5 dogfood): if the helper exits 3 with `MISSING-FILE: <path>` on stderr, that is **F8** — halt per [`references/failures.md`](references/failures.md), do NOT silently treat as `TYPE=fix`.
 
 **Step 4 — L5 assign-skill:**
 

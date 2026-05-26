@@ -1,6 +1,6 @@
-# Failure modes — F1 through F7
+# Failure modes — F1 through F8
 
-> **Authoritative for:** the seven named failure codes the `/meta-orchestrator` skill emits when its invariants are violated or its data sources unavailable. Body of `../SKILL.md §11 Failures` points here for the per-code response. Each code maps 1:1 to a `!shell`-injected condition the AI may encounter mid-invocation.
+> **Authoritative for:** the eight named failure codes the `/meta-orchestrator` skill emits when its invariants are violated or its data sources unavailable. Body of `../SKILL.md §11 Failures` points here for the per-code response. Each code maps 1:1 to a `!shell`-injected condition the AI may encounter mid-invocation.
 > **NOT authoritative for:** the §7.13 binding rationale or the Class-C re-promotion trigger («≥2 stage-gate-ignored incidents within 6 months → add pre-push hook verifying stage dependency merged before sub-wave commit») — those live in `../SKILL.md §11` body so the contract stays visible at the call site.
 
 > Class C prose enforcement: `!shell` data is surfaced so the AI has no excuse for ignorance; the correct response in each case is stated below.
@@ -14,6 +14,7 @@
 | **F5 — Reviewer REVISE (max iterations)** | §7 Phase -1 reviewer returns REVISE 3× in a row | Emit `ESCALATION: 3 consecutive REVISE on Stage N. Halting — maintainer review required.` Do NOT auto-retry. |
 | **F6 — `gh` CLI unavailable** | any `gh` invocation returns network/auth error | Emit `DIAGNOSTIC: gh CLI unavailable. Manual verification required.` Ask maintainer; do NOT assume the gate is clear. |
 | **F7 — launch-table-generator returns MISSING kickoff** | `helpers/launch-table-generator.sh` exits with `MISSING kickoff: <path>` | Emit `MISSING kickoff. Halting — create kickoff first.` Do NOT generate launch-table from memory. |
+| **F8 — classify-work MISSING file (path-shape absent)** | `helpers/classify-work.sh` exits 3 with `MISSING-FILE: <path>` on stderr (path-shape input — contains `/` AND code/doc extension — but file absent on disk; J1 fix from Stage 5 dogfood) | Emit `MISSING kickoff path: <INPUT>. Halting — verify kickoff path exists or pass description-string instead.` Do NOT silently treat as `TYPE=fix` (that was the pre-J1 silent failure mode). |
 
 ## Anti-pattern shared across F-codes
 
