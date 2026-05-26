@@ -8,7 +8,7 @@
 #
 # SYNTHETIC ENTRIES (L1 extension — Stage 2 of meta-orchestrator-planner-completeness):
 # Beyond real kickoff.md discovery, this helper emits "synthetic" candidate entries for
-# 5 additional surface types. Synthetic namespace: <umbrella>-<reason> or <category>-<id>
+# 8 additional surface types. Synthetic namespace: <umbrella>-<reason> or <category>-<id>
 # — chosen to never collide with a real kickoff.md-derived <name> entry (which is a plain
 # directory basename without a dash-reason suffix or category prefix).
 #
@@ -18,12 +18,18 @@
 #   (c) Memory files with TODO-codify: marker
 #   (d) Stale open PRs (no update in >14 days)
 #   (e) wave-sequencing-plan.md §0 rows marked 🟡 / 🔲 NOT blocked / DEFERRED
+#   (f) open-questions.md §13.x entries
+#   (g) // TODO:|FIXME:|XXX: in packages/**/*.ts (DN-1 scope)
+#   (h) research-patches with §future / Known residuals / Residuals / MINOR observations
 #
 # Seams for testing:
-#   MO_GH_BIN  — override the `gh` binary used for stale-PR detection (default: gh)
-#   MO_MEM_DIR — override the memory directory (default: ~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory)
-#   MO_WAVE_PLAN — override the wave-sequencing-plan.md path (default: <REPO_ROOT>/docs/meta-factory/wave-sequencing-plan.md)
-#   REPO_ROOT  — override repo root (default: git rev-parse --show-toplevel)
+#   MO_GH_BIN        — override the `gh` binary used for stale-PR detection (default: gh)
+#   MO_MEM_DIR       — override the memory directory (default: ~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory)
+#   MO_WAVE_PLAN     — override the wave-sequencing-plan.md path (default: <REPO_ROOT>/docs/meta-factory/wave-sequencing-plan.md)
+#   MO_OPEN_QUESTIONS — override the open-questions.md path (default: <REPO_ROOT>/docs/meta-factory/open-questions.md)
+#   MO_PACKAGES_DIR  — override the packages directory (default: <REPO_ROOT>/packages)
+#   MO_PATCHES_DIR   — override the research-patches directory (default: <REPO_ROOT>/docs/meta-factory/research-patches)
+#   REPO_ROOT        — override repo root (default: git rev-parse --show-toplevel)
 #
 # The SKILL.md body applies the multi-criteria scoring and ranking (judgment).
 # This helper supplies deterministic facts only.
@@ -40,6 +46,9 @@ PROMPTS_DIR="${REPO_ROOT}/.claude/orchestrator-prompts"
 MO_GH_BIN="${MO_GH_BIN:-gh}"
 MO_MEM_DIR="${MO_MEM_DIR:-${HOME}/.claude/projects/-Users-art-code-rules-as-tests-aif/memory}"
 MO_WAVE_PLAN="${MO_WAVE_PLAN:-${REPO_ROOT}/docs/meta-factory/wave-sequencing-plan.md}"
+MO_OPEN_QUESTIONS="${MO_OPEN_QUESTIONS:-${REPO_ROOT}/docs/meta-factory/open-questions.md}"
+MO_PACKAGES_DIR="${MO_PACKAGES_DIR:-${REPO_ROOT}/packages}"
+MO_PATCHES_DIR="${MO_PATCHES_DIR:-${REPO_ROOT}/docs/meta-factory/research-patches}"
 
 echo "=== priority-score: candidate umbrellas ==="
 
@@ -144,5 +153,36 @@ if [[ -f "${MO_WAVE_PLAN}" ]]; then
     | { grep -E '^[A-Za-z0-9]' || true; } \
     | while read -r row_id; do
         echo "wave-plan-${row_id} type=plan-followup kickoff=synthetic source=wave-plan"
+      done
+fi
+
+# (f) open-questions.md §13.x entries — emit one synthetic entry per §13.<id> heading
+if [[ -f "${MO_OPEN_QUESTIONS}" ]]; then
+  { grep -nE '^### 13\.[0-9]+' "${MO_OPEN_QUESTIONS}" 2>/dev/null || true; } \
+    | sed -E 's/^[0-9]+:### 13\.([0-9]+).*/\1/' \
+    | while read -r id; do
+        echo "openq-§13-${id} type=open-question kickoff=synthetic source=open-questions"
+      done
+fi
+
+# (g) // TODO:|FIXME:|XXX: in packages/**/*.ts (DN-1 scope: packages/ only, exclude node_modules + test files)
+if [[ -d "${MO_PACKAGES_DIR}" ]]; then
+  { grep -rnE '//[[:space:]]*(TODO|FIXME|XXX):' "${MO_PACKAGES_DIR}" \
+      --include='*.ts' --exclude-dir=node_modules \
+      --exclude='*.test.ts' --exclude='*.unit.ts' --exclude='*.spec.ts' 2>/dev/null \
+    || true; } \
+    | while IFS=: read -r match_file lineno _rest; do
+        rel="${match_file#${REPO_ROOT}/}"
+        echo "todo-${rel}-${lineno} type=code-todo kickoff=synthetic source=code-todo"
+      done
+fi
+
+# (h) research-patches with §future / Known residuals / Residuals / MINOR observations sections
+if [[ -d "${MO_PATCHES_DIR}" ]]; then
+  { grep -rlE '^## (§future|Known residuals|Residuals|MINOR observations)' "${MO_PATCHES_DIR}" 2>/dev/null || true; } \
+    | while read -r pf; do pb="$(basename "${pf}" .md)"
+        { grep -oE '^## (§future|Known residuals|Residuals|MINOR observations)' "${pf}" 2>/dev/null || true; } \
+          | sed -E 's/^## //;s/§//g;s/ /-/g' | tr '[:upper:]' '[:lower:]' \
+          | while read -r a; do echo "residual-${pb}-${a} type=residual kickoff=synthetic source=research-patch-residual"; done
       done
 fi
