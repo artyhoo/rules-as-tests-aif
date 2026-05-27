@@ -1,7 +1,7 @@
 <!-- scope:install-sh-k1-extension -->
 # install.sh K-1 companion-install extension — Stage 2 R-phase design
 
-> **Status:** R-phase output for Stage 2 of `m-a-full-satellite-transition` umbrella. **v2 revise 2026-05-27:** fixed AIF framing (install.sh:307-322 is OUR-content-deposit, not companion install) + corrected install command to shell-runnable `claude plugin install ... --scope user` subcommand.
+> **Status:** R-phase output for Stage 2 of `m-a-full-satellite-transition` umbrella. **v2 revise 2026-05-27:** fixed AIF framing (install.sh:307-322 is OUR-content-deposit, not companion install) + corrected install command to shell-runnable `claude plugin install ... --scope user` subcommand. **v3 verify 2026-05-27:** evidenced billing status of `claude plugin install` — VERIFIED-FREE (see §4.8); v2 active-install design retained.
 > **Date:** 2026-05-27.
 > **Authoritative for:** design of optional companion-install prompts in `install.sh` (K-1 extension); interactive prompt shape; per-companion install mechanism survey; AI-Factory content-deposit clarification (install.sh:307-322); non-interactive fallback; idempotency; order-of-operations; failure-mode handling. Feeds Stage 5 I-phase.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). install.sh edits (Stage 5 I-phase). Companion capability inventory — see [2026-05-27-universal-satellite-integration-matrix.md](2026-05-27-universal-satellite-integration-matrix.md) (primary input). Orchestrator skill trim — see Stage 4 I-phase.
@@ -228,6 +228,28 @@ fi
 
 **Roll-back**: no rollback needed. Companion install is either atomic (CC plugin) or additive file copy. Partial installs leave the companion not-yet-configured — consumer can simply retry.
 
+### §4.8 Billing verification trace (v3 — VERIFIED-FREE)
+
+**Finding: VERIFIED-FREE** — `claude plugin install <name> --scope user` is an administrative file-management operation that downloads and registers plugin files from marketplace sources (GitHub repos → local cache). It does NOT invoke any LLM call, does NOT consume Anthropic API tokens at install-time, and is NOT subject to the billing model that applies to `-p`/`--print` sessions.
+
+**Evidence (T-Stage2-B countermeasure — probes run in order, 2026-05-27):**
+
+1. **`claude plugin install --help` output (2026-05-27):** `Usage: claude plugin install|i [options] <plugin>` / `Install a plugin from available marketplaces` / Options: only `--help` and `--scope`. Zero mention of billing, API calls, or token consumption. The `plugin details` subcommand shows «projected token cost» which refers to context-window overhead *per session turn once the plugin is active* — not install-time cost.
+
+2. **`claude --help` billing scope (2026-05-27):** `--max-budget-usd <amount>` explicitly states «Maximum dollar amount to spend on API calls **(only works with --print)**». This scopes API billing to `--print`/`-p` mode only. `claude plugin install` is a non-`--print` administrative subcommand.
+
+3. **`code.claude.com/docs/en/costs` (fetched 2026-05-27):** «Claude Code charges by API token consumption.» Background token usage section lists only «Conversation summarization» and «Command processing» (typically <$0.04/session); `plugin install` is not listed. The costs page describes billing tied to LLM invocations (model calls), not file-management subcommands.
+
+4. **`code.claude.com/docs/en/discover-plugins` (fetched 2026-05-27):** Plugin install is described as fetching files from marketplace sources (git clone/download → local cache). «Context cost» shown in the UI Discover tab is the token cost added to the context window *when the plugin is active per turn*, not an install cost. The install operation is downloading files, registering them, and confirming idempotency — no model invoked.
+
+5. **WebSearch (3 phrasings, 2026-05-27):** No pricing article or community source mentions billing for `claude plugin install`. All pricing content describes costs as token-consumption from LLM model invocations (`--print` sessions or interactive sessions).
+
+**D6 simplified (VERIFIED-FREE path):** The active vs passive fork (D6 §7) reduces to: «We verified `claude plugin install ... --scope user` is billing-free (VERIFIED-FREE); active is the primary K-1 mechanism. Passive pre-seed (`extraKnownMarketplaces` + `enabledPlugins`) remains the documented fallback for environments where `claude` CLI is not on PATH at install time — not a billing-policy fallback.» Maintainer decides whether to implement the passive fallback branch.
+
+**T-Stage2-B resolved:** The «paid-policy-pattern-match-without-evidence» trap is resolved by running probes 1–5 above and citing literal command/docs output. No pre-decision made; evidence gathered first.
+
+**Falsifier:** This VERIFIED-FREE finding would be **wrong** if Anthropic were to announce a billing policy extension to administrative `claude` subcommands beyond `--print`/`-p` mode, or if a future `claude` version update introduced a metered install operation. Would be falsified by: `claude plugin install --help` or `claude --help` adding billing/metering language to the `install` subcommand, or an Anthropic billing announcement explicitly extending charges to plugin management commands. Re-run Probe 1 (`claude plugin --help`) and Probe 3 (`code.claude.com/docs/en/costs`) to verify if billing policy changes.
+
 ---
 
 ## §5 T-trap walks
@@ -331,6 +353,12 @@ No companion install command is cited from training data alone. All sourced from
 
 All new companion prompts in §4.2 use `[y/N]` (capital N = default no). Zero occurrences of `[Y/n]` in this design. Verified: prompt copy strings in §4.2 all contain `[y/N]`. ✓
 
+**T-Stage2-B (paid-policy-pattern-match-without-evidence — verify billing status before recommending OR dropping any `claude` subcommand):**
+
+v3 mandate: do not pre-decide billing status of `claude plugin install` from training-data pattern-matching (either direction — «it sounds paid» OR «it sounds free»). Run evidence probes first.
+
+Probe sequence executed (2026-05-27): `claude plugin install --help` → `claude --help` billing-scope check → `code.claude.com/docs/en/costs` → `code.claude.com/docs/en/discover-plugins` → WebSearch ×3. All four channels converge on VERIFIED-FREE. Evidence cited in §4.8 with literal output quotes. Finding: VERIFIED-FREE — v2 active-install design retained (per maintainer 2026-05-27 «ревизию проверку только, а не дроп»). ✓
+
 ---
 
 ## §6 §1.7 Forward+Backward checks
@@ -350,6 +378,7 @@ All new companion prompts in §4.2 use `[y/N]` (capital N = default no). Zero oc
 - **Universal-satellite vision (kickoff §5)**: No companion is mandatory or default-yes. Phase 3 auto behavior is the pre-existing baseline (OUR content deposit, not a companion). All new K-1 prompts default `[y/N]`. ✓
 - **PR strategy (CLAUDE.md)**: Single-file R-phase output; one PR scoped to Stage 2 design. No drive-by edits to install.sh, CLAUDE.md, or any other file. ✓
 - **Forward-check applied to v2 revise**: Each install command in §3 is now verified shell-runnable (Q-B `claude plugin --help` probe 2026-05-27); claim-evidence-falsifier triplet present per H1. **Falsifier:** wrong if `claude plugin install <plugin> --scope user` is NOT a valid `claude` CLI subcommand on the consumer's machine — would be falsified by `claude plugin --help` not listing `install` subcommand. ✓
+- **Forward-check applied to v3 verify**: v3 evidenced the billing status of `claude plugin install` per maintainer 2026-05-27 instruction «ревизию проверку только, а не дроп». Finding: **VERIFIED-FREE** — `claude plugin install` is an administrative file-management operation with no LLM call and no API billing. Evidence: `claude --help` states `--max-budget-usd` «only works with --print» (scoping API billing to `-p` mode); `code.claude.com/docs/en/costs` lists only LLM-invocation token costs and does not mention plugin install; `code.claude.com/docs/en/discover-plugins` describes install as file download/registration; `claude plugin install --help` carries no billing language. Full evidence trace in §4.8. **T-Stage2-B resolved** — evidence gathered before recommendation, not from pattern-match. **Falsifier for billing status:** wrong if Anthropic announces a billing policy extension to `claude` administrative subcommands beyond `--print`/`-p` mode, or if a future `claude` update introduces metered plugin management — would be falsified by billing/metering language appearing in `claude plugin install --help` or `code.claude.com/docs/en/costs` for administrative subcommands. ✓
 
 ### §1.7 Backward-check applied
 
@@ -366,6 +395,7 @@ All new companion prompts in §4.2 use `[y/N]` (capital N = default no). Zero oc
 
 - The design touches aif-handoff integration implicitly (§4.2 explains why no prompt needed). This is documented explicitly — not a silent supersession.
 - **v2 revise backward-check:** Revise removes the false «AIF keep-or-convert» dilemma that was a v1 framing error. Does NOT silently supersede or change install.sh:307-322 behavior; does not edit install.sh; does not edit any rule file. The only artefact changed is this single research-patch file. ✓
+- **v3 verify backward-check:** v3 does not silently supersede v2 — it documents the evidence base v2 lacked (billing status of `claude plugin install`). install.sh:307-322 still unchanged. No rule file or principle test edited. v1→v2→v3 chain documented in §5 T-Stage2-B walk above. v2 active-install design (§4.1, §3 SP/TM rows, §4.6) retained as-is; §4.8 is an additive section only. ✓
 
 **Conclusion:** No silent supersession. No scope creep. ✓
 
