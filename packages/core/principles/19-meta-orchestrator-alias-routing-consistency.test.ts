@@ -173,4 +173,57 @@ describe('Principle 19 — meta-orchestrator §2.5 ALIAS-mapping ↔ §5-routing
       expect(syntheticSection25).not.toContain(`| ${dispatch} |`);
     });
   });
+
+  // §2.5 Step 3 candidate-iteration invariant — added 2026-05-27 to close the
+  // gap that allowed a single-shot ${umbrella} block to ship in b1f47f4 while
+  // prose said "per surviving candidate". Downstream Steps 5–9 (sibling_count
+  // predicate, multi-Stage rendering, multi-id delta-diff) require N
+  // classifications. A single-shot block silently broke those invariants without
+  // principle 19 catching it (the substring-only check passed for the broken
+  // code). Step 3 now delegates iteration to classify-each-candidate.sh — this
+  // principle test asserts the delegation; the helper itself has its own
+  // paired-negative test at packages/core/skills/classify-each-candidate.test.ts.
+  describe('§2.5 Step 3 delegates per-candidate iteration to classify-each-candidate.sh', () => {
+    /** Extract the Step 3 block + its !shell fenced code. */
+    function extractStep3Region(section: string): string {
+      const lines = section.split('\n');
+      const start = lines.findIndex((l) => /Step 3 — L4 classify/.test(l));
+      if (start === -1) return '';
+      // Take up to 20 lines forward (Step 3 prose + the !shell block + first lines after).
+      return lines.slice(start, Math.min(start + 20, lines.length)).join('\n');
+    }
+
+    it('§2.5 Step 3 region invokes classify-each-candidate.sh (iteration helper)', () => {
+      const content = readFileSync(SKILL, 'utf8');
+      const section = extractSection25(content);
+      const step3 = extractStep3Region(section);
+      expect(step3, 'Step 3 region empty — heading "Step 3 — L4 classify" missing').not.toBe('');
+      expect(
+        step3,
+        'Step 3 must delegate to classify-each-candidate.sh — a single-shot ${umbrella} → classify-work.sh reference cannot satisfy Step 5 sibling_count / Step 8 multi-id delta-diff invariants',
+      ).toMatch(/classify-each-candidate\.sh/);
+    });
+
+    it('§2.5 Step 3 documents F8 per-candidate failure semantics (not whole-skill halt)', () => {
+      const content = readFileSync(SKILL, 'utf8');
+      const section = extractSection25(content);
+      const step3 = extractStep3Region(section);
+      expect(
+        step3,
+        'Step 3 must declare F8 per-candidate semantics — single-shot halt is the b1f47f4 bug shape',
+      ).toMatch(/F8 for that candidate/);
+    });
+
+    // Paired-negative: the b1f47f4 single-shot Step 3 shape must fail the iteration-helper check.
+    it('paired-negative: synthetic single-shot Step 3 with bare ${umbrella} fails the iteration-helper check', () => {
+      const syntheticBrokenStep3 =
+        '**Step 3 — L4 classify (per surviving candidate):**\n\n' +
+        '```!\n' +
+        '${CLAUDE_SKILL_DIR}/helpers/classify-work.sh ".claude/orchestrator-prompts/${umbrella}/kickoff.md"\n' +
+        '```\n\n' +
+        'Capture TYPE / DISPATCH / LOC / SURFACES / RATIONALE.\n';
+      // The iteration-helper check MUST fail on this shape.
+      expect(syntheticBrokenStep3).not.toMatch(/classify-each-candidate\.sh/);
+    });
+  });
 });
