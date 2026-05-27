@@ -174,13 +174,13 @@ ${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh "${umbrella:-}" 2>/dev/null || ${CLAUD
 
 `POTENTIAL_DUPE:` → surface as confirmation-needed per [reviewer-discipline.md §2](../../rules/reviewer-discipline.md). `MISSING:` → drift item.
 
-**Step 3 — L4 classify (per surviving candidate):**
+**Step 3 — L4 classify each surviving candidate from Step 2:**
 
 ```!
-${CLAUDE_SKILL_DIR}/helpers/classify-work.sh ".claude/orchestrator-prompts/${umbrella}/kickoff.md"
+${CLAUDE_SKILL_DIR}/helpers/classify-each-candidate.sh 2>/dev/null
 ```
 
-Capture `TYPE` / `DISPATCH` / `LOC` / `SURFACES` / `RATIONALE` from stdout. Helper is authoritative — do NOT re-classify. **stderr NOT suppressed** (per J1 fix from Stage 5 dogfood): if the helper exits 3 with `MISSING-FILE: <path>` on stderr, that is **F8** — halt per [`references/failures.md`](references/failures.md), do NOT silently treat as `TYPE=fix`.
+Helper iterates `priority-score.sh` candidate set; per candidate routes to classify-work.sh (file-mode for `kickoff=exists`, string-mode for `kickoff=synthetic`, skip for `kickoff=missing`). DN-3 preserved — classify-work.sh UNCHANGED. Per-candidate stdout: `--- candidate: <name> ---` + TYPE/DISPATCH/LOC/SURFACES/RATIONALE. **stderr NOT suppressed** (J1 from Stage 5): if a candidate exits 3 with `MISSING-FILE:` that is **F8 for that candidate** — recorded inline, iteration continues; collect all F8s for the §10 report per [`references/failures.md`](references/failures.md). Steps 5–9 below require N classifications (`sibling_count`, multi-Stage rendering, multi-id delta-diff); single-shot would break them.
 
 **Step 4 — L5 assign-skill:**
 
