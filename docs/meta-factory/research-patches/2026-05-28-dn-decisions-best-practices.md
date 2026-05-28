@@ -1,3 +1,4 @@
+<!-- scope:dn-decisions-best-practices -->
 # DN-1 / DN-4 best-practices research
 
 > **Class C** — research-patch (markdown, no executable artifact).
