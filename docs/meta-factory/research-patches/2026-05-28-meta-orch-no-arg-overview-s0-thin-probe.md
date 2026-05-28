@@ -39,6 +39,14 @@ true || true
 ```!
 ${CLAUDE_SKILL_DIR}/helpers/probe.sh probe-arg
 ```
+
+## Without this skill
+
+Diagnosis of P4 (`!`-fence helper invocation failure in `meta-orchestrator` SKILL.md) stalls on inference: we cannot tell whether CC's permission check sees the raw `` ```! `` fence as text or extracts the inner command, so Stage 4 cannot ship an evidence-grounded fix and risks targeting the wrong root cause (harness bug vs allow-list shape mismatch).
+
+## With this skill
+
+Maintainer invokes `/probe-cc-perm` once, captures the three literal patterns CC emits to its permission check (control + compound `||` + direct-path helper), and the conditional verdict matrix in research-patch `2026-05-28-meta-orch-no-arg-overview-s0-thin-probe.md` §5b resolves to either harness-clean or harness-bug; Stage 4 dispatch then writes a settings.json allow-rule of the exact shape the empirical evidence dictates.
 ````
 
 ### File 2 — `.claude/skills/probe-cc-perm/helpers/probe.sh` (verbatim)
@@ -78,6 +86,7 @@ Per `phase-research-coverage.md §1.7` (`.claude/rules/phase-research-coverage.m
 - `build-first-reuse-default.md §1` (`.claude/rules/build-first-reuse-default.md:§1`) — no new capability introduced; this is a throwaway probe skill + research-patch only. Commit trailer rationale: «research patch only, no new capability.»
 - `no-paid-llm-in-ci.md §1` (`.claude/rules/no-paid-llm-in-ci.md:§1`) — no CI LLM introduced; probe.sh is a pure bash echo script.
 - `parallel-subwave-isolation.md §1` (`.claude/rules/parallel-subwave-isolation.md:§1`) — worktree isolation in use: branch `feat/meta-orch-no-arg-overview-s0-thin-probe` in dedicated worktree `/Users/art/code/rules-as-tests-aif-noarg-s0-thin`, not primary workdir.
+- Principle 15 — Skill paired-negative (`packages/core/principles/15-skill-paired-negative.test.ts:127`) — `.claude/skills/probe-cc-perm/SKILL.md` carries both `## Without this skill` and `## With this skill` sections (each ≥40 non-trivial chars, non-tautological). Added in commit-2 of this branch after pre-push surfaced the gap; source dispatch §1.5d body was incomplete on this principle.
 
 **Backward-check:** sweep of superseded/affected artefacts:
 - This thin patch supersedes nothing. It carves only the §1.5d portion out of `stage-0-rphase-dispatch.md` for early ship.
