@@ -10,6 +10,7 @@ allowed-tools:
   - Bash(gh *)
   - Bash(ls *)
   - Bash(cat *)
+  - Bash(bash ${CLAUDE_SKILL_DIR}/helpers/*.sh *)
   - Read
   - Write
   - Edit
@@ -40,7 +41,7 @@ allowed-tools:
 
 **Without argument:** skill runs §1 global plan-currency check, then §2 cross-umbrella priority scoring, recommends a winner, and proceeds on confirmation.
 
-**Permissions model:** `allowed-tools` list above constrains the skill to read/git/gh/write — no arbitrary Bash. If a check requires a command outside the list, escalate to maintainer.
+**Permissions model:** `allowed-tools` list above constrains the skill to read/git/gh/write — no arbitrary Bash. If a check requires a command outside the list, escalate to maintainer. **Caveat — Issue [#14956](https://github.com/anthropics/claude-code/issues/14956) (open as of 2026-05-28):** specific `Bash(<pattern>)` patterns in skill-scoped `allowed-tools` do not auto-approve matching commands in current CC versions. The load-bearing fallback is a `~/.claude/settings.json` `permissions.allow` entry `Bash(bash *helpers/*.sh *)` shipped in this repo's `.claude/settings.json` (per DN-1 Option C verdict, PR #262 §3). The frontmatter glob above remains for forward-compatibility when #14956 closes — remove the settings.json fallback line at that point.
 
 **§7.14 gap closed by this section:** none (trigger mechanism; CC primitive verbatim-ADOPT per R-phase patch §3).
 
@@ -233,14 +234,14 @@ elif TYPE == "I-phase-large":
 
 > **§7.4 binding.** Produces the per-sub-wave Mode decision table for the selected umbrella.
 
-**Step 1 — inject umbrella kickoff:**
+**Step 1 — inject umbrella kickoff + dispatch state:**
 
 ```!
 ${CLAUDE_SKILL_DIR}/helpers/launch-table-generator.sh "${umbrella:-}" 2>/dev/null
 ```
 
 ```!
-cat ".claude/orchestrator-prompts/${umbrella:-}/kickoff.md" 2>/dev/null | head -120 || echo "MISSING kickoff"
+${CLAUDE_SKILL_DIR}/helpers/dispatch-from-state.sh "${umbrella:-}"
 ```
 
 **Step 2 — classify each sub-wave (judgment on injected data):**
@@ -269,7 +270,7 @@ Launch table — <umbrella> (as of <git-HEAD-short>):
 ...
 ```
 
-**Blocking rule:** if `launch-table-generator.sh` returns «MISSING kickoff» → halt and report. Do NOT produce a launch-table without reading the actual kickoff.
+**Blocking rule:** if either helper (`launch-table-generator.sh` or `dispatch-from-state.sh`) emits «MISSING kickoff» → halt and report. Do NOT produce a launch-table without reading the actual kickoff. The two helpers are complementary: `launch-table-generator.sh` emits the auto-detected sub-wave skeleton; `dispatch-from-state.sh` emits state-file context (`winner_id`, `sub_wave_state`) plus the head-120 kickoff body for the AI to read in Step 2 when filling judgment columns. The §3 inline `cat .../kickoff.md` block that previously injected the kickoff body was removed 2026-05-28 (DN-3 A verdict, PR #261); its function is now owned by `dispatch-from-state.sh` (F.3 helper-collapse — single source for §3 dispatch context). <!-- @dual-pair: meta-orchestrator-dispatch-from-state -->
 
 **§7.14 gap closed:** auto-generated launch-table (gap 3, partial — §4 completes it with meta-kickoff).
 
@@ -512,19 +513,14 @@ The launch-table-generator will detect sub-waves from the kickoff (A, B, C, D). 
 
    a. **Cache (existing):** `bash ${CLAUDE_SKILL_DIR}/helpers/update-cache.sh "<umbrella-or-no-arg>" "<outcome-one-liner>"` — helper writes `## Last invocation` only; non-«Last invocation» sections populated by direct `Edit` before invocation. Detail + helper-scope contract + anti-patterns: [`references/plan-cache.md §3`](references/plan-cache.md). <!-- @dual-pair: meta-orchestrator-plan-cache -->
 
-   b. **Delta arrays (new for Stage 2C):** populate the two arrays in `_master-backlog-delta.json` via inline `!shell` `jq` rewrite, THEN run `bash ${CLAUDE_SKILL_DIR}/helpers/update-delta.sh "<umbrella-or-no-arg>" "<outcome-one-liner>"` for metadata-only update. Concrete shape (`<current_ids_json_array>` and `<resolved_ids_json_array>` are angle-bracket placeholders that the rendering AI substitutes with real JSON-array literals derived from §2.5 Step 8/9; the syntax is correct only after substitution):
+   b. **Delta arrays (sibling-helper pattern, DN-2 B verdict 2026-05-27):** invoke `delta-write-from-state.sh` to write the two arrays, THEN invoke `update-delta.sh` for metadata. Concrete shape (`<current_ids_json_array>` and `<resolved_ids_json_array>` are angle-bracket placeholders that the rendering AI substitutes with real JSON-array literals derived from §2.5 Step 8/9; the syntax is correct only after substitution):
 
       ```!
-      DELTA=.claude/orchestrator-prompts/_master-backlog-delta.json
-      NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-      # Arrays populated from §2.5 Step 9 (overwrite-shape — first_seen = current ts):
-      jq --arg now "$NOW" --argjson current '<current_ids_json_array>' --argjson resolved '<resolved_ids_json_array>' \
-        '.untracked_seen = ($current | map({id: ., first_seen: $now})) | .closed_since_last = ($resolved | map({id: ., closed_at: $now}))' \
-        "$DELTA" > "$DELTA.tmp" && mv "$DELTA.tmp" "$DELTA"
+      bash ${CLAUDE_SKILL_DIR}/helpers/delta-write-from-state.sh "${umbrella:-no-arg}" '<current_ids_json_array>' '<resolved_ids_json_array>'
       bash ${CLAUDE_SKILL_DIR}/helpers/update-delta.sh "${umbrella:-no-arg}" "<outcome-one-liner>"
       ```
 
-      The TWO writes are deliberately split: helper owns metadata (idempotent paired-negative test at `packages/core/hooks/update-delta.test.ts`); body owns arrays (per DN-2 binding + helper-scope mirror of `update-cache.sh` round-3 reduction). **`first_seen` semantics are «most recent sighting», NOT «first-ever sighting»** — the overwrite-shape above is the bound choice (matches §2.5 Step 9 prose; simpler atomic write; trades historical-first-seen for shape simplicity). DO NOT introduce a preserve-shape variant. <!-- @dual-pair: meta-orchestrator-master-backlog-delta -->
+      The TWO sibling helpers are deliberately split: `update-delta.sh` owns metadata + fresh-template bootstrap (idempotent paired-negative test at `packages/core/hooks/update-delta.test.ts`, UNCHANGED post-F.3); `delta-write-from-state.sh` owns arrays-only rewrite (paired-negative test at `packages/core/hooks/delta-write-from-state.test.ts`, F.3 helper-collapse 2026-05-28 — sibling pattern preserves the existing update-delta.sh test contract per DN-2 B verdict). The inline `!shell` `jq` block that previously did the arrays rewrite was removed 2026-05-28 (F.3 PR #261); its function is now owned by `delta-write-from-state.sh`. **`first_seen` semantics are «most recent sighting», NOT «first-ever sighting»** — the overwrite-shape inside the helper is the bound choice (matches §2.5 Step 9 prose; simpler atomic write; trades historical-first-seen for shape simplicity). DO NOT introduce a preserve-shape variant. <!-- @dual-pair: meta-orchestrator-master-backlog-delta -->
 
 **File cleanup policy:**
 
