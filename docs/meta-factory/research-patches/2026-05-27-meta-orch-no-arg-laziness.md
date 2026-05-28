@@ -294,6 +294,8 @@ For each candidate: **BFR posture** ([build-first-reuse-default.md §1](../../.c
 
 **Integration cost:** LOC ~5 edits to SKILL.md (5 lines × `${umbrella:-} → $umbrella`). NOT a capability commit by LOC threshold. Can ride in F.3 PR or stand alone.
 
+**Supplementary, not subsumed by F.3 (self-contained statement):** F.3 alone covers all three bugs via state-file substrate. F.6 alone leaves Bugs #2 and #4 unfixed (per «Bug coverage» bullets above). The reason F.6 ships *alongside* F.3 rather than being dropped is that F.6 fixes Bug #3 using CC's **first-party substitution channel** (`$umbrella` resolved by the harness BEFORE the classifier sees the line), whereas F.3 fixes Bug #3 only as a side-effect of removing all `${var}` references from inline blocks. F.6 is the **hygiene companion** — it makes the surviving inline blocks (per DN-3 Option B if chosen) classifier-safe by *vocabulary*, not just by *removal*. Choosing F.6 without F.3 → Bugs #2/#4 unfixed → REJECT. Choosing F.3 without F.6 → Bug #3 fixed by side-effect, but any surviving `${umbrella:-}` reference remains a latent classifier-block landmine for future SKILL.md edits → ACCEPTABLE but not minimal-surprise. **Combined F.3 + F.6 = defence in depth on Bug #3.**
+
 ### Coverage matrix (post-§1 evidence)
 
 | Candidate | Bug #2 | Bug #3 | Bug #4 | BFR | Status |
@@ -330,7 +332,7 @@ Does this verdict comply with the existing discipline-bearing artefacts?
 - **[dual-implementation-discipline.md §3](../../.claude/rules/dual-implementation-discipline.md)** — VERIFIED OK: the F.3 helpers are CC-native (called from `/meta-orchestrator` skill inline bash). Per §3 "Performance-critical default CC-native + portable optional" — these helpers are session-bound to the CC skill, fire at the §10 step 5b moment with no portable analog. Each new helper should carry `@cc-only-rationale: consumer-facing CC-session helper invoked from /meta-orchestrator …` (matches the existing helpers' header convention per [helpers/update-delta.sh](../../.claude/skills/meta-orchestrator/helpers/update-delta.sh) lines 30-34).
 - **[doc-authority-hierarchy.md §2-§3](../../.claude/rules/doc-authority-hierarchy.md)** — VERIFIED OK: this patch carries the required header (Authoritative-for + NOT authoritative-for); SKILL.md already carries its header and is the binding spec; the new helpers fall under "scripts/code files — JSDoc comments serve different purpose" but the existing helper header convention (Class C + Authoritative-for + NOT authoritative-for) should be carried forward at I-phase time.
 - **[parallel-subwave-isolation.md §1](../../.claude/rules/parallel-subwave-isolation.md)** — N/A here (single R-phase, single sub-wave, no parallel siblings, no shared-dir-parallel risk; primary workdir used per meta-launch §4a).
-- **[ai-laziness-traps.md §3](../../.claude/rules/ai-laziness-traps.md)** — VERIFIED OK: T1/T3/T4/T7/T11/T12/T13/T15/T16/T19/T20 active per kickoff §5; T-N1/T-N2/T-N3/T-N4 honoured per kickoff. T13 audit on SSOT #77 found the kickoff's "start there" hint misleading (corrected in §1.1). T15 instantiation: this very patch is checked for compliance with the rules above (this section). T19 self-cold-QA scheduled before declaring R-phase done (§7 below).
+- **[ai-laziness-traps.md §3](../../.claude/rules/ai-laziness-traps.md)** — VERIFIED OK: consolidated trap enumeration moved to §4.5 below per Phase -1 cold-review MINOR #1 (consolidate fragmented inline T-list). T13 audit on SSOT #77 found the kickoff's "start there" hint misleading (corrected in §1.1). T15 instantiation: this very patch is checked for compliance with the rules above (this section). T19 self-cold-QA performed and recorded in §7 below.
 
 ### §1.7 Backward-check applied
 
@@ -341,6 +343,31 @@ Does this patch silently supersede or contradict existing artefacts?
 - **PR #205 naming collision** flagged — that PR used "F.3" label for a different umbrella's UX work. I-phase PR title must disambiguate.
 - **PR #193 commit message** ([commit 8f60158](https://github.com/Yhooi2/rules-as-tests-aif/commit/8f60158)) explicitly defers "the deeper issue" to a separate scope; this patch closes that deferral. No supersession.
 - **SKILL.md §10.3a plain-language tail** [SKILL.md:506](../../.claude/skills/meta-orchestrator/SKILL.md#L506) — this very R-phase Worker emits the §7a tail per meta-launch §7a mandate; the I-phase Worker MUST also emit it; no new rule needed.
+
+### §4.5 AI-traps applied (canonical + domain-specific)
+
+Consolidated per Phase -1 cold-review MINOR #1 — replaces the prior fragmented inline mention. Each trap names the specific action taken in this R-phase that honours it.
+
+**Canonical (per kickoff §5, sourced from [ai-laziness-traps.md §2](../../.claude/rules/ai-laziness-traps.md)):**
+
+- **T1** — sampling floor ≥5: §1.4 BFR sweep enumerated all 84 SSOT rows, not just keyword-matched neighbours.
+- **T3** — file:line + verbatim excerpts: every §1.1–§1.6 finding cites either `path.md:Lnn`, command output, or a verbatim quoted passage (§1.5a CC-docs excerpts at lines 140-143; §1.2 DeepWiki responses at 87, 93-95, 101-105; §1.3 WebSearch URLs+paragraphs at 109-113).
+- **T4** — all 6 search items run; this §1 list is the floor, not the ceiling. §1.5 split into a/b/c/d probes per kickoff mandate.
+- **T7** — adversarial counter-prompts at category level: §1.4 BFR sweep asked «what category did I miss?» and surfaced the «cross-AGENT vs cross-BLOCK» distinction that the kickoff §0 hint missed.
+- **T11** — prior-art check BEFORE proposing F.6: NEW-OPTION F.6 emerged from §1.4 BFR sweep evidence (SSOT #84 `claude plugin install` first-party substitution channel), not from extrapolation.
+- **T12** — WebSearch ×3 phrasings at §1.3 with URLs + paragraphs; not training-data only.
+- **T13** — ADOPTED-MECHANISM audit applied: SSOT #77 Cline Memory Bank kickoff hint was reclassified from «strong precedent» to REFERENCE-only after T13 audit (§1.1 finding, line 81).
+- **T15** — self-application: this §4 §1.7 forward/backward and this §4.5 list are the patch checking itself. The verdict's own design (F.3 helper-collapse) was checked at §7 self-cold-QA against the §1.5b classifier constraint it itself discovered.
+- **T16** — problem-class match cited verbatim for each upstream candidate: §1.1 table column «T16 problem-class match» with % score per row; §1.4 BFR sweep explicitly framed «upstream X = problem class Y; ours = within-invocation cross-block state; match?» for each candidate.
+- **T19** — own cold-QA pre-handoff at §7 below; reviewer-discipline.md §2 surface-not-pick applied to 4 DECISION-NEEDED items.
+- **T20** — no inline verdict without an evidence-bearing tool call same turn: every F.X verdict (REJECT / ADAPT / RECOMMENDED) preceded in its section by §1 evidence chain.
+
+**Domain-specific (per kickoff §5; first occurrences for this R-phase, NOT in canonical catalogue):**
+
+- **T-N1** — `!shell` block timing assumption avoided: §1.5a verified EAGER ALL-AT-ONCE via direct CC-docs verbatim excerpt, not extrapolation. Marked VERIFIED, not PROVISIONAL.
+- **T-N2** — classifier behavior on `${var}` / placeholders: §1.5b table flags every shape as VERIFIED (Incident A/B negative-control) OR PROVISIONAL (unprobed: `$(date)`, arbitrary `${X}`). No verdict silently relies on an unprobed shape (F.3 uses only `${CLAUDE_SKILL_DIR}` — VERIFIED OK).
+- **T-N3** — scope-merge §0.5 falsifier: §1.5d probe ran first per kickoff mandate. Resolution NEGATIVE — id-arrays reconstruct deterministically from helper outputs → scope-merge VALID. Documented in §1.5d with citation to `helpers/delta-diff.sh` contract and `helpers/update-delta.sh` seams.
+- **T-N4** — fresh meta-launch invocation evidence: the meta-launch session itself produced `umbrella=''` despite arg-mode invocation; recorded as Incident C in §0 alongside Incidents A/B, confirming Bug #3 reproduces on argv path too.
 
 ---
 
