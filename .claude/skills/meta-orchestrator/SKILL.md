@@ -70,7 +70,7 @@ head -200 docs/meta-factory/wave-sequencing-plan.md 2>/dev/null || echo "MISSING
 ```
 
 ```!
-${CLAUDE_SKILL_DIR}/helpers/plan-currency-check.sh "${umbrella:-}" 2>/dev/null
+bash "${CLAUDE_SKILL_DIR}/helpers/plan-currency-check.sh" "${umbrella:-}" 2>/dev/null
 ```
 
 **Step 2 — drift detection (judgment call on injected data):**
@@ -102,7 +102,7 @@ Compare the `wave-sequencing-plan.md` claims against the live `gh pr list` outpu
 **Step 1 — inject candidate list:**
 
 ```!
-${CLAUDE_SKILL_DIR}/helpers/priority-score.sh 2>/dev/null
+bash "${CLAUDE_SKILL_DIR}/helpers/priority-score.sh" 2>/dev/null
 ```
 
 **Step 2 — score each candidate (multi-criteria, judgment):**
@@ -170,7 +170,7 @@ fi
 **Step 2 — L3 dup-detect:**
 
 ```!
-${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh "${umbrella:-}" 2>/dev/null || ${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh --all 2>/dev/null
+bash "${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh" "${umbrella:-}" 2>/dev/null
 ```
 
 `POTENTIAL_DUPE:` → surface as confirmation-needed per [reviewer-discipline.md §2](../../rules/reviewer-discipline.md). `MISSING:` → drift item.
@@ -178,7 +178,7 @@ ${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh "${umbrella:-}" 2>/dev/null || ${CLAUD
 **Step 3 — L4 classify each surviving candidate from Step 2:**
 
 ```!
-${CLAUDE_SKILL_DIR}/helpers/classify-each-candidate.sh 2>/dev/null
+bash "${CLAUDE_SKILL_DIR}/helpers/classify-each-candidate.sh" 2>/dev/null
 ```
 
 Helper iterates `priority-score.sh` candidate set; per candidate routes to classify-work.sh (file-mode for `kickoff=exists`, string-mode for `kickoff=synthetic`, skip for `kickoff=missing`). DN-3 preserved — classify-work.sh UNCHANGED. Per-candidate stdout: `--- candidate: <name> ---` + TYPE/DISPATCH/LOC/SURFACES/RATIONALE. **stderr NOT suppressed** (J1 from Stage 5): if a candidate exits 3 with `MISSING-FILE:` that is **F8 for that candidate** — recorded inline, iteration continues; collect all F8s for the §10 report per [`references/failures.md`](references/failures.md). Steps 5–9 below require N classifications (`sibling_count`, multi-Stage rendering, multi-id delta-diff); single-shot would break them.
@@ -186,7 +186,7 @@ Helper iterates `priority-score.sh` candidate set; per candidate routes to class
 **Step 4 — L5 assign-skill:**
 
 ```!
-${CLAUDE_SKILL_DIR}/helpers/assign-skill.sh "<TYPE-from-Step-3>" "<one-line description from kickoff title>" 2>/dev/null
+bash "${CLAUDE_SKILL_DIR}/helpers/assign-skill.sh" "<TYPE-from-Step-3>" "<one-line description from kickoff title>" 2>/dev/null
 ```
 
 Advisory: `recommended_skill: <slug>` / `recommended_agent: <path>` / `recommended: none`.
@@ -237,11 +237,11 @@ elif TYPE == "I-phase-large":
 **Step 1 — inject umbrella kickoff + dispatch state:**
 
 ```!
-${CLAUDE_SKILL_DIR}/helpers/launch-table-generator.sh "${umbrella:-}" 2>/dev/null
+bash "${CLAUDE_SKILL_DIR}/helpers/launch-table-generator.sh" "${umbrella:-}" 2>/dev/null
 ```
 
 ```!
-${CLAUDE_SKILL_DIR}/helpers/dispatch-from-state.sh "${umbrella:-}"
+bash "${CLAUDE_SKILL_DIR}/helpers/dispatch-from-state.sh" "${umbrella:-}"
 ```
 
 **Step 2 — classify each sub-wave (judgment on injected data):**

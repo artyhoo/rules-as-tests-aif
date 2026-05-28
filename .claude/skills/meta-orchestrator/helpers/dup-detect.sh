@@ -67,10 +67,12 @@ check_umbrella() {
 }
 
 ARG="${1:-}"
-if [[ "${ARG}" == "--all" ]]; then
+# Empty arg = --all (silent fall-through). Lets SKILL.md §2.5 Step 2 use a single
+# allow-rule pattern instead of a compound `<arg> || --all` chain that no single
+# rule matches. Stage 4 P4-b, meta-orch-no-arg-overview umbrella 2026-05-28.
+if [[ -z "${ARG}" || "${ARG}" == "--all" ]]; then
   if [[ ! -d "${PROMPTS_DIR}" ]]; then echo "(no orchestrator-prompts dir)"; exit 0; fi
   for d in "${PROMPTS_DIR}"/*/; do check_umbrella "$(basename "${d}")"; done
 else
-  if [[ -z "${ARG}" ]]; then echo "Usage: dup-detect.sh <umbrella-name> | --all"; exit 1; fi
   check_umbrella "${ARG}"
 fi
