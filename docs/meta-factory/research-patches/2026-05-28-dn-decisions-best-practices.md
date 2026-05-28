@@ -144,7 +144,7 @@ DeepWiki response (verbatim excerpt): «The system is organized into distinct la
 - Sources: [CC Docs — Configure permissions](https://code.claude.com/docs/en/permissions), [egghead.io — Build Better Tools in Claude Skills](https://egghead.io/build-better-tools-in-claude-skills-with-scripts~0oa34), [GitHub Issue #14956](https://github.com/anthropics/claude-code/issues/14956)
 - Key finding: «Bash rules support glob patterns with `*`. Wildcards can appear at any position in the command.»
 - Key finding: «A workaround involves converting the problematic command into a script that accepts arguments instead of using redirects. You update the SKILL.md file to remove the direct command and replace it with a call to your new script, updating the `allowed-tools` accordingly (e.g., `Bash(bun run scripts:*)`).»
-- **CRITICAL:** Issue #14956 — «Skill `allowed-tools` doesn't grant permission for Bash commands. Even after adding `Skill(speak)` to the allow list, the command was denied with `This command requires approval` error.» Status: **OPEN bug** as of CC v2.0.75.
+- **CRITICAL:** Issue #14956 — title verbatim: «Skill allowed-tools doesn't grant permission for Bash commands». Status: **OPEN** (verified `gh api repos/anthropics/claude-code/issues/14956`, 2026-05-28). **Verbatim body excerpt** (Phase -1 MAJOR fix, 2026-05-28): «When a skill defines `allowed-tools` in its SKILL.md frontmatter, the permission is reported as active but Bash commands matching the pattern are still denied. … The skill invocation succeeds and reports the correct `allowedTools`: \`"allowedTools": ["Bash(say -v \"Samantha\":*)"]\`. But the subsequent Bash call is denied: \`"content": "This command requires approval", "is_error": true\`. … Workaround: Adding `Bash(say:*)` directly to the global allow list works, but defeats the purpose of skill-scoped permissions.» Bug confirmed against CC v2.0.75.
 
 ### §1.4 BFR sweep (all 84 SSOT rows)
 
@@ -179,7 +179,9 @@ This pattern SHOULD match: `bash helpers/ok.sh arg1`. The `*` in `helpers/*.sh` 
 
 **CRITICAL CAVEAT (CC GitHub Issue #14956, open):** «Skill `allowed-tools` doesn't grant permission for Bash commands» — even with correct patterns, the skill-scoped `allowed-tools` may not auto-approve commands (bug in CC v2.0.75). The workaround is adding rules directly to `settings.json` `permissions.allow`. This bug means any verdict about glob syntax may be moot if skill-level `allowed-tools` doesn't work reliably.
 
-**§1.5a verdict:** `VERIFIED-SYNTAX-SUPPORTED` for glob patterns in `allowed-tools`. `PROVISIONAL-BUG-CAVEAT` — pattern syntax is correct per CC docs, but skill-level permission application is a known open bug.
+**Probe execution disclosure (Phase -1 BLOCKER fix, 2026-05-28):** The §1.5a probe SETUP was created (skill structure + helper) but the **runtime invocation through CC's slash-command interface was NOT executed** in this R-phase. The verdict below rests on (a) CC docs verbatim above + (b) pattern analysis extrapolation («SHOULD match») + (c) Issue #14956 caveat — NOT on a captured classifier behavior observation (auto-approve / prompt / deny). The probe naturally lives at I-phase Stage 0 (first task before writing F.3 helpers) where the actual slash-command invocation is available.
+
+**§1.5a verdict:** `PROVISIONAL-SYNTAX-EXTRAPOLATED — probe-deferred-to-I-phase-Stage-0`. Glob pattern syntax is documented-supported per CC docs verbatim; runtime classifier behavior under Issue #14956 conditions is NOT verified in this R-phase. **I-phase Stage 0 MANDATORY task:** create synthetic skill, invoke via `/<skill>`, capture verbatim classifier output (auto-approve vs prompt vs deny). If observation contradicts «SHOULD match», fall back to Option A or A+settings-fallback.
 
 #### §1.5b — Default permission flow for `bash -c`
 
