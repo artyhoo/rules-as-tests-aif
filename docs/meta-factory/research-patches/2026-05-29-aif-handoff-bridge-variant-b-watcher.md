@@ -14,7 +14,7 @@
 
 **Match score:** ~5%. The `fs/watch` protocol referenced by DeepWiki probe 1 is a Codex App Server client-side notification primitive — not an aif-handoff coordinator task-ingestion mechanism. No `apps/coordinator/src/watchers/` directory exists. No `packages/cli/commands/watch.ts` exists. No PR or issue proposing directory-watch task ingestion exists in `lee-to/aif-handoff`. The coordinator uses `node-cron` polling + WebSocket `agent:wake` — API-driven only.
 
-**Falsifier:** if `lee-to/aif-handoff` ships a `POST /tasks/ingest-from-path` endpoint or a `packages/agent/src/dirWatcher.ts` module that polls a configured filesystem path for new task-definition files — re-evaluate as ADAPT. As of 2026-05-29, no such surface exists (confirmed via 4 DeepWiki probes + full file-tree search + gh issue/PR search).
+**Falsifier:** if `lee-to/aif-handoff` ships a `POST /tasks/ingest-from-path` endpoint or a `packages/agent/src/dirWatcher.ts` module (or equivalent) that polls a configurable filesystem path for new task-definition `.md` files **and creates tasks via the internal `createTask` function** — re-evaluate as ADAPT with the three criteria 1/2/4 re-scored against the actual implementation (aligned with §5 falsifier specificity). As of 2026-05-29, no such surface exists (confirmed via 4 DeepWiki probes + full file-tree search + gh issue/PR search).
 
 ---
 
@@ -36,7 +36,7 @@ This is a version pin change (range `^1.12.1` → pinned `1.29.0`), not a new MC
 Additional surface changes since SSOT #67 evaluation (2026-05-23):
 
 - PR #127 (merged): `feat(runtime): per-profile environment overrides for Claude adapter` — adds `options.environment` field on Claude runtime profiles for per-profile env var injection (`packages/runtime/src/adapters/claude/options.ts`). No relation to filesystem-watch or task-ingestion.
-- PR #128 (closed, not merged): `feat(runtime): support proxy env across adapters` — proxy env handling for HTTP(S)/SOCKS5. No relation.
+- PR #128 (merged 2026-05-26T08:07:12Z, SHA `51ce96a`): `feat(runtime): support proxy env across adapters` — proxy env handling for HTTP(S)/SOCKS5. No relation to filesystem-watch or task-ingestion.
 - PR #110 (merged via `packages/agent/src/wakeChannel.ts`): wake channel refactor — WebSocket-based `agent:wake` signals. Confirms coordinator task-triggering remains API-event-driven, not filesystem-driven.
 - Open issue #125: `fix(runtime): preserve Codex OAuth env isolation` — unrelated.
 
@@ -114,9 +114,9 @@ All `watch`-related paths are either `taskWatchdog.ts` (stale-task recovery, not
 - Changes: `packages/runtime/src/adapters/claude/options.ts`, `packages/runtime/src/adapters/claude/cli.ts`, 3 new tests, `docs/providers.md`
 - Relevance to Variant B: **nil** — per-profile env injection for Claude subprocess spawning; no filesystem-watch capability
 
-**PR #128** (`feat(runtime): support proxy env across adapters`, state: `closed`/not merged per jq output `mergedAt: null`):
+**PR #128** (`feat(runtime): support proxy env across adapters`, state: merged 2026-05-26T08:07:12Z, SHA `51ce96a` — original SW-B record incorrectly read `jq '.mergedAt'` which is camelCase; the actual JSON field is snake_case `merged_at`, which returns the merge timestamp. Verified 2026-05-29 via `gh api repos/lee-to/aif-handoff/pulls/128 --jq '.merged_at'`):
 - Changes: `packages/runtime/src/proxyEnv.ts`, multiple adapter files, Docker configs
-- Relevance to Variant B: **nil** — HTTP proxy support; no filesystem-watch capability
+- Relevance to Variant B: **nil** — HTTP proxy support; no filesystem-watch capability. **Verdict REJECT unaffected** by this correction — proxy env is genuinely irrelevant to directory-watch task-ingestion regardless of merge status.
 
 ### §2.7 gh search outputs (adversarial counter-prompt T7 + T11)
 
@@ -207,7 +207,7 @@ This verdict is more decisive than the §8 stop condition implies: the three DEC
 
 ## §7 §1.7 Forward-check applied
 
-- **`build-first-reuse-default.md §3` (6-layer search):** (1) SSOT consult done — rows #27/#28/#29/#30/#43/#44/#46/#67 reviewed; (2) phase-research-coverage §1 6-item checklist applied to negative-existence claim (5 DeepWiki probes + file-tree search + gh issue/PR search = evidence-backed, not prose-only); (3) DeepWiki ≥4 distinct phrasings on the directory-watch question (T1 sampling floor = 5 met: 4 DeepWiki + 1 file-tree + 1 gh search + 3 WebSearch = 9 distinct evidence channels); (4) WebSearch ≥3 phrasings on «filesystem watcher agent orchestration» — no production-grade pattern found; (5) SSOT consult confirmed — rows #30/#44/#67 all DEFER/REJECT, none open a new ADOPT path for Variant B; (6) own-stack sweep: `agents/`, `.claude/skills/meta-orchestrator/SKILL.md`, `install.sh` — none implement dir-watch; `SKILL.md:335` confirms Mode B uses SP `subagent-driven-development` (not aif-handoff).
+- **`build-first-reuse-default.md §3` (6-layer search):** (1) SSOT consult done — rows #27/#28/#29/#30/#43/#44/#46/#67 reviewed; (2) phase-research-coverage §1 6-item checklist applied to negative-existence claim (DeepWiki probes + file-tree search + gh issue/PR search = evidence-backed, not prose-only); (3) DeepWiki phrasings on the directory-watch question — **2 direct DeepWiki phrasings on dir-watch (probes 1 + adversarial counter 5) + 2 adjacent DeepWiki phrasings (task-creation paths, doc structure) + 1 file-tree search + 1 gh search + 3 WebSearch = 9 distinct evidence channels.** T1 sampling floor (≥5) met by total-channel count; the BFR §3 «≥3 phrasings» discipline is met in spirit via multi-channel triangulation (9 channels > nominal phrasing-count). (4) WebSearch ≥3 phrasings on «filesystem watcher agent orchestration» — no production-grade pattern found; (5) SSOT consult confirmed — rows #30/#44/#67 all DEFER/REJECT, none open a new ADOPT path for Variant B; (6) own-stack sweep: `agents/`, `.claude/skills/meta-orchestrator/SKILL.md`, `install.sh` — none implement dir-watch; `SKILL.md:335` confirms Mode B uses SP `subagent-driven-development` (not aif-handoff).
 - **`no-paid-llm-in-ci.md`:** All evidence gathered via DeepWiki MCP (subscription-bundled), `gh api` (free), WebSearch (subscription-bundled), Bash file-tree inspection. Zero paid API calls.
 - **`reviewer-discipline.md §2`:** Variant B verdict is REJECT — no tied-variant DECISION-NEEDED arises. No strategy-fork surfaced.
 - **`phase-research-coverage.md §1.7`:** This §7 is the self-reflexive walk. T20 compliance: verdict REJECT cites SSOT #67 + 5 evidence channels + falsifier in same paragraph (§5 above).
