@@ -127,3 +127,4 @@ When the **last stage** of a multi-stage umbrella merges, the merging session wr
 - [.github/pull_request_template.md](.github/pull_request_template.md) — PR checklist.
 - [packages/core/principles/08-prior-art-cited.test.ts](packages/core/principles/08-prior-art-cited.test.ts) — meta-test enforcing citations.
 - [agents/compliance-verifier.md](agents/compliance-verifier.md) — AI-agnostic sub-agent for §1.7 substance review; read in your active session before merging a discipline-bearing PR (Wave 8.1b, $0 LLM-in-CI).
+- **Parallel-session dispatch:** spawn isolated worktrees with `claude -w <name>` — the [`worktree-setup.sh`](.claude/hooks/worktree-setup.sh) `WorktreeCreate` hook auto-creates the worktree + `node_modules` symlinks (≤2-step pipeline, empirically accepted in [docs/meta-factory/research-patches/2026-05-29-dispatch-worktree-iphase-acceptance.md](docs/meta-factory/research-patches/2026-05-29-dispatch-worktree-iphase-acceptance.md)).
