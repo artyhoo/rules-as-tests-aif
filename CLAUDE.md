@@ -99,6 +99,27 @@ When working on an agreed scope (a defined umbrella, batch, or single-concern PR
 - The `work-without-stopping` user override applies to **clarification within the agreed scope**, not to expanding scope with new shared-state operations.
 - Exception: if maintainer explicitly invited the systemic fix in this session, proceed — but that's an explicit invitation, not autopilot.
 
+## Umbrella closure convention
+
+When the **last stage** of a multi-stage umbrella merges, the merging session writes a `done.md` file at:
+
+```text
+.claude/orchestrator-prompts/<umbrella>/done.md
+```
+
+**Schema (binding):**
+
+```text
+# <umbrella> — DONE
+- Final PR: #<num>
+- Closed: <YYYY-MM-DD>
+- Summary: <one-line>
+```
+
+**When to write:** at the last-stage PR merge only — not at intermediate stage merges. For single-stage umbrellas, write at the one-and-only merge.
+
+**Why this convention:** `priority-score.sh` completion-detection Layer C3 checks `done.md` existence per candidate and tags `status=DONE done_pr=<num> basis=done-md`. This is the load-bearing fallback layer (deterministic, zero gh rate-limit cost, covers the 83% NO-MATCH bucket that branch-prefix and jaccard cannot reach). ADAPT of Cline Memory Bank committed-markdown sub-pattern (SSOT #77 — ~85% problem-class match on storage format; diverges on update trigger: Cline = on-demand AI-signalled, ours = explicit at-merge convention).
+
 ## See also
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — full contributor-facing details (hook setup, bypass policy).
