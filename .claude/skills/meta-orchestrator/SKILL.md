@@ -33,13 +33,15 @@ allowed-tools:
 
 ## §0 Invocation
 
-**Slash command:** `/meta-orchestrator [<umbrella-name>]`
+**Slash command:** `/meta-orchestrator [<umbrella-name> | <N>]`
 
 **`disable-model-invocation: true`** — fires ONLY on explicit `/meta-orchestrator` invocation. The flag suppresses CC's default auto-load into subagent contexts when description matches a subagent's task — it is **not** a recursive-invocation guard (no such risk exists: subagent depth is hard-capped at 2 by CC's harness, per [sub-agents.md](https://code.claude.com/docs/en/sub-agents.md)).
 
-**With `<umbrella>` argument:** skill operates on the named umbrella — runs §1 plan-currency check for that umbrella, then §3 launch-table, then §4 meta-kickoff write, then offers §5 dispatch.
+**Arg routing (V1 binding per [research-patch §3](../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** regex check at invocation start — empty → V3 overview; `^[0-9]+$` → V4 top-N (N=0 routes to V3); else → named-umbrella dispatch (existing §1→§3→§4→§5). **Pre-invocation guard (V1 mandatory):** assert no umbrella basename is `^[0-9]+$` (otherwise `/meta-orchestrator 1` is ambiguous):
 
-**Without argument:** skill runs §1 global plan-currency check, then §2 cross-umbrella priority scoring, recommends a winner, and proceeds on confirmation.
+```!
+ls .claude/orchestrator-prompts/ 2>/dev/null | grep -qE '^[0-9]+$' && { echo "ERROR: umbrella named as integer; rename before /meta-orchestrator <N> can be unambiguous." >&2; exit 2; } || true
+```
 
 **Permissions model:** `allowed-tools` list above constrains the skill to read/git/gh/write — no arbitrary Bash. If a check requires a command outside the list, escalate to maintainer. **Caveat — Issue [#14956](https://github.com/anthropics/claude-code/issues/14956) (open as of 2026-05-28):** specific `Bash(<pattern>)` patterns in skill-scoped `allowed-tools` do not auto-approve matching commands in current CC versions. The load-bearing fallback is a `~/.claude/settings.json` `permissions.allow` entry `Bash(bash *helpers/*.sh *)` shipped in this repo's `.claude/settings.json` (per DN-1 Option C verdict, PR #262 §3). The frontmatter glob above remains for forward-compatibility when #14956 closes — remove the settings.json fallback line at that point.
 
@@ -149,6 +151,9 @@ This re-surface bounds the maintainer's effort (one question or one coin-flip, n
 
 **Rationalization to refuse explicitly:** «maintainer said pick → §2 step 4 is satisfied, I pick» is the `#strategy-decided-by-reviewer` anti-pattern in disguise (see reviewer-discipline.md §3). Naming §2 step 4 while violating its spirit does not make the violation OK.
 
+**Step 5 — emit per arg shape (V3/V4 binding per [research-patch §3](../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** fires only on no-arg/integer-arg (string-arg skips §2); Step 4 BYPASSED on V3, preserved on V4 N=1. Completion-filter = [`priority-score.sh`](helpers/priority-score.sh) tri-layer C1/C2/C3 (branch/jaccard/done.md, [#274](https://github.com/Yhooi2/rules-as-tests-aif/pull/274)) drops DONE BEFORE filter, never after.
+**V3** (no-arg / N=0) emits overview per [output-format.md §1A](references/output-format.md) in Wave-style grouping (ADAPT SSOT #68 OhMyOpencode `Wave N`) with `PARALLEL-OK ↔` / `↓` markers from kickoff §2 `Parallel-with`; STOP. **V4** (N ≥ 1) emits top-N after completion-filter — each = 3-line block per [output-format.md §4.1](references/output-format.md) + 1-liner, markers from kickoff §2 `Parallel-with`; `N=1` = old winner-recommend; `N > K` emits K + warning `Only K candidates available; you requested N.`
+
 **§7.14 gap closed:** cross-umbrella priority resolution (gap 2).
 
 ---
@@ -255,7 +260,7 @@ Read the kickoff's sub-wave decomposition (§2 or §3 table). For each sub-wave,
 | Mode | **Mode A** (inline Opus) if execution-build single OR wiring OR R-phase single; **Mode B × N worktrees** if execution-parallel ≥2 sub-waves in the same stage (per parallel-subwave-isolation.md §1); **Queue mode (sequential)** if R-phase-only or maintainer-specified sequential |
 | SDD? | Yes if execution-build with ≥3 independent tasks (SSOT #64 mechanism); No for wiring / single-task R-phase / borderline (overhead > value). Threshold rationale: 1-2 tasks → SDD review overhead roughly equals catch-rate; 3+ → net positive |
 | Stage | 1 / 2 / 3 — from kickoff dependency declaration (what must land before this sub-wave starts) |
-| Parallel sibling | which other sub-wave runs concurrently (same stage, compatible scope) |
+| Parallel sibling | which other sub-wave runs concurrently — **V2 binding (research-patch §3, ADAPT SSOT #68 OhMyOpencode `Wave N`):** populated from each sub-wave's kickoff §2 `Parallel-with` column. Column omitted OR sub-waves disagree (A claims B; B does not claim A) → sequential default + ATTN. Rendered in [output-format.md §1A](references/output-format.md) Wave-style grouping (V3 no-arg overview). |
 | Volume | small / medium / large — NOT calendar time; based on estimated LOC + files changed. S=<100 LOC, M=100-500 LOC, L=>500 LOC |
 
 **Step 3 — emit table:**

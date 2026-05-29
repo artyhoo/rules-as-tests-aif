@@ -52,6 +52,63 @@ The three layers (`## Dependency graph` / `## Action queue` / `### Stage N` bloc
 
 ---
 
+## §1A No-arg overview format
+
+> **Origin:** V3 binding per [research-patch §3](../../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md), Stage 3 I-phase. Sibling format to §1 — coexists, does not replace.
+
+Emitted by `/meta-orchestrator` (no arg) OR `/meta-orchestrator 0`. Renders ALL open umbrellas surviving §2.5 completion-filter (DONE entries dropped by [`priority-score.sh`](../helpers/priority-score.sh) tri-layer classifier — C1 branch / C2 jaccard / C3 done.md). Wave-style grouping ADAPTs SSOT #68 (OhMyOpencode Atlas/Prometheus `## Parallel Execution Graph` `Wave N`). Reuses **all 6** principle-18 substrings (`## Dependency graph` / `↓` / `## Action queue` / `Paste в новый CC tab` / `Можно параллельно с` / `### Stage`) — **zero churn** on [`packages/core/principles/18-meta-orchestrator-output-format.test.ts`](../../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts) (whole-file scope passes; §10 SKILL.md scope unchanged).
+
+**Skeleton (binding, ≤30 lines body):**
+
+```text
+═══════════════════════════════════════════════════════════════
+PROJECT OVERVIEW — all open umbrellas (<YYYY-MM-DD>)
+═══════════════════════════════════════════════════════════════
+
+## Dependency graph
+
+Wave 1 — СЕЙЧАС (parallel-OK):
+├── <umbrella-A>   (Stage <N>, ~<cost>, <Mode>)   PARALLEL-OK ↔
+└── <umbrella-B>   (Stage <N>, ~<cost>, <Mode>)
+                                  ↓
+Wave 2 — после мержа Wave 1:
+└── <umbrella-C>   (Stage <N>, ~<cost>, <Mode>)
+
+## Action queue — что ты делаешь дальше
+
+| # | Paste в новый CC tab | Когда | Ждёшь | Можно параллельно с |
+|---|----------------------|-------|-------|---------------------|
+| 1 | /meta-orchestrator <umbrella-A> | Сейчас | — | <umbrella-B> |
+| 2 | /meta-orchestrator <umbrella-B> | Сейчас | — | <umbrella-A> |
+| 3 | /meta-orchestrator <umbrella-C> | После Wave 1 | Wave 1 merged | — |
+
+Всего открытых umbrellas: <K> (после §2.5 completion-filter; DONE-recently скрыты).
+
+### Stage — overview only
+(no per-stage 1-liner; this overview MUST be drilled-down via /meta-orchestrator <umbrella> for dispatch)
+═══════════════════════════════════════════════════════════════
+```
+
+**Wave-grouping rules:**
+
+- **Wave 1 — СЕЙЧАС:** candidates whose dependencies are already merged (free to dispatch now).
+- **Wave N (N ≥ 2):** candidates dependent on Wave N-1 merges; ordered by Wave label.
+- **Intra-wave parallel/sequential markers:** derived from each candidate's kickoff §2 `Parallel-with` column (V2 binding). Pairwise rule — if A claims B AND B claims A → emit `PARALLEL-OK ↔` between them; if either side omits the column or they disagree → treat as sequential `↓` + emit ATTN.
+
+**Coexistence with §1 (dispatch path):**
+
+- §1 fires on `/meta-orchestrator <umbrella-name>` (string arg) — proceeds to §3/§4/§5 dispatch.
+- §1A fires on `/meta-orchestrator` (no arg) OR `/meta-orchestrator 0` — emits overview, STOPS.
+- Heading prefixes differ verbatim (`EXECUTION PLAN — <umbrella>` vs `PROJECT OVERVIEW — all open umbrellas`) — no collision; §0 routing in [`../SKILL.md`](../SKILL.md) branches BEFORE format selection (no mixed renderer).
+
+**Falsifiers:**
+
+- Wrong if principle-18 test fails after §1A lands — run `npx vitest run packages/core/principles/18-meta-orchestrator-output-format.test.ts` BEFORE push; expect green (whole-file scope sees the 6 substrings from §1A's skeleton even if §1's example were stripped, but §1's example is preserved → both surfaces pass).
+- Wrong if dispatch path mistakenly fires §1A (cross-mode rendering) — §0 routing's regex check decides; format selection follows routing, never the reverse.
+- Wrong if `### Stage — overview only` placeholder is interpreted by a downstream tool as a real Stage block — placeholder text explicitly disambiguates («overview only; drilled-down via /meta-orchestrator <umbrella>»).
+
+---
+
 ## §2 Dependency graph
 
 ADAPTed from Argo Workflows' CLI tree (F.1 §A.1 Candidate 3). Prospective (shows WILL run), not retrospective (which is what Argo shows during execution).
