@@ -190,7 +190,7 @@ Helper iterates `priority-score.sh` candidate set; per candidate routes to class
 
 **Step 4 — L5 assign-skill:**
 
-```!
+```bash
 bash "${CLAUDE_SKILL_DIR}/helpers/assign-skill.sh" "<TYPE-from-Step-3>" "<one-line description from kickoff title>" 2>/dev/null
 ```
 
@@ -362,7 +362,7 @@ When Mode B worktrees are unavailable (e.g. filesystem constraints per parallel-
 
 **Step 1 — inject merge state before each stage transition:**
 
-```!
+```bash
 gh pr list --search "is:merged head:<stage-N-branch> base:staging" --json number,title,mergedAt,headRefName --limit 10 2>/dev/null || echo "gh unavailable — cannot verify stage gate"
 ```
 
