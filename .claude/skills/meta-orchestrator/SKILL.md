@@ -520,7 +520,7 @@ The launch-table-generator will detect sub-waves from the kickoff (A, B, C, D). 
 
    b. **Delta arrays (sibling-helper pattern, DN-2 B verdict 2026-05-27):** invoke `delta-write-from-state.sh` to write the two arrays, THEN invoke `update-delta.sh` for metadata. Concrete shape (`<current_ids_json_array>` and `<resolved_ids_json_array>` are angle-bracket placeholders that the rendering AI substitutes with real JSON-array literals derived from §2.5 Step 8/9; the syntax is correct only after substitution):
 
-      ```!
+      ```bash
       bash ${CLAUDE_SKILL_DIR}/helpers/delta-write-from-state.sh "${umbrella:-no-arg}" '<current_ids_json_array>' '<resolved_ids_json_array>'
       bash ${CLAUDE_SKILL_DIR}/helpers/update-delta.sh "${umbrella:-no-arg}" "<outcome-one-liner>"
       ```
