@@ -340,7 +340,7 @@ without user + explicit maintainer decision to accept Reviewer conflict or disab
 
 - **`doc-authority-hierarchy.md §3`:** Header carries Status + Authoritative-for + NOT authoritative-for. ✓
 
-- **Admission gate §2.4 re-verified:** `gh api repos/lee-to/aif-handoff/commits?since=2026-04-29` returned commits; all are from PR #128 (`51ce96a` merge commit, `feat(runtime): support proxy env across adapters`). PR #128 files: `packages/runtime/` only — NOT `packages/mcp/` or `apps/coordinator/`. PR #127 files: `packages/runtime/` only. Gate §2.4 CLEAR — no MCP or coordinator surface changes in last 30 days.
+- **Admission gate §2.4 re-verified:** `gh api repos/lee-to/aif-handoff/commits?since=2026-04-29` returned commits from two runtime-adapter PRs both in the 30-day window: **PR #127** (`feat(runtime): per-profile environment overrides for Claude adapter`, merged 2026-05-15T09:05:00Z, merge SHA `e1ffa70`, source commit `b99807f`) + **PR #128** (`feat(runtime): support proxy env across adapters`, merged 2026-05-26T08:07:12Z, merge SHA `51ce96a`). Both PRs touch `packages/runtime/` only — NOT `packages/mcp/` or `apps/coordinator/`. Gate §2.4 CLEAR — no MCP or coordinator surface changes in last 30 days.
 
 - **T19 cold-QA note:** This patch should be read by an independent reviewer before PR open, per T19 and kickoff §9.3. The patch is completed; orchestrator + maintainer serve as reviewers per kickoff §9.3 note. The worker (this session) does not self-approve.
 
@@ -389,5 +389,5 @@ Evidence:
   - [Probe 3 — WebSocket events](https://deepwiki.com/search/what-websocket-events-does-aif_f067db8f-5f44-4829-9f6a-1eade44f8bd6)
   - [Probe 4 — autonomy gating](https://deepwiki.com/search/how-is-autonomy-gated-in-aifha_02cb5b3a-035a-4b56-ba4d-6246bbfe32a3)
   - [Probe 5 — headless operation](https://deepwiki.com/search/can-aifhandoff-be-operated-hea_655e4c06-f2b1-4cba-be69-f6370ddc8539)
-  - [Probe 6 (T7) — accept_existing_plan](https://deepwiki.com/search/is-there-a-way-to-disable-the_ae7472a9-9169-4fbd-a28b-3b7a097ff85d)
+  - [Probe 6 (T7) — accept_existing_plan](https://deepwiki.com/search/is-there-a-way-to-disable-the_ae7072a9-9169-4fbd-a28b-3b7a097ff85d)
   - [Probe 7 (T7) — minimum stub body](https://deepwiki.com/search/if-handoffcreatetask-rejects-a_4f38e976-6a57-4dc6-a139-6e765b4b931f)
