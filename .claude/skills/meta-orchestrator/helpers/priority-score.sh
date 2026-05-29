@@ -6,7 +6,33 @@
 # Outputs per-candidate data lines for SKILL.md body to score and rank.
 # Format: <name> type=<type> kickoff=<exists|missing|synthetic> stage=<1|2|?> volume=<S|M|L|?>
 #
-# SYNTHETIC ENTRIES (L1 extension — Stage 2 of meta-orchestrator-planner-completeness):
+# COMPLETION-DETECTION LAYERS (meta-orch-no-arg-overview Stage 2):
+# For each real kickoff entry, a tri-layer classifier determines if the umbrella is DONE.
+# Layer evaluation order: C1 (branch) → C2 (jaccard) → C3 (done.md). First-match-wins.
+#
+#   completion Layer C1 (branch-prefix match, ~13% empirical coverage per §1.5c):
+#     Strip conventional branch prefix from merged-PR headRefNames; exact-match against
+#     umbrella name. Covers single-stage umbrellas with clean `feat/<name>` branches.
+#
+#   completion Layer C2 (jaccard PR-title overlap, ~4% additional per §4 estimate):
+#     REUSE dup-detect.sh jaccard logic (sub-shell call + output parsing). Any
+#     POTENTIAL_DUPE: line from dup-detect.sh --all implies completion candidate for
+#     the named umbrella. Uses MO_JACCARD_THRESHOLD (default 30%) from dup-detect.sh.
+#     SSOT: helpers/dup-detect.sh:62 — zero new LOC for the jaccard algorithm itself.
+#
+#   completion Layer C3 (done.md file, load-bearing fallback — ADAPT Cline SSOT #77):
+#     Check ${PROMPTS_DIR}/<umbrella>/done.md existence. If present, parse
+#     "Final PR: #<num>" line and tag status=DONE done_pr=<num> basis=done-md.
+#     ADAPT Cline Memory Bank committed-markdown sub-pattern (~85% problem-class match
+#     on storage format; diverges on update trigger: Cline = on-demand AI-signalled,
+#     ours = explicit convention at last-stage umbrella merge).
+#
+# NOTE on "L1 extension" terminology below: the "L1 extension" label in the SYNTHETIC
+# ENTRIES section refers to Stage 2 of the meta-orchestrator-planner-completeness umbrella
+# (8 synthetic surface types). It is UNRELATED to the completion-detection layers C1/C2/C3
+# above. Do not conflate.
+#
+# SYNTHETIC ENTRIES (synthetic-candidate extension — Stage 2 of meta-orchestrator-planner-completeness):
 # Beyond real kickoff.md discovery, this helper emits "synthetic" candidate entries for
 # 8 additional surface types. Synthetic namespace: <umbrella>-<reason> or <category>-<id>
 # — chosen to never collide with a real kickoff.md-derived <name> entry (which is a plain
@@ -24,6 +50,7 @@
 #
 # Seams for testing:
 #   MO_GH_BIN        — override the `gh` binary used for stale-PR detection (default: gh)
+#   MO_DUP_DETECT_BIN — override the dup-detect.sh binary used for C2 jaccard (default: auto-resolve from helpers/)
 #   MO_MEM_DIR       — override the memory directory (default: ~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory)
 #   MO_WAVE_PLAN     — override the wave-sequencing-plan.md path (default: <REPO_ROOT>/docs/meta-factory/wave-sequencing-plan.md)
 #   MO_OPEN_QUESTIONS — override the open-questions.md path (default: <REPO_ROOT>/docs/meta-factory/open-questions.md)
@@ -44,6 +71,9 @@ REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 PROMPTS_DIR="${REPO_ROOT}/.claude/orchestrator-prompts"
 
 MO_GH_BIN="${MO_GH_BIN:-gh}"
+# C2 jaccard seam: override dup-detect.sh path for testing (completion-detection Layer C2).
+_DEFAULT_DUP_DETECT="${REPO_ROOT}/.claude/skills/meta-orchestrator/helpers/dup-detect.sh"
+MO_DUP_DETECT_BIN="${MO_DUP_DETECT_BIN:-${_DEFAULT_DUP_DETECT}}"
 MO_MEM_DIR="${MO_MEM_DIR:-${HOME}/.claude/projects/-Users-art-code-rules-as-tests-aif/memory}"
 MO_WAVE_PLAN="${MO_WAVE_PLAN:-${REPO_ROOT}/docs/meta-factory/wave-sequencing-plan.md}"
 MO_OPEN_QUESTIONS="${MO_OPEN_QUESTIONS:-${REPO_ROOT}/docs/meta-factory/open-questions.md}"
@@ -57,15 +87,29 @@ if [[ ! -d "${PROMPTS_DIR}" ]]; then
   exit 0
 fi
 
-# ── BRANCH-MATCHER: fetch merged-PR headRefNames once (Stage 2 of meta-orch-no-arg-overview) ─
+# ── completion Layer C1: fetch merged-PR headRefNames once (BRANCH-MATCHER) ──────────────────
+# completion-detection Layer C1 (branch-prefix match, meta-orch-no-arg-overview Stage 2-extend).
 # Counters T-NoArg-A `#open-prs-zero-equals-no-work`: open_prs=0 alone is not a
 # completion signal. A merged PR with headRefName `feat/<umbrella>` (or fix/chore/
 # docs/research prefix) signals umbrella DONE via exact-match after prefix strip.
 # Multi-stage umbrellas use `feat/<umbrella>-s<N>` branches — these stay candidates
 # by convention (no false DONE on partial-progress, matching kickoff §3 self-app test).
 # Counters T-NoArg-B: does NOT grep '#<num>' from kickoff (kickoff written before PRs).
-# Counters T-NoArg-C: does NOT rely on PR-title word overlap.
+# Counters T-NoArg-C: does NOT rely on PR-title word overlap (that is Layer C2's job).
 merged_prs_json="$(${MO_GH_BIN} pr list --state merged --json number,headRefName --limit 100 2>/dev/null || echo '[]')"
+
+# ── completion Layer C2: dup-detect.sh jaccard pre-fetch (REUSE, sub-shell) ─────────────────
+# completion-detection Layer C2 (jaccard title overlap, meta-orch-no-arg-overview Stage 2-extend).
+# REUSE: calls dup-detect.sh --all (sub-shell approach — option (a); preserves dup-detect.sh
+# callers unchanged, avoids modifying a Stage-4-owned file per §6 Option B).
+# Parse output: "POTENTIAL_DUPE: <umbrella> may overlap with merged #<num> ..." lines only.
+# Populated once; per-umbrella lookup is a grep against this variable.
+# If dup-detect.sh unavailable or gh fails, falls back to empty string (C2 skipped; C3 still runs).
+_dup_detect_all_output=""
+if [[ -x "${MO_DUP_DETECT_BIN}" ]]; then
+  _dup_detect_all_output="$(REPO_ROOT="${REPO_ROOT}" MO_GH_BIN="${MO_GH_BIN}" \
+    "${MO_DUP_DETECT_BIN}" --all 2>/dev/null || true)"
+fi
 
 # ── REAL KICKOFF ENTRIES (existing behaviour — T17 preserve) ─────────────────
 
@@ -107,27 +151,60 @@ for dir in "${PROMPTS_DIR}"/*/; do
   open_prs="$(${MO_GH_BIN} pr list --search "is:open head:${name}" --json number --limit 5 2>/dev/null \
     | grep -c '"number"' || true)"
 
-  # Branch-matcher (consumes merged_prs_json fetched above): exact-match umbrella
-  # name against merged-PR headRefName after stripping conventional branch prefix.
-  # Skipped silently if jq absent or merged_prs_json is empty.
+  # ── Completion-detection tri-layer classifier (C1 → C2 → C3, first-match-wins) ──
   done_pr=""
-  if command -v jq &>/dev/null && [[ -n "${merged_prs_json}" && "${merged_prs_json}" != "[]" ]]; then
+  done_basis=""
+
+  # completion Layer C1 — branch-prefix match (consumes merged_prs_json from above).
+  # Exact-match umbrella name against merged-PR headRefName after stripping conventional
+  # branch prefix. Skipped silently if jq absent or merged_prs_json is empty.
+  if [[ -z "${done_pr}" ]] && command -v jq &>/dev/null \
+      && [[ -n "${merged_prs_json}" && "${merged_prs_json}" != "[]" ]]; then
     done_pr="$(echo "${merged_prs_json}" \
       | jq -r --arg name "${name}" \
           '.[] | select((.headRefName | sub("^(feat|fix|chore|docs|research)/"; "")) == $name) | .number' \
       2>/dev/null | head -n1 || true)"
+    [[ -n "${done_pr}" ]] && done_basis="branch"
   fi
 
+  # completion Layer C2 — jaccard PR-title overlap (REUSE dup-detect.sh sub-shell output).
+  # Consumes _dup_detect_all_output pre-fetched above. Parses "POTENTIAL_DUPE: <umbrella> ..."
+  # lines; extracts PR number from "merged #<num>" pattern. First match wins per umbrella.
+  if [[ -z "${done_pr}" && -n "${_dup_detect_all_output}" ]]; then
+    _c2_line="$(printf '%s\n' "${_dup_detect_all_output}" \
+      | grep "^POTENTIAL_DUPE: ${name} " | head -n1 || true)"
+    if [[ -n "${_c2_line}" ]]; then
+      done_pr="$(printf '%s' "${_c2_line}" | grep -oE 'merged #[0-9]+' | grep -oE '[0-9]+' | head -n1 || true)"
+      # Extract score for output annotation (e.g. "score=42%")
+      _c2_score="$(printf '%s' "${_c2_line}" | grep -oE 'score=[0-9]+%' | head -n1 || true)"
+      [[ -n "${done_pr}" ]] && done_basis="jaccard${_c2_score:+ ${_c2_score}}"
+    fi
+  fi
+
+  # completion Layer C3 — committed done.md (ADAPT Cline SSOT #77 committed-markdown sub-pattern).
+  # Check <umbrella>/done.md existence; parse "Final PR: #<num>" line.
+  # Load-bearing fallback: deterministic (file-presence), zero gh rate-limit cost.
+  if [[ -z "${done_pr}" && -f "${dir}done.md" ]]; then
+    done_pr="$(grep -m1 '^- Final PR: #' "${dir}done.md" 2>/dev/null \
+      | grep -oE '[0-9]+' | head -n1 || true)"
+    [[ -n "${done_pr}" ]] && done_basis="done-md"
+  fi
+
+  # Emit candidate line with optional DONE tag (basis indicates which layer matched).
   if [[ -n "${done_pr}" ]]; then
-    echo "${name} type=${wave_type} kickoff=exists volume=${volume} open_prs=${open_prs} loc=${loc} status=DONE done_pr=${done_pr}"
+    echo "${name} type=${wave_type} kickoff=exists volume=${volume} open_prs=${open_prs} loc=${loc} status=DONE done_pr=${done_pr} basis=${done_basis}"
   else
     echo "${name} type=${wave_type} kickoff=exists volume=${volume} open_prs=${open_prs} loc=${loc}"
   fi
 done
 
-# ── SYNTHETIC ENTRIES (L1 extension — non-kickoff discovery surfaces) ────────
+# ── SYNTHETIC ENTRIES (synthetic-candidate extension — non-kickoff discovery surfaces) ──────
+# NOTE: "synthetic-candidate extension" label replaces the earlier "L1 extension" comment to
+# avoid confusion with completion-detection layers C1/C2/C3 introduced above. The underlying
+# logic is unchanged — this is the same 8-surface synthetic discovery from Stage 2 of the
+# meta-orchestrator-planner-completeness umbrella.
 
-echo "=== priority-score: synthetic candidates (L1 extension) ==="
+echo "=== priority-score: synthetic candidates (synthetic-candidate extension) ==="
 
 # (a) cold-review-fixes.md — parked handoff docs that need a fresh session to apply
 find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'cold-review-fixes.md' 2>/dev/null \
