@@ -40,7 +40,7 @@ allowed-tools:
 **Arg routing (V1 binding per [research-patch §3](../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** regex check at invocation start — empty → V3 overview; `^[0-9]+$` → V4 top-N (N=0 routes to V3); else → named-umbrella dispatch (existing §1→§3→§4→§5). **Pre-invocation guard (V1 mandatory):** assert no umbrella basename is `^[0-9]+$` (otherwise `/meta-orchestrator 1` is ambiguous):
 
 ```!
-ls .claude/orchestrator-prompts/ 2>/dev/null | grep -qE '^[0-9]+$' && { echo "ERROR: umbrella named as integer; rename before /meta-orchestrator <N> can be unambiguous." >&2; exit 2; } || true
+bash "${CLAUDE_SKILL_DIR}/helpers/integer-name-guard.sh" .claude/orchestrator-prompts
 ```
 
 **Permissions model:** `allowed-tools` list above constrains the skill to read/git/gh/write — no arbitrary Bash. If a check requires a command outside the list, escalate to maintainer. **Caveat — Issue [#14956](https://github.com/anthropics/claude-code/issues/14956) (open as of 2026-05-28):** specific `Bash(<pattern>)` patterns in skill-scoped `allowed-tools` do not auto-approve matching commands in current CC versions. The load-bearing fallback is a `~/.claude/settings.json` `permissions.allow` entry `Bash(bash *helpers/*.sh *)` shipped in this repo's `.claude/settings.json` (per DN-1 Option C verdict, PR #262 §3). The frontmatter glob above remains for forward-compatibility when #14956 closes — remove the settings.json fallback line at that point.
