@@ -29,7 +29,10 @@ HOOK_SRC="$REPO_ROOT/.claude/hooks/runtime-bridge-dispatch.sh"
 # Consumer-config defaults (override via env before running).
 AIF_URL="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
 SHELL_RC="${SHELL_RC:-$HOME/.zshrc}"
-CLAUDE_HOOKS_DIR="${CLAUDE_HOOKS_DIR:-.claude/hooks}"
+# Anchor to REPO_ROOT (the dir containing packages/runtime-bridge/), NOT the
+# shell's cwd — so the hook lands in the right .claude/hooks/ regardless of where
+# the script is invoked from. Override only if your .claude/ lives elsewhere.
+CLAUDE_HOOKS_DIR="${CLAUDE_HOOKS_DIR:-$REPO_ROOT/.claude/hooks}"
 
 say()  { printf '%s\n' "$*"; }
 warn() { printf '[runtime-bridge] %s\n' "$*" >&2; }
@@ -70,13 +73,18 @@ case "${ANSWER}" in
     read -r URL_IN || URL_IN=""
     URL_OUT="${URL_IN:-${AIF_URL}}"
 
-    {
-      printf '\n# runtime-bridge (added by setup-runtime-bridge.sh)\n'
-      printf 'export RUNTIME_BRIDGE_MODE=auto\n'
-      [[ -n "${PROJECT_ID}" ]] && printf 'export RUNTIME_BRIDGE_AIF_PROJECT_ID=%s\n' "${PROJECT_ID}"
-      printf 'export RUNTIME_BRIDGE_AIF_URL=%s\n' "${URL_OUT}"
-    } >> "${SHELL_RC}"
-    say "Wrote RUNTIME_BRIDGE_* env to ${SHELL_RC} (re-source it or open a new shell)."
+    # Idempotency guard: don't append a second RUNTIME_BRIDGE_* block on re-run.
+    if grep -q 'runtime-bridge (added by setup-runtime-bridge.sh)' "${SHELL_RC}" 2>/dev/null; then
+      warn "RUNTIME_BRIDGE_* env already present in ${SHELL_RC} — leaving it; edit by hand to change values."
+    else
+      {
+        printf '\n# runtime-bridge (added by setup-runtime-bridge.sh)\n'
+        printf 'export RUNTIME_BRIDGE_MODE=auto\n'
+        [[ -n "${PROJECT_ID}" ]] && printf 'export RUNTIME_BRIDGE_AIF_PROJECT_ID=%s\n' "${PROJECT_ID}"
+        printf 'export RUNTIME_BRIDGE_AIF_URL=%s\n' "${URL_OUT}"
+      } >> "${SHELL_RC}"
+      say "Wrote RUNTIME_BRIDGE_* env to ${SHELL_RC} (re-source it or open a new shell)."
+    fi
 
     # Hook delivery — install.sh does NOT ship this hook, so copy it in.
     if [[ -f "${HOOK_SRC}" ]]; then
@@ -90,17 +98,17 @@ case "${ANSWER}" in
 
     say ""
     say "Final manual step (NC-3 — settings.json is agent-protected, you paste it):"
-    say "add this PostToolUse entry to your .claude/settings.json \"hooks\" object:"
+    say "APPEND this single matcher object to the EXISTING \"PostToolUse\" array under"
+    say "\"hooks\" in your .claude/settings.json (create the array only if absent —"
+    say "do NOT replace it, or you'll drop your other PostToolUse hooks):"
     cat <<'JSON'
 
-  "PostToolUse": [
-    {
-      "matcher": "Write|Edit|MultiEdit",
-      "hooks": [
-        { "type": "command", "command": ".claude/hooks/runtime-bridge-dispatch.sh" }
-      ]
-    }
-  ]
+  {
+    "matcher": "Write|Edit|MultiEdit",
+    "hooks": [
+      { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/runtime-bridge-dispatch.sh\"" }
+    ]
+  }
 JSON
     say ""
     say "Done. New meta-launch kickoffs auto-dispatch to aif-handoff; anything else"

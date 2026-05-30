@@ -8,6 +8,7 @@ The runtime bridge lets `/meta-orchestrator` kickoffs dispatch cross-session wor
 ## Quick start
 
 ```bash
+# run from your project root
 bash packages/runtime-bridge/scripts/setup-runtime-bridge.sh
 ```
 
@@ -58,7 +59,7 @@ The bridge is fully optional and degrades gracefully:
 
 ## Auto-review escalation (non-blocking)
 
-With `AGENT_AUTO_REVIEW_STRATEGY=closure_first`, aif-handoff runs its own review loop on each dispatched task. When that loop cannot converge (unresolved blocking findings, or `maxReviewIterations` reached), the task is **not** left hanging in a review state — it moves to **`done`** with `manualReviewRequired: true` set, and the pipeline continues. This is **non-blocking** by design (verified in `packages/agent/src/coordinator.ts` — *"Auto review gate stopped at manual review handoff"*, transition `to: "done"`; and `packages/shared/src/stateMachine.ts`).
+With `AGENT_AUTO_REVIEW_STRATEGY=closure_first`, aif-handoff runs its own review loop on each dispatched task. When that loop cannot converge (unresolved blocking findings, or `maxReviewIterations` reached), the task is **not** left hanging in a review state — it moves to **`done`** with `manualReviewRequired: true` set, and the pipeline continues. This is **non-blocking** by design (verified in `packages/agent/src/coordinator.ts:403` `if (outcome?.status === "manual_review_required")` → `:416` `manualReviewRequired: true` → `:432` log *"Auto review gate stopped at manual review handoff"*, transition `to: "done"`; field defined in `packages/shared/src/stateMachine.ts`).
 
 So strategy decisions never get silently picked by the runtime — they surface as a flag for you to review in batch:
 
