@@ -172,13 +172,13 @@ else
 fi
 ```
 
-**Step 2 — L3 dup-detect:**
+**Step 2 — L3 dup-detect + in-flight ledger** (dup-detect catches *merged* dupes; inflight-check catches *live* work — open PR / un-merged branch carrying the slug, e.g. a parallel session dispatching the same sub-wave before it merges):
 
 ```!
-bash "${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh" "${umbrella:-}" 2>/dev/null
+bash "${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh" "${umbrella:-}" 2>/dev/null; bash "${CLAUDE_SKILL_DIR}/helpers/inflight-check.sh" "${umbrella:-}" 2>/dev/null
 ```
 
-`POTENTIAL_DUPE:` → surface as confirmation-needed per [reviewer-discipline.md §2](../../rules/reviewer-discipline.md). `MISSING:` → drift item.
+`POTENTIAL_DUPE:`/`MISSING:` (dup-detect) → surface per [reviewer-discipline.md §2](../../rules/reviewer-discipline.md). `INFLIGHT:` → **confirmation-needed before dispatch** (possible parallel-session collision); `CLEAR:` → proceed.
 
 **Step 3 — L4 classify each surviving candidate from Step 2:**
 
