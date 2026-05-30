@@ -304,6 +304,112 @@ describe('dup-detect.sh — Test 8: MO_JACCARD_THRESHOLD seam', () => {
   });
 });
 
+// ── Signal 3: deliverable-already-on-staging ─────────────────────────────────
+//
+// These tests need a REAL git ref to ls-tree, so they init a throwaway git repo
+// at tmpRoot and commit a fixture research-patch. GIT_DIR is intentionally NOT
+// nulled here (the other tests null it to block git ops; Signal 3 needs git).
+
+/** Init a git repo at tmpRoot and commit the given files (path→content). */
+function initGitRepo(files: Record<string, string>): void {
+  const run = (args: string[]) =>
+    execFileSync('git', args, { cwd: tmpRoot, encoding: 'utf8', env: { ...process.env } });
+  run(['init', '-q']);
+  run(['config', 'user.email', 'test@example.com']);
+  run(['config', 'user.name', 'Test']);
+  for (const [rel, content] of Object.entries(files)) {
+    write(join(tmpRoot, rel), content);
+  }
+  run(['add', '-A']);
+  run(['commit', '-q', '-m', 'fixture']);
+}
+
+/** Run dup-detect.sh against a real git ref (GIT_DIR left intact). */
+function runScriptS3(umbrella: string, extraEnv: Record<string, string> = {}): string {
+  try {
+    return execFileSync('bash', [SCRIPT, umbrella], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        REPO_ROOT: tmpRoot,
+        MO_GH_BIN: mockGhBin,
+        MO_PR_WINDOW_DAYS: '9999',
+        MO_DELIVERABLE_REF: 'HEAD',
+        ...extraEnv,
+      },
+    }).trim();
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string };
+    return ((e.stdout ?? '') + (e.stderr ?? '')).trim();
+  }
+}
+
+describe('dup-detect.sh — Test 9: POS deliverable-on-staging (dogfood)', () => {
+  it('umbrella whose >=2 slug-tokens match a committed research-patch → basis=deliverable-on-staging', () => {
+    // Commit the deliverable on the ref (mirrors the real 2026-05-25 mutation miss).
+    initGitRepo({
+      'docs/meta-factory/research-patches/2026-05-25-mutation-discipline-audit.md':
+        '# mutation discipline audit\n\nfindings\n',
+    });
+    // Kickoff is on the working tree only (uncommitted draft) and neither cites a
+    // PR# nor shares title tokens with the default mock PR (#205 "F.3 UX implementation").
+    write(
+      join(promptsDir, 'mutation-discipline-umbrella', 'kickoff.md'),
+      '# Kickoff\n\n## § scope\n\n- close the discipline-theatre gap\n',
+    );
+    const out = runScriptS3('mutation-discipline-umbrella');
+    expect(out).toContain('POTENTIAL_DUPE:');
+    expect(out).toContain('basis=deliverable-on-staging');
+    expect(out).toContain('2026-05-25-mutation-discipline-audit.md');
+    expect(out).not.toContain('OK:');
+  });
+
+  it('strips -meta-launch suffix before tokenising (same deliverable still matches)', () => {
+    initGitRepo({
+      'docs/meta-factory/research-patches/2026-05-25-mutation-discipline-audit.md':
+        '# mutation discipline audit\n',
+    });
+    write(
+      join(promptsDir, 'mutation-discipline-umbrella-meta-launch', 'kickoff.md'),
+      '# Kickoff\n\n## § scope\n\n- meta launch wrapper\n',
+    );
+    const out = runScriptS3('mutation-discipline-umbrella-meta-launch');
+    expect(out).toContain('basis=deliverable-on-staging');
+  });
+});
+
+describe('dup-detect.sh — Test 10: NEG deliverable-on-staging (paired with Test 9)', () => {
+  it('umbrella with no matching committed deliverable → no deliverable-on-staging signal', () => {
+    // Same committed file, but the umbrella shares <2 significant tokens with it.
+    initGitRepo({
+      'docs/meta-factory/research-patches/2026-05-25-mutation-discipline-audit.md':
+        '# mutation discipline audit\n',
+    });
+    write(
+      join(promptsDir, 'widget-rendering-umbrella', 'kickoff.md'),
+      '# Kickoff\n\n## § scope\n\n- unrelated widget rendering work\n',
+    );
+    const out = runScriptS3('widget-rendering-umbrella');
+    expect(out).not.toContain('deliverable-on-staging');
+    // No other signal fires either (no #205 xref, no title-token overlap) → OK.
+    expect(out).toContain('OK:');
+  });
+
+  it('single shared token is below the >=2 floor → no deliverable-on-staging signal', () => {
+    // Filename shares ONLY "mutation" with the umbrella (discipline absent) → 1 token.
+    initGitRepo({
+      'docs/meta-factory/research-patches/2026-05-12-wave-9-2-stryker-mutation-audit.md':
+        '# stryker mutation audit\n',
+    });
+    write(
+      join(promptsDir, 'mutation-discipline-umbrella', 'kickoff.md'),
+      '# Kickoff\n\n## § scope\n\n- discipline gap\n',
+    );
+    const out = runScriptS3('mutation-discipline-umbrella');
+    expect(out).not.toContain('deliverable-on-staging');
+  });
+});
+
 // ── T15 recursive self-application + script structure check ──────────────────
 
 describe('dup-detect.sh — T15 self-application documentation', () => {
@@ -314,14 +420,17 @@ describe('dup-detect.sh — T15 self-application documentation', () => {
     expect(src).toContain('MO_GH_BIN');
     expect(src).toContain('MO_PR_WINDOW_DAYS');
     expect(src).toContain('MO_JACCARD_THRESHOLD');
+    expect(src).toContain('MO_DELIVERABLE_REF');
+    expect(src).toContain('MO_DELIVERABLE_DIRS');
     expect(src).toContain('REPO_ROOT');
     // Dual-implementation marker
     expect(src).toContain('@cc-only-rationale');
     // Both output-format strings
     expect(src).toContain('POTENTIAL_DUPE:');
     expect(src).toContain('OK:');
-    // Both signal labels
+    // All three signal labels
     expect(src).toContain('basis=xref');
     expect(src).toContain('basis=jaccard');
+    expect(src).toContain('basis=deliverable-on-staging');
   });
 });
