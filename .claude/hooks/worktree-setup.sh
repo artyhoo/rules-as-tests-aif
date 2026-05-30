@@ -23,9 +23,13 @@
 #   meta-kickoff.template.md §4a workspace-optimisation pattern (preserved here
 #   so the hook can replace that prompt block transparently).
 #
-# @cc-only-rationale: WorktreeCreate hook event is CC-only; no portable
-#   equivalent fires at worktree creation moment.
-# spec: docs/meta-factory/research-patches/2026-05-29-dispatch-worktree-automation.md §3 Candidate D2
+# @dual-pair: worktree-create-setup
+#   Portable counterpart: scripts/create-worktree.sh (CLI/CI/non-CC-agent moment).
+#   This hook serves the CC-only `claude -w <name>` moment; same semantic check,
+#   two delivery channels (dual-implementation-discipline.md §5-§7). Replaces the
+#   former @cc-only-rationale — a portable equivalent now exists.
+# spec: docs/meta-factory/research-patches/2026-05-30-worktree-create-dual-channel.md §6
+#   (origin spec: 2026-05-29-dispatch-worktree-automation.md §3 Candidate D2)
 
 set -uo pipefail
 
@@ -67,8 +71,15 @@ if [[ -d "$WORKTREE_DIR" ]]; then
   exit 0
 fi
 
-# Resolve base ref: prefer origin/HEAD (= origin/staging for this repo post-2026-05-22
-# default-branch migration); fall back through plausible defaults for test harnesses.
+# Refresh origin/HEAD symbolic-ref to avoid a stale base (Bug 1 — 2026-05-30 fix).
+# Without this, a local origin/HEAD frozen at the old default (e.g. main, pre the
+# 2026-05-22 staging migration) silently bases new worktrees on the wrong branch.
+# No-op when there is no `origin` remote (test harness / detached clone).
+git -C "$PROJECT_DIR" remote set-head origin --auto >/dev/null 2>&1 || true
+
+# Resolve base ref: prefer origin/HEAD (refreshed above → the remote's live
+# default; = origin/staging for this repo post-2026-05-22 default-branch
+# migration); fall back through plausible defaults for test harnesses.
 BASE_REF=""
 for cand in "origin/HEAD" "origin/main" "main" "HEAD"; do
   if git -C "$PROJECT_DIR" rev-parse --verify --quiet "$cand" >/dev/null 2>&1; then

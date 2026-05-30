@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# create-worktree.sh — portable worktree setup; usable from CLI, CI, or AI agent.
+#
+# Usage: bash scripts/create-worktree.sh <name> [<project-dir>] [<base-ref>]
+#
+#   <name>        worktree slug → .claude/worktrees/<name>/, branch worktree-<name>
+#   <project-dir> repo root (default: `git rev-parse --show-toplevel`)
+#   <base-ref>    explicit base ref (overrides auto-detection)
+#
+# Contract (mirrors the CC WorktreeCreate hook, .claude/hooks/worktree-setup.sh):
+#   stdout : the worktree absolute path — ONLY thing on stdout
+#   exit   : 0 = success ; non-zero = creation failed
+#
+# This is the BUILD half of the dual-channel worktree-create capability: the
+# CC-only hook serves the `claude -w <name>` moment; this script serves the
+# human / CI / non-CC-agent moment. No production-grade portable bash equivalent
+# exists upstream (4 candidates surveyed — see spec §4). The AI-session axis is
+# served by REFERENCE to Superpowers `using-git-worktrees` (SSOT #65).
+#
+# Base-ref resolution (configurable — no hardcoded trunk name, per spec §9
+# cold-QA Finding 1): explicit arg → $WORKTREE_BASE_REF env → refreshed
+# origin/HEAD (Bug 1 fix) → fallback chain. Refreshing origin/HEAD via
+# `remote set-head --auto` makes the default portable: it resolves to whatever
+# the remote's actual default branch is (origin/staging here; origin/main for a
+# consumer) without this script knowing the name.
+#
+# @dual-pair: worktree-create-setup
+# spec: docs/meta-factory/research-patches/2026-05-30-worktree-create-dual-channel.md §6
+
+set -euo pipefail
+
+NAME="${1:?Usage: $0 <name> [<project-dir>] [<base-ref>]}"
+PROJECT_DIR="${2:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
+# Explicit base-ref arg (3rd positional) overrides $WORKTREE_BASE_REF env.
+BASE_REF="${3:-${WORKTREE_BASE_REF:-}}"
+
+if [[ -z "$PROJECT_DIR" ]] || { [[ ! -d "$PROJECT_DIR/.git" ]] && [[ ! -f "$PROJECT_DIR/.git" ]]; }; then
+  printf '⚠ create-worktree: cannot resolve project root (pass <project-dir> or run inside a repo)\n' >&2
+  exit 1
+fi
+
+if [[ -z "$BASE_REF" ]]; then
+  # Refresh origin/HEAD symbolic-ref to avoid a stale base (Bug 1 — 2026-05-30).
+  # No-op when there is no `origin` remote (test harness / detached clone).
+  git -C "$PROJECT_DIR" remote set-head origin --auto >/dev/null 2>&1 || true
+  # Prefer the remote's actual default (origin/HEAD, now refreshed); fall back
+  # through plausible defaults for offline / test repos.
+  for cand in "origin/HEAD" "origin/main" "main" "HEAD"; do
+    if git -C "$PROJECT_DIR" rev-parse --verify --quiet "$cand" >/dev/null 2>&1; then
+      BASE_REF="$cand"
+      break
+    fi
+  done
+fi
+if [[ -z "$BASE_REF" ]]; then
+  printf '⚠ create-worktree: cannot resolve a base ref (origin/HEAD, origin/main, main, HEAD all missing)\n' >&2
+  exit 1
+fi
+
+WORKTREE_DIR="$PROJECT_DIR/.claude/worktrees/$NAME"
+BRANCH="worktree-$NAME"
+
+# Idempotent: pre-existing worktree → reuse (print + exit 0).
+if [[ -d "$WORKTREE_DIR" ]]; then
+  printf '%s\n' "$WORKTREE_DIR"
+  exit 0
+fi
+
+mkdir -p "$(dirname "$WORKTREE_DIR")"
+
+# `git worktree add` writes progress on stderr; route to /dev/null for clean
+# orchestration. Errors propagate via exit code.
+if ! git -C "$PROJECT_DIR" worktree add "$WORKTREE_DIR" -b "$BRANCH" "$BASE_REF" >/dev/null 2>&1; then
+  # Branch may pre-exist (re-dispatch of same name) — retry without -b.
+  if ! git -C "$PROJECT_DIR" worktree add "$WORKTREE_DIR" "$BRANCH" >/dev/null 2>&1; then
+    printf '⚠ create-worktree: git worktree add failed (path=%s branch=%s base=%s)\n' \
+      "$WORKTREE_DIR" "$BRANCH" "$BASE_REF" >&2
+    exit 1
+  fi
+fi
+
+# D2 workspace optimisation: symlink node_modules from the primary checkout.
+# Skip if no primary node_modules exists (fresh clone before install).
+if [[ -e "$PROJECT_DIR/node_modules" ]] && [[ ! -e "$WORKTREE_DIR/node_modules" ]]; then
+  ln -sfn "$PROJECT_DIR/node_modules" "$WORKTREE_DIR/node_modules"
+fi
+if [[ -d "$WORKTREE_DIR/packages/core" ]] && [[ ! -e "$WORKTREE_DIR/packages/core/node_modules" ]]; then
+  ln -sfn ../../node_modules "$WORKTREE_DIR/packages/core/node_modules"
+fi
+
+# Print path — the ONLY thing on stdout (orchestration contract).
+printf '%s\n' "$WORKTREE_DIR"

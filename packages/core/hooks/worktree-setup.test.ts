@@ -90,6 +90,52 @@ function setupTempRepo(): string {
   return dir;
 }
 
+/**
+ * Build a working repo whose local `origin/HEAD` symbolic-ref is STALE — it
+ * points at `main` while the remote's actual default branch is `staging`. This
+ * reproduces Bug 1 (2026-05-30): the WorktreeCreate hook based new worktrees on
+ * the stale `origin/HEAD` (→ main) instead of the live default (→ staging).
+ *
+ * `main` and `staging` carry distinct marker files so a worktree's content
+ * reveals which ref it was actually based on.
+ *
+ * Returns the working-repo path. A sibling bare remote dir lives next to it and
+ * is removed by teardown() walking worktrees + rmSync on the parent tmp dir.
+ */
+function setupRepoWithStaleOriginHead(): string {
+  const parent = mkdtempSync(resolve(tmpdir(), 'wtc-stale-'));
+  const bare = resolve(parent, 'remote.git');
+  const work = resolve(parent, 'work');
+
+  execSync(`git init -q --bare -b staging "${bare}"`);
+
+  execSync(`git init -q -b main "${work}"`);
+  execSync('git config user.email test@example.com', { cwd: work });
+  execSync('git config user.name test', { cwd: work });
+  mkdirSync(resolve(work, 'packages/core'), { recursive: true });
+  writeFileSync(resolve(work, 'packages/core/.keep'), '');
+  writeFileSync(resolve(work, 'WHICH.txt'), 'main\n');
+  execSync('git add . && git commit -q -m main-base', { cwd: work });
+
+  // staging diverges with a distinct marker.
+  execSync('git checkout -q -b staging', { cwd: work });
+  writeFileSync(resolve(work, 'WHICH.txt'), 'staging\n');
+  execSync('git commit -aq -m staging-base', { cwd: work });
+  execSync('git checkout -q main', { cwd: work });
+
+  execSync(`git remote add origin "${bare}"`, { cwd: work });
+  execSync('git push -q origin main staging', { cwd: work });
+  // Remote's real default is staging (bare repo was init'd -b staging).
+  execSync('git fetch -q origin', { cwd: work });
+  // Force the LOCAL origin/HEAD symbolic-ref stale → main (the bug condition).
+  execSync('git remote set-head origin main', { cwd: work });
+
+  // Primary node_modules — symlink target.
+  mkdirSync(resolve(work, 'node_modules'), { recursive: true });
+  writeFileSync(resolve(work, 'node_modules/.keep'), '');
+  return work;
+}
+
 function teardown(dir: string): void {
   // Remove any sub-worktree before rmSync (git tracks them in .git/worktrees/).
   try {
@@ -203,6 +249,38 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', () => {
     const r = runHook(payload('', repo), { CLAUDE_PROJECT_DIR: repo });
     expect(r.status).not.toBe(0);
     expect(r.stdout).toBe('');
+  });
+
+  // ── Bug 1 regression (2026-05-30): stale origin/HEAD must not stale-base ──
+
+  it('BUG-1: refreshes origin/HEAD → worktree bases on the live default (staging, not stale main)', () => {
+    const work = setupRepoWithStaleOriginHead();
+    const parent = dirname(work);
+    try {
+      // Sanity: the LOCAL origin/HEAD is stale (→ main) before the hook runs.
+      const staleHead = execSync('git -C "' + work + '" symbolic-ref refs/remotes/origin/HEAD', {
+        encoding: 'utf8',
+      }).trim();
+      expect(staleHead).toBe('refs/remotes/origin/main');
+
+      const r = runHook(payload('bug1', work), { CLAUDE_PROJECT_DIR: work });
+      expect(r.status).toBe(0);
+
+      // The worktree must reflect staging's marker — proving the hook refreshed
+      // origin/HEAD and based the worktree on the live default, not stale main.
+      const which = execSync(
+        `cat "${work}/.claude/worktrees/bug1/WHICH.txt"`,
+        { encoding: 'utf8' },
+      ).trim();
+      expect(which).toBe('staging');
+    } finally {
+      teardown(work);
+      try {
+        rmSync(parent, { recursive: true, force: true });
+      } catch {
+        /* OS will collect /tmp */
+      }
+    }
   });
 
   it('PAIRED-NEGATIVE: unresolvable project root → exit non-zero', () => {
