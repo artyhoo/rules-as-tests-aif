@@ -60,11 +60,13 @@ async function main(): Promise<void> {
   try {
     handle = await backend.dispatch(kickoff);
   } catch (err) {
-    if (
-      err instanceof BackendError &&
-      (err.code === 'unavailable' || err.code === 'quota_exceeded')
-    ) {
-      // Auto-fallback to ManualBackend
+    // Auto-fallback to ManualBackend on ANY BackendError — unavailable,
+    // quota_exceeded, timeout, AND dispatch_failed (e.g. the dirty-worktree
+    // guard). The bridge's contract is "never leave the operator stuck": any
+    // backend failure degrades to copy-paste rather than a silent dead end.
+    // (AifHandoffBackend.dispatch best-effort deletes any half-created task
+    // before throwing, so no orphan is left on the project.)
+    if (err instanceof BackendError) {
       process.stderr.write(
         `[runtime-bridge] ${backend.name} dispatch failed (${err.code}): ${err.message} — falling back to ManualBackend\n`,
       );
@@ -76,6 +78,7 @@ async function main(): Promise<void> {
         process.exit(0);
       }
     } else {
+      // Non-BackendError (programming bug) — log and exit without dispatching.
       process.stderr.write(`[runtime-bridge] Dispatch error: ${err}\n`);
       process.exit(0);
     }

@@ -93,6 +93,8 @@ case "${ANSWER}" in
         printf 'export RUNTIME_BRIDGE_MODE=auto\n'
         [[ -n "${PROJECT_ID}" ]] && printf 'export RUNTIME_BRIDGE_AIF_PROJECT_ID=%s\n' "${PROJECT_ID}"
         printf 'export RUNTIME_BRIDGE_AIF_URL=%s\n' "${URL_OUT}"
+        # MCP (HTTP) URL — RESERVED for the MCP-target phase; unused by REST dispatch today.
+        printf 'export RUNTIME_BRIDGE_AIF_MCP_URL=%s\n' "${RUNTIME_BRIDGE_AIF_MCP_URL:-http://localhost:3100}"
       } >> "${SHELL_RC}"
       say "Wrote RUNTIME_BRIDGE_* env to ${SHELL_RC} (re-source it or open a new shell)."
     fi

@@ -7,8 +7,9 @@
  *      [aif-handoff, manual]  (amux added in Phase 2 SW-F)
  *   3. ManualBackend is always the tail — never excluded.
  *
- * Reads RUNTIME_BRIDGE_AIF_PROJECT_ID + RUNTIME_BRIDGE_AIF_URL for
- * AifHandoffBackend configuration.
+ * Reads RUNTIME_BRIDGE_AIF_PROJECT_ID + RUNTIME_BRIDGE_AIF_URL (REST/WS, :3009)
+ * for AifHandoffBackend configuration. RUNTIME_BRIDGE_AIF_MCP_URL (:3100) is
+ * read into config but RESERVED for the MCP-target phase (unused by REST dispatch).
  *
  * @dual-pair: runtime-bridge-types
  */
@@ -23,6 +24,8 @@ export type BridgeMode = 'auto' | 'manual' | 'aif-handoff' | 'amux';
 export interface ResolverOptions {
   mode?: BridgeMode;
   aifBaseUrl?: string;
+  /** MCP (HTTP) URL — RESERVED for the MCP-target phase; unused by REST dispatch. */
+  aifMcpUrl?: string;
   aifProjectId?: string;
   /** Dependency injection: override backend constructors for testing. */
   backends?: RuntimeBackend[];
@@ -40,6 +43,7 @@ export async function resolveBackend(options: ResolverOptions = {}): Promise<Run
     'auto') as BridgeMode;
 
   const aifBaseUrl = options.aifBaseUrl ?? process.env['RUNTIME_BRIDGE_AIF_URL'];
+  const aifMcpUrl = options.aifMcpUrl ?? process.env['RUNTIME_BRIDGE_AIF_MCP_URL'];
   const aifProjectId = options.aifProjectId ?? process.env['RUNTIME_BRIDGE_AIF_PROJECT_ID'];
 
   const manualBackend = new ManualBackend();
@@ -55,6 +59,7 @@ export async function resolveBackend(options: ResolverOptions = {}): Promise<Run
 
   const aifBackend = new AifHandoffBackend({
     baseUrl: aifBaseUrl,
+    mcpUrl: aifMcpUrl,
     projectId: aifProjectId,
   });
 

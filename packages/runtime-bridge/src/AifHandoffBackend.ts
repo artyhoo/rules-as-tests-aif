@@ -1,69 +1,32 @@
 /**
- * AifHandoffBackend — adapter for the lee-to/aif-handoff MCP runtime.
+ * AifHandoffBackend — adapter for the lee-to/aif-handoff runtime.
  *
- * ═══════════════════════════════════════════════════════════════════════════
- * NC-1 MCP SCHEMA DISCOVERY (kickoff §12 round-6 NC-1 requirement)
- * ═══════════════════════════════════════════════════════════════════════════
- * Discovered via:
- *   gh api repos/lee-to/aif-handoff/contents/packages/mcp/src/tools/createTask.ts
- *   gh api repos/lee-to/aif-handoff/contents/packages/mcp/src/tools/pushPlan.ts
- *   gh api repos/lee-to/aif-handoff/contents/packages/mcp/src/tools/syncStatus.ts
- *   gh api repos/lee-to/aif-handoff/contents/packages/mcp/src/tools/updateTask.ts
+ * DISPATCH = REST (:3009). Verdict from research-patch
+ * docs/meta-factory/research-patches/2026-05-31-runtime-bridge-mcp-dispatch-fix.md
+ * (REST-now + MCP-target). The aif-handoff MCP server (:3100) is the
+ * design-sanctioned surface, but as shipped it wires a single shared
+ * StreamableHTTPServerTransport (one session, no teardown endpoint) — too
+ * fragile for a durable bridge until an upstream per-session-transport fix
+ * lands. REST is stateless and was live-verified, so dispatch uses it now.
  *
- * Tool: handoff_create_task
- *   Source: packages/mcp/src/tools/createTask.ts (registerMcpTool call, line ~75)
- *   Args schema:
- *     projectId: string (UUID, required)
- *     title: string (required)
- *     description?: string
- *     plannerMode?: "fast" | "full"  -- default "full"
- *     planPath?: string              -- disk path; auto-generated if omitted
- *     autoMode?: boolean
- *     skipReview?: boolean
- *     paused?: boolean               -- create task in paused state
- *     ... (priority, tags, isFix, planDocs, planTests, useSubagents,
- *          maxReviewIterations, runtimeProfileId, modelOverride, runtimeOptions)
- *
- * CRITICAL FINDING — accept_existing_plan does NOT exist:
- *   The kickoff's original assumption that `accept_existing_plan` is a flag
- *   on `handoff_create_task` is INCORRECT. No such parameter is defined.
- *   (T1 adversarial checked: searched all tool files + index.ts — not found.)
- *
- * Planner-skip pattern (equivalent to accept_existing_plan):
- *   Step 1: handoff_create_task(paused:true, plannerMode:"fast")
- *     -> creates task in paused=true state (coordinator will not advance it)
- *   Step 2: handoff_push_plan(taskId, planContent)
- *     -> Source: packages/mcp/src/tools/pushPlan.ts (line ~55: setTaskFields)
- *     -> Writes our kickoff markdown as the task's plan field (DB + disk via syncPlanTextToCanonicalFile)
- *   Step 3: handoff_sync_status(taskId, "plan_ready", paused:false)
- *     -> Source: packages/mcp/src/tools/syncStatus.ts (z.enum(TASK_STATUSES))
- *     -> Sets status to "plan_ready" + clears paused flag in one atomic op
- *     -> Coordinator's PIPELINE picks up: plan_ready -> implementer (skips planner entirely)
- *
- * This 3-step sequence IS feasible and IS the correct planner-skip path.
- * PLAN.md disk coupling: handlePushPlan calls syncPlanTextToCanonicalFile
- * (packages/shared/src/planFile.ts) which writes plan to the project's
- * configured plan path (default PLAN.md). This means aif-handoff must be
- * running with access to the consumer project's filesystem (Docker volume mount
- * or local install). This is expected operating mode per aif-handoff docs.
- *
- * Tool: handoff_push_plan
- *   Source: packages/mcp/src/tools/pushPlan.ts
- *   Args: taskId: string (UUID), planContent: string (max 100KB)
- *   Side-effect: writes plan to DB + disk (project's PLAN.md)
- *
- * Tool: handoff_sync_status
- *   Source: packages/mcp/src/tools/syncStatus.ts
- *   Args: taskId, newStatus (TASK_STATUSES enum), sourceTimestamp, direction, paused?
- *
- * MCP server endpoint: default stdio transport (HTTP mode: port 3100 via MCP_PORT).
- * API server + WebSocket: default port 3009 (PORT env var, API_BASE_URL).
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * available(): HTTP GET reachability probe with 1s timeout.
- * dispatch(): 3-step planner-skip (create-paused -> push-plan -> sync-to-plan_ready).
+ * dispatch() — 4-step planner-skip over REST (live-verified mechanics):
+ *   1. POST /tasks            { projectId, title, plannerMode:'fast', paused:true }  -> 201 + task id
+ *   2. PUT  /tasks/:id        { plan: <kickoff content> }                            -> 200
+ *   3. POST /tasks/:id/events { event: 'accept_existing_plan' }                      -> advance to plan_ready
+ *   4. PUT  /tasks/:id        { paused: false }                                      -> coordinator picks up
+ *   Live-verified notes:
+ *     - status is EVENT-only — `PUT { status }` is silently ignored (no direct write).
+ *     - step 3 enforces aif-handoff's clean-worktree (branch-isolation) guard; a
+ *       dirty target tree surfaces as a 4xx -> dispatch_failed. dispatch() then
+ *       best-effort DELETEs the half-created task (rollback, no orphan), and the
+ *       CLI (dispatch.ts) falls back to ManualBackend on the BackendError.
+ *       (Same guard applies to the MCP path — not REST-specific.)
+ * available(): GET /health reachability probe (1s timeout).
  * getStatus(): REST GET /tasks/:id (non-blocking snapshot via aifWsStatus.getTaskStatus).
- * awaitDone(): WebSocket status event stream (via aifWsStatus.awaitTaskDone).
+ * awaitDone(): WebSocket status event stream (aifWsStatus.awaitTaskDone, :3009/ws).
+ *
+ * Ports: REST + WS = baseUrl (:3009). MCP (HTTP) = mcpUrl (:3100), RESERVED for the
+ * MCP-target phase (ADOPT @modelcontextprotocol/sdk) — NOT used by REST dispatch today.
  *
  * @dual-pair: runtime-bridge-aif-handoff
  */
@@ -85,6 +48,14 @@ export interface AifHandoffConfig {
    * Default: http://localhost:3009
    */
   readonly baseUrl?: string;
+  /**
+   * MCP (HTTP-mode) base URL — RESERVED for the MCP-target phase
+   * (ADOPT @modelcontextprotocol/sdk). NOT used by REST dispatch today; stored
+   * so the MCP-target phase is a config-only migration, not a re-plumb.
+   * Source: aif-handoff packages/mcp/src/env.ts — MCP_PORT default 3100.
+   * Default: http://localhost:3100
+   */
+  readonly mcpUrl?: string;
   /**
    * aif-handoff project ID (UUID). Required for task creation.
    * Consumers must configure this to match their aif-handoff project.
@@ -114,6 +85,8 @@ export class AifHandoffBackend implements RuntimeBackend {
   readonly name = 'aif-handoff' as const;
 
   private readonly baseUrl: string;
+  /** RESERVED for the MCP-target phase; not used by REST dispatch. */
+  readonly mcpUrl: string;
   private readonly projectId: string | undefined;
   private readonly wsUrl: string;
   private readonly stateFilePath: string | undefined;
@@ -121,6 +94,7 @@ export class AifHandoffBackend implements RuntimeBackend {
 
   constructor(config: AifHandoffConfig = {}) {
     this.baseUrl = config.baseUrl ?? 'http://localhost:3009';
+    this.mcpUrl = config.mcpUrl ?? 'http://localhost:3100';
     this.projectId = config.projectId;
     this.wsUrl = config.wsUrl ?? AifHandoffBackend._deriveWsUrl(this.baseUrl);
     this.stateFilePath = config.stateFilePath;
@@ -162,45 +136,50 @@ export class AifHandoffBackend implements RuntimeBackend {
       );
     }
 
-    // -- Step 1: Create task in paused state (planner-skip pattern, NC-1) --
-    const createResult = await this._mcpCall('handoff_create_task', {
+    // -- Step 1: Create task in paused state (REST POST /tasks) -------------
+    // paused:true so the coordinator does not advance the task while we set
+    // its plan in step 2. Live-verified: returns 201 + full task object.
+    const createResult = await this._rest('POST', '/tasks', {
       projectId: this.projectId,
       title: kickoff.umbrellaName,
       description: `Runtime-bridge dispatch: ${kickoff.filePath}`,
-      plannerMode: 'fast',    // fast mode uses planPath if provided
-      paused: true,           // coordinator will not advance until we unblock
+      plannerMode: 'fast',
+      paused: true,
       autoMode: true,
-      skipReview: false,      // reviewer runs per reviewer-discipline.md §2
+      skipReview: false, // reviewer runs per reviewer-discipline.md §2
     });
 
     if (!createResult || typeof createResult !== 'object' || !('id' in createResult)) {
       throw new BackendError(
-        'handoff_create_task returned unexpected shape',
+        'POST /tasks returned unexpected shape (no id)',
         'dispatch_failed',
         'aif-handoff',
       );
     }
     const taskId = (createResult as { id: string }).id;
 
-    // -- Step 2: Push our kickoff content as the task plan ------------------
-    // handoff_push_plan writes kickoff to DB field + disk (PLAN.md).
-    // Source: packages/mcp/src/tools/pushPlan.ts (setTaskFields call ~line 55).
-    await this._mcpCall('handoff_push_plan', {
-      taskId,
-      planContent: kickoff.content,
-    });
+    // Steps 2-4 are wrapped so a mid-sequence failure (e.g. the dirty-worktree
+    // guard on step 3) does not strand the paused task created in step 1.
+    // Best-effort DELETE rolls it back, then we re-throw — the CLI then falls
+    // back to ManualBackend (dispatch.ts) with no orphan left on the project.
+    try {
+      // -- Step 2: Push the kickoff content as the task plan (PUT /tasks/:id) --
+      await this._rest('PUT', `/tasks/${taskId}`, { plan: kickoff.content });
 
-    // -- Step 3: Transition to plan_ready to skip planner -------------------
-    // Source: packages/mcp/src/tools/syncStatus.ts
-    // This is the atomic planner-skip: paused:false + status:"plan_ready"
-    // -> coordinator PIPELINE picks up at implementer stage.
-    await this._mcpCall('handoff_sync_status', {
-      taskId,
-      newStatus: 'plan_ready',
-      sourceTimestamp: new Date().toISOString(),
-      direction: 'handoff_to_aif',
-      paused: false,
-    });
+      // -- Step 3: Advance to plan_ready via the state-machine event ----------
+      // Status is EVENT-only — `PUT { status }` is silently ignored (live-verified
+      // §3.3 of the dispatch-fix research-patch). aif-handoff enforces a clean-
+      // worktree (branch-isolation) guard here: a dirty target tree surfaces as a
+      // 4xx -> dispatch_failed (same guard applies to the MCP path, not REST-specific).
+      await this._rest('POST', `/tasks/${taskId}/events`, { event: 'accept_existing_plan' });
+
+      // -- Step 4: Clear paused so the coordinator picks the task up ----------
+      await this._rest('PUT', `/tasks/${taskId}`, { paused: false });
+    } catch (err) {
+      // Best-effort rollback; ignore delete failures (the throw below is what matters).
+      await this._rest('DELETE', `/tasks/${taskId}`).catch(() => undefined);
+      throw err;
+    }
 
     return {
       backend: 'aif-handoff',
@@ -259,87 +238,77 @@ export class AifHandoffBackend implements RuntimeBackend {
   // -- Private helpers -------------------------------------------------------
 
   /**
-   * Call an aif-handoff MCP tool via HTTP JSON-RPC.
-   * aif-handoff's MCP server exposes tools at POST /mcp (JSON-RPC 2.0).
-   * Note: MCP HTTP mode uses port 3100 (MCP_PORT env); default is stdio.
-   * The baseUrl here points at the API server (port 3009) which hosts /mcp
-   * when MCP_TRANSPORT=http is set. In stdio mode, this path is unused for
-   * status -- only dispatch() uses _mcpCall for write operations.
+   * Call an aif-handoff REST endpoint (plain JSON, no MCP handshake).
+   * Used by dispatch() for the 4-step planner-skip sequence on baseUrl (:3009).
+   *
+   * Error mapping (per RuntimeBackend BackendError contract):
+   *   - connection refused / abort / timeout -> 'unavailable' (triggers Manual fallback)
+   *   - HTTP 429                              -> 'quota_exceeded' (triggers Manual fallback)
+   *   - any other non-2xx (incl. the dirty-worktree 4xx guard) -> 'dispatch_failed'
+   *
+   * @param method  HTTP method (POST / PUT / ...).
+   * @param path    Path appended to baseUrl (e.g. '/tasks', '/tasks/:id/events').
+   * @param body    Optional JSON body. Omitted bodies send no payload.
    */
-  private async _mcpCall(tool: string, args: Record<string, unknown>): Promise<unknown> {
+  private async _rest(method: string, path: string, body?: unknown): Promise<unknown> {
     let res: Response;
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10_000);
       try {
-        res = await fetch(`${this.baseUrl}/mcp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: crypto.randomUUID(),
-            method: 'tools/call',
-            params: { name: tool, arguments: args },
-          }),
+        res = await fetch(`${this.baseUrl}${path}`, {
+          method,
+          // Only declare a JSON content-type when we actually send a body
+          // (a no-body DELETE with Content-Type: application/json is malformed
+          // to some servers).
+          headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+          body: body === undefined ? undefined : JSON.stringify(body),
           signal: controller.signal,
         });
       } finally {
         clearTimeout(timeoutId);
       }
     } catch (err) {
+      const name = err instanceof Error ? err.name : '';
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('abort') || msg.includes('timeout')) {
+      // Prefer the canonical AbortError name; fall back to message-substring.
+      if (name === 'AbortError' || msg.includes('abort') || msg.includes('timeout')) {
         throw new BackendError(
-          `aif-handoff MCP call timed out (${tool})`,
+          `aif-handoff REST ${method} ${path} timed out`,
           'unavailable',
           'aif-handoff',
         );
       }
       throw new BackendError(
-        `aif-handoff MCP unreachable during ${tool}: ${msg}`,
+        `aif-handoff REST ${method} ${path} unreachable: ${msg}`,
         'unavailable',
         'aif-handoff',
       );
     }
 
     if (!res.ok) {
-      const body = await res.text().catch(() => '');
+      const errBody = await res.text().catch(() => '');
       if (res.status === 429) {
         throw new BackendError(
-          `aif-handoff rate limit (${tool}): ${body}`,
+          `aif-handoff rate limit (${method} ${path}): ${errBody}`,
           'quota_exceeded',
           'aif-handoff',
         );
       }
       throw new BackendError(
-        `aif-handoff MCP ${tool} HTTP ${res.status}: ${body}`,
+        `aif-handoff REST ${method} ${path} HTTP ${res.status}: ${errBody}`,
         'dispatch_failed',
         'aif-handoff',
       );
     }
 
-    const json = (await res.json()) as {
-      result?: { content?: Array<{ text?: string }> };
-      error?: { message?: string };
-    };
-
-    if (json.error) {
-      throw new BackendError(
-        `aif-handoff MCP ${tool} error: ${json.error.message ?? JSON.stringify(json.error)}`,
-        'dispatch_failed',
-        'aif-handoff',
-      );
+    // REST returns plain JSON (no SSE framing). Tolerate an empty body.
+    const text = await res.text();
+    if (!text) return {};
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      return text;
     }
-
-    // MCP tools return content[0].text as JSON string -- parse it.
-    const textContent = json.result?.content?.[0]?.text;
-    if (typeof textContent === 'string') {
-      try {
-        return JSON.parse(textContent) as unknown;
-      } catch {
-        return textContent;
-      }
-    }
-    return json.result;
   }
 }

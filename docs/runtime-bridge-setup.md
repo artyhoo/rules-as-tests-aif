@@ -27,7 +27,8 @@ The bridge is **non-functional** if `RUNTIME_BRIDGE_AIF_PROJECT_ID` is unset —
 |---|---|---|---|
 | `RUNTIME_BRIDGE_MODE` | no | `auto` | `auto` / `manual` (force ManualBackend) / `aif-handoff` (force or fail). `amux` is reserved for Phase 2 — present as an enum value but **not yet functional** (it warns and falls back to ManualBackend). |
 | `RUNTIME_BRIDGE_AIF_PROJECT_ID` | **yes** (for the bridge to dispatch) | — | Your aif-handoff project UUID. Without it the bridge cannot create tasks. |
-| `RUNTIME_BRIDGE_AIF_URL` | only for non-default deployments | `http://localhost:3009` | aif-handoff REST/WS base URL. Set this if aif-handoff runs on another host/port. |
+| `RUNTIME_BRIDGE_AIF_URL` | only for non-default deployments | `http://localhost:3009` | aif-handoff REST/WS base URL. **Dispatch + status both use this** (dispatch is REST as of 2026-05-31). Set if aif-handoff runs on another host/port. |
+| `RUNTIME_BRIDGE_AIF_MCP_URL` | no | `http://localhost:3100` | MCP (HTTP-mode) URL. **RESERVED for the MCP-target phase** — read into config but **not used by REST dispatch today**. Set now to avoid a later migration. |
 
 ## Required aif-handoff-side config
 
@@ -40,10 +41,31 @@ aif-handoff exposes more than one surface; they do **not** share a port:
 
 | Surface | Default port | Used by |
 |---|---|---|
-| REST + WebSocket | `3009` | bridge status read-back (`getStatus` REST `GET /tasks/:id`, `awaitDone` WS `ws://…:3009/ws`) |
-| MCP (HTTP mode) | `3100` | task dispatch when MCP runs in HTTP mode (MCP's default transport is **stdio**, not HTTP) |
+| REST + WebSocket | `3009` | **dispatch** (REST `POST /tasks` → `PUT` plan → `POST /events` → `PUT` paused) **and** status read-back (`getStatus` REST `GET /tasks/:id`, `awaitDone` WS `ws://…:3009/ws`) |
+| MCP (HTTP mode) | `3100` | **RESERVED for the MCP-target phase** — not used by REST dispatch today (MCP's default transport is **stdio**, not HTTP) |
 
-`RUNTIME_BRIDGE_AIF_URL` points at the **REST/WS** surface (`:3009`). If you run aif-handoff's MCP in HTTP mode on a different port, dispatch and status currently share one `baseUrl` — a known limitation; a dedicated dispatch-vs-status URL split is a tracked follow-up.
+`RUNTIME_BRIDGE_AIF_URL` points at the **REST/WS** surface (`:3009`) — both dispatch and status use it. `RUNTIME_BRIDGE_AIF_MCP_URL` (`:3100`) is read into config but **reserved** for the future MCP-target dispatch path; switching to MCP is gated on an upstream aif-handoff fix (per-session transport — see research-patch `2026-05-31-runtime-bridge-mcp-dispatch-fix.md`). The dispatch-vs-status URL split (previously a tracked follow-up) is now wired.
+
+## Verify + result read-back
+
+- **Smoke test (paste-and-run):** edit `PROJECT_ID` (or `export RUNTIME_BRIDGE_AIF_PROJECT_ID`) and run
+
+  ```bash
+  bash packages/runtime-bridge/scripts/verify-bridge.sh
+  ```
+
+  It checks dependencies + reachability + the clean-worktree precondition, then creates **one** throwaway task, reads its status back, and deletes it — printing a PASS/FAIL summary. It changes no persistent config (use `setup-runtime-bridge.sh` for that).
+
+- **Result read-back:** dispatch is fire-and-forget (it runs inside a PostToolUse hook that must not block). To watch a dispatched task to completion and print the result, run the await CLI with the `taskId` printed at dispatch:
+
+  ```bash
+  tsx packages/runtime-bridge/src/cli/await.ts <taskId>            # block until done/verified/blocked
+  tsx packages/runtime-bridge/src/cli/await.ts <taskId> --once     # one-shot status snapshot
+  ```
+
+  Exit code: `0` = terminal success, `1` = non-success / timeout / error.
+
+> **Clean-worktree precondition (verify this before relying on autonomy):** aif-handoff refuses to advance a task to `plan_ready` while the target project worktree is dirty (a branch-isolation guard). A dirty tree surfaces as `dispatch_failed`; `dispatch()` then best-effort **deletes** the half-created task (rollback — no orphan) and the bridge falls back to `ManualBackend`. Commit/stash/gitignore the target tree, then re-run `verify-bridge.sh` to confirm a full `backlog → plan_ready` run. (The same guard applies to the MCP path — it is not REST-specific.) The REST dispatch HTTP mechanics + error mapping are unit- and live-verified; the end-to-end `plan_ready` + coordinator-pickup step is the operator's clean-worktree smoke-test check.
 
 ## Opt-out
 

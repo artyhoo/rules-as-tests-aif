@@ -1,0 +1,103 @@
+/**
+ * CLI await/status entrypoint — the result read-back half of the bridge.
+ *
+ * Usage:
+ *   tsx packages/runtime-bridge/src/cli/await.ts <taskId> [--timeout-ms N]
+ *   tsx packages/runtime-bridge/src/cli/await.ts <taskId> --once
+ *
+ * Closes the "результат назад" loop: dispatch.ts fires the task (fire-and-forget,
+ * fast — it runs inside a PostToolUse hook that must not block); this command is
+ * run afterwards to watch the task to a terminal state and print the result,
+ * removing the manual "go check aif-handoff's UI" step.
+ *
+ * Modes:
+ *   default  — block on awaitDone (WebSocket status stream) until the task is
+ *              done/verified (success) or blocked_external (resolves, !success),
+ *              then print the TaskResult as JSON. --timeout-ms bounds the wait.
+ *   --once   — non-blocking getStatus snapshot (point-in-time), print + exit.
+ *
+ * Backend: resolved the same way as dispatch (RUNTIME_BRIDGE_MODE + available()).
+ * The handle is reconstructed from the taskId argument — backend.name supplies
+ * the handle.backend tag (aif-handoff uses taskId only; manual uses it for the
+ * /tmp response-file path).
+ *
+ * Exit codes:
+ *   default (await): 0 = terminal success (done/verified); 1 = non-success
+ *     (blocked_external) / timeout / error.
+ *   --once (snapshot): 0 unless the backend reports an 'error' state. A still-
+ *     running task (pending/running) also exits 0 — a snapshot is not a verdict;
+ *     use the default (await) mode when you need a terminal success/fail code.
+ * (Distinct from dispatch.ts which always exits 0 — await is a foreground command
+ * the operator/orchestrator runs, so a real exit code is useful in scripts.)
+ *
+ * NOTE: in default (await) mode with NO --timeout-ms, this BLOCKS until the task
+ * reaches a terminal state. For long autonomous runs that is intended; if the
+ * backend resolves to ManualBackend it polls a /tmp response file indefinitely.
+ * A startup notice is printed to stderr; pass --timeout-ms to bound the wait.
+ *
+ * @cc-only-rationale: pure TS, callable from the maintainer's bash smoke-test
+ *   script and from an orchestrator session alike — no CC-only primitive used.
+ */
+import { resolveBackend } from '../resolver.js';
+import { BackendError } from '../backend.js';
+import type { TaskHandle } from '../types.js';
+
+function parseArgs(argv: string[]): { taskId?: string; once: boolean; timeoutMs?: number } {
+  const taskId = argv.find((a) => !a.startsWith('--'));
+  const once = argv.includes('--once');
+  let timeoutMs: number | undefined;
+  const tIdx = argv.indexOf('--timeout-ms');
+  if (tIdx !== -1 && argv[tIdx + 1]) {
+    const parsed = Number(argv[tIdx + 1]);
+    if (Number.isFinite(parsed) && parsed > 0) timeoutMs = parsed;
+  }
+  return { taskId, once, timeoutMs };
+}
+
+async function main(): Promise<void> {
+  const { taskId, once, timeoutMs } = parseArgs(process.argv.slice(2));
+
+  if (!taskId) {
+    process.stderr.write(
+      'Usage: await.ts <taskId> [--timeout-ms N] [--once]\n',
+    );
+    process.exit(1);
+  }
+
+  const backend = await resolveBackend();
+  const handle: TaskHandle = {
+    backend: backend.name,
+    taskId,
+    dispatchedAt: new Date().toISOString(),
+  };
+
+  try {
+    if (once) {
+      const status = await backend.getStatus(handle);
+      process.stdout.write(JSON.stringify(status) + '\n');
+      // A point-in-time snapshot: exit 0 unless the backend reports an error state.
+      process.exit(status.status === 'error' ? 1 : 0);
+    }
+
+    if (timeoutMs === undefined) {
+      process.stderr.write(
+        `[runtime-bridge] awaiting task ${taskId} on ${backend.name} (no --timeout-ms → blocks until terminal; Ctrl-C to stop)\n`,
+      );
+    }
+    const result = await backend.awaitDone(handle, timeoutMs);
+    process.stdout.write(JSON.stringify(result) + '\n');
+    process.exit(result.success ? 0 : 1);
+  } catch (err) {
+    if (err instanceof BackendError) {
+      process.stderr.write(`[runtime-bridge] await failed (${err.code}): ${err.message}\n`);
+    } else {
+      process.stderr.write(`[runtime-bridge] await unexpected error: ${err}\n`);
+    }
+    process.exit(1);
+  }
+}
+
+main().catch((err) => {
+  process.stderr.write(`[runtime-bridge] await unhandled error: ${err}\n`);
+  process.exit(1);
+});
