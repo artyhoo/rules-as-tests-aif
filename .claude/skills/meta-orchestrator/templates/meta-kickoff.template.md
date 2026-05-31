@@ -125,6 +125,33 @@ If any of the four checks fails → fix the body before pushing. CI catches the 
 
 ---
 
+## §4c Autonomous aif-handoff dispatch — park-don't-guess contract (applies ONLY when a Worker is dispatched to the runtime-bridge instead of a maintainer-paste tab)
+
+> **When this section is live:** the §10 report offered «autonomous dispatch via aif-handoff» for this umbrella AND the maintainer accepted. If every Worker below runs in a maintainer-pasted CC tab, §4c is inert — skip it. **If any sub-wave is dispatched via `tsx packages/runtime-bridge/src/cli/dispatch.ts <this-kickoff>`, §4c is MANDATORY** (SKILL §5 `#autonomous-dispatch-without-park`).
+
+**Why this exists (design §1 honest limitation, verified `coordinator.ts:398-476` + `reviewGate.ts`):** aif-handoff agents have **no mid-implementation "pause and ask" primitive**. They implement — *guessing* on any ambiguity — then auto-review post-hoc. Auto-close fires when the review finds *no blocking findings* — a bar that means "review found no blockers", NOT "a human is sure it's right". A genuine **design fork is not recognised as a question** — aif just picks and proceeds. So **without the levers below, aif decides forks wrong, silently.**
+
+**Lever 1 — conservative aif config (set on the bridge/env BEFORE dispatch):**
+
+```bash
+export AGENT_MAX_REVIEW_ITERATIONS=1        # not converged in 1 pass → hand to human, don't keep guessing
+export AGENT_AUTO_REVIEW_STRATEGY=closure_first
+export AGENT_SKIP_REVIEW=false
+# Stricter (max control, less autonomy): AGENT_AUTO_MODE=false → every stage transition needs a human action.
+```
+
+**Lever 2 — park-don't-guess instruction (the dispatched kickoff carries this verbatim, addressed to the aif agent):**
+
+> **aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity (two defensible implementations, an undecided design choice, a missing spec detail that changes behaviour) — **do NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the unambiguous parts. This carries the `ask-question-reminder.sh:50-54` fork-challenge discipline. Guessing a fork to "keep moving" is the failure this whole loop exists to prevent.
+
+**Lever 3 — the resolve loop reviews aif's DECISIONS, not only its open questions:** the maintainer Approves / Requests-changes each completed task, so "questions" = open forks **+** aif's autonomous decisions awaiting verification (trust-but-verify). This is the runtime side delivered by `cli/answer.ts` once it ships; until then, review decisions manually in the aif web/Telegram UI.
+
+**Trust is a tunable dial, not baked-in distrust (design §1):** `MAX_REVIEW_ITERATIONS` high = trust aif more / low = hand off more. The loop (collect → resolve-in-chat → resume) is **identical at any dial setting** — so the trust level never blocks the build. Start trust-but-verify (middle), run 2–3 real umbrellas, then adjust by observed error rate. Do NOT over-design the dial upfront.
+
+**Pre-dispatch gate (run before `dispatch.ts`):** confirm this kickoff contains the Lever-2 block (`grep -q 'park it as a question' <this-kickoff>`) AND the env carries Lever-1 (`echo "$AGENT_MAX_REVIEW_ITERATIONS"` non-empty). Either missing → STOP; do not dispatch autonomously.
+
+---
+
 ## §5 AI-traps active (per `ai-laziness-traps.md §3`)
 
 See `.claude/rules/ai-laziness-traps.md §2` for full catalogue.
