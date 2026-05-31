@@ -87,13 +87,46 @@ async function main(): Promise<void> {
   // ── Step 5: Record dedup + output additionalContext ───────────────────────
   recordDispatch(kickoff.contentHash, handle);
 
+  // Human-facing UI (the board), NOT the :3009 REST API (which returns raw JSON).
+  const webBase = process.env['RUNTIME_BRIDGE_AIF_WEB_URL'] ?? 'http://localhost:5180';
+  const projectId = process.env['RUNTIME_BRIDGE_AIF_PROJECT_ID'];
+  const uiUrl = projectId ? `${webBase}/projects/${projectId}` : webBase;
   const msg =
     backend.name === 'manual'
       ? `[runtime-bridge] ManualBackend: kickoff written to /tmp/runtime-bridge-${handle.taskId}.md — paste into a new Claude Code session`
-      : `[runtime-bridge] Dispatched to ${backend.name} (taskId=${handle.taskId})`;
+      : `[runtime-bridge] Dispatched to ${backend.name} (taskId=${handle.taskId}) — open the board: ${uiUrl}`;
+
+  // Form guard (non-blocking; exit-0 contract preserved): an orchestration
+  // meta-kickoff is NOT a single buildable task — aif investigates and halts
+  // with ZERO code (live-confirmed 2026-05-31, task a4bdff98: $5.66, no code).
+  // Warn so the operator re-dispatches a per-sub-wave implementation kickoff.
+  if (backend.name !== 'manual' && isOrchestrationKickoff(kickoff)) {
+    process.stderr.write(
+      `[runtime-bridge] ⚠ ${kickoff.umbrellaName}/kickoff.md looks like an orchestration meta-kickoff ` +
+        `(launch-table / stage-gates / multiple sub-waves), not a single buildable task. ` +
+        `aif will likely produce ZERO code and halt. Dispatch a per-sub-wave implementation kickoff instead.\n`,
+    );
+  }
 
   outputContext(msg);
   process.exit(0);
+}
+
+/**
+ * Heuristic: does this kickoff describe an orchestration plan (many sub-waves,
+ * stage gates, dispatch instructions) rather than ONE buildable task? aif treats
+ * the kickoff as an implementation spec — a meta-plan yields no code. Deterministic,
+ * conservative (path marker OR ≥2 orchestration section markers).
+ */
+function isOrchestrationKickoff(kickoff: { umbrellaName: string; content: string }): boolean {
+  if (kickoff.umbrellaName.endsWith('-meta-launch')) return true;
+  const markers = [
+    /^#+\s*§?\d*\.?\s*Launch-table/im,
+    /^#+\s*§?\d*\.?\s*Stage gates/im,
+    /\|\s*Sub-wave\s*\|/im,
+    /Sub-wave dispatch instructions/im,
+  ];
+  return markers.filter((re) => re.test(kickoff.content)).length >= 2;
 }
 
 function outputContext(message: string): void {
