@@ -21,3 +21,17 @@ packages/*/node_modules
 
 # Stryker mutation testing output (Wave 9.2)
 packages/*/reports/
+
+# AIF (ai-factory / aif-handoff) install scaffolding — tool-generated, per-consumer
+# output, never tracked. Without these ignores, aif-handoff's branch-isolation
+# dirty-worktree guard (packages/shared/src/gitIsolation.ts → assertWorkingTreeClean)
+# sees the installer's own files as uncommitted work and refuses to create/switch
+# task branches (BranchIsolationError "dirty_worktree"). Root-anchored to avoid
+# touching the framework's own tracked .claude/skills/* entries.
+/.ai-factory/
+/.ai-factory.json
+/.codex/
+/.opencode/
+/.claude/agents/
+/.claude/skills/aif/
+/.claude/skills/aif-*/
