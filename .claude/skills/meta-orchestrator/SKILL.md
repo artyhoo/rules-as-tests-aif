@@ -326,7 +326,7 @@ Use `${CLAUDE_SKILL_DIR}/templates/state.md.template` as the skeleton; fill §1 
 | R-phase, multiple sequential | Queue mode (sequential) | ≥2 R-phase kickoffs queued; each completes before the next begins (queue-mode.md §1 Triggers: «≥2 sequential kickoffs»). |
 | R-phase, multiple parallel | Mode A × N inline Agents | Single-session multi-dispatch via Agent tool calls in one message. No worktrees needed (R-phases produce docs, not code). |
 | Execution-build, single | Mode A inline | Direct Opus session with kickoff pasted or Read. |
-| Execution-build, parallel ≥2 in same stage | Mode B × N worktrees | Preferred: `claude -w <umbrella>-<wave-N>` per CC native `--worktree` (worktree under `.claude/worktrees/`, branch `worktree-<name>`, base `origin/HEAD`; PR #279 hook auto-symlinks `node_modules`). Fallback (non-CC harness or settings.json unwired): `git worktree add ../<repo>-<wave>-<N> staging && git checkout -b <branch>` per `parallel-subwave-isolation.md §1`. SP `using-git-worktrees` SSOT #65 is the upstream preventive mechanism (dogfooded, not rebuilt). |
+| Execution-build, parallel ≥2 in same stage | Mode B × N worktrees | Preferred: `claude -w <umbrella>-<wave-N>` per CC native `--worktree` (worktree under `.claude/worktrees/`, branch `worktree-<name>`, base `origin/HEAD`; PR #279 hook auto-symlinks `node_modules`). Fallback (non-CC harness or settings.json unwired): `bash scripts/create-worktree.sh <name>` (portable, refreshes origin/HEAD so base-ref is never stale — Bug 1 fix) or manual `git worktree add ../<repo>-<wave>-<N> staging && git checkout -b <branch>` per `parallel-subwave-isolation.md §1`. SP `using-git-worktrees` SSOT #65 is the upstream preventive mechanism (dogfooded, not rebuilt). |
 | Wiring (thin CI/config) | Mode A inline | Single session; low blast radius; worktrees add overhead without isolation benefit. |
 | Manual liveness probing | Session-bound | Never CI-side. SP companion-type. |
 
@@ -456,7 +456,7 @@ SP `requesting-code-review` upstream problem class = «dispatch a reviewer subag
 
 **How to invoke the dogfood test:**
 
-1. Open a fresh worktree session via `claude -w meta-orchestrator-iphase` (CC native `--worktree`; manual `git worktree add` fallback when outside CC). In the new session, run:
+1. Open a fresh worktree session via `claude -w meta-orchestrator-iphase` (CC native `--worktree`; portable `bash scripts/create-worktree.sh <name>` or manual `git worktree add` fallback when outside CC). In the new session, run:
 
    ```bash
    bash .claude/skills/meta-orchestrator/helpers/plan-currency-check.sh meta-orchestrator-iphase

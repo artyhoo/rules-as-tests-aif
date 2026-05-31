@@ -21,7 +21,7 @@ Substitute every `{{<PLACEHOLDER_NAME>}}` token in the template using the tokens
 - `{{GIT_GATE_STAGE_1}}` → literal `gh pr list --search "is:merged head:<branch> base:staging created:>=<date>"` command for Stage 1 dependencies (one command per Stage 1 head branch, joined with `&&` or emitted as a multi-line script).
 - `{{GIT_GATE_STAGE_2}}` → same shape, for Stage 2 dependencies. Omit (or replace with the literal «N/A — only Stage 1 in this umbrella») if no Stage 2 exists.
 - `{{ADDITIONAL_STAGE_GATES}}` → optional Stage 3+ blocks following the Stage 2 template, OR the literal empty string if no further stages.
-- `{{DISPATCH_INSTRUCTIONS}}` → per-sub-wave dispatch block: for each row in §3, emit `claude -w <umbrella>-<sub-wave-id>` (Mode B preferred per CC native `--worktree` — PR #279 hook auto-sets up worktree + symlinks) or inline Agent dispatch (Mode A) per §5 Dispatch tree. Manual `git worktree add` retained as fallback when outside CC or settings.json hook unwired.
+- `{{DISPATCH_INSTRUCTIONS}}` → per-sub-wave dispatch block: for each row in §3, emit `claude -w <umbrella>-<sub-wave-id>` (Mode B preferred per CC native `--worktree` — PR #279 hook auto-sets up worktree + symlinks) or inline Agent dispatch (Mode A) per §5 Dispatch tree. Portable `bash scripts/create-worktree.sh <name>` (or manual `git worktree add`) retained as fallback when outside CC or settings.json hook unwired.
 
 ## From §5 AI-traps obligation
 
