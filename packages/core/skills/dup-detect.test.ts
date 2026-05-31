@@ -202,7 +202,7 @@ describe('dup-detect.sh — Test 4: NEG jaccard threshold (paired with Test 2)',
 // ── Test 5: NEG fail-soft — gh unavailable ────────────────────────────────────
 
 describe('dup-detect.sh — Test 5: NEG fail-soft gh unavailable', () => {
-  it('gh returns exit-1 → "(gh unavailable, dup-detect skipped)" + exit code 0', () => {
+  it('gh returns exit-1 → PR-based signals skipped, script continues + exit code 0', () => {
     // Replace mock-gh with one that exits 1
     write(mockGhBin, '#!/usr/bin/env bash\nexit 1\n');
     chmodSync(mockGhBin, 0o755);
@@ -212,9 +212,13 @@ describe('dup-detect.sh — Test 5: NEG fail-soft gh unavailable', () => {
       '# Kickoff\n\n## § scope\n\n- some task\n',
     );
     const out = runScript('test-fail-soft');
-    expect(out).toContain('gh unavailable, dup-detect skipped');
+    // New contract: gh failure no longer early-exits. The "(gh unavailable …)" note
+    // goes to stderr; stdout still carries the normal per-umbrella line so the
+    // gh-independent deliverable check (Signal 3) can run. Here GIT_DIR is nulled so
+    // Signal 3 finds nothing → OK line. (Was: stdout "dup-detect skipped" + early exit.)
+    expect(out).toContain('OK:');
     expect(out).not.toContain('POTENTIAL_DUPE:');
-    // runScript catches non-zero exits; the script itself must exit 0 on gh failure
+    // The script must still exit 0 on gh failure
     // We verify this by running via shell and checking exit
     let exitCode = 0;
     try {
@@ -374,6 +378,22 @@ describe('dup-detect.sh — Test 9: POS deliverable-on-staging (dogfood)', () =>
       '# Kickoff\n\n## § scope\n\n- meta launch wrapper\n',
     );
     const out = runScriptS3('mutation-discipline-umbrella-meta-launch');
+    expect(out).toContain('basis=deliverable-on-staging');
+  });
+
+  it('still fires when gh is unavailable (deliverable check is gh-independent)', () => {
+    // Regression: Signal 3 uses only `git ls-tree`, not gh. A failing gh must NOT
+    // early-exit the script before the deliverable check runs (the dogfood gap).
+    initGitRepo({
+      'docs/meta-factory/research-patches/2026-05-25-mutation-discipline-audit.md':
+        '# mutation discipline audit\n',
+    });
+    write(
+      join(promptsDir, 'mutation-discipline-umbrella', 'kickoff.md'),
+      '# Kickoff\n\n## § scope\n\n- close the discipline-theatre gap\n',
+    );
+    // MO_GH_BIN=false → `false pr list …` exits non-zero → gh-unavailable branch.
+    const out = runScriptS3('mutation-discipline-umbrella', { MO_GH_BIN: 'false' });
     expect(out).toContain('basis=deliverable-on-staging');
   });
 });
