@@ -39,7 +39,7 @@ STOP='with|from|that|this|into|over|then|kickoff|umbrella|phase|stage|worker|orc
 
 SINCE="$(date -v "-${MO_PR_WINDOW_DAYS}d" '+%Y-%m-%d' 2>/dev/null || date -d "-${MO_PR_WINDOW_DAYS} days" '+%Y-%m-%d' 2>/dev/null || echo '1970-01-01')"
 PR_JSON="$("${MO_GH_BIN}" pr list --state merged --search "merged:>=${SINCE}" --json number,title --limit 50 2>/dev/null)" \
-  || { echo "(gh unavailable, dup-detect skipped)"; exit 0; }
+  || { echo "(gh unavailable — PR-based signals skipped; deliverable check still runs)" >&2; PR_JSON=""; }
 
 # Tokenise stdin: lowercase, split, keep >=4 chars, strip stopwords. Outputs sorted unique tokens.
 tok_stdin() { tr '[:upper:][:punct:]' '[:lower:] ' | tr -s ' ' '\n' | awk 'length>=4' | grep -vE "^(${STOP})$" | sort -u || true; }
