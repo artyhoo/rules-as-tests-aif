@@ -35,3 +35,6 @@ packages/*/reports/
 /.claude/agents/
 /.claude/skills/aif/
 /.claude/skills/aif-*/
+
+# Stryker mutation-run sandbox (never commit)
+packages/core/.stryker-tmp/
