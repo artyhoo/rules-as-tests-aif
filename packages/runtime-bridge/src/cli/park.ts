@@ -23,6 +23,7 @@
  */
 import { fileURLToPath } from 'node:url';
 import { getTask, putTask } from './aifHttp.js';
+import { OPEN_QUESTION_ANCHOR } from './openQuestion.js';
 
 const DEFAULT_AIF_URL = 'http://localhost:3009';
 
@@ -55,7 +56,7 @@ export function validateParkArgs(args: ParkArgs): string | null {
 /** Append a marked OPEN QUESTION block to the existing plan (anchor for the resume answer). */
 export function buildOpenQuestionPlan(existingPlan: string | null | undefined, question: string): string {
   const base = (existingPlan ?? '').trimEnd();
-  const block = `\n\n## ⏸ OPEN QUESTION (awaiting operator)\n\n${question.trim()}\n`;
+  const block = `\n\n${OPEN_QUESTION_ANCHOR} (awaiting operator)\n\n${question.trim()}\n`;
   return base + block;
 }
 

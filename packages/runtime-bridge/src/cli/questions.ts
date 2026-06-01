@@ -18,7 +18,9 @@
  * A task is "parked / awaiting human" when ANY of:
  *   - manualReviewRequired === true, OR
  *   - status === 'blocked_external', OR
- *   - blockedReason is a non-empty string.
+ *   - blockedReason is a non-empty string, OR
+ *   - paused === true AND the plan contains the OPEN_QUESTION_ANCHOR
+ *     (mid-flight park whose blockedReason was cleared by implementing→review).
  *
  * Flags:
  *   --project <id>  — filter to one projectId (overrides RUNTIME_BRIDGE_AIF_PROJECT_ID)
@@ -33,6 +35,7 @@
  *   primitive, no Superset import, no paid LLM.
  */
 import { fileURLToPath } from 'node:url';
+import { OPEN_QUESTION_ANCHOR } from './openQuestion.js';
 
 const DEFAULT_AIF_URL = 'http://localhost:3009';
 
@@ -45,6 +48,10 @@ interface AifTask {
   blockedReason?: string | null;
   reviewComments?: string;
   projectId?: string;
+  /** Both returned by GET /tasks (no extra HTTP) — the durable signals of a
+   * mid-flight park whose blockedReason was cleared by implementing→review. */
+  plan?: string | null;
+  paused?: boolean;
 }
 
 interface QuestionsArgs {
@@ -65,12 +72,23 @@ export function parseQuestionsArgs(argv: string[], env: NodeJS.ProcessEnv): Ques
 /**
  * Whether a task is parked / awaiting human input.
  * Source: kickoff §4 — manualReviewRequired OR status==='blocked_external'
- *   OR a non-empty blockedReason.
+ *   OR a non-empty blockedReason — PLUS the mid-flight-park case below.
+ *
+ * Mid-flight park (Option A fix): park.ts sets paused:true and appends the
+ * OPEN_QUESTION_ANCHOR to the plan, but a normal implementing→review transition
+ * clears blockedReason (and leaves manualReviewRequired false / status 'review').
+ * paused:true and the plan anchor both survive, so detect the park on those.
+ * Require the CONJUNCTION (paused === true AND the anchor is present), never
+ * paused alone, so an operator who manually pauses an unrelated task is not
+ * over-matched.
  */
 export function isParked(task: AifTask): boolean {
   if (task.manualReviewRequired === true) return true;
   if (task.status === 'blocked_external') return true;
   if (typeof task.blockedReason === 'string' && task.blockedReason.trim().length > 0) return true;
+  if (task.paused === true && typeof task.plan === 'string' && task.plan.includes(OPEN_QUESTION_ANCHOR)) {
+    return true;
+  }
   return false;
 }
 
@@ -97,10 +115,23 @@ export function parkedReason(task: AifTask): string {
   return '(no reason recorded)';
 }
 
+/**
+ * Brainstorm-first nudge appended to a NON-EMPTY parked list (design spec §3.4).
+ * This is the aif-pull channel companion to ask-question-reminder.sh §3.3: any
+ * aif design/strategy fork I read here should go through superpowers:brainstorming
+ * before I relay it, not get echoed as a bare card. Prose nudge, not a gate —
+ * the channel cannot tell a design fork from a quick A/B. The empty case is
+ * deliberately left untouched (nothing to brainstorm about).
+ */
+const BRAINSTORM_FOOTER =
+  '⚠ Если среди этих есть развилка о дизайне/стратегии — открой ' +
+  '`superpowers:brainstorming` ПЕРЕД ответом (исследуй → рекомендация с ' +
+  'аргументами), не релей голой карточкой.';
+
 /** Render the selected tasks as a human-readable block list. */
 export function formatHuman(tasks: AifTask[]): string {
   if (tasks.length === 0) return 'No parked questions.';
-  return tasks
+  const body = tasks
     .map((t) =>
       [
         `id:     ${t.id}`,
@@ -110,6 +141,7 @@ export function formatHuman(tasks: AifTask[]): string {
       ].join('\n'),
     )
     .join('\n\n');
+  return `${body}\n\n${BRAINSTORM_FOOTER}`;
 }
 
 /** Fetch the full task list from the aif-handoff REST API (GET /tasks → array). */
