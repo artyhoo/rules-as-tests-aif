@@ -62,7 +62,7 @@ git -C <clone> remote set-url origin https://github.com/<owner>/<repo>.git
 - **Public repo:** HTTPS fetch works with no credentials.
 - **Private repo** (or to let aif push its own PR): add a **GitHub token** to the deployment `.env` (auto-injected — both `agent` and `api` services use `env_file: .env`):
 
-  ```
+  ```env
   GH_TOKEN=github_pat_…   # fine-grained PAT; scope: Contents: Read  (+ Contents: Write & Pull requests: Write to push)
   ```
 
@@ -79,7 +79,7 @@ git -C <clone> remote set-url origin https://github.com/<owner>/<repo>.git
 
 aif-handoff fires a **Telegram push per parked question** natively (0 code). Set in the deployment `.env`:
 
-```
+```env
 TELEGRAM_BOT_TOKEN=…   # @BotFather → /newbot → copy the token
 TELEGRAM_USER_ID=…     # your numeric id from @userinfobot
 ```
@@ -143,6 +143,25 @@ So strategy decisions never get silently picked by the runtime — they surface 
 - **Batch-review pattern:** periodically open a fresh Claude Code session, walk the accumulated flagged tasks, and resolve each with aif-handoff's **Approve** / **Request changes** actions (which clear the flag). Pair this with a brainstorming pass when a flagged task needs a real decision rather than a yes/no.
 
 The flag is distinct from `blocked_external` (a runtime/resource error that stops automated processing) — `manualReviewRequired` means automated processing *completed* but wants human oversight.
+
+## Hard-fork park — when the agent cannot pick a default
+
+Soft/advisory questions already flow non-blocking to chat — the agent picks a
+reasonable default and keeps going. Use the PARK primitive ONLY for a genuine
+**hard fork that blocks continuing the implementation**.
+
+- **Mid-flight hard fork (A):** the agent runs
+  `tsx packages/runtime-bridge/src/cli/park.ts --question "<fork + A/B options>"`
+  (`--task` defaults to `$HANDOFF_TASK_ID`). This pauses the task (`paused:true`,
+  the only agent-reachable stop) and records the question. The operator resolves it
+  with `answer.ts --decision resume --answer "<...>"`, which unpauses and injects
+  the answer into the plan.
+- **Finish-line fork (B):** the work is essentially done and the question is about
+  direction/acceptance -> the agent finishes to `done`; the operator answers via the
+  existing `answer.ts --decision request_changes` rework path. No new code.
+
+Never use `blockedReason` alone to stop the agent — the coordinator does not honor it
+(it filters on `paused`). The `aif-park.test.ts` GUARD enforces this.
 
 ## See also
 
