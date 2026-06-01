@@ -1,13 +1,17 @@
 /**
  * CLI dispatch entrypoint — invoked by the PostToolUse hook.
  *
- * Usage: tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path>
+ * Usage: tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path> [--force]
  *
  * Behaviour:
  *   1. Build KickoffSpec from kickoff path (null → bridge: skip marker → exit 0)
- *   2. Check idempotency (dedup by content hash, TTL 24h) → if hit, exit 0
+ *   2. Check idempotency (dedup by content hash, TTL 24h) → if hit, exit 0.
+ *      --force skips this check (deliberate re-dispatch of the same kickoff).
  *   3. Resolve backend (RUNTIME_BRIDGE_MODE env, probe available())
- *   4. Dispatch kickoff → record dedup entry
+ *   4. Dispatch kickoff → record dedup entry ONLY on a real backend success.
+ *      A ManualBackend fallback is NOT recorded: it created no autonomous task,
+ *      so it must not block a later real retry once the blocker (e.g. a dirty
+ *      worktree) is cleared. (qloop-ux-probe Finding B.)
  *   5. Output JSON hookSpecificOutput.additionalContext for CC PostToolUse contract
  *   6. On quota_exceeded / unavailable → fall back to ManualBackend + stderr warn
  *
@@ -23,8 +27,31 @@ import { resolveBackend } from '../resolver.js';
 import { ManualBackend } from '../ManualBackend.js';
 import { BackendError } from '../backend.js';
 
+/** True when --force is passed: skip the dedup check and re-dispatch deliberately. */
+export function dispatchUsesForce(argv: readonly string[]): boolean {
+  return argv.includes('--force');
+}
+
+/** First non-flag argument (the kickoff path) — lets --force sit anywhere in argv. */
+export function resolveKickoffPath(argv: readonly string[]): string | undefined {
+  return argv.find((a) => !a.startsWith('--'));
+}
+
+/**
+ * Whether a dispatch via this backend should be recorded in the dedup log.
+ * Real backend success → record (don't re-dispatch the same task). A 'manual'
+ * fallback → DON'T record: it created no autonomous task and must not block a
+ * later real retry once the underlying blocker is fixed (Finding B).
+ */
+export function shouldRecordDedup(backendName: string): boolean {
+  return backendName !== 'manual';
+}
+
 async function main(): Promise<void> {
-  const kickoffPath = process.argv[2];
+  // First non-flag token = kickoff path, so `--force` may precede or follow it.
+  const cliArgs = process.argv.slice(2);
+  const kickoffPath = resolveKickoffPath(cliArgs);
+  const force = dispatchUsesForce(cliArgs);
   if (!kickoffPath) {
     process.stderr.write('[runtime-bridge] dispatch.ts: no kickoff path provided\n');
     process.exit(0);
@@ -44,13 +71,15 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  // ── Step 2: Idempotency check ─────────────────────────────────────────────
-  const priorHandle = checkDedup(kickoff.contentHash);
-  if (priorHandle) {
-    outputContext(
-      `[runtime-bridge] Kickoff already dispatched (taskId=${priorHandle.taskId}, backend=${priorHandle.backend}) — skipping duplicate dispatch`,
-    );
-    process.exit(0);
+  // ── Step 2: Idempotency check (skipped under --force) ─────────────────────
+  if (!force) {
+    const priorHandle = checkDedup(kickoff.contentHash);
+    if (priorHandle) {
+      outputContext(
+        `[runtime-bridge] Kickoff already dispatched (taskId=${priorHandle.taskId}, backend=${priorHandle.backend}) — skipping duplicate dispatch (pass --force to re-dispatch)`,
+      );
+      process.exit(0);
+    }
   }
 
   // ── Step 3 + 4: Resolve backend + dispatch ────────────────────────────────
@@ -84,8 +113,12 @@ async function main(): Promise<void> {
     }
   }
 
-  // ── Step 5: Record dedup + output additionalContext ───────────────────────
-  recordDispatch(kickoff.contentHash, handle);
+  // ── Step 5: Record dedup (real backend only) + output additionalContext ───
+  // A ManualBackend fallback produced no autonomous task; recording it would block
+  // a legitimate retry for the full TTL once the blocker is cleared (Finding B).
+  if (shouldRecordDedup(backend.name)) {
+    recordDispatch(kickoff.contentHash, handle);
+  }
 
   // Human-facing UI (the board), NOT the :3009 REST API (which returns raw JSON).
   const webBase = process.env['RUNTIME_BRIDGE_AIF_WEB_URL'] ?? 'http://localhost:5180';
