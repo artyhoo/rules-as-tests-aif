@@ -97,12 +97,25 @@ function assistantToolUseOnly(toolName: string) {
   };
 }
 
-function runHook(stdin: Record<string, unknown>): { status: number; stdout: string; stderr: string } {
+function runHook(
+  stdin: Record<string, unknown>,
+  env?: Record<string, string>,
+): { status: number; stdout: string; stderr: string } {
   const r = spawnSync('bash', [HOOK], {
     input: JSON.stringify(stdin),
     encoding: 'utf8',
+    env: env ? { ...process.env, ...env } : process.env,
   });
   return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+/** Write a fresh orchestration-mode marker file; returns its path. */
+function writeMarker(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'm4-5-marker-'));
+  tmpDirs.push(dir);
+  const p = join(dir, 'orchestration-mode');
+  writeFileSync(p, '');
+  return p;
 }
 
 /** Build a long markdown-shaped text (>500 chars) that triggers long_text=true. */
@@ -151,6 +164,89 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     // defer-reflex Stage 2 REJECT) — Branch A must mirror Branch B/C fork-check
     // since defer-reflex incidents happen in long recap turns without questions.
     expect(payload.reason).toMatch(/рекомендовал|жду твоего решения|перекладывай/i);
+  });
+
+  // ── orchestration-mode (marker-gated; normal mode byte-for-byte) ──────────────
+  describe('orchestration-mode — Bug A: decision-mention no longer false-fires in-mode', () => {
+    it('IN-MODE — short "я выбрал Option A." (decision mention, no ?) → silent', () => {
+      const tr = writeTranscript([
+        aiTitle('Цель'),
+        userTurn('задание'),
+        assistantText('Ок, я выбрал Option A и поехал дальше.'),
+      ]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false },
+        { ORCHESTRATION_MODE_MARKER: writeMarker() },
+      );
+      expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout, 'decision-mention in-mode must NOT fire').toBe('');
+    });
+
+    it('IN-MODE — short text ending in "… A или B?" → still fires (trailing ? kept)', () => {
+      const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText('Что берём — A или B?')]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false },
+        { ORCHESTRATION_MODE_MARKER: writeMarker() },
+      );
+      expect(r.stdout, 'real question in-mode must fire').not.toBe('');
+      expect(JSON.parse(r.stdout).decision).toBe('block');
+    });
+
+    it('NORMAL-MODE — same "я выбрал Option A." STILL fires (byte-for-byte regression guard)', () => {
+      const tr = writeTranscript([
+        aiTitle('Цель'),
+        userTurn('задание'),
+        assistantText('Ок, я выбрал Option A и поехал дальше.'),
+      ]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false }); // no marker
+      expect(r.stdout, 'normal mode must be unchanged — regex still active').not.toBe('');
+    });
+  });
+
+  describe('orchestration-mode — recap (b): fires on short structured status in-mode', () => {
+    // Realistic dense orchestration status: >200 (in-mode recap_min) but <500
+    // (normal-mode threshold) — so it fires in-mode and stays silent normally.
+    const shortStructured =
+      '## Статус aif-задачи\n' +
+      '- запарковал task d7585d71 на форке isParked vs retarget\n' +
+      '- жду ответа оператора, нужно решение по плану egress\n' +
+      '- следующий шаг — harvest после ответа, потом PR в staging\n' +
+      '- риск: rework-путь не коммитит, чиним на нашей стороне';
+
+    it('IN-MODE — short STRUCTURED status (<500, markdown) → recap fires', () => {
+      const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText(shortStructured)]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false },
+        { ORCHESTRATION_MODE_MARKER: writeMarker() },
+      );
+      expect(r.stdout, 'short structured status in-mode must fire recap').not.toBe('');
+      expect(JSON.parse(r.stdout).decision).toBe('block');
+    });
+
+    it('IN-MODE — short UNSTRUCTURED chatter "ок, удалил" → silent (markdown gate holds)', () => {
+      const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText('ок, удалил')]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false },
+        { ORCHESTRATION_MODE_MARKER: writeMarker() },
+      );
+      expect(r.stdout, 'unstructured chatter must stay silent').toBe('');
+    });
+
+    it('NORMAL-MODE — short structured status → silent (threshold unchanged)', () => {
+      const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText(shortStructured)]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false }); // no marker
+      expect(r.stdout, 'normal mode keeps 500-char threshold').toBe('');
+    });
+
+    it('STALE marker (mtime past TTL) → behaves as normal mode', () => {
+      const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText(shortStructured)]);
+      const m = writeMarker();
+      execSync(
+        `touch -t $(date -v-7H +%Y%m%d%H%M 2>/dev/null || date -d '7 hours ago' +%Y%m%d%H%M) "${m}"`,
+      );
+      const r = runHook({ transcript_path: tr, stop_hook_active: false }, { ORCHESTRATION_MODE_MARKER: m });
+      expect(r.stdout, 'stale marker must not enable in-mode').toBe('');
+    });
   });
 
   it('Branch B (short text ending in ?, no claim) → emits JSON; reason mentions fork-challenge', () => {

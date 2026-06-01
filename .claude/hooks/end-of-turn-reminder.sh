@@ -45,6 +45,23 @@ fi
 
 text_length=${#text}
 
+# -- orchestration-mode marker (deterministic; normal mode = marker absent) ----
+# In orchestration mode (driving aif-handoff, relaying state every turn) two
+# triggers are re-tuned (Bug A regex dropped, recap threshold lowered); normal
+# mode is byte-for-byte unchanged. Freshness (mtime within TTL) guards against a
+# forgotten marker silently muting a normal session. Spec: docs/superpowers/
+# specs/2026-06-01-hook-nudge-orchestration-mode-design.md.
+orch_mode=false
+marker="${ORCHESTRATION_MODE_MARKER:-${CLAUDE_PROJECT_DIR:-.}/.claude/orchestration-mode}"
+ttl="${ORCHESTRATION_MODE_TTL_SECONDS:-21600}"
+if [ -f "$marker" ]; then
+  marker_now=$(date +%s)
+  marker_mtime=$(stat -f %m "$marker" 2>/dev/null || stat -c %Y "$marker" 2>/dev/null || echo 0)
+  if [ "$(( marker_now - marker_mtime ))" -lt "$ttl" ]; then
+    orch_mode=true
+  fi
+fi
+
 # Already-recapped guard: if the current assistant turn already contains the
 # canonical "## 🟢 Простыми словами" marker, the recap is done — re-firing would
 # re-inject the recap instruction over an existing recap. Complements the
@@ -65,8 +82,14 @@ fi
 # evidence: docs/meta-factory/research-patches/2026-06-01-remove-claim-detector.md.
 # The recap (Branch A/C) + question-check (Branch B) survive; the always-on H1
 # reminder in inject-session-bootstrap.sh remains the cheap salience layer.
+# Recap threshold is lowered in orchestration mode (status turns are short+dense)
+# but the markdown-structure gate is KEPT, so unstructured chatter stays silent.
 long_text=false
-if [ "$text_length" -gt 500 ]; then
+recap_threshold=500
+if [ "$orch_mode" = "true" ]; then
+  recap_threshold="${ORCHESTRATION_MODE_RECAP_MIN_CHARS:-200}"
+fi
+if [ "$text_length" -gt "$recap_threshold" ]; then
   if echo "$text" | grep -qE '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)'; then
     long_text=true
   fi
@@ -80,7 +103,7 @@ elif [ -n "$text" ]; then
   tail_chunk=$(echo "$text" | tail -c 500)
   if echo "$tail_chunk" | grep -qE '\?[[:space:]]*$'; then
     asked=true
-  elif echo "$tail_chunk" | grep -qiE 'Option [AB]|выбирай|decide|хочешь чтобы|which (option|approach)'; then
+  elif [ "$orch_mode" = "false" ] && echo "$tail_chunk" | grep -qiE 'Option [AB]|выбирай|decide|хочешь чтобы|which (option|approach)'; then
     asked=true
   fi
 fi
