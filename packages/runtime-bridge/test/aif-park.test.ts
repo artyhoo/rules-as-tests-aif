@@ -1,9 +1,66 @@
 // packages/runtime-bridge/test/aif-park.test.ts
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { parseParkArgs, validateParkArgs, buildOpenQuestionPlan, resolveAifBaseUrl } from '../src/cli/park.js';
+import {
+  parseParkArgs,
+  validateParkArgs,
+  buildOpenQuestionPlan,
+  resolveAifBaseUrl,
+  candidateBaseUrls,
+  resolveReachableBaseUrl,
+} from '../src/cli/park.js';
 import { parkTask } from '../src/cli/park.js';
 
 afterEach(() => vi.restoreAllMocks());
+
+// Finding C-2 (qloop-ux-probe live re-run): the aif agent runs park.ts in a Bash-tool
+// subprocess whose env is SCRUBBED of API_BASE_URL, so reading env alone falls back to an
+// unreachable localhost inside the container. park probes candidates and uses the first
+// reachable one, so it works from both the agent container and the host orchestrator.
+describe('candidateBaseUrls — ordered, de-duplicated probe list', () => {
+  it('puts env vars first, then docker service, then localhost', () => {
+    expect(candidateBaseUrls({ RUNTIME_BRIDGE_AIF_URL: 'http://x:1' })).toEqual([
+      'http://x:1',
+      'http://api:3009',
+      'http://localhost:3009',
+    ]);
+  });
+  it('with NO env (the scrubbed agent case) still offers api:3009 before localhost', () => {
+    expect(candidateBaseUrls({})).toEqual(['http://api:3009', 'http://localhost:3009']);
+  });
+  it('de-duplicates when an env var equals a default', () => {
+    expect(candidateBaseUrls({ API_BASE_URL: 'http://localhost:3009' })).toEqual([
+      'http://localhost:3009',
+      'http://api:3009',
+    ]);
+  });
+});
+
+describe('resolveReachableBaseUrl — first reachable candidate wins', () => {
+  it('returns api:3009 when localhost is refused and api is reachable (the agent container)', async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.startsWith('http://localhost:3009')) throw new Error('ECONNREFUSED');
+      return new Response('[]'); // api:3009 reachable
+    });
+    const got = await resolveReachableBaseUrl({}, fetchImpl as never);
+    expect(got).toBe('http://api:3009');
+  });
+  it('returns localhost when set first and reachable (the host orchestrator)', async () => {
+    const fetchImpl = vi.fn(async () => new Response('[]'));
+    const got = await resolveReachableBaseUrl({ RUNTIME_BRIDGE_AIF_URL: 'http://localhost:3009' }, fetchImpl as never);
+    expect(got).toBe('http://localhost:3009');
+  });
+
+  // Negative guard: green now; RED if the probe regressed to "first candidate, no probe"
+  // — it would return localhost here (refused) instead of the reachable api:3009.
+  it('GUARD: does NOT return an unreachable candidate when a later one is reachable', async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.startsWith('http://localhost:3009')) throw new Error('ECONNREFUSED');
+      return new Response('[]');
+    });
+    const got = await resolveReachableBaseUrl({ RUNTIME_BRIDGE_AIF_URL: 'http://localhost:3009' }, fetchImpl as never);
+    expect(got).not.toBe('http://localhost:3009');
+  });
+});
 
 // park.ts is the ONLY CLI run from INSIDE the aif agent container (the agent invokes it
 // on a fork). The container exposes the service as API_BASE_URL=http://api:3009 and does

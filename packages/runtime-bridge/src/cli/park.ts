@@ -29,6 +29,7 @@ import { getTask, putTask } from './aifHttp.js';
 import { OPEN_QUESTION_ANCHOR } from './openQuestion.js';
 
 const DEFAULT_AIF_URL = 'http://localhost:3009';
+const DOCKER_SERVICE_URL = 'http://api:3009';
 
 /**
  * Resolve the aif-handoff base URL with container-awareness.
@@ -39,6 +40,48 @@ const DEFAULT_AIF_URL = 'http://localhost:3009';
  */
 export function resolveAifBaseUrl(env: NodeJS.ProcessEnv): string {
   return env.RUNTIME_BRIDGE_AIF_URL || env.API_BASE_URL || DEFAULT_AIF_URL;
+}
+
+/**
+ * Ordered, de-duplicated candidate base URLs to probe. Finding C-2 (qloop-ux-probe
+ * live re-run): the aif agent runs park.ts in a Bash-tool subprocess whose env is
+ * SCRUBBED of API_BASE_URL, so resolveAifBaseUrl() alone falls back to localhost —
+ * unreachable inside the container. We therefore probe explicit env vars first, THEN
+ * the docker-compose service name (reachable in the agent container) and the host
+ * default (reachable from an orchestrator session), so park works from either context
+ * even when no env survives.
+ */
+export function candidateBaseUrls(env: NodeJS.ProcessEnv): string[] {
+  const ordered = [
+    env.RUNTIME_BRIDGE_AIF_URL,
+    env.API_BASE_URL,
+    DOCKER_SERVICE_URL,
+    DEFAULT_AIF_URL,
+  ].filter((u): u is string => typeof u === 'string' && u.length > 0);
+  return [...new Set(ordered)];
+}
+
+type FetchLike = (url: string, init?: { method?: string }) => Promise<unknown>;
+
+/**
+ * First candidate whose GET /tasks is reachable (ANY HTTP response = reachable; only a
+ * connection failure rejects). Falls back to the last candidate if none respond, so a
+ * caller still gets a deterministic URL (and a clear downstream error) rather than throw.
+ */
+export async function resolveReachableBaseUrl(
+  env: NodeJS.ProcessEnv,
+  fetchImpl: FetchLike = fetch as unknown as FetchLike,
+): Promise<string> {
+  const candidates = candidateBaseUrls(env);
+  for (const base of candidates) {
+    try {
+      await fetchImpl(`${base}/tasks`, { method: 'GET' });
+      return base; // any response (even 404) means the host is reachable
+    } catch {
+      // connection failure (DNS / refused) — try the next candidate
+    }
+  }
+  return candidates[candidates.length - 1] ?? DEFAULT_AIF_URL;
 }
 
 export interface ParkArgs {
@@ -98,7 +141,7 @@ export function formatParkResult(result: ParkResult): string {
 }
 
 async function main(): Promise<void> {
-  const baseUrl = resolveAifBaseUrl(process.env);
+  const baseUrl = await resolveReachableBaseUrl(process.env);
   const args = parseParkArgs(process.argv.slice(2), process.env);
 
   const argError = validateParkArgs(args);
