@@ -15,6 +15,8 @@ export interface AifTaskFull {
   plan?: string | null;
   paused?: boolean;
   blockedReason?: string | null;
+  /** aif's persisted feature-branch name (planner source-of-truth; read back by harvest). */
+  branchName?: string | null;
 }
 
 async function request(method: 'GET' | 'PUT', baseUrl: string, path: string, body?: unknown): Promise<unknown> {
