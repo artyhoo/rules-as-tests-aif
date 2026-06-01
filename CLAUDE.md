@@ -29,6 +29,8 @@ The phase entry consult gate is the same enforcement at planning time — see [E
 
 For the **consumer-side authority model** governing how shipped artefacts may be customised after install (three-layer model + `<file>.override.md` escape hatch), see [INSTALL-FOR-AI.md `Three-layer authority for shipped artefacts`](INSTALL-FOR-AI.md#three-layer-authority-for-shipped-artefacts). This is the consumer-facing companion to the build-vs-reuse discipline above.
 
+> **Satellite doctrine** (own-stack-first · operator-vs-shipped axes · cost = capability-commit · use-before-build) lives at its authoritative home [`.claude/rules/build-first-reuse-default.md §1.1`](.claude/rules/build-first-reuse-default.md) — that rule owns «relationship to upstream tools + default verdict for capability proposals». CLAUDE.md owns only the **per-commit** build-vs-reuse gate (above + below); the macro companion-relationship doctrine is BFR's scope (relocated 2026-06-01 — the §32 placement was a doc-authority slip per [doc-authority-hierarchy.md §4](.claude/rules/doc-authority-hierarchy.md) `#contradicting-authority-claims`).
+
 ## What is a capability commit?
 
 A commit that does **any** of the following (mirrors `.husky/pre-push` detection — the prose definition and the hook stay in sync):
@@ -99,6 +101,27 @@ When working on an agreed scope (a defined umbrella, batch, or single-concern PR
 - The `work-without-stopping` user override applies to **clarification within the agreed scope**, not to expanding scope with new shared-state operations.
 - Exception: if maintainer explicitly invited the systemic fix in this session, proceed — but that's an explicit invitation, not autopilot.
 
+## Umbrella closure convention
+
+When the **last stage** of a multi-stage umbrella merges, the merging session writes a `done.md` file at:
+
+```text
+.claude/orchestrator-prompts/<umbrella>/done.md
+```
+
+**Schema (binding):**
+
+```text
+# <umbrella> — DONE
+- Final PR: #<num>
+- Closed: <YYYY-MM-DD>
+- Summary: <one-line>
+```
+
+**When to write:** at the last-stage PR merge only — not at intermediate stage merges. For single-stage umbrellas, write at the one-and-only merge.
+
+**Why this convention:** `priority-score.sh` completion-detection Layer C3 checks `done.md` existence per candidate and tags `status=DONE done_pr=<num> basis=done-md`. This is the load-bearing fallback layer (deterministic, zero gh rate-limit cost, covers the 83% NO-MATCH bucket that branch-prefix and jaccard cannot reach). ADAPT of Cline Memory Bank committed-markdown sub-pattern (SSOT #77 — ~85% problem-class match on storage format; diverges on update trigger: Cline = on-demand AI-signalled, ours = explicit at-merge convention).
+
 ## See also
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — full contributor-facing details (hook setup, bypass policy).
@@ -106,3 +129,4 @@ When working on an agreed scope (a defined umbrella, batch, or single-concern PR
 - [.github/pull_request_template.md](.github/pull_request_template.md) — PR checklist.
 - [packages/core/principles/08-prior-art-cited.test.ts](packages/core/principles/08-prior-art-cited.test.ts) — meta-test enforcing citations.
 - [agents/compliance-verifier.md](agents/compliance-verifier.md) — AI-agnostic sub-agent for §1.7 substance review; read in your active session before merging a discipline-bearing PR (Wave 8.1b, $0 LLM-in-CI).
+- **Parallel-session dispatch:** spawn isolated worktrees with `claude -w <name>` — the [`worktree-setup.sh`](.claude/hooks/worktree-setup.sh) `WorktreeCreate` hook auto-creates the worktree + `node_modules` symlinks (≤2-step pipeline, empirically accepted in [docs/meta-factory/research-patches/2026-05-29-dispatch-worktree-iphase-acceptance.md](docs/meta-factory/research-patches/2026-05-29-dispatch-worktree-iphase-acceptance.md)).

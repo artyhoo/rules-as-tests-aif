@@ -5,7 +5,7 @@
 [![Audit Self](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml/badge.svg?branch=main)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml)
 [![Workflow Integrity](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml/badge.svg?branch=main)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml)
 
-> Companion to AI Factory + aif-handoff + Superpowers (today) — broader AI-runtime integration on roadmap. Deploys into Claude Code / Cursor / Cline / Codex / Aider via standard project install. Converts every codebase rule into an executable artifact that fails at the earliest reachable channel (edit-time → pre-commit → pre-push → CI → production audit). Adds Living Documentation enforcement and 5-layer framework for AI-resistant codebases — server-side TypeScript and React/Next.js stacks.
+> Companion to AI Factory + aif-handoff + Superpowers (today) — broader AI-runtime integration on roadmap. Deploys into Claude Code / Cursor / Codex via standard project install. Converts every codebase rule into an executable artifact that fails at the earliest reachable channel (edit-time → pre-commit → pre-push → CI → production audit). Adds Living Documentation enforcement and 5-layer framework for AI-resistant codebases — server-side TypeScript and React/Next.js stacks.
 
 ## What this package gives you
 
@@ -69,13 +69,13 @@ If recursive self-application breaks, the framework becomes documentation that l
 
 ## What this project is and isn't
 
-**Is:** companion to AI Factory + aif-handoff + Superpowers (today) focused on Living Documentation enforcement (R1-R20 rules-as-tests, `audit-ai-docs.sh` drift detection, mutation testing, principle tests, 5-layer framework, methodology discipline). One-button install of pre-configured opinionated discipline.
+**Is:** universal satellite for Living Documentation enforcement — neutrally compatible with any companion stack (workflow frameworks, task orchestrators, methodology discipline tools). Focused on R1-R20 rules-as-tests, `audit-ai-docs.sh` drift detection, mutation testing, principle tests, 5-layer framework. One-button install of pre-configured opinionated discipline.
 
-**Isn't:** workflow framework (use AI Factory); task orchestration / swarm coordination (use `aif-handoff`); standalone CI tool. **Not the IDE/CLI runtime our framework deploys into** — Claude Code, Cursor, Cline, Codex, Aider are *deployment surfaces*, not companions; the framework installs into their workspace via standard project install.
+**Isn't:** workflow framework (multiple companions exist — see [companion-target comparison](docs/meta-factory/research-patches/2026-05-16-companion-target-comparison.md) and SSOT #56-#83); task orchestration / swarm coordination (see same SSOT); standalone CI tool. **Not the IDE/CLI runtime our framework deploys into** — Claude Code, Cursor, Codex are *deployment surfaces*, not companions; the framework installs into their workspace via standard project install.
 
 **Reuse stance:** see [`.claude/rules/build-first-reuse-default.md`](.claude/rules/build-first-reuse-default.md). Default = adopt upstream when problem-class matches. Build ourselves only what is structurally missing — currently: Living Documentation, 5-layer framework, methodology discipline, AST-based hooks (shipped Wave 10 / N3 ✅).
 
-**Roadmap signals:** companion-target comparison shipped 2026-05-16 — see [research-patch §3-§4](docs/meta-factory/research-patches/2026-05-16-companion-target-comparison.md). Verdicts: **Superpowers** added as 3rd named companion (rules-as-tests alignment confirmed via TDD-for-Skills discipline). **OhMyOpencode + microsoft/agent-framework** = REFERENCE-only (different lifecycle / problem class). **Cline / Cursor / Codex / Aider** = framework-consumers (different architectural layer — runtimes we install into, not companions at our framework layer). Future widening pending only if new discipline-framework candidates appear.
+**Roadmap signals:** companion-target comparison shipped 2026-05-16 — see [research-patch §3-§4](docs/meta-factory/research-patches/2026-05-16-companion-target-comparison.md). Verdicts: **Superpowers** = 3rd named companion (rules-as-tests alignment confirmed via TDD-for-Skills discipline). **OhMyOpencode** = ADOPT VOCABULARY (SSOT #83) for orchestrator dispatch + verification loop terminology (Atlas + Prometheus naming convention; no runtime dependency). **microsoft/agent-framework** = REFERENCE-only (different lifecycle / problem class). **Cursor / Codex** = framework-consumers (different architectural layer — runtimes we install into, not companions at our framework layer). Future widening pending only if new discipline-framework candidates appear.
 
 ## The 5-layer framework
 
@@ -118,6 +118,22 @@ That's it. `setup.sh` handles everything end-to-end:
 4. Runs `npm install -D` for ~25 dev dependencies.
 5. Initializes husky and copies pre-commit / pre-push hooks.
 6. Adds 13 npm scripts (`validate`, `audit:docs`, `arch:check`, `test:mutation`, …) to `package.json` via `jq`.
+7. Optionally installs companion tools (Superpowers, TaskMaster) via `claude plugin install` — see below.
+
+### Optional companion install (K-1)
+
+After the core install, `setup.sh` prompts to install optional companion tools:
+
+- **Interactive (default):** you are prompted for each companion (`Install Superpowers? [y/N]`, `Install TaskMaster? [y/N]`). Default is N — no companion is mandatory.
+- **Headless / CI:** pass the `COMPANIONS` env var before the command:
+  - `COMPANIONS=all bash /tmp/rt/setup.sh --stack=ts-server` — install all companions
+  - `COMPANIONS=none bash /tmp/rt/setup.sh --stack=ts-server` — skip all companion prompts
+  - `COMPANIONS=superpowers,task-master bash /tmp/rt/setup.sh --stack=ts-server` — install specific subset
+- **Non-interactive auto-fallback:** when stdin is not a tty (e.g. piped or CI), `COMPANIONS` defaults to `none` automatically (install.sh:337-338).
+
+Each companion is installed via `claude plugin install` — this is **administrative file-management** (file copy + manifest registration into `~/.claude/`), **not** an API-billed LLM call. Verified VERIFIED-FREE per Stage 2 v3 §4.8.
+
+Relevant install.sh lines: arg/env parse (install.sh:62-69), tty fallback (install.sh:337-338), Superpowers install (install.sh:371), TaskMaster install (install.sh:411).
 
 Optional flags:
 - `--skip-aif-init` — skip step 2 (use if AIF is already initialized or you don't want it globally installed).

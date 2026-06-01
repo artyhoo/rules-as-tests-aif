@@ -1,0 +1,10 @@
+# backlog-3-overlap.txt — 5 fix-class items where 3 touch the same file (shared.sh)
+# Expected: idx 1 enters bundle (shared.sh registered), idx 2 enters bundle (unique.sh),
+# idx 3 EXCLUDED file-overlap (shared.sh already seen), idx 4 enters bundle (other.sh),
+# idx 5 EXCLUDED file-overlap (shared.sh already seen).
+# Final bundle: 3 items (idx 1, 2, 4); 2 excluded by overlap (idx 3, 5).
+fix lint warning in shared.sh
+fix typo in unique.sh
+fix comment in shared.sh
+fix missing semicolon in other.sh
+fix wrong variable name in shared.sh

@@ -36,8 +36,61 @@ export interface GitProvider {
   diffForPaths(sha: string, paths: readonly string[]): string;
 }
 
+/**
+ * The all-zeros SHA git writes on the pre-push stdin `remote_sha` field when the
+ * remote ref does not yet exist (a brand-new branch being pushed for the first
+ * time). Per `githooks(5)`.
+ */
+export const Z40 = '0000000000000000000000000000000000000000';
+
+/** One parsed line of the pre-push hook's stdin. */
+export interface PushRef {
+  localRef: string;
+  localSha: string;
+  remoteRef: string;
+  remoteSha: string;
+}
+
+/**
+ * Parse the pre-push hook's stdin into structured refs. git passes one line per
+ * pushed ref: `<local_ref> <local_sha> <remote_ref> <remote_sha>`. This is the
+ * canonical, trunk-agnostic base-ref signal (ADAPT of pre-commit's stdin parse,
+ * SSOT — see hook-base-ref-detection research patch): `remote_sha` is exactly
+ * what HEAD is being pushed against, so the hook never has to *guess* a default
+ * branch. Pure (no git I/O) so it is unit-testable. Blank and malformed lines
+ * (fewer than the four required fields) are dropped rather than yielding a ref
+ * with undefined shas, which would mis-resolve the diff base.
+ */
+export function parsePushRefs(stdin: string): PushRef[] {
+  return stdin
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.split(/\s+/))
+    .filter((parts) => parts.length >= 4)
+    .map(([localRef, localSha, remoteRef, remoteSha]) => ({
+      localRef: localRef ?? '',
+      localSha: localSha ?? '',
+      remoteRef: remoteRef ?? '',
+      remoteSha: remoteSha ?? '',
+    }));
+}
+
 export function upstreamExists(ref: string): boolean {
   return runCheck('git', ['rev-parse', '--verify', ref]).exitCode === 0;
+}
+
+/**
+ * Commits reachable from `localSha` but not on any remote-tracking branch — the
+ * new commits a first-time branch push (stdin `remote_sha` == {@link Z40})
+ * introduces. Trunk-agnostic: no `origin/<trunk>` literal, so it works on any
+ * consumer repo regardless of trunk name. Mirrors pre-commit's Z40 handling.
+ */
+export function commitsNotOnRemotes(localSha: string): string[] {
+  return gitOut(['rev-list', localSha, '--not', '--remotes'])
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 /** Commit SHAs in `<upstreamRef>..HEAD`, newest first (git rev-list order). */

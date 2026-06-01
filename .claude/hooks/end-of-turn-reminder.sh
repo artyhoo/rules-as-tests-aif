@@ -45,6 +45,15 @@ fi
 
 text_length=${#text}
 
+# Already-recapped guard: if the current assistant turn already contains the
+# canonical "## 🟢 Простыми словами" marker, the recap is done — re-firing would
+# re-inject the recap instruction over an existing recap. Complements the
+# built-in stop_hook_active guard (hook:7-10) for the case where the model
+# proactively recaps in a fresh natural turn (stop_hook_active=false).
+if [ -n "$text" ] && printf '%s' "$text" | grep -qF '## 🟢 Простыми словами'; then
+  exit 0
+fi
+
 # --- Factual-claim scan (deterministic; no LLM, no external call — no-paid-llm-in-ci).
 # spec: docs/meta-factory/research-patches/2026-05-21-autonomous-self-audit-triggering.md §11.1
 # Targets the at-write-time factual class the recap nudge alone does NOT force a
@@ -216,6 +225,7 @@ elif [ "$long_text" = "true" ]; then
 • Нетривиальные решения — «выбрал X вместо Y потому что Z», или честно «решений не было».
 • В чём меньше всего уверен — назови ОДНУ вещь, которую стоит перепроверить.
 • Следующий шаг и почему он следующий.
+• Если в этом ходе ты что-то рекомендовал, или сказал «решай ты» / «жду твоего решения» / «PR готов, ждёт твой клик» — проверь себя: альтернативы реально перебраны или взял первое что пришло? Если по существу есть явно лучший вариант (по целям и дисциплине) — НЕ перекладывай, сделай и скажи что сделал. Передача решения = резерв для настоящих развилок.
 Любой пункт не выходит конкретным → скажи прямо, не заполняй водой.
 EOF
 )

@@ -143,12 +143,20 @@ Trigger: a load-bearing / discipline-bearing PR is ready and CI is green.
 Tempted output: «CI green → hand to the maintainer to review and merge».
 Counter: run your **own** adversarial cold-review of the diff (a fresh reviewer over the actual change) BEFORE handoff. CI checks form/structure (lint, trailers, schema), not design substance — the 2026-05-22 DN-4 round-1 (§1.11) and round-2 (§1.12) cold-reviews each caught real MAJOR findings a green CI missed. «Merge» is the maintainer's decision; «QA» is yours. *(codifies memory `own_qa_before_handoff`)*
 
+### T20 — Inline-verdict-without-evidence
+
+Trigger: AI issues a recommendation, verdict, or design call (`ADOPT/BUILD/REJECT/DEFER`, «use X», «pick Y over Z», «we should A») in inline dialogue **without having run at least one evidence-bearing tool call** (`Bash | Read | Grep | Glob | WebFetch | WebSearch`) in the same turn — the recommendation is fabricated from training-data or session-recall, not grounded in present-moment verification.
+
+Tempted output: «Recommend Option A» / «BUILD verdict for X» / «use jq here» — without preceding grep, file read, or fetch establishing the evidence base; under the false confidence that the H1 always-on reminder substitutes for the verification act it names.
+
+Counter: Before issuing any recommendation/verdict in dialogue, run **at least ONE** evidence-bearing tool call in the same turn and **quote its output** (file:line, command result, fetched excerpt). The recommendation is then **backed**, per parent rule [`phase-research-coverage.md §1.12`](phase-research-coverage.md). This is the operational form of the named anti-pattern [`#recommendation-skips-own-discipline`](phase-research-coverage.md) (§4).
+
 ## §3 Obligations on kickoff authors
 
 A kickoff document (R-phase brief, audit prompt, multi-session umbrella doc) that delegates work to an AI session MUST:
 
 1. **Cite this rule explicitly** in its §6 (or equivalent «AI traps» section): `See [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md)`.
-2. **Enumerate which T-numbers apply** to its specific R-phase by listing them: `Active traps for this R-phase: T1, T3, T4, T7, T11, T13, T15`. Justification one-liner per trap is encouraged but not mandatory.
+2. **Enumerate which T-numbers apply** to its specific R-phase by listing them: `Active traps for this R-phase: T1, T3, T4, T7, T11, T13, T15, T20`. Justification one-liner per trap is encouraged but not mandatory.
 3. **Add ≥1 domain-specific trap** that is NOT in the canonical catalogue but is structurally possible in this R-phase's context. Domain-specific traps should be labelled with the wave/phase identifier: `T-Wave9-A — «when auditing trailer truthfulness, AI tempted to grep for citation-syntax presence rather than verify cited line evidences claim»`.
 
 Blanket reference («see ai-laziness-traps.md» without enumeration or domain extension) is **insufficient and itself a form of T7 (pattern-matching the prompt instead of reasoning against it)**. Linters can be added later if violation rate justifies; for now this is a prose-discipline check at review time.
@@ -167,6 +175,7 @@ Blanket reference («see ai-laziness-traps.md» without enumeration or domain ex
 - **Trap retirement:** if a T-N has not been cited as active in any kickoff for 4+ consecutive waves AND no incident has fired matching it, demote to «archived» section (preserve for history, do not require enumeration).
 - **Catalogue split:** if §2 exceeds 25 entries, split by domain (e.g. audit-specific vs. implementation-specific). Avoid bloat-by-accretion.
 - **Companion principle test — SHIPPED:** [`packages/core/principles/12-ai-laziness-traps.test.ts`](../../packages/core/principles/12-ai-laziness-traps.test.ts) (#74, 2026-05-17) — mechanical check on kickoff files under `.claude/orchestrator-prompts/*/kickoff.md` for the required §3 citation + T-enumeration syntax. Promoted ahead of the «≥3 incidents in 6 months» violation-rate threshold via the 1A roadmap (slot 12, not the originally-sketched slot 11 — that slot went to build-first-reuse-default).
+- **T20 → Class A principle test** when 3+ documented incidents in `.claude/rules/` or `research-patches/` each with file:line evidence; principle test would do post-hoc semantic grep over chat-transcript exports for verdict-words without preceding evidence-tool, with MANUAL classification (per [`narrow-b-benchmark.md §1.5`](../../docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md) — automated FP-rate = 84%, gate-class enforcement infeasible without semantic enrichment; recall caveat per same patch §1.3 + §T19 prevents any catch-rate claim without manual classification sample).
 
 ## See also
 

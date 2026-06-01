@@ -1,0 +1,7 @@
+# backlog-1-clean.txt — 5 fix-class items, no file-overlap, varied dispatch
+# Expected: all 5 items pass eligibility filter and enter bundle (in-bundle 1/5 through 5/5)
+fix lint warning in alpha.sh
+fix typo in beta.sh
+fix comment in gamma.sh
+fix missing semicolon in delta.sh
+fix wrong variable name in epsilon.sh

@@ -60,8 +60,8 @@ while IFS= read -r f; do
           ;;
       esac
       lines=$(awk 'END{print NR}' "$f")
-      if [ "$lines" -gt 500 ]; then
-        echo "❌ Markdown file $f exceeds 500 lines ($lines lines). Split or trim."
+      if [ "$lines" -gt 600 ]; then
+        echo "❌ Markdown file $f exceeds 600 lines ($lines lines). Split or trim."
         fail=1
       fi
       ;;

@@ -5,21 +5,53 @@
 #   prior-art-presence: §7 "Prior-art:" trailer PRESENCE (no substance arm)
 #   s17-presence:       §1.7 trailer PRESENCE (no file:line arm)
 # Upstream pattern: Aider §4.8.X.2 check-registry ADAPT (SSOT #59).
+#
+# Base-ref detection mirrors pre-push.ts's resolver (dual-implementation-discipline
+# §5; hook-base-ref-detection I-phase): env override > git pre-push stdin remote_sha
+# > default origin/staging — never a silent skip. The former hard-coded
+# origin/staging default silently no-op'd on any consumer repo lacking a `staging`
+# branch (the channel install.sh actually ships).
 # @dual-pair: pre-push-critical-checks
 set -euo pipefail
 
-UPSTREAM_REF="${PREPUSH_UPSTREAM_REF:-origin/staging}"
+Z40="0000000000000000000000000000000000000000"
 HISTORICAL_CUTOFF="2026-05-12"
 # §1.7 allow-list — parity with s17.ts:18 ALLOWLIST_RE (these subjects never require a §1.7 trailer).
 S17_ALLOWLIST_RE='^(docs\(research-patches\)|chore\(snapshot-regen\)|chore\(prior-art-update\)):'
 fail=0
 
-if ! git rev-parse --verify "${UPSTREAM_REF}" >/dev/null 2>&1; then
-  echo "⚠ fallback: upstream ref '${UPSTREAM_REF}' not found — skipping."; exit 0
-fi
+# Resolve the commits being pushed into COMMITS (newline-separated). Precedence
+# matches pre-push.ts resolveBase(): env > stdin remote_sha (Z40 → not-on-remotes)
+# > origin/staging default. Returns non-zero when nothing resolves (caller skips
+# with a visible message — not a silent pass).
+COMMITS=""
+resolve_commits() {
+  if [ -n "${PREPUSH_UPSTREAM_REF:-}" ]; then
+    if git rev-parse --verify "${PREPUSH_UPSTREAM_REF}" >/dev/null 2>&1; then
+      COMMITS=$(git rev-list "${PREPUSH_UPSTREAM_REF}..HEAD" 2>/dev/null || true); return 0
+    fi
+    echo "⚠ fallback: PREPUSH_UPSTREAM_REF='${PREPUSH_UPSTREAM_REF}' not found — skipping (not a silent pass)."; return 1
+  fi
+  # git pre-push stdin: <local_ref> <local_sha> <remote_ref> <remote_sha> (first line).
+  if [ ! -t 0 ]; then
+    local l_ref l_sha r_ref r_sha
+    if read -r l_ref l_sha r_ref r_sha && [ -n "${r_sha:-}" ]; then
+      if [ "${r_sha}" != "${Z40}" ] && git rev-parse --verify "${r_sha}^{commit}" >/dev/null 2>&1; then
+        COMMITS=$(git rev-list "${r_sha}..HEAD" 2>/dev/null || true)
+      else
+        # new branch (Z40) or unknown remote sha → commits not on any remote.
+        COMMITS=$(git rev-list "${l_sha:-HEAD}" --not --remotes 2>/dev/null || true)
+      fi
+      return 0
+    fi
+  fi
+  if git rev-parse --verify "origin/staging" >/dev/null 2>&1; then
+    COMMITS=$(git rev-list "origin/staging..HEAD" 2>/dev/null || true); return 0
+  fi
+  echo "⚠ fallback: could not determine a base ref (no PREPUSH_UPSTREAM_REF, no git stdin, no origin/staging) — skipping (not a silent pass)."; return 1
+}
 
-# Collect commits (bash 3.2-compatible; no mapfile)
-COMMITS=$(git rev-list "${UPSTREAM_REF}..HEAD" 2>/dev/null || true)
+resolve_commits || exit 0
 [ -z "${COMMITS}" ] && echo "✅ fallback: no new commits." && exit 0
 
 while IFS= read -r sha; do

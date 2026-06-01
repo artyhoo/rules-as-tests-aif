@@ -10,15 +10,19 @@
 
 For parallel sub-wave / batch execution under the orchestrator pattern, **always use git worktrees**. Never run parallel Sonnet (or any parallel AI) sessions in the shared working directory.
 
-**Mandatory worktree setup as first step in every Mode-B parallel batch prompt:**
+**Mandatory worktree setup as first step in every Mode-B parallel batch prompt** — prefer the portable helper, which resolves the base ref correctly (see Bug 1 note below):
 
 ```bash
-git worktree add ../<repo>-wave-<N> main
-cd ../<repo>-wave-<N>
-git checkout -b <wave>/<task>
+# Portable: creates .claude/worktrees/<name>/ on branch worktree-<name>,
+# base ref auto-detected (refreshed origin/HEAD → the remote's live default).
+bash scripts/create-worktree.sh <name>
 ```
 
-The orchestrator prompt instructs each parallel Sonnet session to invoke worktree-add **before any other operation**. Branch checkout happens inside the worktree, eliminating the shared `.git/index` race.
+[`scripts/create-worktree.sh`](../../scripts/create-worktree.sh) is the BUILD half of the dual-channel worktree-create capability (verdict combo b+c, [research-patch 2026-05-30](../../docs/meta-factory/research-patches/2026-05-30-worktree-create-dual-channel.md)); its CC-native sibling [`.claude/hooks/worktree-setup.sh`](../hooks/worktree-setup.sh) fires on `claude -w <name>`. Both share the `worktree-create-setup` dual-pair anchor.
+
+**Bug 1 note (why not the raw form):** the older raw `git worktree add ../<repo>-wave-<N> main` hard-codes `main` as the base — a footgun since the 2026-05-22 staging-trunk migration (worktrees branch off stale `main` instead of the live `staging`). The helper avoids this by refreshing `origin/HEAD` (`git remote set-head origin --auto`) and basing off the remote's actual default. If invoking `git worktree add` directly, base off `origin/HEAD` (refreshed), never a hard-coded branch name.
+
+The orchestrator prompt instructs each parallel Sonnet session to invoke worktree-setup **before any other operation**, eliminating the shared `.git/index` race.
 
 ## §2 Sequential fallback
 

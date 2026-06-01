@@ -1,0 +1,21 @@
+# Failure modes — F1 through F8
+
+> **Authoritative for:** the eight named failure codes the `/meta-orchestrator` skill emits when its invariants are violated or its data sources unavailable. Body of `../SKILL.md §11 Failures` points here for the per-code response. Each code maps 1:1 to a `!shell`-injected condition the AI may encounter mid-invocation.
+> **NOT authoritative for:** the §7.13 binding rationale or the Class-C re-promotion trigger («≥2 stage-gate-ignored incidents within 6 months → add pre-push hook verifying stage dependency merged before sub-wave commit») — those live in `../SKILL.md §11` body so the contract stays visible at the call site.
+
+> Class C prose enforcement: `!shell` data is surfaced so the AI has no excuse for ignorance; the correct response in each case is stated below.
+
+| Code | Trigger | Required response |
+|---|---|---|
+| **F1 — Plan stale (drift detected)** | §1 verdict shows DRIFT items | Emit numbered `DRIFT-N: <wave> — plan says <claim>, gh shows <reality>. Proposed correction: update line X to Y.` Halt. Do NOT proceed to §2/§3 until maintainer acknowledges. |
+| **F2 — Plan missing entirely** | `wave-sequencing-plan.md` not found | Write stub using Read+Write from `README.md` + `EXECUTION-PLAN.md` + `ls .claude/orchestrator-prompts/`. Halt until maintainer confirms. |
+| **F3 — Priority deadlock (true tie)** | §2 scoring returns two equal winners with no maintainer override | Emit `DECISION-NEEDED: <A> and <B> tied on all axes.` with Option A/B consequences. Do NOT pick strategy (per `reviewer-discipline.md §2` + this skill's §2 Step 4.1 anti-rationalization clause). |
+| **F4 — Stage gate not merged** | §6 `gh pr list --search "is:merged"` returns empty for Stage N dependency | Emit `STAGE GATE: Stage N NOT clear. Required: <PR list>. Action: HALT Stage N+1.` Hard halt; do not dispatch next stage. |
+| **F5 — Reviewer REVISE (max iterations)** | §7 Phase -1 reviewer returns REVISE 3× in a row | Emit `ESCALATION: 3 consecutive REVISE on Stage N. Halting — maintainer review required.` Do NOT auto-retry. |
+| **F6 — `gh` CLI unavailable** | any `gh` invocation returns network/auth error | Emit `DIAGNOSTIC: gh CLI unavailable. Manual verification required.` Ask maintainer; do NOT assume the gate is clear. |
+| **F7 — launch-table-generator returns MISSING kickoff** | `helpers/launch-table-generator.sh` exits with `MISSING kickoff: <path>` | Emit `MISSING kickoff. Halting — create kickoff first.` Do NOT generate launch-table from memory. |
+| **F8 — classify-work MISSING file (path-shape absent)** | `helpers/classify-work.sh` exits 3 with `MISSING-FILE: <path>` on stderr (path-shape input — contains `/` AND code/doc extension — but file absent on disk; J1 fix from Stage 5 dogfood) | Emit `MISSING kickoff path: <INPUT>. Halting — verify kickoff path exists or pass description-string instead.` Do NOT silently treat as `TYPE=fix` (that was the pre-J1 silent failure mode). |
+
+## Anti-pattern shared across F-codes
+
+«Surface this as a warning and proceed anyway» is the wrong response for every F-code above. The whole point of Class C honesty (§6 + §11 body in `../SKILL.md`) is that the `!shell` injection makes the failure data visible; ignoring it is `#self-application-omitted` (T15) plus `#plausible-finding-without-verification` (T3). HALT, surface, do not assume.

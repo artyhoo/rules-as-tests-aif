@@ -62,6 +62,96 @@ If empty → halt. Do NOT dispatch Stage 2.
 
 ---
 
+## §4b §1.7 PR-body authoring mandate (paths-triggered, applies to ALL Workers below — self-evaluate)
+
+Workers whose target file matches ANY of the following paths MUST include in the **PR body** (not just commit message):
+
+- `.claude/rules/**`
+- `packages/core/principles/**`
+- `docs/meta-factory/EXECUTION-PLAN.md`
+- `docs/meta-factory/prior-art-evaluations.md`
+- `CLAUDE.md`
+- `packages/core/templates/**`
+- `.claude/skills/**`
+- `agents/**`
+
+**Required PR body sections (verbatim shape — CI substance gate is strict):**
+
+```markdown
+### §1.7 Forward-check applied
+
+<≥40 non-whitespace chars enumerating which existing disciplines were checked>
+
+- `doc-authority-hierarchy.md` — <what was checked>. file:line evidence: `<path>:<line>`
+- `phase-research-coverage.md §1.12` — <what was checked>. file:line evidence: `<path>:<line>`
+- `build-first-reuse-default.md` — <verdict + rationale>
+- `no-paid-llm-in-ci.md` — <verdict>
+
+### §1.7 Backward-check applied
+
+<≥40 non-whitespace chars enumerating the sweep of existing artefacts under the new rule's scope>
+
+- `<existing-artefact-name>` — <how this PR interacts; supersedes / extends / orthogonal>. file:line evidence: `<path>:<line>`
+- <repeat for each touched artefact>
+```
+
+> When Worker fills the example above in a real PR body, they convert backticks to full markdown link syntax (square-brackets-then-parens) pointing at the actual rule files in the consumer repo. The backticks above are template-side only — keeping them out of link-syntax avoids the skill-drift broken-ref check tripping on placeholder paths.
+
+**Hard rules (each one has historically failed the gate):**
+
+1. **Heading depth = H3 (`###`), NOT H2 (`##`).** The CI gate's awk regex matches `^### §1\.7 ...` — H2 silently fails while looking plausible in rendered Markdown. (Memory: 5th+ recurrence of this exact bug per `feedback_pr_s17_authoring_checklist`; 2026-05-24 hit it on PR #212 AND PR #215 in the same dispatch.)
+2. **Word «applied» is required.** Headings without «applied» («Forward-check», «Forward-check done») fail the regex.
+3. **≥40 non-whitespace chars in EACH section body** (awk-counted, post-strip).
+4. **≥1 file:line citation per section** matching regex `[^[:space:]]+\.[a-z]+:[0-9]+` (e.g. `.claude/rules/foo.md:42`).
+5. **Mechanical-maintenance escape hatch:** `### §1.7 Skipped: <rationale ≥60 chars>` shortcuts the gate when the PR is purely structural (snapshot regen, typo fix, rename) and no discipline call applies. Rationale must be ≥60 chars and specify *why* this PR has no discipline surface (NOT «TODO», NOT «later»).
+
+**Pre-flight grep — Worker MUST run BEFORE `gh pr create`:**
+
+```bash
+# Compose your intended PR body in a variable first, THEN check before posting.
+echo "$PR_BODY" | grep -cE '^### §1\.7 (Forward|Backward)-check applied'  # must be 2
+echo "$PR_BODY" | awk '/^### §1\.7 Forward-check applied/{c=1;next} /^###/{c=0} c' | tr -d '[:space:]' | wc -c  # must be ≥40
+echo "$PR_BODY" | awk '/^### §1\.7 Backward-check applied/{c=1;next} /^###/{c=0} c' | tr -d '[:space:]' | wc -c  # must be ≥40
+echo "$PR_BODY" | grep -cE '[^[:space:]]+\.[a-z]+:[0-9]+'  # must be ≥2 (one per section minimum)
+```
+
+If any of the four checks fails → fix the body before pushing. CI catches the same failure but burns wall-clock + a maintainer's attention; pre-flight is free.
+
+**Why this mandate exists in the template (not just memory):** memory says «execute the grep» but in-line memory does not reliably activate inside paste-block Worker prompts. The mandate must be in the prompt itself for Workers to act on it. (6× recurrence as of 2026-05-25: #58, #69, #105, #111, #212, #215.)
+
+**If your sub-wave target file does NOT match the path list above:** ignore §4b. The mandate is path-scoped.
+
+> **Note:** §4a Worker worktree setup was REMOVED 2026-05-29 per PR #271 §8 item 4. PR #279 (WorktreeCreate hook `.claude/hooks/worktree-setup.sh`) now handles `node_modules` symlinks transparently when the maintainer has applied the §Install patch to `.claude/settings.json`. For unwired-hook setups or non-CC harnesses (Cursor, Aider, Codex, plain CLI), use the portable sibling `bash scripts/create-worktree.sh <name>` — same `.claude/worktrees/<name>/` layout + `node_modules` symlinks, no CC dependency, base ref auto-resolved (Bug 1 fix). See `parallel-subwave-isolation.md §1`. Falsifier: if a Worker session reports `npm` / test failures on first run AND neither the hook nor the script ran, restore the §4a block (`git revert <this-commit>`).
+
+---
+
+## §4c Autonomous aif-handoff dispatch — park-don't-guess contract (applies ONLY when a Worker is dispatched to the runtime-bridge instead of a maintainer-paste tab)
+
+> **When this section is live:** the §10 report offered «autonomous dispatch via aif-handoff» for this umbrella AND the maintainer accepted. If every Worker below runs in a maintainer-pasted CC tab, §4c is inert — skip it. **If any sub-wave is dispatched via `tsx packages/runtime-bridge/src/cli/dispatch.ts <this-kickoff>`, §4c is MANDATORY** (SKILL §5 `#autonomous-dispatch-without-park`).
+
+**Why this exists (design §1 honest limitation, verified `coordinator.ts:398-476` + `reviewGate.ts`):** aif-handoff agents have **no mid-implementation "pause and ask" primitive**. They implement — *guessing* on any ambiguity — then auto-review post-hoc. Auto-close fires when the review finds *no blocking findings* — a bar that means "review found no blockers", NOT "a human is sure it's right". A genuine **design fork is not recognised as a question** — aif just picks and proceeds. So **without the levers below, aif decides forks wrong, silently.**
+
+**Lever 1 — conservative aif config (set on the bridge/env BEFORE dispatch):**
+
+```bash
+export AGENT_MAX_REVIEW_ITERATIONS=1        # not converged in 1 pass → hand to human, don't keep guessing
+export AGENT_AUTO_REVIEW_STRATEGY=closure_first
+export AGENT_SKIP_REVIEW=false
+# Stricter (max control, less autonomy): AGENT_AUTO_MODE=false → every stage transition needs a human action.
+```
+
+**Lever 2 — park-don't-guess instruction (the dispatched kickoff carries this verbatim, addressed to the aif agent):**
+
+> **aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity (two defensible implementations, an undecided design choice, a missing spec detail that changes behaviour) — **do NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the unambiguous parts. This carries the `ask-question-reminder.sh:50-54` fork-challenge discipline. Guessing a fork to "keep moving" is the failure this whole loop exists to prevent.
+
+**Lever 3 — the resolve loop reviews aif's DECISIONS, not only its open questions:** the maintainer Approves / Requests-changes each completed task, so "questions" = open forks **+** aif's autonomous decisions awaiting verification (trust-but-verify). This is the runtime side delivered by `cli/answer.ts` once it ships; until then, review decisions manually in the aif web/Telegram UI.
+
+**Trust is a tunable dial, not baked-in distrust (design §1):** `MAX_REVIEW_ITERATIONS` high = trust aif more / low = hand off more. The loop (collect → resolve-in-chat → resume) is **identical at any dial setting** — so the trust level never blocks the build. Start trust-but-verify (middle), run 2–3 real umbrellas, then adjust by observed error rate. Do NOT over-design the dial upfront.
+
+**Pre-dispatch gate (run before `dispatch.ts`):** confirm this kickoff contains the Lever-2 block (`grep -q 'park it as a question' <this-kickoff>`) AND the env carries Lever-1 (`echo "$AGENT_MAX_REVIEW_ITERATIONS"` non-empty). Either missing → STOP; do not dispatch autonomously.
+
+---
+
 ## §5 AI-traps active (per `ai-laziness-traps.md §3`)
 
 See `.claude/rules/ai-laziness-traps.md §2` for full catalogue.
@@ -99,6 +189,19 @@ Skill: requesting-code-review
 ```
 
 Reviewer discipline: surfaces strategy forks as DECISION-NEEDED (option A → consequence X / option B → consequence Y). Does NOT pick strategy. See `reviewer-discipline.md §2` for the pattern.
+
+---
+
+## §7a Reporting format (mandatory plain-language tail at orchestrator checkpoints)
+
+<!-- @dual-pair: plain-language-tail -->
+<!-- spec: .claude/skills/meta-orchestrator/SKILL.md §10.3a + .claude/hooks/end-of-turn-reminder.sh -->
+
+Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVISE verdict, mid-stage status, final handoff) ends with a `## 🟢 Простыми словами` block whose CONTENT follows the orchestrator-checkpoint substance shape — distinct from the per-turn generic substance the end-of-turn hook already enforces. Substance spec: see SKILL.md §10.3a table (3 checkpoint moments with required content shape).
+
+**Anti-duplication discipline:** the block content names sub-waves / AC items / file:line / REPORT-traces / dispatch-state. It does NOT restate per-turn personal-reasoning prose ("чем я сейчас занят", "на той ли цели") — that is the hook's job (Branch A/C). If your block content is verbatim-copyable from `end-of-turn-reminder.sh` reminder text, you have drifted into `#two-prompts-drift` per `.claude/rules/dual-implementation-discipline.md §4` — fix by replacing with orchestrator-specific substance.
+
+**Skip allowed only for:** one-line tool acknowledgements ("OK"), pure `gh`/`git` outputs handed back without orchestrator commentary, and reviewer-side blocked-by-hook short responses. Any substantive status message MUST carry the block.
 
 ---
 

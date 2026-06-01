@@ -8,7 +8,11 @@
 #   ./install.sh react-next --dry-run --force   # preview overwrite plan
 #
 # What it does:
-#   1. Copies skills/  → .claude/skills/rules-as-tests/
+#   1. Copies skills/ + .claude/skills/meta-orchestrator/ → .claude/skills/
+#      (meta-orchestrator is shipped from .claude/skills/ as single source of truth;
+#       cross-refs to repo-internal paths get sed-transformed to GitHub blob URLs —
+#       see UPSTREAM_BLOB_URL + transform_internal_refs() below;
+#       per .claude/rules/dual-implementation-discipline.md §7 SSOT)
 #   2. Copies agents/  → .claude/agents/
 #   3. Copies factory templates → .ai-factory/  (templates: as-is, you fill in placeholders)
 #   4. Copies packages/core/audit-self/ + packages/preset-*/audit-self/ → scripts/
@@ -22,14 +26,47 @@ set -euo pipefail
 PKG_ROOT="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(pwd)"
 
+# Repo-internal cross-refs (paths to docs/, packages/, README.md) get rewritten to
+# GitHub blob URLs at install time. One source of truth: .claude/skills/<skill>/SKILL.md
+# Override via env var if forking to a different repo.
+UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/Yhooi2/rules-as-tests-aif/blob/main}"
+
+# transform_internal_refs <markdown-file>
+# Rewrites markdown links `](../../../{docs,packages}/...)` and `](../../../README.md...)`
+# in-place to `](${UPSTREAM_BLOB_URL}/...)`. Leaves consumer-resolvable refs intact
+# (e.g. `](../../rules/...)` resolves to consumer's .claude/rules/ post-install).
+# Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
+transform_internal_refs() {
+  local f="$1"
+  [ -f "$f" ] || return 0
+  sed -E -i.bak \
+    -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
+    -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
+    -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
+    "$f"
+  rm -f "${f}.bak"
+}
+
+# Library-only mode: when INSTALL_SH_LIB_ONLY=1, source this file to expose
+# transform_internal_refs() (defined above) without running the install pipeline
+# (which would `read -rp` interactively + write files). Used by
+# tests/install-sh/*.test.sh. copy_safe/mkdir_safe/chmod_safe are NOT exposed —
+# they sit further down and would require deeper guard placement.
+if [ "${INSTALL_SH_LIB_ONLY:-}" = "1" ]; then
+  return 0 2>/dev/null || true
+fi
+
 STACK=""
 FORCE=""
 DRY_RUN=""
+# Per Stage 2 v3 §4.4 — COMPANIONS flag parse; CSV or none|all
+COMPANIONS="${COMPANIONS:-}"
 for arg in "$@"; do
   case "$arg" in
     --dry-run)              DRY_RUN="--dry-run" ;;
     --force)                FORCE="--force" ;;
     ts-server|react-next)   STACK="$arg" ;;
+    --companions=*)         COMPANIONS="${arg#*=}" ;;
     *)                      ;;
   esac
 done
@@ -196,6 +233,9 @@ else
   cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
+# meta-orchestrator: shipped from authoring location .claude/skills/meta-orchestrator/
+# as single source of truth (no separate mirror under skills/). Repo-internal cross-refs
+# in .md files get rewritten to GitHub blob URLs via transform_internal_refs().
 if [ -e "$PROJECT_ROOT/.claude/skills/meta-orchestrator" ] && [ "$FORCE" != "--force" ]; then
   SKIPPED+=("$PROJECT_ROOT/.claude/skills/meta-orchestrator")
   if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -204,11 +244,15 @@ if [ -e "$PROJECT_ROOT/.claude/skills/meta-orchestrator" ] && [ "$FORCE" != "--f
     echo "  ⊝ .claude/skills/meta-orchestrator (exists — skipping)"
   fi
 elif [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "  [dry-run] would copy: $PKG_ROOT/skills/meta-orchestrator → $PROJECT_ROOT/.claude/skills/meta-orchestrator"
+  echo "  [dry-run] would copy: $PKG_ROOT/.claude/skills/meta-orchestrator → $PROJECT_ROOT/.claude/skills/meta-orchestrator (+ transform internal refs)"
 else
   rm -rf "$PROJECT_ROOT/.claude/skills/meta-orchestrator"
-  cp -r "$PKG_ROOT/skills/meta-orchestrator" "$PROJECT_ROOT/.claude/skills/meta-orchestrator"
-  echo "  ✓ .claude/skills/meta-orchestrator/"
+  cp -r "$PKG_ROOT/.claude/skills/meta-orchestrator" "$PROJECT_ROOT/.claude/skills/meta-orchestrator"
+  # Rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
+  while IFS= read -r -d '' mdfile; do
+    transform_internal_refs "$mdfile"
+  done < <(find "$PROJECT_ROOT/.claude/skills/meta-orchestrator" -name '*.md' -print0)
+  echo "  ✓ .claude/skills/meta-orchestrator/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 fi
 
 # ─── 1b. Hooks ──────────────────────────────────────────
@@ -284,6 +328,136 @@ if [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-next.md"
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.react-next.md" "$PROJECT_ROOT/.ai-factory/RULES.react-next.md"
 fi
+
+# ─── 3.5. Optional companion installs ───────────────────
+# Per Stage 2 v3 §4.6 — K-1 companion-install prompts (Superpowers, TaskMaster, OhMyOpencode).
+# Placement: after Phase 3 AIF templates (enforcement wiring complete), before Phase 4 Scripts.
+# All prompts default [y/N] (capital N = default no). No companion is mandatory.
+# Per Stage 2 v3 §4.4 — Non-interactive fallback: auto-default COMPANIONS=none when stdin is not a tty.
+if [ -z "${COMPANIONS:-}" ] && [ ! -t 0 ]; then
+  COMPANIONS="none"
+fi
+
+echo "▶ Optional companion installs"
+
+# ── Superpowers ──────────────────────────────────────────
+# Per Stage 2 v3 §4.2 + §4.4 — interactive prompt or COMPANIONS dispatch
+should_install_superpowers=""
+case "${COMPANIONS:-}" in
+  all)            should_install_superpowers="y" ;;
+  none)           should_install_superpowers="" ;;
+  *superpowers*)  should_install_superpowers="y" ;;
+  "")             # no env var set → interactive when stdin is a tty
+    if [ -t 0 ]; then
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        # Per Stage 2 v3 §4.4 — dry-run skips the prompt and prints "would prompt:"
+        echo "  [dry-run] would prompt: Install Superpowers? [y/N]"
+      else
+        read -rp "  Install Superpowers? (CC plugin — optional skills framework) [y/N]: " _sp_choice
+        case "$_sp_choice" in [yY]|[yY][eE][sS]) should_install_superpowers="y" ;; esac
+      fi
+    fi
+    ;;
+esac
+
+if [ "$should_install_superpowers" = "y" ]; then
+  # Per Stage 2 v3 §4.5 — idempotency detect-and-skip
+  if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q superpowers; then
+    echo "  ⊝ Superpowers already installed — skipping"
+  elif [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would install: claude plugin install superpowers@claude-plugins-official --scope user"
+  elif command -v claude >/dev/null 2>&1; then
+    # Per Stage 2 v3 §4.7 — warn-and-continue on failure
+    if ! claude plugin install superpowers@claude-plugins-official --scope user 2>&1; then
+      echo "  ⚠ Superpowers install failed — retry manually:"
+      echo "    claude plugin install superpowers@claude-plugins-official --scope user"
+    else
+      echo "  ✓ Superpowers installed"
+    fi
+  else
+    # `claude` CLI absent — print manual command per Stage 2 v3 D6 Option A
+    echo "  ⚠ claude CLI not on PATH — Superpowers not installed. Manual:"
+    echo "    claude plugin install superpowers@claude-plugins-official --scope user"
+  fi
+fi
+
+# ── TaskMaster ───────────────────────────────────────────
+# Per Stage 2 v3 §4.2 + §4.4 — interactive prompt or COMPANIONS dispatch
+should_install_taskmaster=""
+case "${COMPANIONS:-}" in
+  all)             should_install_taskmaster="y" ;;
+  none)            should_install_taskmaster="" ;;
+  *taskmaster*)    should_install_taskmaster="y" ;;
+  "")              # no env var → interactive when stdin is a tty
+    if [ -t 0 ]; then
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would prompt: Install TaskMaster? [y/N]"
+      else
+        read -rp "  Install TaskMaster? (CC plugin — AI-driven task management) [y/N]: " _tm_choice
+        case "$_tm_choice" in [yY]|[yY][eE][sS]) should_install_taskmaster="y" ;; esac
+      fi
+    fi
+    ;;
+esac
+
+if [ "$should_install_taskmaster" = "y" ]; then
+  # Per Stage 2 v3 §4.5 — idempotency detect-and-skip
+  if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q task-master; then
+    echo "  ⊝ TaskMaster already installed — skipping"
+  elif [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would install: claude plugin install claude-task-master@claude-plugins-official --scope user"
+  elif command -v claude >/dev/null 2>&1; then
+    # Per Stage 2 v3 §4.7 — warn-and-continue on failure
+    if ! claude plugin install claude-task-master@claude-plugins-official --scope user 2>&1; then
+      echo "  ⚠ TaskMaster install failed — retry manually:"
+      echo "    claude plugin install claude-task-master@claude-plugins-official --scope user"
+    else
+      echo "  ✓ TaskMaster installed"
+    fi
+  else
+    # `claude` CLI absent — print manual command per Stage 2 v3 D6 Option A
+    echo "  ⚠ claude CLI not on PATH — TaskMaster not installed. Manual:"
+    echo "    claude plugin install claude-task-master@claude-plugins-official --scope user"
+  fi
+fi
+
+# ── OhMyOpencode ─────────────────────────────────────────
+# Per Stage 2 v3 §4.2 + D5 (Option A — print + instruct, do NOT invoke automatically)
+should_install_omo=""
+case "${COMPANIONS:-}" in
+  all)              should_install_omo="y" ;;
+  none)             should_install_omo="" ;;
+  *ohmyopencode*)   should_install_omo="y" ;;
+  "")               # no env var → interactive when stdin is a tty
+    if [ -t 0 ]; then
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would prompt: Install OhMyOpencode? [y/N]"
+      else
+        read -rp "  Install OhMyOpencode? (OpenCode companion — requires bun) [y/N]: " _omo_choice
+        case "$_omo_choice" in [yY]|[yY][eE][sS]) should_install_omo="y" ;; esac
+      fi
+    fi
+    ;;
+esac
+
+if [ "$should_install_omo" = "y" ]; then
+  # Per Stage 2 v3 D5 Option A — print command + instruct; do NOT invoke bunx automatically
+  echo "  ▶ OhMyOpencode install (run AFTER install.sh completes):"
+  if command -v bun >/dev/null 2>&1; then
+    echo "    bunx oh-my-openagent install"
+  else
+    echo "    # First install bun (https://bun.sh); then:"
+    echo "    bunx oh-my-openagent install"
+  fi
+  # Per Stage 3 §4.2 — escape hatch for skill dup-tool-names
+  echo "    Note: if you see HTTP 400 'Duplicate tool names detected' in CC after install,"
+  echo "    set \"claude_code.skills\": false in OhMyOpencode config."
+fi
+
+# ── aif-handoff integration note ─────────────────────────
+# Per Stage 2 v3 §4.6 — single informational note, no prompt needed;
+# our Phase 3 skill-context files ARE the client-side aif-handoff integration.
+echo "  ✓ aif-handoff integration: skill-context files installed at .ai-factory/skill-context/ (auto)"
 
 # ─── 4. Scripts ─────────────────────────────────────────
 echo "▶ Scripts → scripts/"

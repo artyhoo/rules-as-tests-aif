@@ -18,6 +18,9 @@ const {
   getCommits,
   getChangedFiles,
   realGit,
+  parsePushRefs,
+  commitsNotOnRemotes,
+  Z40,
 } = await import('./git.ts');
 
 // Helper: build the minimal CheckResult shape runCheck returns.
@@ -167,6 +170,117 @@ describe('getChangedFiles', () => {
     expect(args[2]).toBe('origin/main..HEAD');
     expect(args[3]).toBe('--diff-filter=ACMR');
     expect(args.every((a: string) => a !== '')).toBe(true);
+  });
+});
+
+// ── Z40 (all-zeros remote sha git sends for a not-yet-existing remote ref) ──────
+describe('Z40 constant', () => {
+  it('is exactly 40 zero characters', () => {
+    expect(Z40).toBe('0000000000000000000000000000000000000000');
+    expect(Z40).toHaveLength(40);
+  });
+});
+
+// ── parsePushRefs (pure stdin parser — the canonical base-ref signal) ───────────
+describe('parsePushRefs', () => {
+  it('parses a single ref line into its four fields', () => {
+    const line = 'refs/heads/feat aaa111 refs/heads/feat bbb222';
+    expect(parsePushRefs(line)).toEqual([
+      { localRef: 'refs/heads/feat', localSha: 'aaa111', remoteRef: 'refs/heads/feat', remoteSha: 'bbb222' },
+    ]);
+  });
+
+  it('parses multiple ref lines (a multi-ref push)', () => {
+    const stdin = 'refs/heads/a 111 refs/heads/a 222\nrefs/heads/b 333 refs/heads/b 444\n';
+    expect(parsePushRefs(stdin)).toEqual([
+      { localRef: 'refs/heads/a', localSha: '111', remoteRef: 'refs/heads/a', remoteSha: '222' },
+      { localRef: 'refs/heads/b', localSha: '333', remoteRef: 'refs/heads/b', remoteSha: '444' },
+    ]);
+  });
+
+  it('exposes Z40 as the remoteSha for a new-branch push', () => {
+    const line = `refs/heads/new abc123 refs/heads/new ${Z40}`;
+    const [ref] = parsePushRefs(line);
+    expect(ref.remoteSha).toBe(Z40);
+  });
+
+  it('returns an empty array for empty stdin (no piped refs)', () => {
+    expect(parsePushRefs('')).toEqual([]);
+  });
+
+  // Guards filter(Boolean) on lines: a trailing newline must not yield a phantom ref.
+  it('filters out blank lines (trailing newline produces no entry)', () => {
+    const stdin = 'refs/heads/a 1 refs/heads/a 2\n\n';
+    expect(parsePushRefs(stdin)).toHaveLength(1);
+  });
+
+  // Guards the malformed-line filter: a line lacking the sha fields is dropped, not
+  // returned with undefined shas (which would mis-resolve the base).
+  it('drops malformed lines that lack the sha fields', () => {
+    expect(parsePushRefs('garbage')).toEqual([]);
+    expect(parsePushRefs('only two fields')).toEqual([]);
+  });
+
+  // Guards whitespace-split robustness: git uses single spaces, but tolerate runs.
+  it('splits on whitespace runs, not a single literal space only', () => {
+    const line = 'refs/heads/a   111   refs/heads/a   222';
+    expect(parsePushRefs(line)).toEqual([
+      { localRef: 'refs/heads/a', localSha: '111', remoteRef: 'refs/heads/a', remoteSha: '222' },
+    ]);
+  });
+
+  // SANITY (negative): a well-formed line must NOT be silently dropped.
+  it('does not drop a valid 4-field line', () => {
+    expect(parsePushRefs('r 1 r 2')).not.toEqual([]);
+  });
+});
+
+// ── commitsNotOnRemotes (Z40 new-branch path — the highest-risk resolver arm) ───
+describe('commitsNotOnRemotes', () => {
+  beforeEach(() => runCheckMock.mockReset());
+
+  it('returns trimmed SHAs, filtering empty lines', () => {
+    runCheckMock.mockReturnValue(ok('abc123\ndef456\n'));
+    expect(commitsNotOnRemotes('HEAD')).toEqual(['abc123', 'def456']);
+  });
+
+  it('returns an empty array when nothing is off-remote (already pushed)', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    expect(commitsNotOnRemotes('localsha')).toEqual([]);
+  });
+
+  // Guards filter(Boolean): trailing newline must not yield a phantom commit.
+  it('filters out the trailing empty string after splitting', () => {
+    runCheckMock.mockReturnValue(ok('sha1\n'));
+    const result = commitsNotOnRemotes('local');
+    expect(result).toEqual(['sha1']);
+    expect(result).not.toContain('');
+  });
+
+  // Guards map(s => s.trim()).
+  it('trims whitespace around each SHA', () => {
+    runCheckMock.mockReturnValue(ok('  sha1  \n  sha2  \n'));
+    expect(commitsNotOnRemotes('local')).toEqual(['sha1', 'sha2']);
+  });
+
+  // Guards ArrayDeclaration + StringLiteral survivors: the exact rev-list args
+  // are load-bearing — `--not --remotes` is what makes this trunk-agnostic.
+  it('passes the exact rev-list args (localSha --not --remotes)', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    commitsNotOnRemotes('abc123');
+    const [cmd, args] = runCheckMock.mock.calls[0];
+    expect(cmd).toBe('git');
+    expect(args).toEqual(['rev-list', 'abc123', '--not', '--remotes']);
+    expect(args.every((a: string) => a !== '')).toBe(true);
+  });
+
+  // Guards the localSha being passed through (not a hard-coded ref).
+  it('uses the given localSha, not a hard-coded HEAD/branch literal', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    commitsNotOnRemotes('deadbeef');
+    const [, args] = runCheckMock.mock.calls[0];
+    expect(args).toContain('deadbeef');
+    expect(args).not.toContain('HEAD');
   });
 });
 
