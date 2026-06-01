@@ -28,6 +28,21 @@ Formalised:
 
 **Default = ADOPT or REFERENCE.** BUILD only after §3 mechanism confirms a documented problem-class mismatch or load-bearing gap.
 
+## §1.1 Satellite doctrine — own-stack-first + two-axis application
+
+The seven verdicts apply to dev-companions (**Claude Code, Superpowers, Superset, aif-handoff, AI Factory**, …) with three refinements. Relocated here 2026-06-01 from [CLAUDE.md](../../CLAUDE.md) — this rule, not CLAUDE.md, is Authoritative-for «relationship to upstream tools + default verdict» (CLAUDE.md owns only the per-commit gate).
+
+**Own-stack-first (criterion zero).** Before reaching for a companion, check whether the harness you already run (**Claude Code**) ships the capability natively. Skipping this is `#own-stack-blind-spot` ([phase-research-coverage.md §1 item 1](phase-research-coverage.md)). Incident 2026-06-01: the companion survey tunnel-visioned on satellites for «control an agent from a phone» and missed that **Claude Code Remote Control** (`claude.ai/code` + mobile app, free on Pro/Max) already does it — making Superset Slack-Pro ([prior-art-evaluations.md #86/#99](../../docs/meta-factory/prior-art-evaluations.md)) redundant for that need.
+
+**Two independent axes — a verdict can differ between them.** Reading a shipped-axis `REJECT` as «the operator may not use this» is a verdict-misread (incident 2026-06-01, SSOT #86/#98/#99):
+
+- **Operator axis** — tooling the maintainer builds *with*. Default: **use companions maximally; don't reinvent.** A companion feature closing a real gap is `ADOPT`-on-operator, not merely `REFERENCE`d. No license/OS/portability constraint — it is the maintainer's machine.
+- **Shipped axis** — the product installed into *any* consumer. Default: **AI-/OS-/license-agnostic core that integrates with companions and degrades gracefully when they are absent** ([dual-implementation-discipline.md §3](dual-implementation-discipline.md)). Integrate, never *hard-depend* (a consumer may be on Linux/Windows, OSI-only, no companion). `install.sh --companions` is the opt-in seam to set a companion up when absent — keep it opt-in + degrading; making a companion **mandatory** for consumers is a goal change ([README.md#why-this-exists](../../README.md#why-this-exists)), not an operational call.
+
+**Cost gate (mechanical, not AI-judgment).** «Cheap» vs «expensive» = the [CLAUDE.md capability-commit](../../CLAUDE.md) test, reused so the call is grep-checkable rather than a vibe: *cheap* = text/skill/rule edit, env-var, config, or citation (no new dependency, no code-module ≥50-80 LOC, no standing infra) → ADOPT-now when it beats current practice; *expensive* = adds a dependency / code-module / standing infra → requires a **cited concrete friction instance** (memory/research-patch/incident, not «мне кажется»), else DEFER with a recorded trigger.
+
+**Filter + priority.** Both axes share one filter: *closes a named gap*, not «because it's cool» (`#adoption-shame`'s inverse — every wired companion is maintenance surface). Priority (maintainer 2026-06-01): *use* features already in reach **before** building installers or speculative integrations (build-ahead-of-need is `#integration-overhead-overestimate`, §4).
+
 ## §2 Why this rule exists
 
 **Primary user = single maintainer; single-domain project.** Maintenance budget = one person. Each BUILT-ourselves capability creates perpetual maintenance cost. ADOPT / REFERENCE distributes maintenance to upstream maintainers — they get bug reports, breaking changes, security patches.
