@@ -36,6 +36,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, writeFileSync, unlinkSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -198,8 +199,11 @@ describe('Principle 13 — every post-cutoff research patch has a §1.7 self-rev
       syntheticContent.includes('Forward') && syntheticContent.includes('Backward');
     expect(forwardAndBackward).toBe(false);
 
-    // Write to a temp path and verify checkSection throws
-    const tmpPath = resolve(PATCHES_DIR, '2026-05-17-synthetic-test-fixture.md');
+    // Write to an OS temp path (NOT PATCHES_DIR) and verify checkSection throws.
+    // checkSection reads content only — PATCHES_DIR membership is irrelevant. Writing into
+    // the real dir made principle 10's readdirSync glob this transient file and ENOENT when
+    // unlinked → a cross-file race under vitest's parallel run. tmpdir() isolates it.
+    const tmpPath = resolve(tmpdir(), '2026-05-17-synthetic-test-fixture.md');
     writeFileSync(tmpPath, syntheticContent, 'utf8');
     try {
       let threw = false;
@@ -221,7 +225,8 @@ describe('Principle 13 — every post-cutoff research patch has a §1.7 self-rev
     const decoration = '# Patch\n\n## §1.7\n\nNothing here yet.\n\n## §2\nPlan.\n';
     expect(hasS17Substance(decoration), 'bare §1.7 heading must NOT count as substance').toBe(false);
 
-    const tmpPath = resolve(PATCHES_DIR, '2026-05-22-c3-decoration-fixture.md');
+    // OS temp path (NOT PATCHES_DIR) — same race-avoidance as the synthetic fixture above.
+    const tmpPath = resolve(tmpdir(), '2026-05-22-c3-decoration-fixture.md');
     writeFileSync(tmpPath, decoration, 'utf8');
     try {
       let threw = false;
