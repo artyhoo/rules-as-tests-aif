@@ -1,0 +1,21 @@
+{
+  "id": "tailwind-v4-css-tokens",
+  "summary": "Tailwind v4 declares design tokens in CSS via the `@theme` block. The JS config is optional; tokens become CSS custom properties accessible as `var(--color-…)`.",
+  "bestPractices": [
+    "Author tokens in CSS with `@theme` in your global stylesheet (e.g. `app/globals.css`).",
+    "Reference tokens via `var(--token-name)` or via Tailwind utility classes — both stay in sync.",
+    "Use `@import \"tailwindcss\"` instead of the v3-era `@tailwind base/components/utilities` triplet."
+  ],
+  "antiPatterns": [
+    "Maintaining both a JS `tailwind.config.{js,ts}` and a v4 `@theme` block — they will drift.",
+    "Hardcoding hex values into utility class arbitrary values when an equivalent token exists.",
+    "Using v3 directives (`@tailwind base`) under v4 — they are deprecated and produce warnings."
+  ],
+  "provenance": [
+    {
+      "url": "https://tailwindcss.com/docs/v4-beta",
+      "allowlistKey": "tailwind.official",
+      "fetchedAt": "2026-05-08"
+    }
+  ]
+}

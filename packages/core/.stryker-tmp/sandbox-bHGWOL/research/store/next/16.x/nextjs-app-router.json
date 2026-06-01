@@ -1,0 +1,28 @@
+{
+  "id": "nextjs-app-router",
+  "summary": "App Router is the default in Next.js 13+; in Next 16 the Pages Router has been removed. Server Components run by default; client components opt in with 'use client'.",
+  "bestPractices": [
+    "Default `async function Page` to a Server Component; opt in to client only when needed.",
+    "Co-locate route handlers in `route.ts` files within app/ segments.",
+    "Use `loading.tsx` and `error.tsx` segment files for streaming UI and error boundaries.",
+    "Prefer Server Actions for mutations over standalone `app/api/*` routes when the action is co-located with the consumer UI.",
+    "Use `'use cache'` (Next 16+) to opt segments or functions into the new caching primitive."
+  ],
+  "antiPatterns": [
+    "Importing `next/router` from anywhere under `app/` — use `next/navigation` instead.",
+    "Mixing `pages/` and `app/` directories in projects targeting Next 16 (Pages Router removed).",
+    "Reading process.env or filesystem APIs from a `'use client'` module."
+  ],
+  "provenance": [
+    {
+      "url": "https://nextjs.org/docs/app/building-your-application/routing",
+      "allowlistKey": "next.official",
+      "fetchedAt": "2026-05-08"
+    },
+    {
+      "url": "https://nextjs.org/docs/app/guides/upgrading/version-16",
+      "allowlistKey": "next.official",
+      "fetchedAt": "2026-05-08"
+    }
+  ]
+}

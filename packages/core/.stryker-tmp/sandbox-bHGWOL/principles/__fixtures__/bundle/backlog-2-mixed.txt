@@ -1,0 +1,22 @@
+# backlog-2-mixed.txt — 8 items of mixed types
+# R-phase and I-phase-large items should be excluded; only fix/I-phase-small pass.
+# After filter, max 5 emit (cap). I-phase-small items have many words to exceed LOC=5
+# threshold when parsed via word-count heuristic (word_count/6), so we need ~30+ words.
+#
+# Expected outcome (in order):
+#   idx 1: fix → in-bundle (1/5)
+#   idx 2: R-phase → excluded (type=R-phase)
+#   idx 3: fix → in-bundle (2/5)
+#   idx 4: I-phase-large → excluded (SURFACES>=2 fires for two .ts files)
+#   idx 5: fix → in-bundle (3/5)
+#   idx 6: fix → in-bundle (4/5)
+#   idx 7: fix → in-bundle (5/5)
+#   idx 8: fix → excluded: max-bundle-5 cap
+fix typo in alpha.sh
+research patch prior art survey for new capability in project
+fix comment in beta.sh
+implement a complex feature across component.ts service.ts controller.ts
+fix lint warning in gamma.sh
+fix wrong indentation in delta.sh
+fix missing newline at end of epsilon.sh
+fix minor style issue in zeta.sh

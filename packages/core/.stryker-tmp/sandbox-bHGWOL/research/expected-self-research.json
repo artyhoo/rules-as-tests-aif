@@ -1,0 +1,20 @@
+{
+  "framework": null,
+  "version": null,
+  "patterns": [],
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss"
+  ],
+  "drift": {
+    "sources": [
+      "skills/rules-as-tests/SKILL.md",
+      "skills/rules-as-tests/references/overview.md",
+      "skills/rules-as-tests/references/ai-traps.md"
+    ],
+    "mismatches": []
+  }
+}

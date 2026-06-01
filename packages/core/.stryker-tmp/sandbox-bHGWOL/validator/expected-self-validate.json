@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "gates": {
+    "schema": {
+      "status": "pass",
+      "failures": []
+    },
+    "ruleTester": {
+      "status": "n/a",
+      "failures": []
+    },
+    "tautology": {
+      "status": "n/a",
+      "failures": []
+    },
+    "conflict": {
+      "status": "pass",
+      "failures": []
+    }
+  }
+}

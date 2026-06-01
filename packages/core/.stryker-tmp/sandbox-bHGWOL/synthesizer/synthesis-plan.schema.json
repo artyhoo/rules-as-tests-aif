@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SynthesisPlan",
+  "description": "Layer 3 (Synthesizer Path A) output. Consumed by L4 Validator (Phase 7+) and L5 Installer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["framework", "version", "rules", "rulesMd", "eslintConfigSnippet"],
+  "properties": {
+    "framework": { "type": ["string", "null"] },
+    "version": { "type": ["string", "null"] },
+    "rules": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/SynthesizedRule" }
+    },
+    "rulesMd": { "type": "string" },
+    "eslintConfigSnippet": { "type": "string" }
+  },
+  "definitions": {
+    "ManifestCheck": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "rule"],
+          "properties": {
+            "type": { "const": "eslint" },
+            "rule": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "command"],
+          "properties": {
+            "type": { "const": "command" },
+            "command": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "script"],
+          "properties": {
+            "type": { "const": "script" },
+            "script": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "manual" },
+            "rationale": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "SynthesizedRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "stack", "check", "examples", "research"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^G[0-9]+$" },
+        "title": { "type": "string" },
+        "stack": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "applies-to": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "check": { "$ref": "#/definitions/ManifestCheck" },
+        "examples": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bad", "good"],
+          "properties": {
+            "bad": { "type": "string" },
+            "good": { "type": "string" }
+          }
+        },
+        "negative-test": {
+          "description": "Machine-readable input + expected violation messageId/ruleName for L4 rule-tester gate. Optional in schema; L4 gate 2 enforces presence at runtime for check.type === 'eslint'.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["input", "expect-violation"],
+          "properties": {
+            "input": { "type": "string" },
+            "expect-violation": { "type": "string" }
+          }
+        },
+        "research": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["entryId", "provenance"],
+          "properties": {
+            "entryId": { "type": "string" },
+            "provenance": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/Provenance" }
+            }
+          }
+        }
+      }
+    },
+    "Provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "allowlistKey", "fetchedAt"],
+      "properties": {
+        "url": { "type": "string" },
+        "allowlistKey": { "type": "string" },
+        "fetchedAt": { "type": "string" }
+      }
+    }
+  }
+}

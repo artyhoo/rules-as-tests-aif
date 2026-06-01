@@ -1,0 +1,25 @@
+{
+  "patternId": "next-r20-require-use-server-directive",
+  "appliesTo": ["next"],
+  "rule": {
+    "title": "Server Action files must start with `'use server'` directive (R20)",
+    "stack": ["react-next"],
+    "applies-to": ["src/app/**/*.ts", "src/lib/actions/**/*.ts"],
+    "check": {
+      "type": "eslint",
+      "rule": "rules-as-tests/require-use-server-directive"
+    },
+    "examples": {
+      "bad": "export async function action() { return 1; }",
+      "good": "'use server';\nexport async function action() { return 1; }"
+    },
+    "negative-test": {
+      "input": "export async function action() { return 1; }",
+      "expect-violation": "rules-as-tests/require-use-server-directive"
+    }
+  },
+  "rulesMdTemplate": "<!-- from preset-next-15-canonical/eslint-rules/require-use-server-directive.ts -->\n## {{id}} — Server Action files must start with `'use server'` directive (R20)\n\n**Stack:** react-next  \n**Check:** ESLint `rules-as-tests/require-use-server-directive` (preset plugin rule)  \n**Why:** Without `'use server'` as the first program statement, Next compiles `async function` exports as regular module code — server logic can leak into client bundles or fail to register as a Server Action. The directive must be the very first statement (no imports or side-effects before it).\n",
+  "eslintRuleConfig": {
+    "rules-as-tests/require-use-server-directive": "error"
+  }
+}

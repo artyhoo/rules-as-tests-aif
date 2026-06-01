@@ -1,0 +1,54 @@
+{
+  "name": "@rules-as-tests/core",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./manifest/rules-manifest.json",
+  "bin": {
+    "rules-as-tests-detect": "./detector/cli.ts",
+    "rules-as-tests-research": "./research/cli.ts",
+    "rules-as-tests-synth": "./synthesizer/cli.ts",
+    "rules-as-tests-validate": "./validator/cli.ts",
+    "rules-as-tests-install": "./installer/cli.ts"
+  },
+  "exports": {
+    "./manifest": "./manifest/rules-manifest.json",
+    "./manifest-schema": "./manifest/rules-manifest.schema.json",
+    "./eslint-rules": "./eslint-rules/index.ts",
+    "./detector": "./detector/index.ts",
+    "./research": "./research/index.ts",
+    "./synthesizer": "./synthesizer/index.ts",
+    "./validator": "./validator/index.ts",
+    "./installer": "./installer/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --reporter=default",
+    "test:principles": "vitest run principles/",
+    "test:template-render": "vitest run audit-self/template-render.audit.ts",
+    "typecheck": "tsc --noEmit",
+    "render-rules": "tsx render/render-rules.ts",
+    "render-rules:check": "tsx render/render-rules.ts --check",
+    "detect": "tsx detector/cli.ts",
+    "detect:install-rules": "tsx detector-v0/detect-applicable-rules.ts",
+    "research": "tsx research/cli.ts",
+    "synth": "tsx synthesizer/cli.ts",
+    "validate": "tsx validator/cli.ts",
+    "install:synth": "tsx installer/cli.ts"
+  },
+  "devDependencies": {
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/rule-tester": "^8.59.0",
+    "@typescript-eslint/utils": "^8.59.0",
+    "ajv": "^8.17.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.5"
+  },
+  "dependencies": {
+    "remark": "^15.0.1",
+    "remark-parse": "^11.0.0"
+  }
+}

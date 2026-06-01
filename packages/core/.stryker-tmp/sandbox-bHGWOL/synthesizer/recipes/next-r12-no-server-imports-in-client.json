@@ -1,0 +1,25 @@
+{
+  "patternId": "next-r12-no-server-imports-in-client",
+  "appliesTo": ["next"],
+  "rule": {
+    "title": "Forbid server-only imports in `'use client'` files (R12)",
+    "stack": ["react-next"],
+    "applies-to": ["src/**/*.tsx"],
+    "check": {
+      "type": "eslint",
+      "rule": "rules-as-tests/no-server-imports-in-client"
+    },
+    "examples": {
+      "bad": "'use client';\nimport fs from 'fs';\nexport const x = 1;",
+      "good": "'use client';\nimport { useState } from 'react';\nexport function C() { return null; }"
+    },
+    "negative-test": {
+      "input": "'use client';\nimport fs from 'fs';\nexport const x = 1;",
+      "expect-violation": "rules-as-tests/no-server-imports-in-client"
+    }
+  },
+  "rulesMdTemplate": "<!-- from preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts -->\n## {{id}} — Forbid server-only imports in `'use client'` files (R12)\n\n**Stack:** react-next  \n**Check:** ESLint `rules-as-tests/no-server-imports-in-client` (preset plugin rule)  \n**Why:** `'use client'` modules execute in the browser. Server-only modules (`node:fs`, `node:crypto`, `node:path`, infrastructure adapters, `config/env`) crash at runtime or break the bundler. Pass server data through props from a parent Server Component instead.\n",
+  "eslintRuleConfig": {
+    "rules-as-tests/no-server-imports-in-client": "error"
+  }
+}

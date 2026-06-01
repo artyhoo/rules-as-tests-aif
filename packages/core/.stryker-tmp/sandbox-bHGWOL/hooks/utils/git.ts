@@ -1,0 +1,146 @@
+/**
+ * git.ts — thin git helpers for the pre-push hook (Wave 10.2).
+ *
+ * All git I/O for the trailer checks funnels through here so the check logic
+ * (checks/prior-art.ts) stays pure + unit-testable against a fake GitProvider —
+ * mirroring how the bash test mocked `git show` to return a fixed body.
+ *
+ * Changed-file scoping (`getChangedFiles`) is the lint-staged technique adapted
+ * from aif-handoff (research patch §4.8.X.3): scope expensive checks to the
+ * push range `origin/main..HEAD` rather than the whole tree.
+ */
+// @ts-nocheck
+
+import { runCheck } from './run-check.ts';
+
+/** Run git, return stdout (empty string on failure — callers tolerate it). */
+function gitOut(args: readonly string[]): string {
+  return runCheck('git', args).stdout;
+}
+
+/** A capability-detection / trailer view over git, injectable for tests. */
+export interface GitProvider {
+  /** `git show <sha> -- package.json` (the unified diff, or '' if none). */
+  packageJsonDiff(sha: string): string;
+  /** `git diff-tree --no-commit-id --name-status -r <sha>` parsed to {status,path}. */
+  changedFiles(sha: string): { status: string; path: string }[];
+  /** `git show <sha>:<path>` contents, or null if the path is absent at that sha. */
+  fileContent(sha: string, path: string): string | null;
+  /** Did `packages/core/<subdir>/` exist at <sha>'s parent? (false if no parent). */
+  subdirExistedAtParent(sha: string, subdir: string): boolean;
+  /** `git show -s --format=%B <sha>` — full commit message body. */
+  commitBody(sha: string): string;
+  /** Date part (YYYY-MM-DD) of `git show -s --format=%ai <sha>`. */
+  authorDate(sha: string): string;
+  /** `git show -s --format=%s <sha>` — commit subject line. */
+  commitSubject(sha: string): string;
+  /** `git show <sha> -- <paths…>` — the unified diff restricted to those paths. */
+  diffForPaths(sha: string, paths: readonly string[]): string;
+}
+
+/**
+ * The all-zeros SHA git writes on the pre-push stdin `remote_sha` field when the
+ * remote ref does not yet exist (a brand-new branch being pushed for the first
+ * time). Per `githooks(5)`.
+ */
+export const Z40 = '0000000000000000000000000000000000000000';
+
+/** One parsed line of the pre-push hook's stdin. */
+export interface PushRef {
+  localRef: string;
+  localSha: string;
+  remoteRef: string;
+  remoteSha: string;
+}
+
+/**
+ * Parse the pre-push hook's stdin into structured refs. git passes one line per
+ * pushed ref: `<local_ref> <local_sha> <remote_ref> <remote_sha>`. This is the
+ * canonical, trunk-agnostic base-ref signal (ADAPT of pre-commit's stdin parse,
+ * SSOT — see hook-base-ref-detection research patch): `remote_sha` is exactly
+ * what HEAD is being pushed against, so the hook never has to *guess* a default
+ * branch. Pure (no git I/O) so it is unit-testable. Blank and malformed lines
+ * (fewer than the four required fields) are dropped rather than yielding a ref
+ * with undefined shas, which would mis-resolve the diff base.
+ */
+export function parsePushRefs(stdin: string): PushRef[] {
+  return stdin
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.split(/\s+/))
+    .filter((parts) => parts.length >= 4)
+    .map(([localRef, localSha, remoteRef, remoteSha]) => ({
+      localRef: localRef ?? '',
+      localSha: localSha ?? '',
+      remoteRef: remoteRef ?? '',
+      remoteSha: remoteSha ?? '',
+    }));
+}
+
+export function upstreamExists(ref: string): boolean {
+  return runCheck('git', ['rev-parse', '--verify', ref]).exitCode === 0;
+}
+
+/**
+ * Commits reachable from `localSha` but not on any remote-tracking branch — the
+ * new commits a first-time branch push (stdin `remote_sha` == {@link Z40})
+ * introduces. Trunk-agnostic: no `origin/<trunk>` literal, so it works on any
+ * consumer repo regardless of trunk name. Mirrors pre-commit's Z40 handling.
+ */
+export function commitsNotOnRemotes(localSha: string): string[] {
+  return gitOut(['rev-list', localSha, '--not', '--remotes'])
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Commit SHAs in `<upstreamRef>..HEAD`, newest first (git rev-list order). */
+export function getCommits(upstreamRef: string): string[] {
+  return gitOut(['rev-list', `${upstreamRef}..HEAD`])
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Changed files in the push range (aif-handoff scoping, §4.8.X.3). */
+export function getChangedFiles(upstreamRef: string, diffFilter = 'ACMR'): string[] {
+  return gitOut(['diff', '--name-only', `${upstreamRef}..HEAD`, `--diff-filter=${diffFilter}`])
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function parseNameStatus(out: string): { status: string; path: string }[] {
+  return out
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const tab = line.indexOf('\t');
+      if (tab === -1) return { status: line, path: '' };
+      return { status: line.slice(0, tab), path: line.slice(tab + 1) };
+    })
+    .filter((e) => e.path !== '');
+}
+
+/** The real git-backed provider used by the running hook. */
+export const realGit: GitProvider = {
+  packageJsonDiff: (sha) => gitOut(['show', sha, '--', 'package.json']),
+  changedFiles: (sha) =>
+    parseNameStatus(gitOut(['diff-tree', '--no-commit-id', '--name-status', '-r', sha])),
+  fileContent: (sha, path) => {
+    const r = runCheck('git', ['show', `${sha}:${path}`]);
+    return r.exitCode === 0 ? r.stdout : null;
+  },
+  subdirExistedAtParent: (sha, subdir) => {
+    const parent = `${sha}^`;
+    if (!upstreamExists(parent)) return false;
+    const out = gitOut(['ls-tree', '-r', '--name-only', parent, '--', `packages/core/${subdir}/`]);
+    return out.trim().length > 0;
+  },
+  commitBody: (sha) => gitOut(['show', '-s', '--format=%B', sha]),
+  authorDate: (sha) => gitOut(['show', '-s', '--format=%ai', sha]).trim().split(' ')[0] ?? '',
+  commitSubject: (sha) => gitOut(['show', '-s', '--format=%s', sha]).replace(/\n$/, ''),
+  diffForPaths: (sha, paths) => gitOut(['show', sha, '--', ...paths]),
+};

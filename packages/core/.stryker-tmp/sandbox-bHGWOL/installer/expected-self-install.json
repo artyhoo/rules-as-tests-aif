@@ -1,0 +1,59 @@
+{
+  "ok": true,
+  "installed": true,
+  "failuresCount": 0,
+  "artifactNames": [
+    "rules-manifest-additions.json",
+    "RULES-additions.md",
+    "eslint-rules-snippet.json",
+    "rules-lock.json"
+  ],
+  "lockShape": {
+    "schemaVersion": 1,
+    "framework": null,
+    "version": null,
+    "ruleIds": []
+  },
+  "preValidation": {
+    "ok": true,
+    "gates": {
+      "schema": {
+        "status": "pass",
+        "failures": []
+      },
+      "ruleTester": {
+        "status": "n/a",
+        "failures": []
+      },
+      "tautology": {
+        "status": "n/a",
+        "failures": []
+      },
+      "conflict": {
+        "status": "pass",
+        "failures": []
+      }
+    }
+  },
+  "postValidation": {
+    "ok": true,
+    "gates": {
+      "schema": {
+        "status": "pass",
+        "failures": []
+      },
+      "ruleTester": {
+        "status": "n/a",
+        "failures": []
+      },
+      "tautology": {
+        "status": "n/a",
+        "failures": []
+      },
+      "conflict": {
+        "status": "pass",
+        "failures": []
+      }
+    }
+  }
+}

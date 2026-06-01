@@ -1,0 +1,218 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`detector snapshot — frozen fixture trees > detectStack(aif-skill-context) matches snapshot 1`] = `
+{
+  "confidence": "high",
+  "framework": {
+    "major": 19,
+    "name": "react",
+    "version": "19.0.0",
+  },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
+  "rules": {
+    "applicable": [],
+    "skipped": [],
+  },
+  "runtime": {
+    "major": null,
+    "name": "node",
+  },
+  "severity": "pass",
+  "source": ".ai-factory/skill-context/aif-fix/SKILL.md",
+  "stack": "react-next",
+  "weight": 2,
+}
+`;
+
+exports[`detector snapshot — frozen fixture trees > detectStack(next-15) matches snapshot 1`] = `
+{
+  "confidence": "medium",
+  "framework": {
+    "major": 15,
+    "name": "next",
+    "version": "15.4.2",
+  },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
+  "rules": {
+    "applicable": [],
+    "skipped": [],
+  },
+  "runtime": {
+    "major": null,
+    "name": "node",
+  },
+  "severity": "warn",
+  "source": "package.json",
+  "stack": "react-next",
+  "weight": 1,
+}
+`;
+
+exports[`detector snapshot — frozen fixture trees > detectStack(next-16) matches snapshot 1`] = `
+{
+  "confidence": "medium",
+  "framework": {
+    "major": 16,
+    "name": "next",
+    "version": "16.0.1",
+  },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
+  "rules": {
+    "applicable": [],
+    "skipped": [],
+  },
+  "runtime": {
+    "major": null,
+    "name": "node",
+  },
+  "severity": "warn",
+  "source": "package.json",
+  "stack": "react-next",
+  "weight": 1,
+}
+`;
+
+exports[`detector snapshot — frozen fixture trees > detectStack(no-aif) matches snapshot 1`] = `
+{
+  "confidence": "medium",
+  "framework": {
+    "major": 16,
+    "name": "next",
+    "version": "16.0.0",
+  },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
+  "rules": {
+    "applicable": [],
+    "skipped": [],
+  },
+  "runtime": {
+    "major": null,
+    "name": "node",
+  },
+  "severity": "warn",
+  "source": "package.json",
+  "stack": "react-next",
+  "weight": 1,
+}
+`;
+
+exports[`detector snapshot — frozen fixture trees > detectStack(react-only) matches snapshot 1`] = `
+{
+  "confidence": "medium",
+  "framework": {
+    "major": 19,
+    "name": "react",
+    "version": "19.0.0",
+  },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
+  "rules": {
+    "applicable": [],
+    "skipped": [],
+  },
+  "runtime": {
+    "major": null,
+    "name": "node",
+  },
+  "severity": "warn",
+  "source": "package.json",
+  "stack": "react-next",
+  "weight": 1,
+}
+`;
+
+exports[`detector snapshot — frozen fixture trees > detectStack(ts-server) matches snapshot 1`] = `
+{
+  "confidence": "medium",
+  "framework": {
+    "major": null,
+    "name": null,
+    "version": null,
+  },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
+  "rules": {
+    "applicable": [],
+    "skipped": [],
+  },
+  "runtime": {
+    "major": null,
+    "name": "node",
+  },
+  "severity": "warn",
+  "source": "package.json",
+  "stack": "ts-server",
+  "weight": 1,
+}
+`;
+
+exports[`detector snapshot — frozen fixture trees > detectStack(with-aif) matches snapshot 1`] = `
+{
+  "confidence": "high",
+  "framework": {
+    "major": 16,
+    "name": "next",
+    "version": "16.0.0",
+  },
+  "missing": [
+    "@opentelemetry/api",
+    "@playwright/test",
+    "vitest",
+    "@storybook/nextjs",
+    "tailwindcss",
+  ],
+  "patterns": [],
+  "rules": {
+    "applicable": [],
+    "skipped": [],
+  },
+  "runtime": {
+    "major": null,
+    "name": "node",
+  },
+  "severity": "pass",
+  "source": ".ai-factory/DESCRIPTION.md",
+  "stack": "react-next",
+  "weight": 2,
+}
+`;

@@ -1,0 +1,111 @@
+{
+  "framework": "next",
+  "version": "16.0.1",
+  "rules": [
+    {
+      "title": "Forbid server-only imports in `'use client'` files (R12)",
+      "stack": [
+        "react-next"
+      ],
+      "applies-to": [
+        "src/**/*.tsx"
+      ],
+      "check": {
+        "type": "eslint",
+        "rule": "rules-as-tests/no-server-imports-in-client"
+      },
+      "examples": {
+        "bad": "'use client';\nimport fs from 'fs';\nexport const x = 1;",
+        "good": "'use client';\nimport { useState } from 'react';\nexport function C() { return null; }"
+      },
+      "negative-test": {
+        "input": "'use client';\nimport fs from 'fs';\nexport const x = 1;",
+        "expect-violation": "rules-as-tests/no-server-imports-in-client"
+      },
+      "id": "G1",
+      "research": {
+        "entryId": "next-r12-no-server-imports-in-client",
+        "provenance": [
+          {
+            "url": "https://nextjs.org/docs/app/building-your-application/rendering/server-components",
+            "allowlistKey": "next.official",
+            "fetchedAt": "2026-05-08"
+          },
+          {
+            "url": "https://react.dev/reference/rsc/server-components",
+            "allowlistKey": "react.official",
+            "fetchedAt": "2026-05-08"
+          }
+        ]
+      }
+    },
+    {
+      "title": "Forbid `next/router` imports in App Router (use `next/navigation`)",
+      "stack": [
+        "react-next"
+      ],
+      "applies-to": [
+        "src/app/**/*.tsx",
+        "src/app/**/*.ts"
+      ],
+      "check": {
+        "type": "eslint",
+        "rule": "no-restricted-imports"
+      },
+      "examples": {
+        "bad": "// src/app/page.tsx\nimport { useRouter } from 'next/router';\nexport default function Page() {\n  const router = useRouter();\n  return null;\n}",
+        "good": "// src/app/page.tsx\nimport { useRouter } from 'next/navigation';\nexport default function Page() {\n  const router = useRouter();\n  return null;\n}"
+      },
+      "negative-test": {
+        "input": "import { useRouter } from 'next/router';\nexport default function Page() { return null; }",
+        "expect-violation": "no-restricted-imports"
+      },
+      "id": "G2",
+      "research": {
+        "entryId": "nextjs-app-router",
+        "provenance": [
+          {
+            "url": "https://nextjs.org/docs/app/building-your-application/routing",
+            "allowlistKey": "next.official",
+            "fetchedAt": "2026-05-08"
+          },
+          {
+            "url": "https://nextjs.org/docs/app/guides/upgrading/version-16",
+            "allowlistKey": "next.official",
+            "fetchedAt": "2026-05-08"
+          }
+        ]
+      }
+    },
+    {
+      "title": "Migrate `pages/` to `app/` before upgrading to Next 16",
+      "stack": [
+        "react-next"
+      ],
+      "applies-to": [
+        "pages/**/*.{ts,tsx,js,jsx}"
+      ],
+      "check": {
+        "type": "manual",
+        "rationale": "Next.js 16 removed the Pages Router. If a `pages/` directory is present in a project targeting Next 16, migration to App Router is a hard prerequisite — this is a project-level migration task, not a per-file lint fix. Run `next-codemod app-dir-migration` to automate the bulk of the conversion, then resolve remaining edge cases by hand."
+      },
+      "examples": {
+        "bad": "// pages/index.tsx still exists in a Next 16 project\nexport default function Home() {\n  return <h1>Hello</h1>;\n}",
+        "good": "// app/page.tsx — migrated\nexport default function Page() {\n  return <h1>Hello</h1>;\n}"
+      },
+      "id": "G3",
+      "research": {
+        "entryId": "nextjs-pages-router",
+        "provenance": [
+          {
+            "url": "https://nextjs.org/docs/app/guides/upgrading/version-16",
+            "allowlistKey": "next.official",
+            "fetchedAt": "2026-05-08"
+          }
+        ]
+      }
+    }
+  ],
+  "rulesMd": "<!-- from preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts -->\n## G1 — Forbid server-only imports in `'use client'` files (R12)\n\n**Stack:** react-next  \n**Check:** ESLint `rules-as-tests/no-server-imports-in-client` (preset plugin rule)  \n**Why:** `'use client'` modules execute in the browser. Server-only modules (`node:fs`, `node:crypto`, `node:path`, infrastructure adapters, `config/env`) crash at runtime or break the bundler. Pass server data through props from a parent Server Component instead.\n\n## G2 — Forbid `next/router` imports in App Router\n\n**Stack:** react-next  \n**Check:** ESLint `no-restricted-imports`  \n**Why:** `next/router` is the Pages Router API and does not work in App Router segments. Use `next/navigation` instead.\n\n## G3 — Migrate `pages/` to `app/` before upgrading to Next 16\n\n**Stack:** react-next  \n**Check:** Manual review — Pages Router is removed in Next 16; `pages/` presence is a migration blocker.\n**Why:** No automatic codemod is bundled into ESLint for this transition; the migration is project-shaped (layouts, getServerSideProps, API routes) and must be a deliberate operator step.\n",
+  "eslintConfigSnippet": "{\n  \"rules-as-tests/no-server-imports-in-client\": \"error\",\n  \"no-restricted-imports\": [\n    \"error\",\n    {\n      \"paths\": [\n        {\n          \"name\": \"next/router\",\n          \"message\": \"Use `next/navigation` in App Router segments. `next/router` belongs to the deprecated Pages Router.\"\n        }\n      ]\n    }\n  ]\n}"
+}

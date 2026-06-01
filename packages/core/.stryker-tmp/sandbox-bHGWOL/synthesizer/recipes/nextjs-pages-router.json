@@ -1,0 +1,19 @@
+{
+  "patternId": "nextjs-pages-router",
+  "appliesTo": ["next"],
+  "rule": {
+    "title": "Migrate `pages/` to `app/` before upgrading to Next 16",
+    "stack": ["react-next"],
+    "applies-to": ["pages/**/*.{ts,tsx,js,jsx}"],
+    "check": {
+      "type": "manual",
+      "rationale": "Next.js 16 removed the Pages Router. If a `pages/` directory is present in a project targeting Next 16, migration to App Router is a hard prerequisite — this is a project-level migration task, not a per-file lint fix. Run `next-codemod app-dir-migration` to automate the bulk of the conversion, then resolve remaining edge cases by hand."
+    },
+    "examples": {
+      "bad": "// pages/index.tsx still exists in a Next 16 project\nexport default function Home() {\n  return <h1>Hello</h1>;\n}",
+      "good": "// app/page.tsx — migrated\nexport default function Page() {\n  return <h1>Hello</h1>;\n}"
+    }
+  },
+  "rulesMdTemplate": "## {{id}} — Migrate `pages/` to `app/` before upgrading to Next 16\n\n**Stack:** react-next  \n**Check:** Manual review — Pages Router is removed in Next 16; `pages/` presence is a migration blocker.\n**Why:** No automatic codemod is bundled into ESLint for this transition; the migration is project-shaped (layouts, getServerSideProps, API routes) and must be a deliberate operator step.\n",
+  "eslintRuleConfig": {}
+}

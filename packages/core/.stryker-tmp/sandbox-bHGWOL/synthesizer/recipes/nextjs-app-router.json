@@ -1,0 +1,35 @@
+{
+  "patternId": "nextjs-app-router",
+  "appliesTo": ["next"],
+  "rule": {
+    "title": "Forbid `next/router` imports in App Router (use `next/navigation`)",
+    "stack": ["react-next"],
+    "applies-to": ["src/app/**/*.tsx", "src/app/**/*.ts"],
+    "check": {
+      "type": "eslint",
+      "rule": "no-restricted-imports"
+    },
+    "examples": {
+      "bad": "// src/app/page.tsx\nimport { useRouter } from 'next/router';\nexport default function Page() {\n  const router = useRouter();\n  return null;\n}",
+      "good": "// src/app/page.tsx\nimport { useRouter } from 'next/navigation';\nexport default function Page() {\n  const router = useRouter();\n  return null;\n}"
+    },
+    "negative-test": {
+      "input": "import { useRouter } from 'next/router';\nexport default function Page() { return null; }",
+      "expect-violation": "no-restricted-imports"
+    }
+  },
+  "rulesMdTemplate": "## {{id}} — Forbid `next/router` imports in App Router\n\n**Stack:** react-next  \n**Check:** ESLint `no-restricted-imports`  \n**Why:** `next/router` is the Pages Router API and does not work in App Router segments. Use `next/navigation` instead.\n",
+  "eslintRuleConfig": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "next/router",
+            "message": "Use `next/navigation` in App Router segments. `next/router` belongs to the deprecated Pages Router."
+          }
+        ]
+      }
+    ]
+  }
+}

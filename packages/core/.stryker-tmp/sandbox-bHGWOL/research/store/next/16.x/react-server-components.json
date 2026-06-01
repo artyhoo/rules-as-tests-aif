@@ -1,0 +1,27 @@
+{
+  "id": "next-r12-no-server-imports-in-client",
+  "summary": "React Server Components (RSC) execute on the server by default in App Router. Client components opt in with `'use client'`. Crossing the boundary requires serializable props.",
+  "bestPractices": [
+    "Mark client components with `'use client'` at the top of the file; never inside a function.",
+    "Pass server data into client subtrees through props, not via shared imports.",
+    "Keep client components leaf-shaped — Server Components compose them, not the other way around.",
+    "Use `Suspense` boundaries plus `loading.tsx` for streaming UX in long-running data paths."
+  ],
+  "antiPatterns": [
+    "Importing `node:fs`, `node:crypto`, or other Node-only modules from a `'use client'` file.",
+    "Passing functions, class instances, or non-serializable values across the server→client boundary as props.",
+    "Re-marking the same module with `'use server'` and `'use client'` — these are mutually exclusive."
+  ],
+  "provenance": [
+    {
+      "url": "https://nextjs.org/docs/app/building-your-application/rendering/server-components",
+      "allowlistKey": "next.official",
+      "fetchedAt": "2026-05-08"
+    },
+    {
+      "url": "https://react.dev/reference/rsc/server-components",
+      "allowlistKey": "react.official",
+      "fetchedAt": "2026-05-08"
+    }
+  ]
+}

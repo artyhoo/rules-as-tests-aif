@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Recipe",
+  "description": "Curated synthesizer recipe — hand-authored mapping from a research patternId to a SynthesizedRule shape (minus id/research, which the synthesizer assigns from the live ResearchEntry). Loaded by packages/core/synthesizer/synthesize.ts loadRecipe().\n\nSingle-source policy: one synthesizer recipe per emitted ESLint rule. Collisions (two recipes targeting the same plugin rule) are resolved by deletion + research-store patternId re-route, not by layered emission. The research-store entry remains as the catalog row; only its inner patternId aligns with the surviving recipe. Detector pattern-id surface is unchanged. Phase 9 A6 closure (2026-05-09).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["patternId", "appliesTo", "rule", "rulesMdTemplate", "eslintRuleConfig"],
+  "properties": {
+    "patternId": {
+      "description": "Stable identifier — must match a research entry id under packages/core/research/store/.",
+      "type": "string",
+      "minLength": 1
+    },
+    "appliesTo": {
+      "description": "Framework allowlist — recipe is included only when ResearchPlan.framework is in this list. Authoring note: must use exact framework slugs from L1 detector (e.g. 'next', 'react'); do not use stack names like 'react-next'.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "rule": {
+      "description": "Inlined SynthesizedRule shape minus id and research (synthesizer assigns those from live ResearchEntry).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "stack", "check", "examples"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "stack": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "applies-to": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "check": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "rule"],
+              "properties": {
+                "type": { "const": "eslint" },
+                "rule": { "type": "string", "minLength": 1 }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "command"],
+              "properties": {
+                "type": { "const": "command" },
+                "command": { "type": "string", "minLength": 1 }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "script"],
+              "properties": {
+                "type": { "const": "script" },
+                "script": { "type": "string", "minLength": 1 }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type"],
+              "properties": {
+                "type": { "const": "manual" },
+                "rationale": { "type": "string" }
+              }
+            }
+          ]
+        },
+        "examples": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bad", "good"],
+          "properties": {
+            "bad": { "type": "string" },
+            "good": { "type": "string" }
+          }
+        },
+        "negative-test": {
+          "description": "Machine-readable input + expected ESLint messageId/ruleName for L4 rule-tester gate. Required by L4 gate 2 for check.type === 'eslint'; optional otherwise.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["input", "expect-violation"],
+          "properties": {
+            "input": { "type": "string", "minLength": 1 },
+            "expect-violation": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "rulesMdTemplate": {
+      "description": "Markdown fragment template — `{{id}}` placeholder is substituted with the assigned G-id during synthesis.",
+      "type": "string",
+      "minLength": 1
+    },
+    "eslintRuleConfig": {
+      "description": "ESLint flat-config rule entry — merged into SynthesisPlan.eslintConfigSnippet. For check.type === 'eslint' rules with shared rule names (e.g. 'no-restricted-imports'), the synthesizer applies semantic merge (array concat for paths[]) — see Phase 7 B1 fix.",
+      "type": "object"
+    }
+  }
+}
