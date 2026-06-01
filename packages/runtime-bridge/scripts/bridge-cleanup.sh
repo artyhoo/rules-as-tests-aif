@@ -87,7 +87,22 @@ else note "no agent container"; fi
 # them post-terminal (research-patch 2026-06-01-aif-task-isolation.md §2.1); this
 # is the standing sweep that keeps them from piling up.
 printf '\n-- container git: prune MERGED worktrees + feature branches (unmerged preserved) --\n'
-if [[ -n "$agent" ]]; then
+# Live-task guard (2026-06-02, won't-break-parallel-sessions): §4 runs git fetch / worktree
+# prune / branch -d in the SHARED .git, which a running task's ref-updating git ops also touch
+# (shared ref + packed-refs locks; amplified by parallel_enabled keeping multiple tasks active).
+# A collision yields "cannot lock ref" and can fail a live task's git step. So skip §4 entirely
+# while any non-terminal task exists. Deterministic, no AI. Fail-open (count unknown → 0 → proceed):
+# §4 is already safe-by-construction (merged-only), so this guard is defence-in-depth, not the
+# primary safety — worst case of a false 0 is a transient lock retry, never corruption or data loss.
+live=$(curl -s -m6 "$AIF_URL/tasks" 2>/dev/null | python3 -c 'import sys,json
+try: ts=json.load(sys.stdin)
+except Exception: ts=[]
+TERM={"done","verified","cancelled"}
+print(sum(1 for t in ts if (t.get("status") or "") not in TERM))' 2>/dev/null)
+[[ "$live" =~ ^[0-9]+$ ]] || live=0
+if [[ "$live" -gt 0 ]]; then
+  note "skipped — $live live (non-terminal) aif task(s) running; not touching shared git mid-run (avoids ref-lock contention with parallel sessions). Re-run when the queue is idle."
+elif [[ -n "$agent" ]]; then
   # -i forwards the heredoc on stdin to `sh -s` (without it docker exec discards stdin).
   docker exec -i -e DRY="$DRY" "$agent" sh -s <<'CONTAINER_SWEEP'
 set -u
