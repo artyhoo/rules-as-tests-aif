@@ -34,7 +34,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, copyFileSync, symlinkSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -173,6 +173,63 @@ describe.skipIf(!JQ)('validate-prompt.sh — off-path skip conditions (jq requir
     const abs = writeOrchestratorPrompt('# Kickoff doc with no action SHAs\n\nJust markdown.\n');
     const result = runHook({ tool_input: { file_path: abs } });
     expect(result.status).toBe(0);
+  });
+});
+
+// ── degraded-tooling graceful-skip (deterministic, no gh) ─────────────────────
+//
+// The bash mutation tool (B.2) surfaced that the `exit 0` on the tsx-unavailable
+// graceful-skip (hook:26-27) had no coverage — flipping it to `exit 1` survived.
+// We force the tsx-absent path deterministically by running a COPY of the hook
+// from a temp dir whose `../../node_modules/.bin/tsx` does not exist, so the hook
+// computes an absent TSX and must exit 0 (never block a tool call for missing
+// dev-tooling). Independent of the suite's TSX guard — it CREATES the condition.
+
+describe.skipIf(!JQ)('validate-prompt.sh — tsx-unavailable graceful skip (hook:26-27)', () => {
+  /**
+   * Run a copy of the (possibly mutation-swapped) hook from an isolated temp dir
+   * where REPO_ROOT/node_modules/.bin/tsx cannot resolve → forces hook:26 to fire.
+   */
+  function runHookNoTsx(stdinJson: object): { status: number; stderr: string } {
+    const dir = mkdtempSync(join(tmpdir(), 'vp-notsx-'));
+    tmpFiles.push(dir);
+    const hookCopy = join(dir, 'validate-prompt.sh');
+    copyFileSync(HOOK, hookCopy);
+    const r = spawnSync('bash', [hookCopy], {
+      input: JSON.stringify(stdinJson),
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    return { status: r.status ?? -1, stderr: r.stderr ?? '' };
+  }
+
+  it('PAIRED-POSITIVE: matching .md path but tsx unavailable → exit 0 (graceful skip, never block)', () => {
+    // file_path matches hook:21 (contains .claude/orchestrator-prompts/ + .md) so the
+    // path filter does NOT skip; the ONLY reason this exits 0 is the tsx-absent guard.
+    const r = runHookNoTsx({
+      tool_input: { file_path: '/x/.claude/orchestrator-prompts/test-wave/kickoff.md' },
+    });
+    expect(r.status, `tsx-absent must exit 0 (graceful), not block. stderr: ${r.stderr}`).toBe(0);
+  });
+
+  it('PAIRED-POSITIVE: jq unavailable on PATH → exit 0 (graceful skip, hook:14-16)', () => {
+    // Run the hook with a PATH that has `dirname` (needed by hook:9) but NOT `jq`,
+    // forcing the hook:14 `command -v jq` check to fail → exit 0. This covers the
+    // jq-unavailable graceful-skip the mutation tool flagged (hook:15 `exit 0`).
+    const binDir = mkdtempSync(join(tmpdir(), 'vp-nojq-bin-'));
+    tmpFiles.push(binDir);
+    // symlink only the externals the hook touches BEFORE the jq check (hook:9 dirname)
+    symlinkSync('/usr/bin/dirname', join(binDir, 'dirname'));
+    const r = spawnSync('/bin/bash', [HOOK], {
+      input: JSON.stringify({ tool_input: { file_path: '/whatever/kickoff.md' } }),
+      encoding: 'utf8',
+      timeout: 15_000,
+      env: { PATH: binDir }, // jq deliberately absent
+    });
+    expect(
+      r.status,
+      `jq-absent must exit 0 (graceful), not block. stderr: ${r.stderr}`,
+    ).toBe(0);
   });
 });
 

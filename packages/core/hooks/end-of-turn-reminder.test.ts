@@ -320,6 +320,24 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(payload.systemMessage).toMatch(/^🎯 /);
   });
 
+  it('PAIRED-NEGATIVE: a bare NON-question tool call (no text) → exit 0 silent (hook:53-54)', () => {
+    // Companion to the AskUserQuestion case above. A tool-use-only turn whose
+    // tool is NOT AskUserQuestion has empty text AND has_askuserquestion=false,
+    // so hook:53-54 must exit 0 silent — a bare Bash/Read call is not a recap
+    // moment. The mutation tool (B.2) showed this hook:54 `exit 0` was uncovered.
+    const tr = writeTranscript([
+      aiTitle('Цель сессии'),
+      userTurn('первое задание'),
+      assistantToolUseOnly('Bash'),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(
+      r.stdout,
+      'a bare non-question tool call (empty text, not AskUserQuestion) must stay silent',
+    ).toBe('');
+  });
+
   // ---------------------------------------------------------------------------
   // ✅ POSITIVE — skip conditions met: hook exits 0 silent (no stdout JSON).
   // ---------------------------------------------------------------------------
@@ -415,6 +433,104 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     ).not.toBe('');
     const payload = JSON.parse(r.stdout);
     expect(payload.decision).toBe('block');
+  });
+
+  // ---------------------------------------------------------------------------
+  //  idle-suppress — the MAJOR-1 re-ping guard (hook:135-156). Suppresses a
+  //  short question turn ONLY when the PREVIOUS assistant turn already emitted a
+  //  "## 🟢" recap AND the current turn's first 120 chars appear verbatim in it
+  //  (an idle re-ping of the same question). A genuinely new question, or a long
+  //  answer, must still fire. This block was surfaced as fully un-covered by the
+  //  bash mutation tool (B.2): the &&/|| operators on hook:135/145 and the
+  //  idle_suppress `exit 0` survived. These cases pin the divergent behaviour.
+  // ---------------------------------------------------------------------------
+  describe('idle-suppress re-ping guard (hook:135-156)', () => {
+    const RECAP = '## 🟢 Простыми словами';
+
+    it('re-ping: short question repeated verbatim after a "## 🟢" recap → exit 0 silent', () => {
+      const question = 'Так продолжать ли с шагом Y?';
+      const tr = writeTranscript([
+        aiTitle('Цель сессии'),
+        userTurn('первое задание'),
+        // previous assistant turn: a recap that CONTAINS the question text
+        assistantText(`${RECAP}\n\nЗакрыл шаг X. ${question}`),
+        // current assistant turn: the SAME short question re-pinged (asked, short)
+        assistantText(question),
+      ]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false });
+      expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+      expect(
+        r.stdout,
+        'an idle re-ping of the same question after a recap must be suppressed (silent)',
+      ).toBe('');
+    });
+
+    it('PAIRED-NEGATIVE: a NEW short question after a recap → still FIRES (decision:block)', () => {
+      const tr = writeTranscript([
+        aiTitle('Цель сессии'),
+        userTurn('первое задание'),
+        assistantText(`${RECAP}\n\nЗакрыл шаг X.`),
+        // genuinely new question — its text does NOT appear in the prev recap
+        assistantText('А что насчёт совсем другого вопроса Z?'),
+      ]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false });
+      expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+      expect(
+        r.stdout,
+        'a genuinely new question after a recap must NOT be suppressed — it must fire',
+      ).not.toBe('');
+      expect(JSON.parse(r.stdout).decision).toBe('block');
+    });
+
+    it('long answer that re-pings a recap → long_text wins, Branch C still FIRES', () => {
+      // Single-LINE long text: hook:145 compares `current_short` (first 120 bytes,
+      // newlines→spaces) against prev_text via `grep -qF`. A single-line prefix
+      // matches prev verbatim, so the idle-suppress inner condition WOULD be met —
+      // making the entry guard (asked && long_text=false) the sole thing keeping
+      // a long answer firing. This is what kills the hook:135 &&→|| mutant.
+      const longLine =
+        'Длинный однострочный ответ с **акцентом** ' +
+        'и продолжением мысли которое тянется дальше '.repeat(12) +
+        'итого какой подход выбрать — X или Y?';
+      const tr = writeTranscript([
+        aiTitle('Цель сессии'),
+        userTurn('первое задание'),
+        // prev recap CONTAINS the long line verbatim (so current_short ⊂ prev_text)…
+        assistantText(`${RECAP}\n\n${longLine}`),
+        // …but the current turn is itself long (>500) + ends in '?' → long_text=true,
+        // so the idle-suppress entry condition (asked && long_text=false) is false.
+        assistantText(longLine),
+      ]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false });
+      expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+      expect(
+        r.stdout,
+        'a long answer must fire (Branch C) even if its prefix re-pings a recap — long_text overrides idle-suppress',
+      ).not.toBe('');
+      expect(JSON.parse(r.stdout).decision).toBe('block');
+    });
+
+    it('B2 contract: an AskUserQuestion turn that re-pings a recap → must FIRE (never idle-suppress)', () => {
+      // hook:137 short-circuits idle-suppress when has_askuserquestion=true — an
+      // AskUserQuestion turn is ALWAYS a live decision, even if its text echoes a
+      // prior recap. Without this the operator question would be silently eaten.
+      const question = 'Так продолжать ли с шагом Y?';
+      const tr = writeTranscript([
+        aiTitle('Цель сессии'),
+        userTurn('первое задание'),
+        assistantText(`${RECAP}\n\nЗакрыл шаг X. ${question}`),
+        // current turn: same text BUT carries an AskUserQuestion tool_use → asked
+        // via has_askuserquestion=true, and hook:137 must veto suppression.
+        assistantTextAndToolUse(question, 'AskUserQuestion'),
+      ]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false });
+      expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+      expect(
+        r.stdout,
+        'an AskUserQuestion turn must fire even when its text re-pings a recap (B2 guard, hook:137)',
+      ).not.toBe('');
+      expect(JSON.parse(r.stdout).decision).toBe('block');
+    });
   });
 
   // ---------------------------------------------------------------------------
