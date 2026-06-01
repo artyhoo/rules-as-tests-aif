@@ -428,4 +428,39 @@ describe('link-coordination.sh', () => {
     teardown(wt);
   });
 
+  // ── (i) ROOT-FILE loop (Task A2) ───────────────────────────────────────────
+
+  it('root-file loop: _plan-cache.md adopted into CANON root and symlinked back', () => {
+    const wt = setupWorktreeDir(primaryRepo, 'lnk-root-cache');
+    const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
+    writeFileSync(resolve(wtPrompts, '_plan-cache.md'), 'CACHE-v1');
+    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+    const p = resolve(wtPrompts, '_plan-cache.md');
+    expect(lstatSync(p).isSymbolicLink()).toBe(true);
+    expect(readFileSync(resolve(canon, '_plan-cache.md'), 'utf8')).toBe('CACHE-v1');
+    teardown(wt);
+  });
+
+  it('root-file loop: _master-backlog-delta.json linked from CANON into a fresh worktree', () => {
+    writeFileSync(resolve(canon, '_master-backlog-delta.json'), '{"untracked_seen":[]}');
+    const wt = setupWorktreeDir(primaryRepo, 'lnk-root-delta');
+    const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
+    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+    expect(
+      lstatSync(resolve(wtPrompts, '_master-backlog-delta.json')).isSymbolicLink(),
+    ).toBe(true);
+    teardown(wt);
+  });
+
+  it('root-file loop: root README.md stays a real file (tracked-skip)', () => {
+    const wt = setupWorktreeDir(primaryRepo, 'lnk-root-readme');
+    const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
+    writeFileSync(resolve(wtPrompts, 'README.md'), 'TRACKED');
+    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+    expect(lstatSync(resolve(wtPrompts, 'README.md')).isSymbolicLink()).toBe(false);
+    teardown(wt);
+  });
 });

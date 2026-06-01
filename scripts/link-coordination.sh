@@ -141,6 +141,27 @@ if [[ -d "$WT_PROMPTS" ]]; then
   done
 fi
 
+# ── ROOT-FILE ADOPT-THEN-LINK ───────────────────────────────────────────────
+ROOT_FILES="_plan-cache.md _master-backlog-delta.json"
+if [[ -d "$WT_PROMPTS" ]]; then
+  for filename in $ROOT_FILES; do
+    file_path="$WT_PROMPTS/$filename"
+    [[ -f "$file_path" ]] || continue
+    [[ -L "$file_path" ]] && continue
+    canon_target="$CANON/$filename"
+    if [[ ! -e "$canon_target" ]]; then
+      mv "$file_path" "$canon_target"; ln -s "$canon_target" "$file_path"
+      echo "link-coordination: adopted root $filename → \$CANON" >&2
+    else
+      case "$ON_CONFLICT" in
+        skip)     echo "CONFLICT: $file_path exists as real file AND $canon_target exists in \$CANON — resolve manually then re-run" >&2; CONFLICT=1 ;;
+        canon)    rm -f "$file_path"; ln -s "$canon_target" "$file_path"; echo "link-coordination: on-conflict=canon → relinked root $filename" >&2 ;;
+        worktree) mv -f "$file_path" "$canon_target"; ln -s "$canon_target" "$file_path"; echo "link-coordination: on-conflict=worktree → adopted root $filename" >&2 ;;
+      esac
+    fi
+  done
+fi
+
 # ── LINK ──────────────────────────────────────────────────────────────────────
 # For each umbrella in $CANON, for each gitignored file:
 #   - If target in WT already a correct symlink → skip.
@@ -181,6 +202,19 @@ if [[ -d "$CANON" ]]; then
       ln -s "$canon_file" "$wt_target"
       echo "link-coordination: linked $umbrella/$filename → \$CANON" >&2
     done
+  done
+fi
+
+# ── ROOT-FILE LINK ──────────────────────────────────────────────────────────
+if [[ -d "$CANON" ]]; then
+  for filename in $ROOT_FILES; do
+    canon_file="$CANON/$filename"
+    [[ -f "$canon_file" ]] || continue
+    wt_target="$WT_PROMPTS/$filename"
+    [[ -L "$wt_target" ]] && continue
+    [[ -e "$wt_target" ]] && continue
+    ln -s "$canon_file" "$wt_target"
+    echo "link-coordination: linked root $filename → \$CANON" >&2
   done
 fi
 
