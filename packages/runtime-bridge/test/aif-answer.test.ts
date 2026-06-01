@@ -26,6 +26,7 @@ import {
   pushAnswer,
   formatResult,
   VALID_DECISIONS,
+  appendAnswerToPlan,
 } from '../src/cli/answer.js';
 
 function okResponse(body: unknown = {}, status = 200): Response {
@@ -134,8 +135,8 @@ describe('NEGATIVE — invalid args are rejected by validateAnswerArgs', () => {
     expect(validateAnswerArgs(args)).toBeNull();
   });
 
-  it('VALID_DECISIONS lists exactly the three supported decisions', () => {
-    expect([...VALID_DECISIONS]).toEqual(['request_changes', 'approve', 'retry']);
+  it('VALID_DECISIONS lists exactly the four supported decisions', () => {
+    expect([...VALID_DECISIONS]).toEqual(['request_changes', 'approve', 'retry', 'resume']);
   });
 });
 
@@ -172,5 +173,42 @@ describe('REST error mapping (mirrors AifHandoffBackend._rest)', () => {
       BackendError,
     );
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('resume decision — pure parts', () => {
+  it('resume requires --answer', () => {
+    const err = validateAnswerArgs({ taskId: 't-1', answer: undefined, decision: 'resume', json: false });
+    expect(err).toMatch(/requires --answer/);
+  });
+  it('appendAnswerToPlan appends a marked OPERATOR ANSWER block', () => {
+    const out = appendAnswerToPlan('# Plan\n## ⏸ OPEN QUESTION\nq', 'use Option A');
+    expect(out).toContain('## ✅ OPERATOR ANSWER (resumed)');
+    expect(out).toContain('use Option A');
+  });
+});
+
+describe('POSITIVE — resume: GET plan, then PUT { plan+answer, paused:false, blockedReason:null }', () => {
+  it('injects the answer into the plan and unpauses', async () => {
+    const task = { id: 't-7', title: 'x', status: 'implementing', plan: '# Plan\n## ⏸ OPEN QUESTION\nq', paused: true, blockedReason: 'q' };
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation((url) =>
+      Promise.resolve(
+        String(url).endsWith('/tasks/t-7')
+          ? new Response(JSON.stringify(task), { status: 200, headers: { 'Content-Type': 'application/json' } })
+          : new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      ),
+    );
+
+    const result = await pushAnswer('http://localhost:3009', 't-7', 'resume', 'use Option A');
+
+    expect((spy.mock.calls[0][1] as RequestInit).method).toBe('GET');
+    const put = spy.mock.calls[1][1] as RequestInit;
+    expect(put.method).toBe('PUT');
+    const body = JSON.parse(put.body as string);
+    expect(body.plan).toContain('## ✅ OPERATOR ANSWER (resumed)');
+    expect(body.plan).toContain('use Option A');
+    expect(body.paused).toBe(false);
+    expect(body.blockedReason).toBeNull();
+    expect(result).toMatchObject({ taskId: 't-7', decision: 'resume', commented: false });
   });
 });

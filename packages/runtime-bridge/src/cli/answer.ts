@@ -53,14 +53,22 @@
  */
 import { fileURLToPath } from 'node:url';
 import { BackendError } from '../backend.js';
+import { getTask, putTask } from './aifHttp.js';
 
 const DEFAULT_AIF_URL = 'http://localhost:3009';
 
-/** The three human resolution decisions accepted by the CLI. */
-export type AnswerDecision = 'request_changes' | 'approve' | 'retry';
+/** The four human resolution decisions accepted by the CLI. */
+export type AnswerDecision = 'request_changes' | 'approve' | 'retry' | 'resume';
 
 /** The valid decisions, in CLI-help order (request_changes is the default). */
-export const VALID_DECISIONS: readonly AnswerDecision[] = ['request_changes', 'approve', 'retry'];
+export const VALID_DECISIONS: readonly AnswerDecision[] = ['request_changes', 'approve', 'retry', 'resume'];
+
+/** Append a marked OPERATOR ANSWER block to the plan (read by the implementer on the next tick). */
+export function appendAnswerToPlan(existingPlan: string | null | undefined, answer: string): string {
+  const base = (existingPlan ?? '').trimEnd();
+  const block = `\n\n## ✅ OPERATOR ANSWER (resumed)\n\n${answer.trim()}\n`;
+  return base + block;
+}
 
 /** A decision resolved to its aif-handoff state-machine event + whether the answer rides as a comment. */
 export interface ResolveStep {
@@ -83,6 +91,12 @@ export function resolveStep(decision: AnswerDecision): ResolveStep {
       return { event: 'approve_done', needsComment: false };
     case 'retry':
       return { event: 'retry_from_blocked', needsComment: false };
+    case 'resume':
+      throw new BackendError(
+        'resume is handled by resumePark upstream of resolveStep — not an event decision',
+        'dispatch_failed',
+        'aif-handoff',
+      );
     case 'request_changes':
     default:
       return { event: 'request_changes', needsComment: true };
@@ -122,8 +136,8 @@ export function validateAnswerArgs(args: AnswerArgs): string | null {
   if (!(VALID_DECISIONS as readonly string[]).includes(args.decision)) {
     return `invalid --decision "${args.decision}" (expected: ${VALID_DECISIONS.join(' | ')})`;
   }
-  if (args.decision === 'request_changes' && !args.answer?.trim()) {
-    return 'decision "request_changes" requires --answer <text> (the resolution to push back)';
+  if ((args.decision === 'request_changes' || args.decision === 'resume') && !args.answer?.trim()) {
+    return `decision "${args.decision}" requires --answer <text> (the resolution to push back)`;
   }
   return null;
 }
@@ -185,6 +199,18 @@ export async function postEvent(baseUrl: string, taskId: string, event: string):
   await post(baseUrl, `/tasks/${taskId}/events`, { event });
 }
 
+/**
+ * Resume an A-park (paused mid-implementation): read the plan, inject the answer
+ * under an OPERATOR ANSWER block, and PUT { plan, paused:false, blockedReason:null }.
+ * The implementer re-reads the plan on its next tick (spec §3 resume / A).
+ */
+export async function resumePark(baseUrl: string, taskId: string, answer: string): Promise<PushResult> {
+  const task = await getTask(baseUrl, taskId);
+  const plan = appendAnswerToPlan(task.plan, answer);
+  await putTask(baseUrl, taskId, { plan, paused: false, blockedReason: null });
+  return { taskId, decision: 'resume', event: 'unpause (PUT paused=false)', commented: false };
+}
+
 /** The actions performed by pushAnswer, returned for the CLI report. */
 export interface PushResult {
   taskId: string;
@@ -205,6 +231,12 @@ export async function pushAnswer(
   decision: AnswerDecision,
   answer: string | undefined,
 ): Promise<PushResult> {
+  if (decision === 'resume') {
+    if (!answer || !answer.trim()) {
+      throw new BackendError(`decision "resume" requires answer text`, 'dispatch_failed', 'aif-handoff');
+    }
+    return resumePark(baseUrl, taskId, answer.trim());
+  }
   const step = resolveStep(decision);
   let commented = false;
   if (step.needsComment) {

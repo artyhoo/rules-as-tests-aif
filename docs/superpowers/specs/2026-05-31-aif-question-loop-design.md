@@ -82,3 +82,27 @@ aif-handoff's project clone must be **initialized so its own runtime writes don'
 - **Trust in aif's autonomy:** a tunable dial calibrated empirically (start trust-but-verify; do NOT bake in distrust; loop is identical at any dial). aif kept autonomous (autoMode ON) + agent instructed to park genuine forks. ✅
 - **Auto-resolve of clear questions:** done by the resolution agent in-chat **under the maintainer's `ask-question-reminder.sh` fork-challenge** (it auto-decides unambiguous, surfaces only genuine forks) — near-free (it's this-session behavior), not aif's opaque review. ✅
 - **Per-umbrella isolation:** one chat per umbrella (= per Superset workspace once the Superset phase lands). ✅
+
+## §8 Post-implementation corrections (verified live, 2026-06-01)
+
+Empirical findings from the first live integration run. These **supersede** the §2/§3/§5 assumptions where noted; the §7 decisions stand.
+
+### §8.1 Superset interface — MCP claim FALSIFIED → it's CLI
+
+- §2/§3.2/§5 assumed "Superset MCP `start_agent_session superset-chat`". **Superset has no MCP** — `superset --help` (v0.2.19) exposes no `mcp` command. The automation surface is the **`superset` CLI** (+ cloud REST `api.superset.sh` behind `--api-key`/OAuth).
+- Verified open-a-chat path: `superset agents run --workspace <ws> --agent superset --prompt "<seed>"` (+ `superset workspaces create/open`). Auth: `superset auth login` (OAuth) or `SUPERSET_API_KEY`. T16: interface assumed-by-name was wrong; real interface is CLI.
+
+### §8.2 Live in-window feed — NOT buildable externally today (IPC-locked)
+
+- Maintainer refinement: questions stream live into an already-open chat. Verified via DeepWiki on `superset-sh/superset`: `session.sendMessage`/`listMessages`/`restartFromMessage` exist in `packages/chat/.../ChatRuntimeService` **but are bound to Electron IPC — NOT exposed over HTTP** for external processes (`createChatRuntimeHonoApp` exists but unused for desktop; HTTP exposure is a future/sandbox plan). → external connector cannot push into a running chat today.
+- **Resolution channel chosen = reuse combo (2+3+4), supersedes Superset auto-open:** (2) aif native web UI `http://localhost:5180`; (3) per-question Telegram pings (aif native, config); (4) Claude-session brainstorm via `questions.ts`/`answer.ts`. Telegram notifier fires on EVERY `task:moved` (fromStatus≠toStatus), incl. plan_ready. Only remaining build = idle-signal. **Trigger to revisit live-feed:** Superset ships HTTP chat exposure.
+
+### §8.3 Three deployment-blockers found (aif-handoff side, not bridge code)
+
+1. **Dirty clone** — leftover untracked files from a prior task block dispatch (`branch isolation failure: dirty_worktree`). `strict_base_update` pulls but does NOT clean untracked residue. Fix: clean clone + sync staging. → motivates the bridge **clone-hygiene pre-flight** (follow-up).
+2. **Broadcast 401** — `INTERNAL_BROADCAST_TOKEN` unset → in `production` aif's api rejects ALL agent→api broadcasts (no board updates, no Telegram pings, task stuck). Fix: set `INTERNAL_BROADCAST_TOKEN` (shared secret) in aif `.env`, force-recreate. **VERIFIED fixed** (broadcasts → 200).
+3. **Claude native binary missing** — agent image (`npm i -g @anthropic-ai/claude-code`) lacks the resolved `linux-arm64` native binary → `claude` fails → every LLM stage aborts. Image-level; runtime patches are ephemeral (lost on recreate). Fix: `docker compose build --no-cache agent` (re-pull native dep) or explicit Dockerfile `RUN npm install @anthropic-ai/claude-code-linux-arm64`. **Regression caveat:** `docker compose up -d --force-recreate` reverts the container to the bare image, wiping any runtime-installed binary — recreate only after the binary is baked into the image.
+
+### §8.4 What is verified working (our side)
+
+`cli/questions.ts` (#318) live `[]`; `cli/answer.ts` (#323) built + 65/65 tests; resume mechanism source-verified (`POST /tasks/:id/events {request_changes|approve_done}`); Telegram transport confirmed (live test DM); bridge dispatch creates+drives tasks; broadcast fix confirmed. Blocker is purely aif's runtime image (§8.3.3).

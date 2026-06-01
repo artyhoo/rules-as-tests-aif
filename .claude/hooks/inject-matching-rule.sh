@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # PostToolUse rule-injector — path-scoped just-in-time delivery of .claude/rules/*.md.
-# @cc-only-rationale: PostToolUse edit-time injection — no portable hook fires at this moment.
-# spec: .claude/rules/rule-enforcement-channel-selection.md (the ADAPT mechanism, §4)
+# @dual-pair: rule-path-scoping
+#   Two channels deliver path-scoped rules at the same scope: CC-native `paths:` frontmatter
+#   (read-time, whole-rule) and this hook (edit-time, `inject:` summary). This hook is itself
+#   CC-only (PostToolUse); the portable contract is the `globs:` HTML-comment marker it reads —
+#   a non-CC harness can consume the same marker with its own injector. (Was @cc-only-rationale
+#   pre-F1; reframed 2026-06-01 — the rule's `paths:` is the native sibling channel, SSOT #101.)
+# spec: .claude/rules/rule-enforcement-channel-selection.md §4 (the dual-pair note + ADAPT mechanism)
 #
 # Mechanism: on Edit|Write, for each .claude/rules/*.md carrying a `<!-- globs: ... -->`
 # marker whose pattern matches the edited path, inject that rule's `<!-- inject: ... -->`

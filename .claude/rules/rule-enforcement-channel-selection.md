@@ -1,3 +1,10 @@
+---
+description: Rule-enforcement channel selection — pick rule delivery by detectability + relevance
+paths:
+  - ".claude/rules/**"
+  - "packages/core/principles/**"
+---
+
 # Rule-enforcement channel selection — discipline rule
 
 > **Class:** B — compensating mechanism shipped: [`.claude/hooks/inject-matching-rule.sh`](../hooks/inject-matching-rule.sh) (PostToolUse path-scoped rule-injector, the §4 mechanism) + a deterministic self-test (`packages/core/hooks/inject-matching-rule.test.ts`). **Activation pending** one `settings.json` PostToolUse `Edit|Write` entry (maintainer-landed — `settings.json` is agent-self-protected). Promotion to A (principle test on rule-channel-declaration) in §6. (Codified Class C 2026-05-22; promoted to B the same wave when the injector shipped — no longer "prose-only".)
@@ -49,6 +56,7 @@ For each rule, in order:
 | pre-commit / `.husky/pre-push` | gate | commit/push-scoped | 0 | deterministic |
 | CI (`audit-self.yml`, `ci-success`) | gate | PR-scoped | 0 | deterministic — **last resort** |
 | principle test (`packages/core/principles/*.test.ts`) | gate | repo-wide | 0 | deterministic |
+| CC-native rule `paths:` frontmatter (memory system) | injection | path/glob-scoped | whole-rule on match (read-time) | deterministic — **CC-native; `@dual-pair` with the hook above** |
 | PostToolUse hook, JSON `additionalContext` (`inject-matching-rule.sh`, §4) | injection | path/glob-scoped | low (per-edit, session-cached) | deterministic |
 | UserPromptSubmit digest (`inject-session-bootstrap.sh`) | injection | always-on | per-prompt tokens | deterministic — **reserve for 3–4 invariants** |
 | `.claude/rules/*.md` auto-load (CC session-start) | injection | always-on | per-session tokens | deterministic |
@@ -58,6 +66,10 @@ For each rule, in order:
 The gate/injection split turns on the **exit code**, not the hook event: a PostToolUse hook that `exit 1`s *blocks* (gate); one that only writes stdout *informs* (injection). `check-doc-authority.sh` is a gate because its bin exits 1 on violation.
 
 The **ADAPT** mechanism is now **shipped**: [`.claude/hooks/inject-matching-rule.sh`](../hooks/inject-matching-rule.sh) — on Edit/Write it matches the edited repo-relative path against each rule's `<!-- globs: … -->` marker (subset: `prefix/**`, `*.ext`, exact) and injects that rule's `<!-- inject: … -->` summary as PostToolUse `additionalContext`, **once per session** (session-cache keyed on `session_id`). Verified contract (code.claude.com/docs/en/hooks.md, 2026-05-22): plain stdout is ignored for PostToolUse — context must be JSON `hookSpecificOutput.additionalContext` + exit 0 (non-blocking → injection, never a gate). Generalises `check-doc-authority.sh`'s internal path-filter; adapts OhMyOpencode `rulesInjector`. Deterministic bash, no paid LLM. **Activation:** add a PostToolUse `Edit|Write` entry for it in `settings.json` (maintainer; self-protected file) — see the PR body for the snippet.
+
+**Dual-pair: CC-native `paths:` + the hook (anchor `rule-path-scoping`, [dual-implementation-discipline.md §5](dual-implementation-discipline.md)).** Path-scoped rule delivery has a **CC-native channel** that costs zero custom code: a `paths:` YAML-frontmatter field on a `.claude/rules/*.md` file scopes it so CC loads it only when working with matching files (verified 2026-06-01, dual-channel `code.claude.com/docs/en/memory` + `/en/hooks`; SSOT [#101](../../docs/meta-factory/prior-art-evaluations.md), census [`2026-06-01-capability-census.md §3 F1`](../../docs/meta-factory/research-patches/2026-06-01-capability-census.md)). This rule **dogfoods both**: its frontmatter carries `paths:` (CC-native) and its body carries the `<!-- globs: -->` marker the hook reads (lines below) — **same path-scope, two channels**, so a CC consumer gets native read-time scoping while the marker convention stays harness-agnostic. Keep the two glob sets identical (`paths:` globs == `<!-- globs: -->` globs); the hook's matcher only supports the bare `prefix/**` / `*.ext` / exact subset, so identity is expressed in that subset (`.claude/rules/**`, `packages/core/principles/**` — both forms `micromatch`-match direct children, verified via `claude-code-guide` 2026-06-01).
+
+> **Read-vs-edit timing — the load-bearing reconcile (T16, do not gloss).** The two channels fire at **different moments**: CC `paths:` triggers on **read** — «Path-scoped rules trigger when Claude reads files matching the pattern, not on every tool use» (`/en/memory`; observable as `InstructionsLoaded` `load_reason=path_glob_match`, `/en/hooks`) — and loads the **whole rule**; `inject-matching-rule.sh` fires on **Edit/Write** (PostToolUse) and injects only the `<!-- inject: -->` **summary**. This is **complementary, not a conflict**: a path-scoped rule that must be present while *authoring* matching files wants coverage at both moments (you read neighbouring rules, then edit), and the rule still loads at read-time on CC even if the (maintainer-gated) hook is not yet wired. The hook is itself a CC PostToolUse hook (CC-only); the genuinely portable artefact is the `<!-- globs: -->` marker convention + the rule markdown, which any harness can consume. **Caveat:** CC's docs only ever show the `/**/*` glob form; the bare `/**` is supported per `micromatch`/`picomatch` («`**` matches path separators zero or more times») but verify via `InstructionsLoaded` if a future CC glob-option change (`dot`, `onlyFiles`) regresses it.
 
 ## §5 Anti-patterns
 
@@ -79,7 +91,7 @@ The **ADAPT** mechanism is now **shipped**: [`.claude/hooks/inject-matching-rule
 
 ## §7 Recursive self-application
 
-This rule is itself a rule — so it must be delivered at its own correct channel. It is **judgment** (no mechanical test decides "is this rule at the narrowest channel") and **relevant when authoring rules** (`.claude/rules/`, `packages/core/principles/`). **Today** it is delivered **always-on** via CC's session-start load of every `.claude/rules/*.md` (deterministic, but pays standing cost every session) and registered in principle 09's `REQUIRED_HEADER_DOCS` (this commit) — **not** memory, which is the fix to the origin incident. The §4 hook (`inject-matching-rule.sh`) now **narrows** delivery to path-scoped deterministic injection — it fires only when `.claude/rules/**` or `packages/core/principles/**` are touched, via this rule's own `<!-- globs: -->` marker (below); once activated in `settings.json` it trades per-session standing cost for per-edit. **Dogfood:** this rule carries the first `<!-- globs: -->` / `<!-- inject: -->` markers in the repo. Either way it is not memory; recording it there would be the `#memory-as-primary-channel` anti-pattern it names. The §1.7 forward+backward self-check lives in the origin patch §6.
+This rule is itself a rule — so it must be delivered at its own correct channel. It is **judgment** (no mechanical test decides "is this rule at the narrowest channel") and **relevant when authoring rules** (`.claude/rules/`, `packages/core/principles/`). **Today** it is delivered **always-on** via CC's session-start load of every `.claude/rules/*.md` (deterministic, but pays standing cost every session) and registered in principle 09's `REQUIRED_HEADER_DOCS` (this commit) — **not** memory, which is the fix to the origin incident. Two channels now **narrow** delivery to path-scope (this rule is *not* one of the 3–4 sweeping invariants, so always-on was over-broad): (a) as of F1 (2026-06-01, SSOT #101) this rule carries CC-native **`paths:` frontmatter** (`.claude/rules/**`, `packages/core/principles/**`) — on CC it now loads only when working with matching files (read-time, whole-rule), *replacing* the always-on session load above; (b) the §4 hook (`inject-matching-rule.sh`) fires on Edit/Write of the same scope, via this rule's `<!-- globs: -->` marker (below), injecting the `<!-- inject: -->` summary — once activated in `settings.json` it trades per-session standing cost for per-edit. **Dogfood:** this rule carries the first `<!-- globs: -->` / `<!-- inject: -->` markers in the repo **and** is the convergence subject for the `paths:` ↔ hook `@dual-pair` (`rule-path-scoping`, §4). Either way it is not memory; recording it there would be the `#memory-as-primary-channel` anti-pattern it names. The §1.7 forward+backward self-check lives in the origin patch §6.
 
 ## See also
 
@@ -90,6 +102,8 @@ This rule is itself a rule — so it must be delivered at its own correct channe
 - [ai-laziness-traps.md §2 T16](ai-laziness-traps.md) — `#pattern-matching-on-name` trap referenced in §5.
 - [packages/core/principles/09-doc-authority-hierarchy.ts](../../packages/core/principles/09-doc-authority-hierarchy.ts) — `REQUIRED_HEADER_DOCS` (this rule is registered there).
 
+<!-- @dual-pair: rule-path-scoping -->
+<!-- spec-of: CC-native paths: frontmatter (above) and the globs marker (below) deliver the same path-scope via two channels; see §4 dual-pair note -->
 <!-- globs: .claude/rules/**, packages/core/principles/** -->
 <!-- inject: Channel-selection — pick rule delivery by detectability (mechanically-detectable → gate; judgment → inject) and relevance (narrowest deterministic trigger); never park a load-bearing rule in memory. -->
 
