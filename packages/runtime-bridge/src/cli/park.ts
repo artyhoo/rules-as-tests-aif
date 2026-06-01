@@ -58,3 +58,57 @@ export function buildOpenQuestionPlan(existingPlan: string | null | undefined, q
   const block = `\n\n## ⏸ OPEN QUESTION (awaiting operator)\n\n${question.trim()}\n`;
   return base + block;
 }
+
+export interface ParkResult {
+  taskId: string;
+  paused: true;
+  blockedReason: string;
+}
+
+/**
+ * Park the task on a hard fork: read the current plan, append the OPEN QUESTION
+ * anchor, and PUT { paused:true, blockedReason, plan }. paused:true is the stop (F3).
+ */
+export async function parkTask(baseUrl: string, taskId: string, question: string): Promise<ParkResult> {
+  const reason = question.trim();
+  const task = await getTask(baseUrl, taskId);
+  const plan = buildOpenQuestionPlan(task.plan, reason);
+  await putTask(baseUrl, taskId, { paused: true, blockedReason: reason, plan });
+  return { taskId, paused: true, blockedReason: reason };
+}
+
+/** Render a ParkResult as a human-readable confirmation. */
+export function formatParkResult(result: ParkResult): string {
+  return `task:   ${result.taskId}\nparked: paused=true\nreason: ${result.blockedReason}`;
+}
+
+async function main(): Promise<void> {
+  const baseUrl = process.env.RUNTIME_BRIDGE_AIF_URL || DEFAULT_AIF_URL;
+  const args = parseParkArgs(process.argv.slice(2), process.env);
+
+  const argError = validateParkArgs(args);
+  if (argError) {
+    process.stderr.write(`[runtime-bridge] park: ${argError}\n`);
+    process.exit(1);
+  }
+
+  let result: ParkResult;
+  try {
+    result = await parkTask(baseUrl, args.taskId!, args.question!);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`[runtime-bridge] park: failed to park task: ${msg}\n`);
+    process.exit(1);
+  }
+
+  process.stdout.write((args.json ? JSON.stringify(result) : formatParkResult(result)) + '\n');
+  process.exit(0);
+}
+
+// Run only as a real entrypoint — importing the module (tests) must not fetch/exit.
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main().catch((err) => {
+    process.stderr.write(`[runtime-bridge] park: unhandled error: ${err}\n`);
+    process.exit(1);
+  });
+}

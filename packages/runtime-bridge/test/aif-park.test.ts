@@ -1,6 +1,7 @@
 // packages/runtime-bridge/test/aif-park.test.ts
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { parseParkArgs, validateParkArgs, buildOpenQuestionPlan } from '../src/cli/park.js';
+import { parkTask } from '../src/cli/park.js';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -36,5 +37,42 @@ describe('buildOpenQuestionPlan', () => {
   });
   it('handles a null/empty existing plan', () => {
     expect(buildOpenQuestionPlan(null, 'q')).toContain('## ⏸ OPEN QUESTION (awaiting operator)');
+  });
+});
+
+function okResponse(body: unknown = {}, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+describe('parkTask — GET current plan then PUT the park fields', () => {
+  it('GETs the task, then PUTs { paused, blockedReason, plan-with-OPEN-QUESTION }', async () => {
+    const task = { id: 't-9', title: 'x', status: 'implementing', plan: '# Plan', paused: false, blockedReason: null };
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation((url) =>
+      Promise.resolve(
+        String(url).endsWith('/tasks/t-9') ? okResponse(task) : okResponse({ ...task, paused: true }),
+      ),
+    );
+    const q = 'tagline tone: A=playful / B=serious';
+    await parkTask('http://localhost:3009', 't-9', q);
+
+    expect((spy.mock.calls[0][1] as RequestInit).method).toBe('GET');
+    const put = spy.mock.calls[1][1] as RequestInit;
+    expect(put.method).toBe('PUT');
+    const body = JSON.parse(put.body as string);
+    expect(body.blockedReason).toBe(q);
+    expect(body.plan).toContain('## ⏸ OPEN QUESTION (awaiting operator)');
+  });
+
+  // ── THE GUARD (spec §4): paused:true is the stop, NOT blockedReason alone (F2/F3). ──
+  // If a refactor ever regresses park to blockedReason-only, this fails loudly —
+  // turning the undocumented "coordinator skips paused" dependency into an executable one.
+  it('GUARD: the PUT body sets paused === true (blockedReason-only would NOT stop the agent)', async () => {
+    const task = { id: 't-9', title: 'x', status: 'implementing', plan: '# Plan', paused: false, blockedReason: null };
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation((url) =>
+      Promise.resolve(String(url).endsWith('/tasks/t-9') ? okResponse(task) : okResponse({})),
+    );
+    await parkTask('http://localhost:3009', 't-9', 'q');
+    const putBody = JSON.parse((spy.mock.calls[1][1] as RequestInit).body as string);
+    expect(putBody.paused).toBe(true);
   });
 });
