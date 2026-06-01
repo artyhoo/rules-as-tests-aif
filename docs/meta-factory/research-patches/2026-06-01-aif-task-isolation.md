@@ -267,6 +267,8 @@ The injected answer is never processed by the implementer.
 
 **Recommended path:** Option B (hard guard — fail early and clearly) in the short term, Option C as a follow-on if the full answer-loop closure is needed. Option B alone stops the misleading "park in review → resume → done without answer" cycle at the earliest reachable moment (the park call itself).
 
+**RESOLUTION (2026-06-01, maintainer-selected — shipped in [PR #361](https://github.com/Yhooi2/rules-as-tests-aif/pull/361)):** the hard-guard path was chosen (surfaced to the maintainer as "Option B"). **What actually shipped matches the §4.1 Option-A semantics** — `parkTask` rejects only when `task.status === 'review'`, NOT the stricter implementing-only invariant of Option B above. Reason: parks at pre-implement stages (`plan_ready`/`planning`) are legitimate forks and must still succeed; rejecting all non-`implementing` statuses would over-reach. The guard throws a clear error (park before the implement→review transition, or wait for `done` and use `answer.ts` request_changes) and issues no PUT. Paired-negative test: GUARD refuses + 0 PUT at `review`; CONTROL still parks at `plan_ready`. Option C (full mid-flight re-implement loop) remains deferred until mid-flight parks prove frequent (build-ahead-of-need per `build-first-reuse-default.md`).
+
 ### §4.2 Falsifier of verdict
 
 Wrong if: a new aif version (post-0.1.0) adds a `requeue_from_review` or `restart_implementing` event to `HUMAN_ACTIONS_BY_STATUS['review']`. Check: `grep -n '"review"' /app/packages/shared/src/stateMachine.ts` after any aif upgrade. If that list becomes non-empty, the upstream can handle this natively and our-side-guard can be retired.
@@ -316,9 +318,11 @@ This patch:
 - **Does not conflict with** existing `park.ts` behavior (SSOT #109) — the proposed Option B guard would be an additive validation, not a behavior change for the happy path (park during implement).
 - **Does not edit** `prior-art-evaluations.md` directly (append-only register per CLAUDE.md; a new SSOT row for Finding A's `parallel_enabled` config-fix would be added by the I-phase commit).
 
-### §7.3 DECISION-NEEDED (reviewer-discipline §2 — not decided here)
+### §7.3 DECISION-NEEDED (reviewer-discipline §2)
 
-**DECISION-NEEDED-F: Option B (hard guard on park.ts) vs Option C (automatic rework via request_changes after done)**
+**RESOLVED 2026-06-01:** maintainer selected the hard-guard path (reject-at-`status=review`, the §4.1 Option-A semantics surfaced as "Option B") — shipped in [PR #361](https://github.com/Yhooi2/rules-as-tests-aif/pull/361). Option C deferred. See §4.1 RESOLUTION for the exact shipped behavior + the A/B label note.
+
+**DECISION-NEEDED-F (original, now resolved): Option B (hard guard on park.ts) vs Option C (automatic rework via request_changes after done)**
 
 Option B → parks at wrong stage fail immediately with clear error; no end-to-end re-implement loop.
 Option C → end-to-end answer-loop closure even for mid-flight parks; more complex; requires answer-marker persistence.
