@@ -69,17 +69,35 @@ write_initial_template() {
 TEMPLATE
 }
 
+# Resolve a path to its real target: if a symlink, follow one level (to $CANON); else itself.
+# Keeps the atomic temp-then-mv write from REPLACING a shared cross-worktree symlink
+# with a real file (which would silently break the share). Portable (no `readlink -f`).
+resolve_target() {
+  local f="$1" l
+  if [ -L "$f" ]; then
+    l="$(readlink "$f")"
+    case "$l" in
+      /*) printf '%s\n' "$l" ;;
+      *)  printf '%s\n' "$(cd "$(dirname "$f")" && cd "$(dirname "$l")" && pwd)/$(basename "$l")" ;;
+    esac
+  else
+    printf '%s\n' "$f"
+  fi
+}
+
 update_existing() {
   # Idempotent in-place update of ONLY the two metadata fields.
   # Arrays (untracked_seen / closed_since_last) are preserved verbatim — this
   # is the load-bearing scope contract (mirrors update-cache.sh round-3 scope
   # reduction; avoids #cache-writer-feature-creep per plan-cache.md §4).
-  local tmp
-  tmp="$(mktemp "${DELTA_FILE}.tmpXXXXXX")"
+  # Writes THROUGH a symlink target (resolve_target) so a shared symlink is preserved.
+  local tmp target
+  target="$(resolve_target "${DELTA_FILE}")"
+  tmp="$(mktemp "$(dirname "${target}")/.delta.tmpXXXXXX")"
   jq --arg ts "${TIMESTAMP}" --arg sha "${GIT_HEAD}" \
     '.last_check_ts = $ts | .last_check_git_head = $sha' \
-    "${DELTA_FILE}" > "${tmp}"
-  mv "${tmp}" "${DELTA_FILE}"
+    "${target}" > "${tmp}"
+  mv "${tmp}" "${target}"
 }
 
 # Decision tree.

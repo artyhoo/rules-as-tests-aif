@@ -91,12 +91,30 @@ write_initial_template() {
 TEMPLATE
 }
 
+# Resolve a path to its real target: if a symlink, follow one level (to $CANON); else itself.
+# Keeps the atomic temp-then-mv write from REPLACING a shared cross-worktree symlink
+# with a real file (which would silently break the share). Portable (no `readlink -f`).
+resolve_target() {
+  local f="$1" l
+  if [ -L "$f" ]; then
+    l="$(readlink "$f")"
+    case "$l" in
+      /*) printf '%s\n' "$l" ;;
+      *)  printf '%s\n' "$(cd "$(dirname "$f")" && cd "$(dirname "$l")" && pwd)/$(basename "$l")" ;;
+    esac
+  else
+    printf '%s\n' "$f"
+  fi
+}
+
 update_existing() {
   # Idempotent in-place update of the 4 «Last invocation» fields. Uses awk for a single
   # pass with state machine: enter-block on the literal heading, exit-block on the next
   # `## ` heading, replace only the 4 known field lines, pass everything else verbatim.
-  local tmp
-  tmp="$(mktemp "${CACHE_FILE}.tmpXXXXXX")"
+  # Writes THROUGH a symlink target (resolve_target) so a shared symlink is preserved.
+  local tmp target
+  target="$(resolve_target "${CACHE_FILE}")"
+  tmp="$(mktemp "$(dirname "${target}")/.plan-cache.tmpXXXXXX")"
   awk -v ts="${TIMESTAMP}" -v umb="${UMBRELLA}" -v sha="${GIT_HEAD}" -v out="${OUTCOME}" '
     BEGIN { in_block = 0 }
     /^## Last invocation$/ { in_block = 1; print; next }
@@ -106,8 +124,8 @@ update_existing() {
     in_block && /^- Git HEAD: /          { print "- Git HEAD: " sha; next }
     in_block && /^- Session outcome: /   { print "- Session outcome: " out; next }
     { print }
-  ' "${CACHE_FILE}" > "${tmp}"
-  mv "${tmp}" "${CACHE_FILE}"
+  ' "${target}" > "${tmp}"
+  mv "${tmp}" "${target}"
 }
 
 # Decision tree.

@@ -29,6 +29,9 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
+  mkdirSync,
+  symlinkSync,
+  lstatSync,
   writeFileSync,
   readFileSync,
   rmSync,
@@ -80,6 +83,26 @@ function runHelper(
 }
 
 describe('update-cache.sh — plan-cache writer (paired-negative contract)', () => {
+  it('SYMLINK-AWARE: cache symlinked into CANON survives update — share preserved (would FAIL on plain mv)', () => {
+    // Regression guard for coordination-persistence SW-B: a shared symlink must be
+    // written THROUGH, not replaced. `mv tmp <symlink>` replaces the link → share lost.
+    const sandbox = makeSandbox();
+    const canonDir = join(sandbox, 'canon');
+    const wtDir = join(sandbox, 'wt');
+    mkdirSync(canonDir, { recursive: true });
+    mkdirSync(wtDir, { recursive: true });
+    const canonCache = join(canonDir, '_plan-cache.md');
+    // Seed the canonical file with a valid template (helper writes it fresh).
+    runHelper(sandbox, ['seed', 'seed'], { MO_CACHE_FILE: canonCache });
+    const wtCache = join(wtDir, '_plan-cache.md');
+    symlinkSync(canonCache, wtCache);
+
+    const r = runHelper(sandbox, ['umbrella-x', 'outcome-y'], { MO_CACHE_FILE: wtCache });
+    expect(r.status).toBe(0);
+    expect(lstatSync(wtCache).isSymbolicLink()).toBe(true); // symlink preserved
+    expect(readFileSync(canonCache, 'utf8')).toMatch(/umbrella-x/); // written through to CANON
+  });
+
   it('FRESH-CACHE: missing file → exit 0, template written with filled `Last invocation`', () => {
     // Targets helper §write_initial_template + decision-tree branch `if [ ! -f ... ]` (line ~95).
     const sandbox = makeSandbox();

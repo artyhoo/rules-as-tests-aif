@@ -31,6 +31,9 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
+  mkdirSync,
+  symlinkSync,
+  lstatSync,
   writeFileSync,
   readFileSync,
   rmSync,
@@ -99,6 +102,28 @@ function runHelper(
 }
 
 describe('delta-write-from-state.sh — arrays-only writer (paired-negative contract)', () => {
+  it('SYMLINK-AWARE: delta symlinked into CANON survives array rewrite — share preserved (would FAIL on plain mv)', () => {
+    const sandbox = makeSandbox();
+    const canonDir = join(sandbox, 'canon');
+    const wtDir = join(sandbox, 'wt');
+    mkdirSync(canonDir, { recursive: true });
+    mkdirSync(wtDir, { recursive: true });
+    const canonDelta = join(canonDir, '_master-backlog-delta.json');
+    bootstrapDelta(canonDelta); // valid delta into canon
+    const wtDelta = join(wtDir, '_master-backlog-delta.json');
+    symlinkSync(canonDelta, wtDelta);
+
+    const r = runHelper(wtDelta, [
+      'umbrella-x',
+      JSON.stringify(['a', 'b']),
+      JSON.stringify(['c']),
+    ]);
+    expect(r.status).toBe(0);
+    expect(lstatSync(wtDelta).isSymbolicLink()).toBe(true); // symlink preserved
+    const obj = JSON.parse(readFileSync(canonDelta, 'utf8'));
+    expect(obj.untracked_seen.map((x: { id: string }) => x.id)).toEqual(['a', 'b']); // written through
+  });
+
   it('HAPPY-PATH: existing delta + valid args → arrays rewritten with id/first_seen|closed_at, metadata preserved', () => {
     // Targets helper jq rewrite branch (delta-write-from-state.sh §jq block):
     // `.untracked_seen = ($current | map({id: ., first_seen: $now}))` etc.

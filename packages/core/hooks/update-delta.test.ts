@@ -32,6 +32,9 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
+  mkdirSync,
+  symlinkSync,
+  lstatSync,
   writeFileSync,
   readFileSync,
   rmSync,
@@ -84,6 +87,23 @@ function runHelper(
 }
 
 describe('update-delta.sh — master-backlog-delta writer (paired-negative contract)', () => {
+  it('SYMLINK-AWARE: delta symlinked into CANON survives metadata update — share preserved (would FAIL on plain mv)', () => {
+    const sandbox = makeSandbox();
+    const canonDir = join(sandbox, 'canon');
+    const wtDir = join(sandbox, 'wt');
+    mkdirSync(canonDir, { recursive: true });
+    mkdirSync(wtDir, { recursive: true });
+    const canonDelta = join(canonDir, '_master-backlog-delta.json');
+    runHelper(canonDelta, ['seed', 'seed']); // fresh template into canon
+    const wtDelta = join(wtDir, '_master-backlog-delta.json');
+    symlinkSync(canonDelta, wtDelta);
+
+    const r = runHelper(wtDelta, ['umbrella-x', 'outcome-y']);
+    expect(r.status).toBe(0);
+    expect(lstatSync(wtDelta).isSymbolicLink()).toBe(true); // symlink preserved
+    expect(() => JSON.parse(readFileSync(canonDelta, 'utf8'))).not.toThrow(); // canon valid JSON
+  });
+
   it('FRESH-DELTA: missing file → exit 0, template written with all 4 schema keys + empty arrays + correct metadata', () => {
     // Targets helper §write_initial_template + decision-tree branch `if [ ! -f ... ]`
     // (update-delta.sh lines ~68-72: write_initial_template + exit 0).

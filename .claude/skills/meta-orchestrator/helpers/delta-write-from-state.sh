@@ -93,14 +93,31 @@ fi
 # closed_since_last = resolved_ids wrapped as {id, closed_at}.
 # `first_seen` semantics = «most recent sighting» (overwrite-shape, NOT preserve-shape) —
 # matches §2.5 Step 9 prose; trades historical-first-seen for shape simplicity.
-TMP="$(mktemp "${DELTA_FILE}.tmpXXXXXX")"
+# Resolve a path to its real target: if a symlink, follow one level (to $CANON); else itself.
+# Keeps the atomic temp-then-mv write from REPLACING a shared cross-worktree symlink
+# with a real file (which would silently break the share). Portable (no `readlink -f`).
+resolve_target() {
+  local f="$1" l
+  if [ -L "$f" ]; then
+    l="$(readlink "$f")"
+    case "$l" in
+      /*) printf '%s\n' "$l" ;;
+      *)  printf '%s\n' "$(cd "$(dirname "$f")" && cd "$(dirname "$l")" && pwd)/$(basename "$l")" ;;
+    esac
+  else
+    printf '%s\n' "$f"
+  fi
+}
+
+TARGET="$(resolve_target "${DELTA_FILE}")"
+TMP="$(mktemp "$(dirname "${TARGET}")/.delta.tmpXXXXXX")"
 jq --arg now "${TIMESTAMP}" \
    --argjson current "${CURRENT_JSON}" \
    --argjson resolved "${RESOLVED_JSON}" \
    '.untracked_seen   = ($current  | map({id: ., first_seen: $now})) |
     .closed_since_last = ($resolved | map({id: ., closed_at: $now}))' \
-  "${DELTA_FILE}" > "${TMP}"
-mv "${TMP}" "${DELTA_FILE}"
+  "${TARGET}" > "${TMP}"
+mv "${TMP}" "${TARGET}"
 
 CURRENT_COUNT="$(echo "${CURRENT_JSON}" | jq 'length')"
 RESOLVED_COUNT="$(echo "${RESOLVED_JSON}" | jq 'length')"
