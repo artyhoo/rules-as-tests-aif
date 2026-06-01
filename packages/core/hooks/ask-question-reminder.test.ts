@@ -106,6 +106,16 @@ describe.skipIf(!JQ)('ask-question-reminder.sh — PreToolUse:AskUserQuestion fo
     expect(json.hookSpecificOutput.permissionDecisionReason).toContain('Стоп');
   });
 
+  it('BRAINSTORM CUE (item 6): reminder steers design/strategy forks to superpowers:brainstorming', () => {
+    const { tmp, session } = makeTmpEnv();
+    const r = runHook('AskUserQuestion', session, tmp);
+    expect(r.status).toBe(0);
+    const reason = JSON.parse(r.stdout).hookSpecificOutput.permissionDecisionReason as string;
+    // The cue must name the brainstorming skill so a design-fork is not card-punted.
+    expect(reason).toMatch(/brainstorming/i);
+    expect(reason).toMatch(/дизайн|стратеги/i);
+  });
+
   it('PAIRED-POSITIVE: AUQ within 45s loop-guard window (fresh flag) → exit 0 + empty stdout (allow)', () => {
     const { tmp, session } = makeTmpEnv();
     // First invocation arms the flag with current mtime and emits the challenge.
