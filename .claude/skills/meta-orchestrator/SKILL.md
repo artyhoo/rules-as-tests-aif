@@ -104,8 +104,10 @@ Compare the `wave-sequencing-plan.md` claims against the live `gh pr list` outpu
 **Step 1 — inject candidate list:**
 
 ```!
-bash "${CLAUDE_SKILL_DIR}/helpers/priority-score.sh" 2>/dev/null
+bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/priority-score.sh" 2>/dev/null
 ```
+
+> **Read-rule (completion barrier):** parse this helper's output ONLY after its own `task-notification` (matched by task-id) OR the presence of its `=== <helper>: END rc=<n> ===` trailer (appended by `run-helper.sh`). A header-only / trailer-absent file means "still running", NOT "zero results" — never conflate one background task's completion notification with another's. (Origin: incident 2026-06-01, `priority-score.sh` read at header-only state → false "zero candidates".)
 
 **Step 2 — score each candidate (multi-criteria, judgment):**
 
@@ -175,8 +177,10 @@ fi
 **Step 2 — L3 dup-detect + in-flight ledger** (dup-detect catches *merged* dupes; inflight-check catches *live* work — open PR / un-merged branch carrying the slug, e.g. a parallel session dispatching the same sub-wave before it merges):
 
 ```!
-bash "${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh" "${umbrella:-}" 2>/dev/null; bash "${CLAUDE_SKILL_DIR}/helpers/inflight-check.sh" "${umbrella:-}" 2>/dev/null
+bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh" "${umbrella:-}" 2>/dev/null; bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/inflight-check.sh" "${umbrella:-}" 2>/dev/null
 ```
+
+> **Read-rule (completion barrier):** parse this helper's output ONLY after its own `task-notification` (matched by task-id) OR the presence of its `=== <helper>: END rc=<n> ===` trailer (appended by `run-helper.sh`). A header-only / trailer-absent file means "still running", NOT "zero results" — never conflate one background task's completion notification with another's. (Origin: incident 2026-06-01, `priority-score.sh` read at header-only state → false "zero candidates".)
 
 `POTENTIAL_DUPE:`/`MISSING:` (dup-detect) → surface per [reviewer-discipline.md §2](../../rules/reviewer-discipline.md). `INFLIGHT:` → **confirmation-needed before dispatch** (possible parallel-session collision); `CLEAR:` → proceed.
 
