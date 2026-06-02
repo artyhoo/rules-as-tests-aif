@@ -16,16 +16,24 @@
  *   See principles-as-tests.md §Known limitations.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { execSync, spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(HERE, '../../..');
 const MANIFEST_PATH = resolve(HERE, '../manifest/rules-manifest.json');
 const SYNTH_FIXTURE_PATH = resolve(
   HERE,
   '../synthesizer/expected-fixture-synth.json',
 );
+
+// Stage 3C — content-level gate paths
+const HOOKS_DIR = resolve(HERE, '../hooks');
+const AUDIT_SELF_DIR = resolve(HERE, '../audit-self');
+const BASH_MUTATOR = resolve(HERE, '../audit-self/run-bash-mutation.sh');
+const HOOK_MARKER_SH = resolve(REPO_ROOT, '.claude/hooks/check-hook-marker.sh');
 
 interface RuleEntry {
   title: string;
@@ -58,6 +66,77 @@ function loadSynthFixture(): SynthFixture {
 /** Minimum meaningful content length (not just whitespace or a comment marker) */
 const MIN_EXAMPLE_LENGTH = 5;
 
+// ── Stage 3C — content-level paired-negative gate ────────────────────────────
+
+/**
+ * Detects test files that have the ❌+✅ paired-negative contract shape.
+ * Presence of the "Paired-negative contract:" block or an ❌/PAIRED-NEGATIVE
+ * marker counts as the mutation-sanity docstring required by Stage 3C:
+ * the block documents what violation was tried and what was expected.
+ * (source: packages/core/hooks/check-hook-marker.test.ts:10-15)
+ */
+const PAIRED_NEGATIVE_RE = /❌|Paired-negative contract|PAIRED-NEGATIVE/;
+
+/**
+ * Content-level assertion patterns — at least one must be present in a
+ * file with the ❌+✅ shape to pass the Stage 3C gate.
+ *
+ * Evidence (verified against real hook test files, T3):
+ *   - .toBe(N) exit-code assertions: hooks/check-hook-marker.test.ts:69,74,79
+ *   - .toMatch( pattern checks:      hooks/end-of-turn-reminder.test.ts (many)
+ *   - .toContain( string checks:     hooks/deps-hash-check.test.ts (many)
+ *   - expect(r.status):              hooks/deps-hash-check.test.ts:80+
+ *   - expect(r.stdout/.stderr):      hooks/end-of-turn-reminder.test.ts (many)
+ */
+const CONTENT_ASSERTION_RE =
+  /\.toBe\(\s*\d+\s*\)|\.toMatch\(|\.toContain\(|\.toThrow\(|expect\([^)]*\.(status|stdout|stderr|code)\b/;
+
+/**
+ * Stage 3C content-level gate: a test file with the ❌+✅ paired-negative
+ * contract shape MUST have at least one content-level assertion (exit code,
+ * stdout, or stderr content) — not merely .toBeDefined() / shape-only.
+ *
+ * mutation-sanity-checked (write-time):
+ *   ❌ file with only .toBeDefined() → throws "content-level assertion" error
+ *   ✅ file with .toBe(N) / .toMatch(/ .toContain(/ status|stdout|stderr → no throw
+ */
+function assertContentLevel(id: string, content: string): void {
+  if (!PAIRED_NEGATIVE_RE.test(content)) {
+    return; // not a paired-negative test file — out of scope for this gate
+  }
+  if (!CONTENT_ASSERTION_RE.test(content)) {
+    throw new Error(
+      `${id}: has ❌/✅ paired-negative contract but no content-level assertion ` +
+        '(exit code, stdout, or stderr check). Replace shape-only .toBeDefined() ' +
+        'with e.g. expect(r.status).toBe(1) or expect(out).toMatch(/pattern/).',
+    );
+  }
+}
+
+/** Returns true when universalmutator (the Stage 2 B bash mutator) is on PATH. */
+function hasUniversalMutator(): boolean {
+  try {
+    execSync('command -v mutate', { stdio: 'ignore' });
+    execSync('command -v analyze_mutants', { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+const HAS_UM = hasUniversalMutator();
+
+/**
+ * Run the Stage 2 B bash-mutation wrapper
+ * (packages/core/audit-self/run-bash-mutation.sh).
+ * Output format verified against run-bash-mutation.test.ts:91-101 (T16).
+ */
+function runBashMutator(hookPath: string, testCmd: string, floor = '60') {
+  return spawnSync('bash', [BASH_MUTATOR, hookPath, testCmd, floor], {
+    encoding: 'utf8',
+    cwd: REPO_ROOT,
+  });
+}
+
 function assertPrinciple2(id: string, rule: RuleEntry): void {
   const bad = rule.examples?.bad;
   const good = rule.examples?.good;
@@ -84,6 +163,112 @@ function assertPrinciple2(id: string, rule: RuleEntry): void {
     );
   }
 }
+
+describe(
+  'Principle 2 Stage 3C — content-level paired-negative gate (hook test files)',
+  () => {
+    /**
+     * mutation-sanity-checked (write-time):
+     *   ❌ file with ❌+✅ shape but only .toBeDefined() → assertContentLevel throws
+     *   ✅ file with .toBe(N) exit-code assertion → no throw
+     *
+     * Paired-negative contract:
+     *   ❌ shape-only (only .toBeDefined()) → content-level gate FAILS
+     *   ✅ content assertion present → content-level gate PASSES
+     */
+    it(
+      'mutation: file with ❌/✅ shape but only .toBeDefined() fails content gate [M3]',
+      () => {
+        const shapeOnly = `
+/**
+ * Paired-negative contract:
+ *   ❌ hook missing marker → fails
+ *   ✅ hook has marker → passes
+ */
+it('PAIRED-NEGATIVE: hook with no marker → fails', () => {
+  const r = runHook('Write', abs);
+  expect(r).toBeDefined();
+});`;
+        expect(() => assertContentLevel('shape-only.test.ts', shapeOnly)).toThrow(
+          /content-level assertion/,
+        );
+      },
+    );
+
+    it(
+      'mutation: file with exit-code assertion passes content gate [M3]',
+      () => {
+        const real = `
+/**
+ * Paired-negative contract:
+ *   ❌ hook missing marker → exit 1
+ *   ✅ hook has marker → exit 0
+ */
+it('PAIRED-NEGATIVE: hook with no marker → exit 1', () => {
+  const r = runHook('Write', abs);
+  expect(r.status).toBe(1);
+});`;
+        expect(() => assertContentLevel('real.test.ts', real)).not.toThrow();
+      },
+    );
+
+    it(
+      'all hook/audit-self test files with paired-negative contracts have content-level assertions [M3]',
+      () => {
+        const violations: string[] = [];
+        for (const dir of [HOOKS_DIR, AUDIT_SELF_DIR]) {
+          const files = readdirSync(dir).filter((f) => f.endsWith('.test.ts'));
+          for (const file of files) {
+            const content = readFileSync(resolve(dir, file), 'utf8');
+            try {
+              assertContentLevel(file, content);
+            } catch (err) {
+              violations.push((err as Error).message);
+            }
+          }
+        }
+        expect(violations, `Violations:\n${violations.join('\n')}`).toHaveLength(0);
+      },
+    );
+  },
+);
+
+describe.skipIf(!HAS_UM)(
+  'Principle 2 Stage 3C — bash mutation kill-rate gate (local/on-demand, ≥60% floor)',
+  () => {
+    /**
+     * Wires the Stage 2 B bash mutator (universalmutator ADAPT, SSOT #91) to
+     * register a kill-rate assertion within principle 02. Skipped in CI (no
+     * universalmutator — matches Stryker devDep-only delivery). Run locally:
+     *   packages/core/audit-self/run-bash-mutation.sh \
+     *     .claude/hooks/check-hook-marker.sh \
+     *     "npx vitest run hooks/check-hook-marker.test.ts" 60
+     *
+     * Output format verified against run-bash-mutation.test.ts:91-101 (T16):
+     *   "kill rate: XX%  (killed N / survived M of P)"
+     *   "PASS — XX% ≥ YY% floor" or "FAIL — XX% < YY% floor", exit 0/1.
+     *
+     * mutation-sanity-checked: asserts stdout content (kill rate line) AND
+     * exit code — not merely .toBeDefined() (Stage 3C self-application).
+     *
+     * Paired-negative contract:
+     *   ❌ hook test kills < 60% of mutants → wrapper exits 1 (FAIL)
+     *   ✅ hook test kills ≥ 60% of mutants → wrapper exits 0 (PASS)
+     */
+    it(
+      'check-hook-marker.sh kills ≥60% of bash mutants (content-strength evidence) [M3-bash]',
+      () => {
+        const r = runBashMutator(
+          HOOK_MARKER_SH,
+          'npx vitest run hooks/check-hook-marker.test.ts',
+        );
+        const out = (r.stdout ?? '') + (r.stderr ?? '');
+        expect(out).toMatch(/kill rate: \d+%/);
+        expect(r.status).toBe(0); // ≥ 60% floor — content-level assertion on exit code
+      },
+    );
+  },
+);
 
 describe('Principle 2 — Paired negative test (examples.bad + examples.good)', () => {
   it('all rules have non-trivial paired bad/good examples', () => {
