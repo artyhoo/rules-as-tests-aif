@@ -5,8 +5,10 @@
  *         docs/meta-factory/research-patches/2026-05-16-prose-rules-audit-research.md §3.1
  *         (Track 3 evidence-based probe confirming BUILD verdict; principle 10 precedent)
  *
- * Invariant: every kickoff.md file under .claude/orchestrator-prompts/<dir>/
- * (excluding pre-rule exempt dirs) must satisfy the COMPOUND CITATION CHECK:
+ * Invariant: every REAL (non-symlink) kickoff.md file under
+ * .claude/orchestrator-prompts/<dir>/ (excluding pre-rule exempt dirs AND
+ * coordination mirrors — symlinks into $CANON authored in another worktree, see
+ * isCoordinationMirror) must satisfy the COMPOUND CITATION CHECK:
  * at least ONE of the following must be present —
  *   (a) string "ai-laziness-traps" anywhere in the file (explicit rule citation)
  *   (b) pattern **T\d+** (bold Markdown T-number reference)
@@ -22,7 +24,7 @@
  * maintained as an explicit list rather than a date filter.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, lstatSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -73,8 +75,31 @@ function getKickoffEntries(): KickoffEntry[] {
     .sort((a, b) => a.dir.localeCompare(b.dir));
 }
 
+/**
+ * A "coordination mirror" is an umbrella whose kickoff.md is a SYMLINK into the
+ * shared coordination store ($CANON), materialised locally by channel G
+ * (.husky/post-checkout → scripts/link-coordination.sh). Such an umbrella was
+ * authored in some other worktree and adopted into $CANON; its citation was (or
+ * should have been) checked AT ITS AUTHORING worktree while its kickoff.md was a
+ * real file. Re-checking every mirror in every worktree made this gate fail on
+ * historical umbrellas the current worktree never wrote — the principle-12-vs-G
+ * conflict. The citation check therefore runs only on REAL (non-symlink) kickoffs
+ * = the ones locally authored / not-yet-adopted. The population sentinel, by
+ * contrast, deliberately counts the FULL set (mirrors included) as a "mirror
+ * present" guard. (maintainer-directed 2026-06-02)
+ */
+function isCoordinationMirror(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 function getNonExemptEntries(): KickoffEntry[] {
-  return getKickoffEntries().filter((e) => !EXEMPT_LIST.includes(e.dir));
+  return getKickoffEntries()
+    .filter((e) => !EXEMPT_LIST.includes(e.dir))
+    .filter((e) => !isCoordinationMirror(e.path));
 }
 
 // KICKOFFS_DIR is gitignored — only present in local dev, absent in CI.
