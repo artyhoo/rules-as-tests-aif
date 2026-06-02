@@ -1,12 +1,11 @@
 <!-- scope:aif-parallel-dispatch -->
 # aif parallel autonomous dispatch — design notes + verified model
 
-> **Status:** DESIGN-IN-PROGRESS (brainstorm 2026-06-02). NOT yet a final spec — the core
-> open question (§5) is gated on ONE live test. Captures everything concluded so the work
-> survives a session boundary.
+> **Status:** OPEN QUESTION RESOLVED (live test 2026-06-02, task `a37ee2f5`). §5 answer = **YES** —
+> aif self-parallelizes one umbrella via `use_subagents=true`. Design direction = the tiny change
+> (bridge sets `use_subagents=true` at dispatch). Captures the verified model + the live proof.
 > **Authoritative for:** the verified aif parallelism model + the dispatch-redesign direction.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
-> Final spec/plan come AFTER the §5 live test resolves the open question.
 
 ## §1 Goal (why)
 
@@ -58,12 +57,20 @@ the meta-orchestrator distributes — and what the maintainer launches by hand t
    `parallel_enabled`. This is **documented aif behaviour** (`docs/configuration.md`:
    "full-mode planning … creates a sibling git worktree"; `docs/architecture.md` on serial
    forcing) — NOT a bug. Full diagnosis: research-patch `2026-06-02-aif-worktree-gap.md` (PR #372).
-7. **Observable signal that distinguishes single-agent vs parallel-workers** (for the §5 test):
-   `subagentQuery.ts:793` logs every subagent start to the task's `agent_activity_log` as
-   `Subagent: <name> started <id>`. Baseline (a `use_subagents=0` task) shows only `Agent:`
-   stage entries (plan-checker, implementer) and **zero `Subagent:`** entries — verified live on
-   task `bcb2c6`. Parallel workers ⇒ multiple `Subagent: implement-worker started` lines with
-   **overlapping timestamps**.
+7. **Observable signal — CORRECTED 2026-06-02 (the §3.7 signal is SDK-transport-only; do NOT use it on CLI).**
+   `subagentQuery.ts:793` logs `onSubagentStart` → `Subagent: <name> started <id>`, BUT `onSubagentStart`
+   is wired **only** through the Claude **SDK** `SubagentStart` hook (`adapters/claude/hooks.ts:62-84`).
+   The **CLI transport** (`adapters/claude/cli.ts`) emits only `onToolUse` — it **never** fires
+   `onSubagentStart`. aif runs the implementer on `transport=cli` (live-confirmed: `model=sonnet,
+   transport=cli`), so **`Subagent:` lines stay 0 even during full 5-way parallelism**. The baseline's
+   "zero `Subagent:`" (task `bcb2c6`) was therefore *guaranteed by transport*, NOT evidence of
+   single-agent execution — a false-negative trap. **Valid CLI-transport observables (used in the
+   §5 test, both transport-independent):**
+   - **(a) git worktree growth** — each `implement-worker` runs worktree-isolated; `git worktree list`
+     grows from baseline 1 (main) by one `locked` `.claude/worktrees/agent-<id>` per concurrent worker.
+   - **(b) `Tool: Agent {…, "subagent_type":"implement-worker", "isolation"…}` entries** in
+     `agent_activity_log` — the `onToolUse` callback logs the coordinator's Agent-tool spawn of each worker.
+   Concurrency ⇒ multiple worker worktrees **`locked` simultaneously** + overlapping spawn→still-active windows.
 
 ## §4 Decision tree (which mechanism per umbrella — meta-orchestrator decides)
 
@@ -74,19 +81,41 @@ the meta-orchestrator distributes — and what the maintainer launches by hand t
   **N separate `*-meta-launch/kickoff.md`** → N top-level aif tasks → aif runs them in
   parallel (L1 cross-task, needs the worktree path working).
 
-## §5 OPEN QUESTION (gated on ONE live test — do NOT finalize design before this)
+## §5 RESOLVED — YES, aif self-parallelizes one umbrella via `use_subagents=true` (live 2026-06-02)
 
-**Does enabling `use_subagents=true` actually make aif self-parallelize one umbrella?**
-Unverified risk: `implement-coordinator.md:27` requires running as a **top-level** agent
-("subagents cannot spawn other subagents"); it is NOT verified that aif's runtime launches the
-agent-definition top-level enough for the coordinator to spawn workers.
+**Answer: YES.** The load-bearing unknown — does aif launch the agent-definition top-level enough
+for the coordinator to spawn workers? — is **confirmed**. Source path + live proof both hold:
 
-**Test:** on a **genuinely parallel** real task (≥2 independent plan-tasks — e.g. mutation-
-discipline **Stage 4 D / D.1-D.5**, NOT Stage-3 C which is single Mode-A), set
-`use_subagents=true`, dispatch, then read `agent_activity_log`:
-- self-parallelizes → multiple `Subagent: implement-worker started` with overlapping timestamps;
-- does not → no `Subagent:` entries (as baseline) or strictly sequential.
-Corroborate with `git worktree list` (worker worktrees) + `docker logs aif-handoff-agent-1`.
+**Source mechanism.** `use_subagents=true` → `implementer.ts:199-200` sets
+`executionName="implement-coordinator"` + `agentDefinitionName="implement-coordinator"` →
+`adapters/claude/cli.ts:188` pushes `--agent implement-coordinator` (a **top-level** `claude`
+process, prompt via stdin) → the coordinator's execution algorithm (`implement-coordinator.md`):
+`len(ready) > 1 → launch implement-worker for EACH ready task in parallel`.
+> Caveat observed: with `transport=cli`, `promptPolicy` logs `WARN … native subagent execution …
+> not supported` and `usedNativeSubagentWorkflow=false`. This is a Codex-oriented prompt-prepend
+> path, NOT the `--agent` flag — `canUseAgentDefinition` stayed `true`, so `--agent
+> implement-coordinator` was still passed and the coordinator launched top-level. The WARN is benign here.
+
+**Live proof — task `a37ee2f5` (faithful bridge replay + `use_subagents=true`).** Dispatched a real
+5-task plan (mutation-discipline Stage 4 D.1-D.5, 5 dep-free `Task N:` items → `computePlanLayers`
+= `[[1,2,3,4,5]]`, one layer of 5) exactly as the bridge does (POST paused → PUT plan →
+`accept_existing_plan` → unpause) but with `useSubagents:true`. Result:
+- **5× `Tool: Agent {"subagent_type":"implement-worker","isolation"…}` spawns** in `agent_activity_log`
+  (Task1 priority-score.sh 12:59:05 · Task2 plan-currency 12:59:28 · Task3 launch-table 12:59:51 ·
+  Task4 check-skill-drift 13:00:23 · Task5 pre-push.fallback 13:00:57).
+- **`git worktree list` grew 1 → 6** = main + **5 concurrent `locked` `.claude/worktrees/agent-<id>`**
+  worktrees coexisting. Worker-1 (spawned 12:59:05) still `locked`/active when Worker-5 spawned
+  (13:00:57) ⇒ ~2-minute all-5-overlap window = **true concurrency, not sequential**.
+- `Subagent:` lines stayed 0 throughout — confirming the §3.7 transport caveat above, NOT absence of parallelism.
+
+**Design consequence (the tiny change).** Depth-2 self-parallelism works. For depth-2-sufficient
+umbrellas the bridge need only set `use_subagents=true` at dispatch (one flag in
+`AifHandoffBackend.dispatch` POST body) **and** the meta-orchestrator must emit kickoffs whose plan
+body carries independent `- [ ] Task N:` items (no `## Phase` headings — a Phase heading serializes
+later tasks via `buildResolvedDependencies`). Depth-3 work still needs N separate top-level tasks (§4 L1).
+
+**Reproduction artifact:** `.claude/orchestrator-prompts/mutation-discipline-stage-d-meta-launch/kickoff.md`
+(carries `<!-- bridge: skip -->` so the PostToolUse hook does not auto-dispatch it with `use_subagents=0`).
 
 ## §6 Honest corrections log (flip-flops this session — recorded so they aren't repeated)
 
@@ -119,10 +148,21 @@ Corroborate with `git worktree list` (worker worktrees) + `docker logs aif-hando
 
 ## §9 Next steps
 
-1. (this session) Stage-3 C dispatched autonomously with `use_subagents=false` — clean validation
-   of BASIC aif autonomy (dispatch→PR); NOT the parallelism test (C is single Mode-A).
-2. Live parallelism test on D (D.1-D.5) per §5 → resolves the open question.
-3. Per result: finalize design — `use_subagents=true` on dispatch (if L2 self-parallel works)
-   and/or meta-orchestrator emits N + L1 cross-task worktree path (if depth-3 / for true
-   separate-session parallelism).
+1. ✅ (done) Stage-3 C dispatched autonomously with `use_subagents=false` — BASIC aif autonomy.
+2. ✅ (done 2026-06-02, task `a37ee2f5`) Live parallelism test on D (D.1-D.5) → **§5 resolved = YES.**
+3. **Finalize design = the tiny change:** `AifHandoffBackend.dispatch` adds `useSubagents:true` to the
+   POST body for depth-2-sufficient umbrellas; meta-orchestrator emits plan-structured kickoffs
+   (independent `- [ ] Task N:` items, no `## Phase` headings). Depth-3 → N separate tasks (§4 L1, needs
+   the worktree path / #372). Open sub-decisions for the I-phase plan: (a) does the bridge set
+   `use_subagents` per-kickoff (a marker) or always? (b) plan-structure authoring contract for the
+   meta-orchestrator. → these are taste/strategy forks for `writing-plans`.
 4. Then: writing-plans → I-phase. Merge #372.
+
+## §10 D-byproduct disposition (this test run)
+
+The §5 test ran on **real** Stage-4-D work (not throwaway). It produced 5 worker worktrees writing
+the D.1-D.5 `.sh` mutation tests on isolated branch `feature/…-d-meta-launch-a37ee2`. It was dispatched
+with `skipReview:true` (cost-trim for the parallelism probe) and **harvest is manual** (no hook/cron),
+so **nothing auto-ships**. The D output is therefore unreviewed byproduct — to be either (a) properly
+re-run/reviewed through `/meta-orchestrator mutation-discipline-umbrella` Stage 4 D and shipped, or
+(b) discarded. Maintainer decision — not auto-merged.
