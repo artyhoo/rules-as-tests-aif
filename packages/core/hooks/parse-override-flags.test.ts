@@ -1,6 +1,6 @@
 /**
  * Paired-negative contract tests for parse-override-flags.sh — the CLI override
- * flag parser for /meta-orchestrator (Stage 4 of meta-orchestrator-mode-triage-
+ * flag parser for /pipeline (Stage 4 of meta-orchestrator-mode-triage-
  * and-planner umbrella).
  *
  * Channel: in-session helper invoked via !shell block from SKILL.md §0 preamble

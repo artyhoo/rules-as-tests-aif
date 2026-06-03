@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# update-delta.sh — /meta-orchestrator master-backlog-delta writer (per-machine, gitignored).
+# update-delta.sh — /pipeline master-backlog-delta writer (per-machine, gitignored).
 #
 # > Class: C — prose-only; companion paired-negative test at
 # >          packages/core/hooks/update-delta.test.ts. No principle test
@@ -27,7 +27,7 @@
 # spec: SKILL.md §2.5 (read side, ships Stage 2C) ↔ this file (write side);
 #       both must agree on JSON key names (last_check_ts / last_check_git_head /
 #       untracked_seen / closed_since_last).
-# @cc-only-rationale: consumer-facing CC-session helper invoked from the /meta-orchestrator
+# @cc-only-rationale: consumer-facing CC-session helper invoked from the /pipeline
 #   slash-command via Bash tool at SKILL.md §2.5 (Stage 2C); no portable hook fires at
 #   the per-skill cross-invocation moment, so a portable fallback would be a no-op outside
 #   CC. Pure-bash + jq, deterministic, no paid LLM (no-paid-llm-in-ci.md §1 satisfied).

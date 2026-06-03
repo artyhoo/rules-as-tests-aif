@@ -87,7 +87,7 @@ beforeEach(() => {
       'description: Use when you have umbrella wave dependencies cross-stage dispatch meta-orchestrator stage-gate',
       '---',
       '',
-      '# /meta-orchestrator',
+      '# /pipeline',
       '',
       'Use for cross-stage wave umbrella orchestration with stage-gate dependencies.',
       '',

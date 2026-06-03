@@ -1,6 +1,6 @@
 /**
  * Paired-negative contract tests for classify-work.sh — the L4 work-classification
- * heuristic for /meta-orchestrator routing (.claude/skills/meta-orchestrator/
+ * heuristic for /pipeline routing (.claude/skills/meta-orchestrator/
  * helpers/classify-work.sh).
  *
  * Class C → Class B-via-companion-test (this file is the companion test).

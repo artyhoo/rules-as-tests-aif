@@ -1,6 +1,6 @@
 # §2 Step 4.1 — DECISION-NEEDED anti-rationalization clause
 
-> **Authoritative for:** what counts as «maintainer answered DECISION-NEEDED» in `/meta-orchestrator §2 Step 4` — the content-tiebreaker test, the not-an-answer list, the re-surface pattern, and the rationalization to refuse. Body of `../SKILL.md §2` points here.
+> **Authoritative for:** what counts as «maintainer answered DECISION-NEEDED» in `/pipeline §2 Step 4` — the content-tiebreaker test, the not-an-answer list, the re-surface pattern, and the rationalization to refuse. Body of `../SKILL.md §2` points here.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists). Reviewer/orchestrator role separation — see [reviewer-discipline.md](../../../rules/reviewer-discipline.md).
 
 A genuine answer to a §2 Step 4 DECISION-NEEDED is a **content-based tiebreaker** from the maintainer — they name a reason rooted in project priority («pick n7 because the trial output unblocks n8's R3» / «pick n8, deadline is real» / «pick n7, n8 needs an SSOT entry first»). The reason has to be about the umbrellas, not about the maintainer.

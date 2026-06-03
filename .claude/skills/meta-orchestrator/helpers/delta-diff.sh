@@ -28,7 +28,7 @@
 # spec: SKILL.md §2.5 Step 8 (read side) ↔ this file (set-diff logic);
 #       references/master-backlog-delta.md §1-§2 (discipline detail).
 # @cc-only-rationale: consumer-facing CC-session helper invoked from the
-#   /meta-orchestrator slash-command via the inline !shell block at SKILL.md §2.5
+#   /pipeline slash-command via the inline !shell block at SKILL.md §2.5
 #   Step 8; no portable hook fires at the per-skill cross-invocation moment, so a
 #   portable fallback would be a no-op outside CC. Pure-bash + jq, deterministic,
 #   no paid LLM (no-paid-llm-in-ci.md §1 satisfied).

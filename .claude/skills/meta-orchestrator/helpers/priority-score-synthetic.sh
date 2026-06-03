@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # priority-score-synthetic.sh — synthetic-candidate discovery surfaces (a)-(h) for the
-# /meta-orchestrator priority-score sequencer. Split out of priority-score.sh 2026-06-03
+# /pipeline priority-score sequencer. Split out of priority-score.sh 2026-06-03
 # (Stage 4 slim) to keep the main sequencer focused on kickoff-candidate enumeration +
 # completion layers C1/C2/C3.
 #

@@ -1,6 +1,6 @@
 ---
-name: meta-orchestrator
-description: Use when you have ≥2 in-flight wave umbrellas with cross-stage dependencies, suspect drift between wave-sequencing-plan.md and live git reality, or need to dispatch the next wave with verified Stage N→N+1 gates. Russian triggers: «мета-оркестратор», «оркестратор волн», «план волн», «stage-gate», «приоритет umbrella», «волны параллельно/последовательно», «дрифт wave-sequencing-plan». Invoked explicitly via /meta-orchestrator slash command only — never auto-triggered on Claude Code (disable-model-invocation:true). On non-CC harnesses (Cursor/Aider/Codex) consumers should treat this as a manually-invoked workflow skill — the body §0 specifies invocation form.
+name: pipeline
+description: Use when you have ≥2 in-flight wave umbrellas with cross-stage dependencies, suspect drift between wave-sequencing-plan.md and live git reality, or need to dispatch the next wave with verified Stage N→N+1 gates. Russian triggers: «мета-оркестратор», «оркестратор волн», «план волн», «stage-gate», «приоритет umbrella», «волны параллельно/последовательно», «дрифт wave-sequencing-plan». Invoked explicitly via /pipeline slash command only — never auto-triggered on Claude Code (disable-model-invocation:true). On non-CC harnesses (Cursor/Aider/Codex) consumers should treat this as a manually-invoked workflow skill — the body §0 specifies invocation form.
 arguments: [umbrella]
 argument-hint: "[umbrella-name]"
 disable-model-invocation: true
@@ -18,10 +18,10 @@ allowed-tools:
 ---
 
 > **Class:** B (mixed): §0/§7.1 + §10/§7.12 = Class A (CC primitive enforces structurally — slash-command exists or not, Write tool writes file or not, frontmatter parses or not). §4/§7.5 = partial Class A via principle 12 test enforcing §5 AI-traps section presence in generated kickoffs. §1/§7.2 · §2/§7.3 · §3/§7.4 · §5/§7.6 · §6/§7.7 · §7/§7.8 · §9/§7.11 · §11/§7.13 = **Class C** (prose-only enforcement; AI can ignore `!shell`-injected data and proceed; acceptable per [parallel-subwave-isolation.md §4](../../rules/parallel-subwave-isolation.md) precedent and [research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md](../../../docs/meta-factory/research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md) maintainer-owned tension). **Re-promotion triggers per Class C:** ≥2 stage-gate-ignored incidents within 6 months → consider mechanical post-hoc check (commit-on-branch-B-only-if-PR-on-branch-A-merged via pre-push hook).
-> **Authoritative for:** /meta-orchestrator slash-command behaviour — §0 invocation through §11 failures; plan-currency check discipline; cross-umbrella priority scoring; Mode A/B/SDD/Queue launch-table generation; meta-kickoff authoring; stage-gate enforcement; reviewer dispatch.
+> **Authoritative for:** /pipeline slash-command behaviour — §0 invocation through §11 failures; plan-currency check discipline; cross-umbrella priority scoring; Mode A/B/SDD/Queue launch-table generation; meta-kickoff authoring; stage-gate enforcement; reviewer dispatch.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Existing global `~/.claude/skills/orchestrator/` (agent-uncommittable, owner=maintainer). The actual R-phase verdict — see [research-patches/2026-05-23-meta-orchestrator-prior-art.md](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md).
 
-# /meta-orchestrator — plan-preflight + launch-table + stage-gate dispatch
+# /pipeline — plan-preflight + launch-table + stage-gate dispatch
 
 **Origin:** BUILD verdict 2026-05-23. R-phase patch: [research-patches/2026-05-23-meta-orchestrator-prior-art.md](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md). Closes 4 named gaps in the global `orchestrator` skill (plan-actuality / cross-umbrella priority / auto-launch-table / stage-gate-vs-flat-queue).
 
@@ -33,13 +33,13 @@ allowed-tools:
 
 ## §0 Invocation
 
-**Slash command:** `/meta-orchestrator [<umbrella-name> | <N>]`
+**Slash command:** `/pipeline [<umbrella-name> | <N>]`
 
 > **Provenance / binding spec (§7.1–§7.14):** §0–§11 implement the 14-section binding spec at `.claude/orchestrator-prompts/meta-orchestrator-prior-art/kickoff.md §7` (gitignored origin-trace; the SKILL.md sections below are the authoritative spec). Section↔spec map: §0=§7.1 · §1=§7.2 · §2=§7.3 · §2.5=Stage-2C routing · §3=§7.4 · §4=§7.5 · §5=§7.6 · §5.5=bundle (B1/B2/B3a) · §6=§7.7 · §7=§7.8 · §8=§7.9 + §7.10 install-coupling · §9=§7.11 · §10=§7.12 · §11=§7.13. **§7.14** = the four original orchestrator gaps, closed across §1 (plan-actuality) · §2 (cross-umbrella priority) · §3 (auto-launch-table) · §6 (stage-gate-vs-flat-queue). Per-section `> **§7.N binding.**` labels were consolidated here 2026-06-03 (Stage 4 slim); each section's substantive enforcement prose is retained in place.
 
-**`disable-model-invocation: true`** — fires ONLY on explicit `/meta-orchestrator` invocation. The flag suppresses CC's default auto-load into subagent contexts when description matches a subagent's task — it is **not** a recursive-invocation guard (no such risk exists: subagent depth is hard-capped at 2 by CC's harness, per [sub-agents.md](https://code.claude.com/docs/en/sub-agents.md)).
+**`disable-model-invocation: true`** — fires ONLY on explicit `/pipeline` invocation. The flag suppresses CC's default auto-load into subagent contexts when description matches a subagent's task — it is **not** a recursive-invocation guard (no such risk exists: subagent depth is hard-capped at 2 by CC's harness, per [sub-agents.md](https://code.claude.com/docs/en/sub-agents.md)).
 
-**Arg routing (V1 binding per [research-patch §3](../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** regex check at invocation start — empty → V3 overview; `^[0-9]+$` → V4 top-N (N=0 routes to V3); else → named-umbrella dispatch (existing §1→§3→§4→§5). **Pre-invocation guard (V1 mandatory):** assert no umbrella basename is `^[0-9]+$` (otherwise `/meta-orchestrator 1` is ambiguous): <!-- @dual-pair: meta-orchestrator-integer-name-guard -->
+**Arg routing (V1 binding per [research-patch §3](../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** regex check at invocation start — empty → V3 overview; `^[0-9]+$` → V4 top-N (N=0 routes to V3); else → named-umbrella dispatch (existing §1→§3→§4→§5). **Pre-invocation guard (V1 mandatory):** assert no umbrella basename is `^[0-9]+$` (otherwise `/pipeline 1` is ambiguous): <!-- @dual-pair: meta-orchestrator-integer-name-guard -->
 
 ```!
 bash "${CLAUDE_SKILL_DIR}/helpers/integer-name-guard.sh" .claude/orchestrator-prompts
@@ -491,7 +491,7 @@ Rationalizations that mean STOP and re-read the relevant section (e.g. «plan lo
 
 ## With this skill
 
-`/meta-orchestrator` provides a single slash-command entry point that:
+`/pipeline` provides a single slash-command entry point that:
 
 1. **Verifies plan currency** — compares `wave-sequencing-plan.md` claims to live `gh pr list` output; surfaces DRIFT items before any dispatch.
 2. **Scores cross-umbrella priority** — multi-criteria scoring (blocks-other-waves × 3, give-back-value × 2, size-fit × 1, maintainer-prefs × 2) with a structured ranked list.
@@ -500,7 +500,7 @@ Rationalizations that mean STOP and re-read the relevant section (e.g. «plan lo
 
 ## Without this skill
 
-Without `/meta-orchestrator`, multi-wave umbrella orchestration relies on:
+Without `/pipeline`, multi-wave umbrella orchestration relies on:
 
 - **Manual plan-currency check:** the orchestrator must manually scan `wave-sequencing-plan.md`, compare to `gh pr list` output, and notice drift — error-prone under time pressure (T3 without verification).
 - **Flat queue dispatch:** orchestrator dispatches sub-waves sequentially without verifying Stage N dependencies are merged first (`#flat-queue-no-gates` anti-pattern — dispatching Stage 2 before Stage 1 PRs merge leads to branch contamination or rebase work).
@@ -509,7 +509,7 @@ Without `/meta-orchestrator`, multi-wave umbrella orchestration relies on:
 
 The cost of absence: orchestrator surgery time when a parallel branch contaminates main (incident 2026-05-12, the origin event), plus AI-trap violations accumulating in kickoffs.
 <!-- globs: .claude/orchestrator-prompts/**, docs/meta-factory/wave-sequencing-plan.md -->
-<!-- inject: Meta-orchestrator — ≥2 in-flight wave umbrellas or wave-sequencing-plan.md drift: /meta-orchestrator (plan-currency + priority + launch-table + stage-gate dispatch). Forward-going annotation: activates when inject-matching-rule.sh is extended to scan .claude/skills/*/SKILL.md (today scans .claude/rules/ only). -->
+<!-- inject: Meta-orchestrator — ≥2 in-flight wave umbrellas or wave-sequencing-plan.md drift: /pipeline (plan-currency + priority + launch-table + stage-gate dispatch). Forward-going annotation: activates when inject-matching-rule.sh is extended to scan .claude/skills/*/SKILL.md (today scans .claude/rules/ only). -->
 
 ## See also
 

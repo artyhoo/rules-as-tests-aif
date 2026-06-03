@@ -1,9 +1,9 @@
 # Red flags / Common mistakes (rationalization → STOP table)
 
-> **Authoritative for:** the `/meta-orchestrator` red-flags catalogue — rationalizations that mean STOP and re-read the relevant section, plus the red-flag phrase list. Body of `../SKILL.md` points here.
+> **Authoritative for:** the `/pipeline` red-flags catalogue — rationalizations that mean STOP and re-read the relevant section, plus the red-flag phrase list. Body of `../SKILL.md` points here.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists). The sections each row points at — see `../SKILL.md`.
 
-When operating under the `/meta-orchestrator` skill, the following rationalizations mean STOP and re-read the relevant section:
+When operating under the `/pipeline` skill, the following rationalizations mean STOP and re-read the relevant section:
 
 | Rationalization | Reality | Counter (section) |
 |---|---|---|

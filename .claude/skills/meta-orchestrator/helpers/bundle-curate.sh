@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bundle-curate.sh — B1 bundle-decision-rule helper for /meta-orchestrator planner.
+# bundle-curate.sh — B1 bundle-decision-rule helper for /pipeline planner.
 #
 # Usage: bundle-curate.sh <backlog-file>
 #

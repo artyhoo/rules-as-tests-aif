@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # integer-name-guard.sh — V1 pre-invocation guard for SKILL.md §0.
 # Asserts no umbrella directory under .claude/orchestrator-prompts/ is named as a
-# bare integer (^[0-9]+$). An integer-named umbrella makes `/meta-orchestrator 1`
+# bare integer (^[0-9]+$). An integer-named umbrella makes `/pipeline 1`
 # ambiguous between named-umbrella dispatch and V4 top-N routing (§0 arg-routing).
 #
 # > Class: B — companion paired-negative test at
@@ -14,7 +14,7 @@
 # subcommand independently (permissions.md "Compound commands"); `exit` is NOT a
 # CC read-only built-in and is not covered by this skill's allowed-tools, so the
 # block forced the auto-mode safety classifier on every invocation. When the
-# classifier was unavailable the whole /meta-orchestrator expansion died on its
+# classifier was unavailable the whole /pipeline expansion died on its
 # first block (§0). Routing through the allowlisted
 # `Bash(bash ${CLAUDE_SKILL_DIR}/helpers/*.sh *)` entry removes that dependency.
 #
@@ -52,7 +52,7 @@ for entry in "$dir"/*/; do
 done
 
 if [ -n "$found" ]; then
-  echo "ERROR: umbrella named as integer ('$found'); rename before /meta-orchestrator <N> can be unambiguous." >&2
+  echo "ERROR: umbrella named as integer ('$found'); rename before /pipeline <N> can be unambiguous." >&2
   exit 2
 fi
 exit 0

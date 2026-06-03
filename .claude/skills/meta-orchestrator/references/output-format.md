@@ -1,7 +1,7 @@
-# Output format — `/meta-orchestrator <umbrella>` inline session report
+# Output format — `/pipeline <umbrella>` inline session report
 
-> **Authoritative for:** the 3-layer structure shape emitted by `/meta-orchestrator <umbrella>` invocations — §1 grammar, §2 dependency-graph template, §3 action-queue template, §4 1-liner block grammar, §5 four worked examples (Mode A / SDD / Mode B × N / Queue mode), §6 anti-patterns for 1-liner format. Principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces the literal substrings below.
-> **NOT authoritative for:** project goal — see [`../../../../README.md#why-this-exists`](../../../../README.md#why-this-exists). The `/meta-orchestrator` skill body authority — see [`../SKILL.md`](../SKILL.md).
+> **Authoritative for:** the 3-layer structure shape emitted by `/pipeline <umbrella>` invocations — §1 grammar, §2 dependency-graph template, §3 action-queue template, §4 1-liner block grammar, §5 four worked examples (Mode A / SDD / Mode B × N / Queue mode), §6 anti-patterns for 1-liner format. Principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces the literal substrings below.
+> **NOT authoritative for:** project goal — see [`../../../../README.md#why-this-exists`](../../../../README.md#why-this-exists). The `/pipeline` skill body authority — see [`../SKILL.md`](../SKILL.md).
 
 > **Origin:** F.3 (2026-05-24). The 3-layer structure synthesises F.1 prior-art (PR #203) — Argo Workflows' `├── / └──` ASCII tree (ADAPT vocabulary, SSOT row TBA) + maintainer's binding 1-liner format refinement (parent kickoff §1 Sub-wave F.3 lines 237-254). The slash-tag draft (`/Mode-A /Roles-… /Skills-…`) was rated «not convenient» by the maintainer and has zero upstream precedent across 10 surveyed tools (GHA, Concourse, Argo, Dagger, just, LangGraph, Cline, Superpowers, gh workflow run, orchestrator-guide).
 
@@ -9,7 +9,7 @@
 
 ## §1 Top-level shape
 
-Every `/meta-orchestrator <umbrella>` invocation that proceeds to dispatch (i.e. plan-currency check returned «актуален», priority chose a winner, kickoff loaded) emits one **inline session report** in this exact shape:
+Every `/pipeline <umbrella>` invocation that proceeds to dispatch (i.e. plan-currency check returned «актуален», priority chose a winner, kickoff loaded) emits one **inline session report** in this exact shape:
 
 ```text
 ═══════════════════════════════════════════════════════════════
@@ -56,7 +56,7 @@ The three layers (`## Dependency graph` / `## Action queue` / `### Stage N` bloc
 
 > **Origin:** V3 binding per [research-patch §3](../../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md), Stage 3 I-phase. Sibling format to §1 — coexists, does not replace.
 
-Emitted by `/meta-orchestrator` (no arg) OR `/meta-orchestrator 0`. Renders ALL open umbrellas surviving §2.5 completion-filter (DONE entries dropped by [`priority-score.sh`](../helpers/priority-score.sh) tri-layer classifier — C1 branch / C2 jaccard / C3 done.md). Wave-style grouping ADAPTs SSOT #68 (OhMyOpencode Atlas/Prometheus `## Parallel Execution Graph` `Wave N`). Reuses **all 6** principle-18 substrings (`## Dependency graph` / `↓` / `## Action queue` / `Paste в новый CC tab` / `Можно параллельно с` / `### Stage`) — **zero churn** on [`packages/core/principles/18-meta-orchestrator-output-format.test.ts`](../../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts) (whole-file scope passes; §10 SKILL.md scope unchanged).
+Emitted by `/pipeline` (no arg) OR `/pipeline 0`. Renders ALL open umbrellas surviving §2.5 completion-filter (DONE entries dropped by [`priority-score.sh`](../helpers/priority-score.sh) tri-layer classifier — C1 branch / C2 jaccard / C3 done.md). Wave-style grouping ADAPTs SSOT #68 (OhMyOpencode Atlas/Prometheus `## Parallel Execution Graph` `Wave N`). Reuses **all 6** principle-18 substrings (`## Dependency graph` / `↓` / `## Action queue` / `Paste в новый CC tab` / `Можно параллельно с` / `### Stage`) — **zero churn** on [`packages/core/principles/18-meta-orchestrator-output-format.test.ts`](../../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts) (whole-file scope passes; §10 SKILL.md scope unchanged).
 
 **Skeleton (binding, ≤30 lines body):**
 
@@ -78,14 +78,14 @@ Wave 2 — после мержа Wave 1:
 
 | # | Paste в новый CC tab | Когда | Ждёшь | Можно параллельно с |
 |---|----------------------|-------|-------|---------------------|
-| 1 | /meta-orchestrator <umbrella-A> | Сейчас | — | <umbrella-B> |
-| 2 | /meta-orchestrator <umbrella-B> | Сейчас | — | <umbrella-A> |
-| 3 | /meta-orchestrator <umbrella-C> | После Wave 1 | Wave 1 merged | — |
+| 1 | /pipeline <umbrella-A> | Сейчас | — | <umbrella-B> |
+| 2 | /pipeline <umbrella-B> | Сейчас | — | <umbrella-A> |
+| 3 | /pipeline <umbrella-C> | После Wave 1 | Wave 1 merged | — |
 
 Всего открытых umbrellas: <K> (после §2.5 completion-filter; DONE-recently скрыты).
 
 ### Stage — overview only
-(no per-stage 1-liner; this overview MUST be drilled-down via /meta-orchestrator <umbrella> for dispatch)
+(no per-stage 1-liner; this overview MUST be drilled-down via /pipeline <umbrella> for dispatch)
 ═══════════════════════════════════════════════════════════════
 ```
 
@@ -97,15 +97,15 @@ Wave 2 — после мержа Wave 1:
 
 **Coexistence with §1 (dispatch path):**
 
-- §1 fires on `/meta-orchestrator <umbrella-name>` (string arg) — proceeds to §3/§4/§5 dispatch.
-- §1A fires on `/meta-orchestrator` (no arg) OR `/meta-orchestrator 0` — emits overview, STOPS.
+- §1 fires on `/pipeline <umbrella-name>` (string arg) — proceeds to §3/§4/§5 dispatch.
+- §1A fires on `/pipeline` (no arg) OR `/pipeline 0` — emits overview, STOPS.
 - Heading prefixes differ verbatim (`EXECUTION PLAN — <umbrella>` vs `PROJECT OVERVIEW — all open umbrellas`) — no collision; §0 routing in [`../SKILL.md`](../SKILL.md) branches BEFORE format selection (no mixed renderer).
 
 **Falsifiers:**
 
 - Wrong if principle-18 test fails after §1A lands — run `npx vitest run packages/core/principles/18-meta-orchestrator-output-format.test.ts` BEFORE push; expect green (whole-file scope sees the 6 substrings from §1A's skeleton even if §1's example were stripped, but §1's example is preserved → both surfaces pass).
 - Wrong if dispatch path mistakenly fires §1A (cross-mode rendering) — §0 routing's regex check decides; format selection follows routing, never the reverse.
-- Wrong if `### Stage — overview only` placeholder is interpreted by a downstream tool as a real Stage block — placeholder text explicitly disambiguates («overview only; drilled-down via /meta-orchestrator <umbrella>»).
+- Wrong if `### Stage — overview only` placeholder is interpreted by a downstream tool as a real Stage block — placeholder text explicitly disambiguates («overview only; drilled-down via /pipeline <umbrella>»).
 
 ---
 
@@ -207,7 +207,7 @@ Every `### Stage X — <name> (<Mode>, <cost>)` heading MUST be followed by a 3-
 
 **Why this block is load-bearing:**
 
-- `/meta-orchestrator`'s entire purpose is to dispatch *fresh CC-sessions without the maintainer's current session context*. Each paste = one autonomous world. The 1-liner starts with `/orchestrator` and is optimised for the **receiving** session (it re-reads kickoff). The description block is optimised for the **maintainer-reader who must decide whether to paste**.
+- `/pipeline`'s entire purpose is to dispatch *fresh CC-sessions without the maintainer's current session context*. Each paste = one autonomous world. The 1-liner starts with `/orchestrator` and is optimised for the **receiving** session (it re-reads kickoff). The description block is optimised for the **maintainer-reader who must decide whether to paste**.
 - Without the block, the reader must open `kickoff.md §<anchor>` to learn what the dispatched session will produce — which defeats the one-message-one-session pattern.
 - `### Stage X — <name> (<Mode>, <cost>)` heading answers «**how** big / **what** mode» — not «**what** the work is / **why** now». The three triplet fields close that gap.
 

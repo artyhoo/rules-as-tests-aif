@@ -4,7 +4,7 @@
  * Source: .claude/skills/meta-orchestrator/SKILL.md §10 + references/output-format.md
  *         docs/meta-factory/research-patches/2026-05-24-meta-orchestrator-refactor-f3-scope.md §1.5 Item 8
  *
- * Invariant: the /meta-orchestrator slash-command emits a 3-layer inline session
+ * Invariant: the /pipeline slash-command emits a 3-layer inline session
  * report — Dependency graph + Action queue + 1-liner blocks. The skill body
  * communicates the 3 substructures literally, and the full grammar + 4 worked
  * examples live in references/output-format.md (per kickoff §4 #10 — split when

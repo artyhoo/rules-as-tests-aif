@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# common.sh — shared primitives for /meta-orchestrator helper scripts. SOURCED, not executed.
+# common.sh — shared primitives for /pipeline helper scripts. SOURCED, not executed.
 # Single source of truth for repo-root resolution, symlink-target resolution, and the slug/
 # title tokeniser stopword base + filter tail. Extracted 2026-06-03 (Stage 4 dedup) from the
 # 3× resolve_target / 11× REPO_ROOT / 2× tokeniser duplications across the helpers.

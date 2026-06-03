@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# assign-skill.sh — L5 skill/agent assignment helper for /meta-orchestrator.
+# assign-skill.sh — L5 skill/agent assignment helper for /pipeline.
 #
 # Usage: assign-skill.sh <type> <description-string>
 #

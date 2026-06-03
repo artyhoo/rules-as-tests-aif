@@ -1,9 +1,9 @@
-# /meta-orchestrator plan-cache — discipline detail
+# /pipeline plan-cache — discipline detail
 
 > **Authoritative for:** plan-cache (`_plan-cache.md`) discipline detail referenced by SKILL.md §1 Step 2 item 6 + §10 item 5. Cache-reconciliation rule, cache-as-supplementary framing, T-mem-A counter, helper-scope contract.
 > **NOT authoritative for:** SKILL.md §1 Step 1 `!shell` injection itself (the read-side block is in SKILL.md by necessity — CC executes it from there). NOT authoritative for project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists).
 
-> **Origin:** /meta-orchestrator skill-memory umbrella, 2026-05-25. Companion to SKILL.md §1 + §10 plan-cache surfaces.
+> **Origin:** /pipeline skill-memory umbrella, 2026-05-25. Companion to SKILL.md §1 + §10 plan-cache surfaces.
 
 <!-- @dual-pair: meta-orchestrator-plan-cache -->
 <!-- spec: ../helpers/update-cache.sh (write side) ↔ SKILL.md §1 Step 1 first !shell block (read side) -->

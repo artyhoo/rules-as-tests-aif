@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# delta-write-from-state.sh — /meta-orchestrator master-backlog-delta arrays writer
+# delta-write-from-state.sh — /pipeline master-backlog-delta arrays writer
 # (per-machine, gitignored sibling of update-delta.sh).
 #
 # > Class: C — prose-only; companion paired-negative test at
@@ -35,7 +35,7 @@
 # spec: SKILL.md §10 step 5b (caller) ↔ update-delta.sh (metadata sibling) ↔ this file
 #       (arrays sibling); all three agree on JSON key names (last_check_ts /
 #       last_check_git_head / untracked_seen / closed_since_last).
-# @cc-only-rationale: consumer-facing CC-session helper invoked from the /meta-orchestrator
+# @cc-only-rationale: consumer-facing CC-session helper invoked from the /pipeline
 #   slash-command via Bash tool at SKILL.md §10 step 5b; no portable hook fires at
 #   the per-skill cross-invocation moment, so a portable fallback would be a no-op
 #   outside CC. Pure-bash + jq, deterministic, no paid LLM (no-paid-llm-in-ci.md §1

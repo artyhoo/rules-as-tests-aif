@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# update-cache.sh — /meta-orchestrator plan-cache writer (per-machine, gitignored).
+# update-cache.sh — /pipeline plan-cache writer (per-machine, gitignored).
 #
 # > Class: C — prose-only; companion paired-negative test at
 # >          packages/core/hooks/update-cache.test.ts. No principle test
@@ -26,7 +26,7 @@
 # @dual-pair: meta-orchestrator-plan-cache
 # spec: SKILL.md §10 item 5 (read side) ↔ this file (write side); both must agree on
 #       section header names («## Last invocation» literal, 4 named fields).
-# @cc-only-rationale: consumer-facing CC-session helper invoked from the /meta-orchestrator
+# @cc-only-rationale: consumer-facing CC-session helper invoked from the /pipeline
 #   slash-command via Bash tool at §10 item 5; no portable hook fires at the per-skill
 #   cross-invocation moment, so a portable fallback would be a no-op outside CC.
 #   Pure-bash, deterministic, no paid LLM (no-paid-llm-in-ci.md §1 satisfied).
@@ -60,7 +60,7 @@ write_initial_template() {
   # Single-SSOT for the cache format. Mirrored locally as a dogfood artefact by the
   # umbrella's Deliverable A; the helper is authoritative for the actual on-disk shape.
   cat > "${CACHE_FILE}" <<TEMPLATE
-# /meta-orchestrator — plan cache (per-machine, gitignored)
+# /pipeline — plan cache (per-machine, gitignored)
 
 > Updated by \`.claude/skills/meta-orchestrator/helpers/update-cache.sh\` at end of each invocation (\`## Last invocation\` section only — round-3 scope).
 > Read by SKILL.md §1 \`!shell\` injection at start of next invocation.

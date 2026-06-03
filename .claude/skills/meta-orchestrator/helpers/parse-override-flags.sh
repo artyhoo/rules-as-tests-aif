@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# parse-override-flags.sh — /meta-orchestrator CLI override flag parser.
+# parse-override-flags.sh — /pipeline CLI override flag parser.
 #
 # > Class: C — prose-only; companion paired-negative test at
 # >          packages/core/hooks/parse-override-flags.test.ts.

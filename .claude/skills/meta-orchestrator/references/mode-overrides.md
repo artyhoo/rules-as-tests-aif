@@ -51,7 +51,7 @@ a smaller value to test short-reason acceptance without padding.
 
 **Full invocation form:**
 ```text
-/meta-orchestrator "my-umbrella --mode-solo --reason=kickoff is small single-worker"
+/pipeline "my-umbrella --mode-solo --reason=kickoff is small single-worker"
 ```
 User must quote the entire argument as one shell token because `arguments: [umbrella]`
 declares a single argument (SKILL.md line 4); embedded flags + reason are part of that

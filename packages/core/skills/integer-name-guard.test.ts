@@ -2,7 +2,7 @@
  * Paired-negative tests for integer-name-guard.sh — SKILL.md §0 pre-invocation
  * guard. Scans an orchestrator-prompts dir and HALTS (exit 2 + stderr ERROR) iff
  * an umbrella directory is named as a bare integer (^[0-9]+$), which would make
- * `/meta-orchestrator 1` ambiguous between named dispatch and V4 top-N routing.
+ * `/pipeline 1` ambiguous between named dispatch and V4 top-N routing.
  *
  * Principle 02 contract (both arms required):
  *   ✅ Positive: an integer-named umbrella dir → exit 2 + ERROR on stderr
@@ -10,7 +10,7 @@
  *
  * Regression intent: this guard was extracted from an inline §0 compound
  * (`ls … && { echo …; exit 2; }`) whose `exit` subcommand forced the auto-mode
- * safety classifier and broke /meta-orchestrator whenever the classifier was
+ * safety classifier and broke /pipeline whenever the classifier was
  * unavailable. The test MUST FAIL if the guard stops detecting integer names.
  *
  * Seam:

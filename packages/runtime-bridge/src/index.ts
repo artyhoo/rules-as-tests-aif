@@ -1,7 +1,7 @@
 /**
  * @rules-as-tests-aif/runtime-bridge — public API
  *
- * Runtime-bridge adapter for /meta-orchestrator cross-session dispatch.
+ * Runtime-bridge adapter for /pipeline cross-session dispatch.
  * Phase 1: aif-handoff backend + ManualBackend fallback.
  *
  * DECISION=C invariant: this package is opt-in for consumers.

@@ -33,7 +33,7 @@
 # @dual-pair: meta-orchestrator-dispatch-from-state
 # spec: SKILL.md §3 (consumer of this helper's output, judgment-side flow) ↔ this file
 #       (emitter); both agree on state-file JSON key names (winner_id / sub_wave_state).
-# @cc-only-rationale: consumer-facing CC-session helper invoked from the /meta-orchestrator
+# @cc-only-rationale: consumer-facing CC-session helper invoked from the /pipeline
 #   slash-command via Bash tool at SKILL.md §3; no portable hook fires at the per-skill
 #   cross-invocation moment, so a portable fallback would be a no-op outside CC.
 #   Pure-bash + jq, deterministic, no paid LLM (no-paid-llm-in-ci.md §1 satisfied).

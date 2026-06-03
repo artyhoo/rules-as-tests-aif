@@ -1,6 +1,6 @@
 # §9 Dogfood test (recursive-self-application gate)
 
-> **Authoritative for:** the `/meta-orchestrator` dogfood test — the recursive-self-application gate (T15 from `ai-laziness-traps.md §2`) that the FIRST live invocation MUST run on the BUILD umbrella that produced the skill. Invocation steps, expected launch-table shape, HARD-GATE failure semantics. Body of `../SKILL.md §9` points here.
+> **Authoritative for:** the `/pipeline` dogfood test — the recursive-self-application gate (T15 from `ai-laziness-traps.md §2`) that the FIRST live invocation MUST run on the BUILD umbrella that produced the skill. Invocation steps, expected launch-table shape, HARD-GATE failure semantics. Body of `../SKILL.md §9` points here.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists). Output-format grammar — see [output-format.md](output-format.md).
 
 The FIRST live invocation of this skill MUST run on the BUILD umbrella that produced the skill itself. This is the recursive-self-application gate (T15 from [ai-laziness-traps.md §2](../../../rules/ai-laziness-traps.md) — cannot be skipped).

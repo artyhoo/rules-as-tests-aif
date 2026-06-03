@@ -1,9 +1,9 @@
-# /meta-orchestrator master-backlog-delta — discipline detail
+# /pipeline master-backlog-delta — discipline detail
 
 > **Authoritative for:** master-backlog-delta (`_master-backlog-delta.json`) discipline detail referenced by SKILL.md §2.5 Step 1 + Step 8 + §10 item 5. Delta-reconciliation rule, delta-as-supplementary framing, T-mem-A counter extension to delta, helper-scope contracts for both writer (`update-delta.sh`) and read-side differ (`delta-diff.sh`).
 > **NOT authoritative for:** SKILL.md §2.5 `!shell` injection blocks themselves (those live in SKILL.md by necessity — CC executes them from there). NOT authoritative for project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists). NOT authoritative for the delta JSON schema — that is single-SSOT'd in [update-delta.sh §1](../helpers/update-delta.sh) (`write_initial_template` heredoc).
 
-> **Origin:** /meta-orchestrator Stage 3 of mode-triage umbrella, 2026-05-26. Companion to SKILL.md §2.5 + §10 master-backlog-delta surfaces (read side ships Stage 3; writer + arrays-in-body ship Stage 2B/2C). Mirrors [plan-cache.md](plan-cache.md) §1-§4 structure for the parallel delta artefact.
+> **Origin:** /pipeline Stage 3 of mode-triage umbrella, 2026-05-26. Companion to SKILL.md §2.5 + §10 master-backlog-delta surfaces (read side ships Stage 3; writer + arrays-in-body ship Stage 2B/2C). Mirrors [plan-cache.md](plan-cache.md) §1-§4 structure for the parallel delta artefact.
 
 <!-- @dual-pair: meta-orchestrator-master-backlog-delta -->
 <!-- spec: ../helpers/update-delta.sh (metadata write side) ↔ ../helpers/delta-diff.sh (read side set-diff) ↔ SKILL.md §2.5 Step 1 + Step 8 + §10 item 5b -->
