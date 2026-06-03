@@ -97,6 +97,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   // SSOT #50): AIF-native delivery of our review + rules-check content without colliding slots.
   'packages/core/templates/shared/skill-context/aif-review/SKILL.md',
   'packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md',
+  'packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md',
 
   // Sub-agents copied to consumer .claude/agents/ via install.sh glob.
   // best-practices-sidecar removed (C-1 KEEP-AIF, 2026-05-20); docs-auditor renamed
