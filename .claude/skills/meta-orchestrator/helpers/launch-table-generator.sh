@@ -11,7 +11,9 @@
 set -euo pipefail
 
 UMBRELLA="${1:-}"
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh
+# (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
+source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 if [[ -z "${UMBRELLA}" ]]; then
   # Called without arg — legitimate when skill is loaded but §2 hasn't selected

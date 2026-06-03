@@ -28,21 +28,23 @@
 #   no portable equivalent fires at the same moment (PostToolUse timing is CC-specific).
 set -uo pipefail
 
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+# REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh
+# (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
+source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 PROMPTS_DIR="${REPO_ROOT}/.claude/orchestrator-prompts"
 MO_GH_BIN="${MO_GH_BIN:-gh}"
 MO_PR_WINDOW_DAYS="${MO_PR_WINDOW_DAYS:-30}"
 MO_JACCARD_THRESHOLD="${MO_JACCARD_THRESHOLD:-30}"
 MO_DELIVERABLE_REF="${MO_DELIVERABLE_REF:-origin/staging}"
 MO_DELIVERABLE_DIRS="${MO_DELIVERABLE_DIRS:-docs/meta-factory/research-patches}"
-STOP='with|from|that|this|into|over|then|kickoff|umbrella|phase|stage|worker|orchestrator|claude|code'
+STOP="$MO_STOP_BASE"
 
 SINCE="$(date -v "-${MO_PR_WINDOW_DAYS}d" '+%Y-%m-%d' 2>/dev/null || date -d "-${MO_PR_WINDOW_DAYS} days" '+%Y-%m-%d' 2>/dev/null || echo '1970-01-01')"
 PR_JSON="$("${MO_GH_BIN}" pr list --state merged --search "merged:>=${SINCE}" --json number,title --limit 50 2>/dev/null)" \
   || { echo "(gh unavailable — PR-based signals skipped; deliverable check still runs)" >&2; PR_JSON=""; }
 
 # Tokenise stdin: lowercase, split, keep >=4 chars, strip stopwords. Outputs sorted unique tokens.
-tok_stdin() { tr '[:upper:][:punct:]' '[:lower:] ' | tr -s ' ' '\n' | awk 'length>=4' | grep -vE "^(${STOP})$" | sort -u || true; }
+tok_stdin() { tr '[:upper:][:punct:]' '[:lower:] ' | tr -s ' ' '\n' | mo_filter_tokens "$STOP"; }
 
 check_umbrella() {
   local name="$1" kickoff="${PROMPTS_DIR}/$1/kickoff.md" flagged=0

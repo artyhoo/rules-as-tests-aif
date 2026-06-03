@@ -47,7 +47,9 @@ set -euo pipefail
 
 UMBRELLA="${1:-}"
 
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+# REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh
+# (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
+source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 STATE_FILE="${MO_STATE_FILE:-${REPO_ROOT}/.claude/orchestrator-prompts/_meta-orch-state.json}"
 KICKOFF_DIR="${MO_KICKOFF_DIR:-${REPO_ROOT}/.claude/orchestrator-prompts}"
 

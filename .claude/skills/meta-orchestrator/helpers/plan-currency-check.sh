@@ -23,7 +23,9 @@ UMBRELLA="${1:-}"
 
 # Seam overrides (used by tests to inject fixtures; set BEFORE git-derived defaults)
 # REPO_ROOT may be pre-set by caller (e.g. test harness); if not, derive from git.
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+# REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh
+# (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
+source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 MO_GH_BIN="${MO_GH_BIN:-gh}"
 MO_WAVE_PLAN="${MO_WAVE_PLAN:-${REPO_ROOT}/docs/meta-factory/wave-sequencing-plan.md}"
 

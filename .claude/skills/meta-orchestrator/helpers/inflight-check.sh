@@ -27,12 +27,14 @@
 #   no portable equivalent fires at the same moment (PostToolUse timing is CC-specific).
 set -uo pipefail
 
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+# REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh
+# (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
+source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 MO_GH_BIN="${MO_GH_BIN:-gh}"
 MO_GIT_BIN="${MO_GIT_BIN:-git}"
 MO_BASE_REF="${MO_BASE_REF:-origin/staging}"
 MO_INFLIGHT_MIN_TOKENS="${MO_INFLIGHT_MIN_TOKENS:-2}"
-STOP='with|from|that|this|into|over|then|kickoff|umbrella|phase|stage|worker|orchestrator|claude|code|meta|orch'
+STOP="${MO_STOP_BASE}|meta|orch"
 
 NAME="${1:-}"
 if [[ -z "${NAME}" ]]; then echo "usage: inflight-check.sh <umbrella-name>"; exit 0; fi
@@ -42,7 +44,7 @@ cd "${REPO_ROOT}" 2>/dev/null || true
 
 SLUG="$(printf '%s' "${NAME}" | tr '[:upper:]' '[:lower:]')"
 # Significant slug tokens: split on - _ space, keep >=4 chars, strip stopwords.
-SLUG_TOKENS="$(printf '%s' "${SLUG}" | tr '_- ' '\n' | awk 'length>=4' | grep -vE "^(${STOP})$" | sort -u || true)"
+SLUG_TOKENS="$(printf '%s' "${SLUG}" | tr '_- ' '\n' | mo_filter_tokens "$STOP")"
 SLUG_TOKEN_COUNT="$(printf '%s\n' "${SLUG_TOKENS}" | grep -c . 2>/dev/null || echo 0)"
 SLUG_TOKEN_COUNT="${SLUG_TOKEN_COUNT//[[:space:]]/}"
 # Effective threshold: never demand more tokens than the slug actually has;

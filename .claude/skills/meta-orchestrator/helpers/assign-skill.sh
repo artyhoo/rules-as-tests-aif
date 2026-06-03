@@ -43,7 +43,9 @@ if [[ -z "${DESCRIPTION// /}" ]]; then
 fi
 
 # Seam overrides
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+# REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh
+# (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
+source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 MO_SKILLS_DIR="${MO_SKILLS_DIR:-${REPO_ROOT}/.claude/skills}"
 MO_AGENTS_DIR="${MO_AGENTS_DIR:-${REPO_ROOT}/agents}"
 

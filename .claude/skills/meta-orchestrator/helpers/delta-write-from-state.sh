@@ -57,7 +57,8 @@ UMBRELLA="$1"
 CURRENT_JSON="$2"
 RESOLVED_JSON="$3"
 
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+# REPO_ROOT + resolve_target() sourced from lib/common.sh (Stage 4 dedup, BASH_SOURCE-relative).
+source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 DELTA_FILE="${MO_DELTA_FILE:-${REPO_ROOT}/.claude/orchestrator-prompts/_master-backlog-delta.json}"
 TIMESTAMP="${MO_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 
@@ -93,21 +94,6 @@ fi
 # closed_since_last = resolved_ids wrapped as {id, closed_at}.
 # `first_seen` semantics = «most recent sighting» (overwrite-shape, NOT preserve-shape) —
 # matches §2.5 Step 9 prose; trades historical-first-seen for shape simplicity.
-# Resolve a path to its real target: if a symlink, follow one level (to $CANON); else itself.
-# Keeps the atomic temp-then-mv write from REPLACING a shared cross-worktree symlink
-# with a real file (which would silently break the share). Portable (no `readlink -f`).
-resolve_target() {
-  local f="$1" l
-  if [ -L "$f" ]; then
-    l="$(readlink "$f")"
-    case "$l" in
-      /*) printf '%s\n' "$l" ;;
-      *)  printf '%s\n' "$(cd "$(dirname "$f")" && cd "$(dirname "$l")" && pwd)/$(basename "$l")" ;;
-    esac
-  else
-    printf '%s\n' "$f"
-  fi
-}
 
 TARGET="$(resolve_target "${DELTA_FILE}")"
 

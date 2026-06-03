@@ -16,7 +16,9 @@ set -euo pipefail
 
 # Env seams — identical defaults to priority-score.sh. When invoked as a subprocess these
 # are inherited (exported by the parent); standalone they derive from git + REPO_ROOT.
-REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+# REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh
+# (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
+source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 PROMPTS_DIR="${PROMPTS_DIR:-${REPO_ROOT}/.claude/orchestrator-prompts}"
 MO_GH_BIN="${MO_GH_BIN:-gh}"
 _repo_slug="${REPO_ROOT//\//-}"

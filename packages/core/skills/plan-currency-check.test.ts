@@ -279,8 +279,9 @@ describe('plan-currency-check.sh — T15 self-application + structural verificat
     expect(existsSync(SCRIPT)).toBe(true);
     const src = readFileSync(SCRIPT, 'utf8');
 
-    // Seam overrides (T13 reuse from L1)
-    expect(src).toContain('REPO_ROOT="${REPO_ROOT:-');
+    // Seam overrides (T13 reuse from L1). REPO_ROOT is now resolved by the shared
+    // lib/common.sh sourced at the top (Stage 4 dedup) rather than an inline assignment.
+    expect(src).toContain('lib/common.sh');
     expect(src).toContain('MO_GH_BIN="${MO_GH_BIN:-');
     expect(src).toContain('MO_WAVE_PLAN="${MO_WAVE_PLAN:-');
 

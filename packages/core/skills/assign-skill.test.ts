@@ -233,8 +233,9 @@ describe('assign-skill.sh — structural + self-application verification', () =>
   it('T15 + T19: script exists, is executable, and contains required markers', () => {
     expect(existsSync(SCRIPT)).toBe(true);
     const src = readFileSync(SCRIPT, 'utf8');
-    // Seam overrides (mirror L1/L2 pattern)
-    expect(src).toContain('REPO_ROOT="${REPO_ROOT:-');
+    // Seam overrides (mirror L1/L2 pattern). REPO_ROOT is now resolved by the shared
+    // lib/common.sh sourced at the top (Stage 4 dedup) rather than an inline assignment.
+    expect(src).toContain('lib/common.sh');
     expect(src).toContain('MO_SKILLS_DIR="${MO_SKILLS_DIR:-');
     expect(src).toContain('MO_AGENTS_DIR="${MO_AGENTS_DIR:-');
     // Dual-implementation-discipline §6 marker
