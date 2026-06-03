@@ -84,7 +84,10 @@ Three modes `bridge-health.sh` does **not** cover (confirmed by reading its sour
 - **Root cause:** image rebuilt while the proxy was down → optional `@anthropic-ai/claude-code-<platform>` never fetched from the npm registry.
 - **Fix A — durable (operator GO):** rebuild the agent with a working proxy:
   `HTTPS_PROXY=<live-proxy> NO_PROXY=localhost,127.0.0.1,::1,api,agent,web,mcp docker compose build agent && docker compose up -d agent`. **Reversibility:** rebuild is additive; the OAuth credential volume + `env_file` survive (§ topology). Blocked if §3.3 (proxy) is also down.
-- **Fix B — in-container install (operator GO):** `docker exec aif-handoff-agent-1 npm i -g @anthropic-ai/claude-code` — works ONLY if the container can reach the registry (fails under §3.3). **Reversibility:** in-place, no data loss; superseded by next image rebuild.
+- **Fix B — in-container install (operator GO):** `docker exec aif-handoff-agent-1 npm i -g @anthropic-ai/claude-code` — works only if the container can reach `registry.npmjs.org`. Under a §3.3 block of the default registry, **try Fix D (mirror) before declaring this blocked** — the block is often host-selective, not whole-tunnel. **Reversibility:** in-place, no data loss; superseded by next image rebuild.
+- **Fix D — mirror install, NO VPN change (operator GO, preferred under §3.3) — verified live 2026-06-04:** when `registry.npmjs.org` is the *only* blocked host (github/google still 200 — see §3.3 discriminator), install from a reachable mirror without touching the tunnel:
+  `docker exec aif-handoff-agent-1 npm i -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com --include=optional`.
+  Works because the missing binary is an **npm optional-dep** (the log says «optional dependency was not downloaded (--omit=optional)»), so a full npm mirror (`registry.npmmirror.com` mirrors platform binaries too) serves it. **Reversibility:** in-place, no data loss; superseded by next rebuild. **Post-install caveat (observed):** npm briefly removes then recreates the `/usr/local/bin/claude` symlink → a **single transient `spawn /usr/local/bin/claude ENOENT`** may appear in the coordinator log during the install window. Do NOT treat one post-install ENOENT as failure — verify the fix by `docker exec … claude --version` (expect `2.x.x`, exit 0) + valid symlink, then watch **one** ~30s poll cycle for **zero** recurring errors. **Falsifier:** wrong if `claude-code` fetched the binary from a hard-coded CDN rather than the npm optional-dep — then `claude --version` still throws `exec format error` after install (it did not, 2026-06-04).
 - **Fix C — bypass the binary (operator GO, paid-aware):** switch the claude runtime profile to **API transport** (`aif-handoff docs/providers.md:64`; needs `ANTHROPIC_AUTH_TOKEN`/`ANTHROPIC_BASE_URL`). **Flag the paid-vs-subscription nuance** ([no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md)): a paid API key is NOT the default — DEFER unless the operator explicitly authorizes (§7 stop condition).
 
 ### §3.2 Capacity cap saturated by stale/zombie slot-holders
@@ -96,10 +99,16 @@ Three modes `bridge-health.sh` does **not** cover (confirmed by reading its sour
 - **Fix 1 — free a slot via the official route (operator GO):** `curl -s -X DELETE http://localhost:3009/tasks/<id>` (same REST route the web UI uses; upstream `lee-to/aif-handoff api/src/routes/tasks.ts` `DELETE /tasks/:id`, in the aif image — not this repo) on a **verified** zombie. **MUST verify zombie status first** (T-AIFDOC-A) — `implementationLog:false` AND sibling umbrella verified/merged; never delete on name/jaccard match alone. **Reversibility:** DELETE is destructive (task record gone) → this is exactly why it needs GO + verification.
 - **Fix 2 — raise the cap (operator GO, reversible):** bump `COORDINATOR_MAX_CONCURRENT_TASKS` (1–10) in compose env + `docker compose up -d agent`. **Reversibility:** trivially revert the env value. Prefer this over DELETE when the occupiers are legitimately in-flight.
 
-### §3.3 Host↔npm-registry proxy block (flaky tunnel) — NAME IT AND STOP
+### §3.3 Host↔npm-registry proxy block (flaky tunnel) — DISCRIMINATE first, then NAME or MIRROR
 
-- **Detect (read-only):** `curl --max-time 25 -sSL -o /dev/null -w '%{http_code}' https://registry.npmjs.org/@anthropic-ai/claude-code` times out from **both** host and container. Matches memory [`project_github_push_flaky_proxy_tunnel`] (Clash-family fake-ip via `utun4`).
-- **This skill's job is to name it, not fix it.** It is the deferred machine-level proxy issue; the lever is operator-side (real-ip/DIRECT routing for the registry/github hosts). It blocks §3.1 Fix-A/B's npm path → push toward rebuild-with-a-known-good-proxy or §3.1 Fix-C (API transport). **Do not** attempt to mutate the tunnel from this skill.
+- **Detect (read-only):** `curl --max-time 25 -sSL -o /dev/null -w '%{http_code}' https://registry.npmjs.org/@anthropic-ai/claude-code` times out (`000`) from host and/or container. Matches memory [`project_github_push_flaky_proxy_tunnel`] (Clash-family fake-ip `198.18.0.0/16` via `utun4`; `route -n get default → interface: utun4` confirms TUN mode owns the default route).
+- **DISCRIMINATOR (run before concluding — 2026-06-04 lesson, T20):** the tunnel is rarely down *whole*. Probe a control host vs the registry:
+  - `curl --max-time 12 -sS -o /dev/null -w '%{http_code}\n' https://github.com` and `… https://www.google.com` — if these return **200**, the tunnel is **alive** and the failure is **host-selective** (the current proxy node drops `registry.npmjs.org` specifically, often a Cloudflare-IP routing issue), **not** a dead tunnel.
+  - Confirm the registry mirror is reachable: `docker exec <agent> sh -c "curl --max-time 15 -sS -o /dev/null -w '%{http_code}' https://registry.npmmirror.com/@anthropic-ai/claude-code"` → **200**.
+- **Two outcomes:**
+  1. **Host-selective block (github 200, registry 000, mirror 200):** do NOT ask the operator to disable the VPN/TUN — it is neither necessary nor the cause. Go straight to **§3.1 Fix D (mirror install)** — fixes the runtime with zero VPN change. *(This is the actual 2026-06-04 resolution.)* Durable alternative the operator can do without killing the VPN: add a **DIRECT rule** for `npmjs.org` in the Clash client, or switch proxy node.
+  2. **Whole-tunnel down (github 000, google 000 too):** then it is the machine-level proxy issue — **name it and stop** (lever is operator-side: fix/restart the upstream node, or DIRECT-route the needed hosts). Push toward §3.1 Fix D once a mirror becomes reachable, or Fix C (API transport).
+- **Either way: do NOT mutate the tunnel from this skill.** «Disable the VPN» is a wrong-layer ask when (1) holds — verify the discriminator before suggesting it.
 
 ---
 
@@ -124,7 +133,7 @@ Then **stops**. No mutation runs without an explicit GO in the same session. Rea
 - **Does NOT plan / score priority** — that is `/pipeline`.
 - **Does NOT add npm deps or new scripts** — reuses §1 helpers + endpoints only; a genuinely-needed new probe = surface as a finding, do not build it here.
 - **Does NOT auto-mutate the aif runtime** — every state change needs operator GO (§4).
-- **Does NOT fix the host proxy tunnel** — names it (§3.3) and stops.
+- **Does NOT fix the host proxy tunnel** — but DOES run the §3.3 discriminator first; if the block is host-selective (tunnel alive, only `registry.npmjs.org` dropped), the runtime is fixable via §3.1 Fix D (mirror) **without** touching the VPN. Only a whole-tunnel-down case is name-and-stop.
 - **Does NOT edit `~/.claude/skills/orchestrator/`** — maintainer-owned, agent-uncommittable.
 
 ---
@@ -148,6 +157,18 @@ The skill was run against the three real symptoms of the originating session; ea
 | Task `cf8534d9` stuck `planning`, crash-loops | `claude --version` → `exec format error`; native-binary dir empty; log `ClaudeRuntimeAdapterError … native binary not installed (--omit=optional)`, transport=cli; `/agent/status` heartbeatStale:false | **§3.1** | watchdog can't catch it (fresh heartbeat) ✅ |
 | New task stays `backlog` | log `"active":3,"limit":3,"msg":"Auto-queue: project pipeline at capacity, skipping"`; cap `unset`→default 3 | **§3.2** | per-project cap saturated ✅ |
 | npm fetch hangs | dual-side `curl registry.npmjs.org` timeout (host+container) | **§3.3** | proxy block; name-and-stop ✅ |
+
+### §7.1 Second incidence — verified live 2026-06-04 (§3.1 + §3.2 + §3.3-host-selective; §3.1 resolved via Fix D)
+
+Originating prompt: «aif didn't work, dispatcher can't cope». Live triage:
+
+| Symptom (live) | Detector output | Classified | Resolution |
+|---|---|---|---|
+| Task `b4671c16` («meta-orchestrator-refactor») stuck `planning`, crash-loops | `claude --version` → `exec format error`; `claude-code-linux-arm64/` empty; log `ClaudeRuntimeAdapterError … native binary not installed (--omit=optional)`; `/agent/status` heartbeatStale:false | **§3.1** | **Fix D** — `npm i -g … --registry=https://registry.npmmirror.com --include=optional` → `claude --version` `2.1.161`, 0 errors/45s, task resumed live tool-calls ✅ |
+| New task `c67a4343` stays `backlog` | log `"active":3,"limit":3` for project `441c1c0c`; slots = `b4671c16`(planning) + `a35ecce5`(plan_ready) + `149d3107`(review) | **§3.2** | secondary — fixing §3.1 frees the crash-looper; cap-relief deferred (not the root) |
+| `registry.npmjs.org` 000 both sides | **discriminator:** github 200, google 200, mirror `registry.npmmirror.com` 200; `route default → utun4` (`198.18.0.1/16` TUN) | **§3.3 host-selective** | tunnel ALIVE — VPN-disable was a wrong-layer ask; Fix D bypassed it with zero VPN change ✅ |
+
+**Lesson baked into §3.3 + §3.1 Fix D:** «registry times out» ≠ «tunnel down» ≠ «disable the VPN». Run the github/mirror discriminator first; a host-selective block is fixable from a mirror without operator network surgery.
 
 ## §8 Stop conditions
 
@@ -181,3 +202,4 @@ The operator re-derives aif operational knowledge every session: which port the 
 - [.claude/skills/pipeline/SKILL.md](../pipeline/SKILL.md) — untouched; planning stays pipeline's.
 - `packages/runtime-bridge/scripts/bridge-health.sh` / `verify-bridge.sh` / `src/cli/ensure-parallel.ts` — REUSED as-is, zero edits; this skill points to them.
 - No existing rule or skill is superseded; this is a new operational artefact added on incidence (the 2026-06-03 environment breakage).
+- **Incidence-driven update 2026-06-04 (T-AIFDOC-B — grow on pain, not speculation):** the second live incidence added §3.1 **Fix D (mirror install)** + the §3.3 **discriminator** (github/google/mirror probe) + §7.1 bench-row. No new failure *mode* invented — these refine the existing §3.1/§3.3 modes with an empirically-verified resolution path (`registry.npmmirror.com` → 200; `claude --version` → `2.1.161`; 0 errors/45s; task resumed). The earlier §3.3 framing «whole-tunnel down → name-and-stop» was over-absolute (T20: it asserted the tunnel was dead without the github/mirror discriminator that proves it host-selective). Corrected in place; no other artefact superseded; `bridge-health.sh`/`verify-bridge.sh` still REUSED unedited.
