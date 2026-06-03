@@ -10,7 +10,7 @@ Substitute every `{{<PLACEHOLDER_NAME>}}` token in the template using the tokens
 - `{{UMBRELLA}}` → the selected umbrella name (also the directory name under `.claude/orchestrator-prompts/`).
 - `{{DATE}}` → today's date (`YYYY-MM-DD`) from `date +%Y-%m-%d`.
 - `{{GIT_HEAD_SHORT}}` → `git rev-parse --short HEAD` at invocation time.
-- `{{PLAN_CURRENCY_VERDICT}}` → one of «План актуален» / «DRIFT detected (N items)» / «STALE refs only» — from §1 verdict.
+- `{{PLAN_CURRENCY_VERDICT}}` → one of «Plan is current» / «DRIFT detected (N items)» / «STALE refs only» — from §1 verdict.
 - `{{STALE_ITEMS_OR_NONE}}` → bulleted list of stale refs from §1, or the literal «none».
 
 ## From §3 launch-table

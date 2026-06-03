@@ -11,7 +11,7 @@ When operating under the `/pipeline` skill, the following rationalizations mean 
 | «Launch-table can be from memory, kickoff hasn't changed» | Kickoff edits between invocations are invisible without re-read | §3 (T3 anti-pattern) |
 | «Stage 1 was 'about to land' so dispatch Stage 2 now» | Stage gate is real `gh pr list --search "is:merged"` — never «about to» | §6 (Class C honesty) |
 | «Both candidates feel similar — I'll pick A» | True ties go to maintainer as DECISION-NEEDED, not the meta-orchestrator | §2 step 4 + reviewer-discipline §2 |
-| «Maintainer said 'выбирай сам' so DECISION-NEEDED is satisfied, I'll pick» | **NO** — «pick for me» / «оба норм» / «я устал» = *deferred* DECISION-NEEDED, not answered. Genuine answer is a content tiebreaker («pick X because Y about the umbrellas»). Re-surface with sharper framing or propose a coin-flip; do NOT silently pick. | §2 Step 4.1 ([anti-rationalization.md](anti-rationalization.md)) |
+| «Maintainer said 'выбирай сам' / "you decide" so DECISION-NEEDED is satisfied, I'll pick» | **NO** — «pick for me» / «оба норм» / "both fine" / «я устал» / "I'm busy" = *deferred* DECISION-NEEDED, not answered. Genuine answer is a content tiebreaker («pick X because Y about the umbrellas»). Re-surface with sharper framing or propose a coin-flip; do NOT silently pick. | §2 Step 4.1 ([anti-rationalization.md](anti-rationalization.md)) |
 | «Phase -1 reviewer between stages is optional when stage was small» | Mandatory regardless of stage size (CI ≠ design review, T19) | §6 step 3 + §7 |
 | «I'll quickly implement this trivial sub-wave inline» | Anti-scope: meta-orchestrator dispatches kickoffs; never implements | §8 anti-scope |
 | «Modify `~/.claude/skills/orchestrator/` to align with this skill» | That file is agent-uncommittable; wrap, never fork or edit | §8 anti-scope |
@@ -21,7 +21,7 @@ When operating under the `/pipeline` skill, the following rationalizations mean 
 
 **Red flag phrases — STOP and re-verify:**
 
-- «обновлю план потом / I'll fix the plan-sequencing entry after» → fix BEFORE dispatch; §1 stale plan blocks §2
-- «достаточно одного reviewer'а / one reviewer's enough» → meta-orchestrator's Phase -1 is mandatory between every stage
-- «merged значит runtime-verified / merged means runtime-verified» → stage-gate verifies merge, not runtime behaviour; verify-trace dispatch is separate
-- «гипотетический stage 3 / hypothetical Stage 3» → if Stage 3 isn't in the kickoff, do NOT invent it; surface to maintainer
+- «I'll fix the plan-sequencing entry after» → fix BEFORE dispatch; §1 stale plan blocks §2
+- «one reviewer's enough» → meta-orchestrator's Phase -1 is mandatory between every stage
+- «merged means runtime-verified» → stage-gate verifies merge, not runtime behaviour; verify-trace dispatch is separate
+- «hypothetical Stage 3» → if Stage 3 isn't in the kickoff, do NOT invent it; surface to maintainer

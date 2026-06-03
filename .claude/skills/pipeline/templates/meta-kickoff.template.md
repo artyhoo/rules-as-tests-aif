@@ -205,9 +205,9 @@ Reviewer discipline: surfaces strategy forks as DECISION-NEEDED (option A → co
 <!-- @dual-pair: plain-language-tail -->
 <!-- spec: .claude/skills/pipeline/SKILL.md §10.3a + .claude/hooks/end-of-turn-reminder.sh -->
 
-Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVISE verdict, mid-stage status, final handoff) ends with a `## 🟢 Простыми словами` block whose CONTENT follows the orchestrator-checkpoint substance shape — distinct from the per-turn generic substance the end-of-turn hook already enforces. Substance spec: see SKILL.md §10.3a table (3 checkpoint moments with required content shape).
+Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVISE verdict, mid-stage status, final handoff) ends with a `## 🟢 In plain words` block whose CONTENT follows the orchestrator-checkpoint substance shape — distinct from the per-turn generic substance the end-of-turn hook already enforces. Substance spec: see SKILL.md §10.3a table (3 checkpoint moments with required content shape).
 
-**Anti-duplication discipline:** the block content names sub-waves / AC items / file:line / REPORT-traces / dispatch-state. It does NOT restate per-turn personal-reasoning prose ("чем я сейчас занят", "на той ли цели") — that is the hook's job (Branch A/C). If your block content is verbatim-copyable from `end-of-turn-reminder.sh` reminder text, you have drifted into `#two-prompts-drift` per `.claude/rules/dual-implementation-discipline.md §4` — fix by replacing with orchestrator-specific substance.
+**Anti-duplication discipline:** the block content names sub-waves / AC items / file:line / REPORT-traces / dispatch-state. It does NOT restate per-turn personal-reasoning prose ("what am I doing right now", "am I on the right goal") — that is the hook's job (Branch A/C). If your block content is verbatim-copyable from `end-of-turn-reminder.sh` reminder text, you have drifted into `#two-prompts-drift` per `.claude/rules/dual-implementation-discipline.md §4` — fix by replacing with orchestrator-specific substance.
 
 **Skip allowed only for:** one-line tool acknowledgements ("OK"), pure `gh`/`git` outputs handed back without orchestrator commentary, and reviewer-side blocked-by-hook short responses. Any substantive status message MUST carry the block.
 

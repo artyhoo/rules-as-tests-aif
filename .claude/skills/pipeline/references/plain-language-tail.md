@@ -5,11 +5,11 @@
 
 > Companion to SKILL.md §10.3a (which carries the one-line stub binding); this file defines the orchestrator-checkpoint substance shape.
 
-Generic per-turn end-of-turn substance is enforced by [`.claude/hooks/end-of-turn-reminder.sh`](../../../hooks/end-of-turn-reminder.sh) (Stop hook, fires on long-text / question / claim-bearing turns). It enforces presence of the `## 🟢 Простыми словами` block via the Stop hook `decision:block` mechanism with anti-rationalization wording (Branch A/B/C/D + factual-claim scan): the hook fires `decision:block` with a `reason` payload, and the model adds the section in the next turn to unblock. The hook does NOT inject the section text directly — only the requirement.
+Generic per-turn end-of-turn substance is enforced by [`.claude/hooks/end-of-turn-reminder.sh`](../../../hooks/end-of-turn-reminder.sh) (Stop hook, fires on long-text / question / claim-bearing turns). It enforces presence of the `## 🟢 In plain words` block via the Stop hook `decision:block` mechanism with anti-rationalization wording (Branch A/B/C/D + factual-claim scan): the hook fires `decision:block` with a `reason` payload, and the model adds the section in the next turn to unblock. The hook does NOT inject the section text directly — only the requirement.
 
 ## What this section adds — orchestrator-CHECKPOINT-specific substance
 
-The meta-orchestrator runs in *long sessions with sub-wave boundaries*. At each of these three moments, the inline session report MUST end with a `## 🟢 Простыми словами` block whose **content** follows the orchestrator-checkpoint shape below — distinct from the hook's per-turn generic substance:
+The meta-orchestrator runs in *long sessions with sub-wave boundaries*. At each of these three moments, the inline session report MUST end with a `## 🟢 In plain words` block whose **content** follows the orchestrator-checkpoint shape below — distinct from the hook's per-turn generic substance:
 
 | Checkpoint moment | Block content required (in this order) |
 |---|---|
