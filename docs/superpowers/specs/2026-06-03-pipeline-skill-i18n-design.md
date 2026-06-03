@@ -33,7 +33,14 @@ pack lives **under the skill** (`.claude/skills/pipeline/lang/`), not under
 `.claude/hooks/lang/` — coupling a shipped skill to non-shipped hook files would
 break the consumer install. The two pack families stay siblings, not shared.
 
-## Design — split logic from payload, emit payload via a helper
+## Design — whole skill English, hook-style localization layer
+
+**Headline directive (maintainer 2026-06-03):** the *entire* `/pipeline` skill
+reads **English** — every file (`SKILL.md`, all `references/*.md`, `templates/*`,
+helper comments) is English-canonical, no Russian-only prose anywhere. Russian
+reaches the operator **only** through a localization layer built exactly like the
+hooks: a lang pack (`en.sh` canonical default + `ru.sh` operator), selected by
+`AIF_HOOK_LANG`, EN fallback, `check-parity.sh` drift guard.
 
 Three string classes, three treatments:
 
@@ -69,27 +76,34 @@ via `!shell` — exactly where it already injects helper output today.
   `en`). No new config for the operator.
 - Consumer / public repo: no env var → English out of the box, zero config.
 
-### Class 2 — spec prose → EN-canonical (one copy)
+### Class 2 — ALL skill prose → EN-canonical (one copy)
 
-`output-format.md` and `SKILL.md §10` carry ~105 lines of Russian-in-English
-explanatory prose (e.g. `## Action queue — что ты делаешь дальше`, `Wave 1 —
-СЕЙЧАС:` example captions, `Всего открытых umbrellas`). This is **documentation
-of the format**, not operator-facing emitted output. It is translated to English
-in place — one canonical copy, no pack, no variant files. Example tables in the
-prose show the **English** headers (illustrative); the operator's *actual*
-output uses the lang-selected headers from Class 1.
+Per the headline directive, **every** Russian-bearing prose line across the
+**whole skill** is translated to English in place — one canonical copy, no pack,
+no variant files. This is not limited to `output-format.md`'s ~105 lines; it is
+the complete set found by `grep '[А-Яа-яЁё]'` across `SKILL.md`,
+`references/*.md` (`output-format.md`, `anti-rationalization.md`, `red-flags.md`,
+`placeholders.md`, `plain-language-tail.md`), `templates/*`, and helper comments.
+Example tables in the prose show the **English** headers (illustrative); the
+operator's *actual* output uses the lang-selected headers from Class 1. After
+this change, `grep '[А-Яа-яЁё]'` over the shipped skill returns **only** the
+Class-3 bilingual detection tokens below — nothing else.
 
-### Class 3 — decision-detection phrases → bilingual (RU + EN), always present
+### Class 3 — decision-detection phrases → bilingual (RU + EN), inline (the one intended exception)
 
 `references/anti-rationalization.md` and `references/red-flags.md` list the
 phrases that signal a *non-answer* deferral (`выбирай сам`, `оба норм`,
-`я устал`). These match the **operator's input**, not emitted output — the hook
-i18n spec's principle "transcript inputs stay Russian regardless" applies. Per
-maintainer (2026-06-03), keep the Russian **and add the English equivalents**
-(`you decide`, `both fine`, `it's technical not strategy`, `I'm tired`) so the
-skill catches the deferral in either language. These stay inline in the
-reference files (bilingual lists) — **not** in the lang pack (they are internal
-detection data, never emitted to the user, so they do not violate "public reads
+`я устал`). These match the **operator's input**, not emitted output. This is the
+**one intentional exception** to "whole skill English" — and it mirrors the hooks
+exactly: `end-of-turn-reminder.sh:117` keeps a **bilingual** detection regex
+(`grep -qiE 'Option [AB]|выбирай|decide|хочешь чтобы|which (option|approach)'`)
+**in the logic, one copy, both languages** — the lang pack never holds detection
+tokens. Per maintainer (2026-06-03, "добавь ещё и английские фразы"), the skill
+keeps the Russian **and adds the English equivalents** (`you decide`,
+`both fine`, `it's technical not strategy`, `I'm tired`) so the operator's
+deferral is caught in either language. These stay inline in the reference files
+(bilingual lists) — **not** in the lang pack (they are internal detection data,
+never emitted to the user, so they do not violate "public reads
 EN").
 
 ### principle 18 lockstep
@@ -126,6 +140,12 @@ The RU pack's tokens become the operator-pack contract, exercised by a separate
 - `lang/check-parity.sh` self-runs green (en.sh and ru.sh expose identical keys).
 - A `skills/` companion test for `emit-output-strings.sh` (paired-negative:
   unknown `AIF_HOOK_LANG` falls back to EN, non-empty output).
+- **Whole-skill-English invariant:** `grep '[А-Яа-яЁё]'` over
+  `.claude/skills/pipeline/` **excluding `lang/ru.sh`** returns **only** the
+  Class-3 bilingual detection tokens (a small, enumerated allowlist) — proving no
+  stray Russian prose survives. This is the mechanical check for the headline
+  directive; promotable to a principle test if it should hold for all shipped
+  skills.
 
 ## Out of scope (surfaced, not done)
 
