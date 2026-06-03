@@ -85,7 +85,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     // otherwise pass vacuously) or accidentally explodes it. Semantic alignment
     // with rule §2 is the maintainer's responsibility on each list update.
     expect(REQUIRED_HEADER_DOCS.length).toBeGreaterThanOrEqual(20);
-    expect(REQUIRED_HEADER_DOCS.length).toBeLessThanOrEqual(60);
+    expect(REQUIRED_HEADER_DOCS.length).toBeLessThanOrEqual(65);
     // Canonical roots must always be present
     expect(REQUIRED_HEADER_DOCS).toContain('README.md');
     expect(REQUIRED_HEADER_DOCS).toContain('CLAUDE.md');
@@ -161,7 +161,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
       SHIPPED_DOC_PREFIXES.some((pref) => p.startsWith(pref)),
     );
 
-    expect(installShipped).toHaveLength(16);
+    expect(installShipped).toHaveLength(17);
     expect(new Set(installShipped)).toEqual(new Set(shippedSubset));
   });
 

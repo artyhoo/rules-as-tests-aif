@@ -100,6 +100,7 @@ SHIPPED_DOCS=(
   "packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md"
   "packages/core/templates/shared/skill-context/aif-review/SKILL.md"
   "packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md"
+  "packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md"
   "agents/review-sidecar.md"
   "agents/living-docs-auditor.md"
   "agents/compliance-verifier.md"

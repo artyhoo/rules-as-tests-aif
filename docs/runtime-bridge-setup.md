@@ -163,6 +163,25 @@ reasonable default and keeps going. Use the PARK primitive ONLY for a genuine
 Never use `blockedReason` alone to stop the agent — the coordinator does not honor it
 (it filters on `paused`). The `aif-park.test.ts` GUARD enforces this.
 
+## Operator convenience: mount global skills
+
+By default the aif container only sees the repo clone. To give the aif agent access to
+your operator-side global skills (`~/.claude/skills/orchestrator/`, Superpowers plugins,
+etc.), add bind-mounts to your local `docker-compose.override.yml`:
+
+```yaml
+services:
+  agent:
+    volumes:
+      - ~/.claude/skills:/home/www/.claude/skills:ro
+      - ~/.claude/plugins:/home/www/.claude/plugins:ro
+      - ~/.claude-coordination:/home/www/.claude-coordination:ro
+```
+
+This is operator-axis only — consumers of the shipped framework are NOT required to have
+these paths. The shipped in-repo discipline (`agents/orchestrator-worker-discipline.md` +
+`skill-context/aif-orchestrator-discipline/SKILL.md`) works without the mount.
+
 ## See also
 
 - [packages/runtime-bridge/DESIGN.md](../packages/runtime-bridge/DESIGN.md) — bridge architecture + `RuntimeBackend` interface.
