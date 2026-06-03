@@ -162,7 +162,7 @@ describe('Principle 18 — meta-orchestrator output-format structural check', ()
     expect(missing).toContain('## Dependency graph');
   });
 
-  it('paired-negative: synthetic §10 missing "Paste в новый CC tab" column fails the check', () => {
+  it('paired-negative: synthetic §10 missing "Paste into a new CC tab" column fails the check', () => {
     const fakeSectionTen = [
       '## §10 Output artifacts',
       '## Dependency graph',
