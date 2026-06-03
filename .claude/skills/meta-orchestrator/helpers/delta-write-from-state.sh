@@ -110,6 +110,16 @@ resolve_target() {
 }
 
 TARGET="$(resolve_target "${DELTA_FILE}")"
+
+# ── Atomic mkdir-lock (M5) — serialize this read-modify-write against concurrent
+#    writers (sibling update-delta.sh or a parallel-worktree session) sharing the same
+#    CANON target via symlink. `flock` is unavailable on macOS, so `mkdir` (atomic
+#    create-or-fail) is the portable lock primitive. Best-effort: after ~6s of
+#    contention we proceed anyway (atomic temp-then-mv still bounds damage).
+_LOCK_DIR="${TARGET}.lock"
+for _i in $(seq 1 30); do mkdir "${_LOCK_DIR}" 2>/dev/null && break || sleep 0.2; done
+trap "rmdir '${_LOCK_DIR}' 2>/dev/null" EXIT
+
 TMP="$(mktemp "$(dirname "${TARGET}")/.delta.tmpXXXXXX")"
 jq --arg now "${TIMESTAMP}" \
    --argjson current "${CURRENT_JSON}" \
@@ -118,6 +128,7 @@ jq --arg now "${TIMESTAMP}" \
     .closed_since_last = ($resolved | map({id: ., closed_at: $now}))' \
   "${TARGET}" > "${TMP}"
 mv "${TMP}" "${TARGET}"
+rmdir "${_LOCK_DIR}" 2>/dev/null || true; trap - EXIT
 
 CURRENT_COUNT="$(echo "${CURRENT_JSON}" | jq 'length')"
 RESOLVED_COUNT="$(echo "${RESOLVED_JSON}" | jq 'length')"

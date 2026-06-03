@@ -74,7 +74,12 @@ MO_GH_BIN="${MO_GH_BIN:-gh}"
 # C2 jaccard seam: override dup-detect.sh path for testing (completion-detection Layer C2).
 _DEFAULT_DUP_DETECT="${REPO_ROOT}/.claude/skills/meta-orchestrator/helpers/dup-detect.sh"
 MO_DUP_DETECT_BIN="${MO_DUP_DETECT_BIN:-${_DEFAULT_DUP_DETECT}}"
-MO_MEM_DIR="${MO_MEM_DIR:-${HOME}/.claude/projects/-Users-art-code-rules-as-tests-aif/memory}"
+# W4: derive the CC project-memory slug from REPO_ROOT (path with `/`→`-`) instead of a
+# hardcoded repo path, so the helper works on any checkout / consumer clone. The synthetic
+# section (c) below already guards `[[ -d "${MO_MEM_DIR}" ]]` → missing dir is skipped
+# silently (memory is supplementary, not load-bearing).
+_repo_slug="${REPO_ROOT//\//-}"
+MO_MEM_DIR="${MO_MEM_DIR:-${HOME}/.claude/projects/${_repo_slug}/memory}"
 MO_WAVE_PLAN="${MO_WAVE_PLAN:-${REPO_ROOT}/docs/meta-factory/wave-sequencing-plan.md}"
 MO_OPEN_QUESTIONS="${MO_OPEN_QUESTIONS:-${REPO_ROOT}/docs/meta-factory/open-questions.md}"
 MO_PACKAGES_DIR="${MO_PACKAGES_DIR:-${REPO_ROOT}/packages}"
@@ -111,6 +116,12 @@ if [[ -x "${MO_DUP_DETECT_BIN}" ]]; then
     "${MO_DUP_DETECT_BIN}" --all 2>/dev/null || true)"
 fi
 
+# ── open-PR pre-fetch (W3 — single gh call replaces per-umbrella loop calls) ──────
+# Stage 3 worktree-hardening W3: the per-umbrella `gh pr list --search` inside the loop
+# below cost one gh round-trip per candidate (~138 calls on a full backlog). Fetch all
+# open PRs ONCE here; per-umbrella `open_prs` becomes an in-memory grep over this blob.
+_ALL_OPEN_PRS="$(${MO_GH_BIN:-gh} pr list --state open --json number,headRefName --limit 500 2>/dev/null || echo '[]')"
+
 # ── REAL KICKOFF ENTRIES (existing behaviour — T17 preserve) ─────────────────
 
 for dir in "${PROMPTS_DIR}"/*/; do
@@ -145,11 +156,11 @@ for dir in "${PROMPTS_DIR}"/*/; do
     volume="L"
   fi
 
-  # Check for open PRs matching this umbrella prefix.
+  # Check for open PRs matching this umbrella (W3 — in-memory grep over the single
+  # pre-fetched _ALL_OPEN_PRS blob; no per-umbrella gh round-trip).
   # `grep -c` always emits a count (0 if no match) but exits 1 on no match;
   # `|| true` keeps `set -e` happy without duplicating the "0" output that `|| echo 0` produced.
-  open_prs="$(${MO_GH_BIN} pr list --search "is:open head:${name}" --json number --limit 5 2>/dev/null \
-    | grep -c '"number"' || true)"
+  open_prs="$(printf '%s' "${_ALL_OPEN_PRS}" | grep -c "\"${name}\"" || true)"
 
   # ── Completion-detection tri-layer classifier (C1 → C2 → C3, first-match-wins) ──
   done_pr=""

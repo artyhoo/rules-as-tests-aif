@@ -128,6 +128,15 @@ update_existing() {
   mv "${tmp}" "${target}"
 }
 
+# ── Atomic mkdir-lock (M5) — serialize concurrent read-modify-write across parallel
+#    worktrees that share the CANON target via symlink. `flock` is unavailable on macOS,
+#    so `mkdir` (atomic create-or-fail) is the portable lock primitive. Best-effort:
+#    after ~6s of contention we proceed anyway (atomic temp-then-mv still bounds damage).
+_LOCK_TARGET="$(resolve_target "${CACHE_FILE}")"
+_LOCK_DIR="${_LOCK_TARGET}.lock"
+for _i in $(seq 1 30); do mkdir "${_LOCK_DIR}" 2>/dev/null && break || sleep 0.2; done
+trap "rmdir '${_LOCK_DIR}' 2>/dev/null" EXIT
+
 # Decision tree.
 if [ ! -f "${CACHE_FILE}" ]; then
   write_initial_template
@@ -144,4 +153,5 @@ if ! grep -q '^## Last invocation$' "${CACHE_FILE}"; then
 fi
 
 update_existing
+rmdir "${_LOCK_DIR}" 2>/dev/null || true; trap - EXIT
 echo "update-cache.sh: updated ${CACHE_FILE} (umbrella=${UMBRELLA}, head=${GIT_HEAD})"
