@@ -35,6 +35,10 @@ packages/*/reports/
 /.claude/agents/
 /.claude/skills/aif/
 /.claude/skills/aif-*/
+# Exception: aif-doctor is a FRAMEWORK-AUTHORED skill (not an AIF-installed one);
+# the aif-* glob above is for installer-generated consumer skills. Track it like
+# the other framework skills (dispatcher, pipeline).
+!/.claude/skills/aif-doctor/
 
 # Stryker mutation-run sandbox (never commit)
 packages/core/.stryker-tmp/
