@@ -1,6 +1,6 @@
 /**
  * Functional meta-tests for the meta-orchestrator plan-cache writer
- * (.claude/skills/meta-orchestrator/helpers/update-cache.sh) — paired-negative
+ * (.claude/skills/pipeline/helpers/update-cache.sh) — paired-negative
  * contract for the umbrella skill-memory deliverable C.
  *
  * Channel: in-session helper invoked via Bash tool from SKILL.md §10 item 5.
@@ -46,7 +46,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/update-cache.sh',
+  '.claude/skills/pipeline/helpers/update-cache.sh',
 );
 
 const FIXED_TS = '2026-05-25T22:40:00Z';

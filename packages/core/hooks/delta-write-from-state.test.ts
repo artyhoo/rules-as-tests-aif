@@ -1,6 +1,6 @@
 /**
  * Functional meta-tests for the meta-orchestrator master-backlog-delta arrays writer
- * (.claude/skills/meta-orchestrator/helpers/delta-write-from-state.sh) — paired-negative
+ * (.claude/skills/pipeline/helpers/delta-write-from-state.sh) — paired-negative
  * contract for F.3 helper-collapse (meta-orch-f3-iphase umbrella, 2026-05-28).
  *
  * Channel: in-session helper invoked via Bash tool from SKILL.md §10 step 5b.
@@ -48,11 +48,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/delta-write-from-state.sh',
+  '.claude/skills/pipeline/helpers/delta-write-from-state.sh',
 );
 const BOOTSTRAP_HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/update-delta.sh',
+  '.claude/skills/pipeline/helpers/update-delta.sh',
 );
 
 const FIXED_TS = '2026-05-28T12:00:00Z';

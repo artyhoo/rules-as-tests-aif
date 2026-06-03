@@ -3,7 +3,7 @@
  * SYNTHETIC ENTRIES section — paired-negative contract for Stage D mutation
  * discipline (mutation-discipline-stage-d-meta-launch).
  *
- * Targets: `.claude/skills/meta-orchestrator/helpers/priority-score.sh`
+ * Targets: `.claude/skills/pipeline/helpers/priority-score.sh`
  * Section: "=== priority-score: synthetic candidates (synthetic-candidate extension) ==="
  *          (lines ~201-291 in priority-score.sh)
  *
@@ -65,7 +65,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/priority-score.sh',
+  '.claude/skills/pipeline/helpers/priority-score.sh',
 );
 
 const sandboxes: string[] = [];

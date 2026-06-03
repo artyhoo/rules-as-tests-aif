@@ -11,7 +11,7 @@
 > **Authoritative for:** build-vs-reuse SSOT register (entry table §4) + entry schema (§1) + verdict semantics (§2) + entry-add procedure (§3) + staleness policy (§5).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Recursive enforcement of Prior-art trailer in commits — see [.husky/pre-push](../../.husky/pre-push) hook + [CLAUDE.md](../../CLAUDE.md) trailer-syntax section.
 >
-> **Rename note (2026-06-03, Stage 5):** the `/meta-orchestrator` slash-command was renamed to **`/pipeline`** (frontmatter `name:` only — the `.claude/skills/meta-orchestrator/` directory, paths, anchors, and the "meta-orchestrator" concept-noun are unchanged). Historical rows below retain the original `/meta-orchestrator` name as written at decision time (append-only — rows are not rewritten). To invoke the skill today, use `/pipeline`.
+> **Rename note (2026-06-03, Stage 5):** the `/meta-orchestrator` slash-command was renamed to **`/pipeline`**. CC derives the command from the **directory name**, so the skill directory was moved `.claude/skills/meta-orchestrator/` → `.claude/skills/pipeline/` and live path-references were updated accordingly. **NOT** changed: the principle-test filenames (`18/19/20-meta-orchestrator-*.test.ts`), the `@dual-pair: meta-orchestrator-*` anchors, and the "meta-orchestrator" concept-noun in prose. Historical rows below retain the original `/meta-orchestrator` name and skill paths as written at decision time (append-only — rows are not rewritten). To invoke the skill today, use `/pipeline`.
 
 ---
 

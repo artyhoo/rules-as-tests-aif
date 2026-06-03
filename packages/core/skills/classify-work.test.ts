@@ -38,7 +38,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT_REAL = resolve(HERE, '../../..');
 const SCRIPT = resolve(
   REPO_ROOT_REAL,
-  '.claude/skills/meta-orchestrator/helpers/classify-work.sh',
+  '.claude/skills/pipeline/helpers/classify-work.sh',
 );
 
 // ── Fixture state shared across tests ────────────────────────────────────────

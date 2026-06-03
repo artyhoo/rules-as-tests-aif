@@ -420,12 +420,12 @@ SP `requesting-code-review` upstream problem class = «dispatch a reviewer subag
 
 - **Does NOT write sub-wave code.** Writing implementation code is the Worker's job. If invoked on an execution-build sub-wave, meta-orchestrator generates the kickoff and dispatch instructions — it does NOT implement.
 - **Does NOT finalize project strategy.** Meta-orchestrator can recommend a priority winner (§2) and say «proceeding»; it asks the maintainer on genuine strategy forks (§7.3 item 5).
-- **Does NOT modify `~/.claude/skills/orchestrator/`.** That is the global orchestrator, agent-uncommittable, owner=maintainer. Meta-orchestrator wraps and calls it; it never forks or modifies it. All paths in this skill begin with `.claude/skills/meta-orchestrator/` or consumer-repo relative refs.
+- **Does NOT modify `~/.claude/skills/orchestrator/`.** That is the global orchestrator, agent-uncommittable, owner=maintainer. Meta-orchestrator wraps and calls it; it never forks or modifies it. All paths in this skill begin with `.claude/skills/pipeline/` or consumer-repo relative refs.
 - **Does NOT violate no-paid-llm-in-ci.md §1.** All dispatch is session-bound CC subscription. Zero API-billed calls in CI. `!shell` injections are deterministic bash.
 - **Does NOT add npm deps.** Substrate stays bash + markdown + CC primitives + existing `gh` CLI.
 - **Does NOT re-litigate R-phase verdicts.** If a missed candidate is noticed, write `docs/meta-factory/research-patches/2026-<date>-meta-orchestrator-followup-<gap>.md` and surface to maintainer.
 
-**One-button-install coupling (load-bearing):** this skill lives at `.claude/skills/meta-orchestrator/` (project-scope, committed). It is templatable for N6b `npx` scaffold via `install.sh` payload. All cross-references use `${CLAUDE_SKILL_DIR}` or repo-relative paths — no absolute paths inside skill body. Ships directly from `.claude/skills/meta-orchestrator/` via `install.sh` (single source of truth; no repo-root mirror — Item 12 closure 2026-05-25). Install pattern at `install.sh:236-255`.
+**One-button-install coupling (load-bearing):** this skill lives at `.claude/skills/pipeline/` (project-scope, committed). It is templatable for N6b `npx` scaffold via `install.sh` payload. All cross-references use `${CLAUDE_SKILL_DIR}` or repo-relative paths — no absolute paths inside skill body. Ships directly from `.claude/skills/pipeline/` via `install.sh` (single source of truth; no repo-root mirror — Item 12 closure 2026-05-25). Install pattern at `install.sh:236-255`.
 
 ---
 

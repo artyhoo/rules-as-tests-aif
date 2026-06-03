@@ -1,6 +1,6 @@
 /**
  * Functional meta-test for the meta-orchestrator dup-detect helper's empty-arg
- * branch (.claude/skills/meta-orchestrator/helpers/dup-detect.sh) — paired-negative
+ * branch (.claude/skills/pipeline/helpers/dup-detect.sh) — paired-negative
  * contract for Stage 4 P4-b (meta-orch-no-arg-overview umbrella, 2026-05-28).
  *
  * Channel: in-session helper invoked via Bash tool from SKILL.md §2.5 Step 2.
@@ -42,7 +42,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/dup-detect.sh',
+  '.claude/skills/pipeline/helpers/dup-detect.sh',
 );
 
 const sandboxes: string[] = [];

@@ -1,7 +1,7 @@
 # §10.3a — Plain-language checkpoint tail (orchestrator-checkpoint substance standard)
 
 <!-- @dual-pair: plain-language-tail -->
-<!-- spec: .claude/skills/meta-orchestrator/SKILL.md §10.3a stub + .claude/hooks/end-of-turn-reminder.sh -->
+<!-- spec: .claude/skills/pipeline/SKILL.md §10.3a stub + .claude/hooks/end-of-turn-reminder.sh -->
 
 > Companion to SKILL.md §10.3a (which carries the one-line stub binding); this file defines the orchestrator-checkpoint substance shape.
 

@@ -28,7 +28,7 @@
 #   exit 2 — error (multi-flag, missing/short reason, wrong arg count); stderr msg
 #
 # @dual-pair: meta-orchestrator-mode-overrides
-# spec: .claude/skills/meta-orchestrator/references/mode-overrides.md
+# spec: .claude/skills/pipeline/references/mode-overrides.md
 # @cc-only-rationale: invoked from SKILL.md §0 preamble as
 #   ${CLAUDE_SKILL_DIR}/helpers/parse-override-flags.sh "${umbrella:-}"
 #   (CC-session only; no portable hook fires at slash-command-parse moment;

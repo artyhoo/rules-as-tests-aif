@@ -1,6 +1,6 @@
 /**
  * Functional meta-tests for the meta-orchestrator master-backlog-delta writer
- * (.claude/skills/meta-orchestrator/helpers/update-delta.sh) — paired-negative
+ * (.claude/skills/pipeline/helpers/update-delta.sh) — paired-negative
  * contract for Stage 2B of the meta-orchestrator-mode-triage-and-planner umbrella.
  *
  * Channel: in-session helper invoked via Bash tool from SKILL.md §2.5 (Stage 2C).
@@ -49,7 +49,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/update-delta.sh',
+  '.claude/skills/pipeline/helpers/update-delta.sh',
 );
 
 const FIXED_TS = '2026-05-26T12:00:00Z';

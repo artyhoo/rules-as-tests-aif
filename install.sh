@@ -8,7 +8,7 @@
 #   ./install.sh react-next --dry-run --force   # preview overwrite plan
 #
 # What it does:
-#   1. Copies skills/ + .claude/skills/meta-orchestrator/ → .claude/skills/
+#   1. Copies skills/ + .claude/skills/pipeline/ → .claude/skills/
 #      (meta-orchestrator is shipped from .claude/skills/ as single source of truth;
 #       cross-refs to repo-internal paths get sed-transformed to GitHub blob URLs —
 #       see UPSTREAM_BLOB_URL + transform_internal_refs() below;
@@ -234,26 +234,26 @@ else
   cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
-# meta-orchestrator: shipped from authoring location .claude/skills/meta-orchestrator/
+# meta-orchestrator: shipped from authoring location .claude/skills/pipeline/
 # as single source of truth (no separate mirror under skills/). Repo-internal cross-refs
 # in .md files get rewritten to GitHub blob URLs via transform_internal_refs().
-if [ -e "$PROJECT_ROOT/.claude/skills/meta-orchestrator" ] && [ "$FORCE" != "--force" ]; then
-  SKIPPED+=("$PROJECT_ROOT/.claude/skills/meta-orchestrator")
+if [ -e "$PROJECT_ROOT/.claude/skills/pipeline" ] && [ "$FORCE" != "--force" ]; then
+  SKIPPED+=("$PROJECT_ROOT/.claude/skills/pipeline")
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would skip: .claude/skills/meta-orchestrator (exists)"
+    echo "  [dry-run] would skip: .claude/skills/pipeline (exists)"
   else
-    echo "  ⊝ .claude/skills/meta-orchestrator (exists — skipping)"
+    echo "  ⊝ .claude/skills/pipeline (exists — skipping)"
   fi
 elif [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "  [dry-run] would copy: $PKG_ROOT/.claude/skills/meta-orchestrator → $PROJECT_ROOT/.claude/skills/meta-orchestrator (+ transform internal refs)"
+  echo "  [dry-run] would copy: $PKG_ROOT/.claude/skills/pipeline → $PROJECT_ROOT/.claude/skills/pipeline (+ transform internal refs)"
 else
-  rm -rf "$PROJECT_ROOT/.claude/skills/meta-orchestrator"
-  cp -r "$PKG_ROOT/.claude/skills/meta-orchestrator" "$PROJECT_ROOT/.claude/skills/meta-orchestrator"
+  rm -rf "$PROJECT_ROOT/.claude/skills/pipeline"
+  cp -r "$PKG_ROOT/.claude/skills/pipeline" "$PROJECT_ROOT/.claude/skills/pipeline"
   # Rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
   while IFS= read -r -d '' mdfile; do
     transform_internal_refs "$mdfile"
-  done < <(find "$PROJECT_ROOT/.claude/skills/meta-orchestrator" -name '*.md' -print0)
-  echo "  ✓ .claude/skills/meta-orchestrator/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+  done < <(find "$PROJECT_ROOT/.claude/skills/pipeline" -name '*.md' -print0)
+  echo "  ✓ .claude/skills/pipeline/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 fi
 
 # ─── 1b. Hooks ──────────────────────────────────────────

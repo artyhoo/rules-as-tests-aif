@@ -74,7 +74,7 @@ PROMPTS_DIR="${REPO_ROOT}/.claude/orchestrator-prompts"
 
 MO_GH_BIN="${MO_GH_BIN:-gh}"
 # C2 jaccard seam: override dup-detect.sh path for testing (completion-detection Layer C2).
-_DEFAULT_DUP_DETECT="${REPO_ROOT}/.claude/skills/meta-orchestrator/helpers/dup-detect.sh"
+_DEFAULT_DUP_DETECT="${REPO_ROOT}/.claude/skills/pipeline/helpers/dup-detect.sh"
 MO_DUP_DETECT_BIN="${MO_DUP_DETECT_BIN:-${_DEFAULT_DUP_DETECT}}"
 # W4: derive the CC project-memory slug from REPO_ROOT (path with `/`→`-`) instead of a
 # hardcoded repo path, so the helper works on any checkout / consumer clone. The synthetic

@@ -25,7 +25,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const SCRIPT = resolve(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/classify-each-candidate.sh',
+  '.claude/skills/pipeline/helpers/classify-each-candidate.sh',
 );
 
 /** Run the helper with a fixture and return stdout. */

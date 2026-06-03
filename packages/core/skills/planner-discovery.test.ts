@@ -37,7 +37,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT_REAL = resolve(HERE, '../../..');
 const SCRIPT = resolve(
   REPO_ROOT_REAL,
-  '.claude/skills/meta-orchestrator/helpers/priority-score.sh',
+  '.claude/skills/pipeline/helpers/priority-score.sh',
 );
 
 // ── Fixture state shared across each test ────────────────────────────────────
@@ -493,7 +493,7 @@ describe('priority-score.sh — anti-tautology verification', () => {
 describe('priority-score.sh — T15 self-application documentation', () => {
   it(
     'T15 dogfood: umbrella kickoff is discoverable via real repo run ' +
-      '(run manually: bash .claude/skills/meta-orchestrator/helpers/priority-score.sh | grep planner-completeness)',
+      '(run manually: bash .claude/skills/pipeline/helpers/priority-score.sh | grep planner-completeness)',
     () => {
       // This test CANNOT run against the live orchestrator-prompts directory because
       // .claude/orchestrator-prompts/ is gitignored and not present in the worktree.

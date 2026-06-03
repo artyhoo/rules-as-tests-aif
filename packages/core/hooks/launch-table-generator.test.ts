@@ -1,6 +1,6 @@
 /**
  * Functional meta-test for the meta-orchestrator launch-table-generator helper
- * (.claude/skills/meta-orchestrator/helpers/launch-table-generator.sh).
+ * (.claude/skills/pipeline/helpers/launch-table-generator.sh).
  *
  * Channel: in-session helper invoked via Bash tool from SKILL.md §3 Launch-table.
  *
@@ -58,7 +58,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const SCRIPT = resolve(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/launch-table-generator.sh',
+  '.claude/skills/pipeline/helpers/launch-table-generator.sh',
 );
 
 const sandboxes: string[] = [];

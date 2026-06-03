@@ -32,7 +32,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const WRAPPER = resolve(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/run-helper.sh',
+  '.claude/skills/pipeline/helpers/run-helper.sh',
 );
 
 const tmpDirs: string[] = [];

@@ -1,7 +1,7 @@
 /**
  * Principle 20 — bundle-curate.sh mechanical correctness (B1 bundle-decision-rule)
  *
- * Source: .claude/skills/meta-orchestrator/helpers/bundle-curate.sh (Stage 3 D1)
+ * Source: .claude/skills/pipeline/helpers/bundle-curate.sh (Stage 3 D1)
  *         .claude/orchestrator-prompts/meta-orchestrator-bundle-autonomous/stage-3-iphase.md §3 D4
  *         docs/meta-factory/research-patches/2026-05-26-bundle-autonomous-prior-art.md §5
  *           (BUILD verdict: vocabulary from Renovate packageRules + Dependabot groups,
@@ -37,7 +37,7 @@ import { existsSync } from 'node:fs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HELPER = resolve(REPO_ROOT, '.claude/skills/meta-orchestrator/helpers/bundle-curate.sh');
+const HELPER = resolve(REPO_ROOT, '.claude/skills/pipeline/helpers/bundle-curate.sh');
 const FIXTURES = resolve(HERE, '__fixtures__/bundle');
 
 /** Run bundle-curate.sh on a fixture file; return stdout as string. */

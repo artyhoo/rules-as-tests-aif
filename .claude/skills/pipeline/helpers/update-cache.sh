@@ -62,7 +62,7 @@ write_initial_template() {
   cat > "${CACHE_FILE}" <<TEMPLATE
 # /pipeline — plan cache (per-machine, gitignored)
 
-> Updated by \`.claude/skills/meta-orchestrator/helpers/update-cache.sh\` at end of each invocation (\`## Last invocation\` section only — round-3 scope).
+> Updated by \`.claude/skills/pipeline/helpers/update-cache.sh\` at end of each invocation (\`## Last invocation\` section only — round-3 scope).
 > Read by SKILL.md §1 \`!shell\` injection at start of next invocation.
 > **NOT load-bearing.** Mechanical state (\`gh pr list\`, \`git log\`, \`wave-sequencing-plan.md\`) always wins per \`feedback_no_human_verification_ai_self_verifies\` + SKILL.md §1 Step 2 item 5.
 

@@ -28,7 +28,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const SCRIPT = resolve(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/integer-name-guard.sh',
+  '.claude/skills/pipeline/helpers/integer-name-guard.sh',
 );
 
 const tmpDirs: string[] = [];

@@ -1,6 +1,6 @@
 /**
  * Functional meta-tests for the meta-orchestrator master-backlog-delta read-side
- * helper (.claude/skills/meta-orchestrator/helpers/delta-diff.sh) — paired-negative
+ * helper (.claude/skills/pipeline/helpers/delta-diff.sh) — paired-negative
  * contract for Stage 3 of the meta-orchestrator-mode-triage-and-planner umbrella.
  *
  * Channel: in-session helper invoked via Bash tool from SKILL.md §2.5 Step 8.
@@ -35,7 +35,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/delta-diff.sh',
+  '.claude/skills/pipeline/helpers/delta-diff.sh',
 );
 
 const sandboxes: string[] = [];

@@ -1,6 +1,6 @@
 /**
  * Paired-negative contract tests for classify-work.sh — the L4 work-classification
- * heuristic for /pipeline routing (.claude/skills/meta-orchestrator/
+ * heuristic for /pipeline routing (.claude/skills/pipeline/
  * helpers/classify-work.sh).
  *
  * Class C → Class B-via-companion-test (this file is the companion test).
@@ -35,7 +35,7 @@ import { join, resolve } from 'node:path';
 const REPO_ROOT = resolve(__dirname, '../../..');
 const HELPER = join(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/classify-work.sh',
+  '.claude/skills/pipeline/helpers/classify-work.sh',
 );
 
 function run(arg: string | null) {

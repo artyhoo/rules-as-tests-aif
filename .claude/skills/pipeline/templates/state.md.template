@@ -61,4 +61,4 @@
 
 - [Meta-kickoff](kickoff.md)
 - [Umbrella kickoff](.../{{UMBRELLA}}/kickoff.md)
-- [SKILL.md]({{REPO_ROOT_REL}}/.claude/skills/meta-orchestrator/SKILL.md)
+- [SKILL.md]({{REPO_ROOT_REL}}/.claude/skills/pipeline/SKILL.md)

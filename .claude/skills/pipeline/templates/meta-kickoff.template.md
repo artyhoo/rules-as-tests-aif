@@ -203,7 +203,7 @@ Reviewer discipline: surfaces strategy forks as DECISION-NEEDED (option A → co
 ## §7a Reporting format (mandatory plain-language tail at orchestrator checkpoints)
 
 <!-- @dual-pair: plain-language-tail -->
-<!-- spec: .claude/skills/meta-orchestrator/SKILL.md §10.3a + .claude/hooks/end-of-turn-reminder.sh -->
+<!-- spec: .claude/skills/pipeline/SKILL.md §10.3a + .claude/hooks/end-of-turn-reminder.sh -->
 
 Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVISE verdict, mid-stage status, final handoff) ends with a `## 🟢 Простыми словами` block whose CONTENT follows the orchestrator-checkpoint substance shape — distinct from the per-turn generic substance the end-of-turn hook already enforces. Substance spec: see SKILL.md §10.3a table (3 checkpoint moments with required content shape).
 
@@ -235,7 +235,7 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVIS
 ## §10 See also
 
 - `docs/meta-factory/wave-sequencing-plan.md` — plan-currency source.
-- `.claude/skills/meta-orchestrator/SKILL.md` — generating skill.
+- `.claude/skills/pipeline/SKILL.md` — generating skill.
 - `.claude/rules/ai-laziness-traps.md §2` — canonical trap catalogue.
 - `.claude/rules/parallel-subwave-isolation.md §1` — worktree isolation.
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.

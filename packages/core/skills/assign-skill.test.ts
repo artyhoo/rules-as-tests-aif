@@ -34,7 +34,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT_REAL = resolve(HERE, '../../..');
 const SCRIPT = resolve(
   REPO_ROOT_REAL,
-  '.claude/skills/meta-orchestrator/helpers/assign-skill.sh',
+  '.claude/skills/pipeline/helpers/assign-skill.sh',
 );
 
 // ── Fixture state shared across each test ────────────────────────────────────

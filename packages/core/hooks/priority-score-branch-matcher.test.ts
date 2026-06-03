@@ -1,6 +1,6 @@
 /**
  * Functional meta-test for the meta-orchestrator priority-score helper's
- * branch-matcher (.claude/skills/meta-orchestrator/helpers/priority-score.sh) —
+ * branch-matcher (.claude/skills/pipeline/helpers/priority-score.sh) —
  * paired-negative contract for Stage 2 P2 (meta-orch-no-arg-overview umbrella,
  * 2026-05-28).
  *
@@ -61,7 +61,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/meta-orchestrator/helpers/priority-score.sh',
+  '.claude/skills/pipeline/helpers/priority-score.sh',
 );
 
 const sandboxes: string[] = [];
