@@ -150,6 +150,14 @@ export AGENT_SKIP_REVIEW=false
 
 **Pre-dispatch gate (run before `dispatch.ts`):** confirm this kickoff contains the Lever-2 block (`grep -q 'park it as a question' <this-kickoff>`) AND the env carries Lever-1 (`echo "$AGENT_MAX_REVIEW_ITERATIONS"` non-empty). Either missing → STOP; do not dispatch autonomously.
 
+**Egress gate (mandatory after `status=done` or `status=verified`):** aif does NOT push or open PRs by design. Call harvest immediately after the task reaches done:
+
+```bash
+npx tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
+```
+
+Harvest: reads `branchName` from aif REST API → `docker exec container git push origin <branch>` → `gh pr create --base staging` → `gh pr merge --auto --squash`. Anti-pattern `#autonomous-done-no-harvest`: skipping this step leaves the work permanently in the container.
+
 ---
 
 ## §5 AI-traps active (per `ai-laziness-traps.md §3`)
