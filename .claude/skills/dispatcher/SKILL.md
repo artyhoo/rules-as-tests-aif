@@ -29,6 +29,8 @@ allowed-tools:
 
 **Substrate:** CC slash-command + 4 existing CLI primitives (zero new npm deps, zero new code). All dispatch is session-bound (`no-paid-llm-in-ci.md §1`).
 
+> **⚡ aif environment rule:** `/dispatcher` is the ONLY skill that works with aif. On ANY aif environment symptom — task stuck, push rejected, capacity full, missing tool in container, blocked_external, proxy error — **first action = invoke `/aif-doctor`**. Do NOT manually `docker exec` fix-by-fix. The doctor classifies the mode in one sweep and maps the right fix. Incident 2026-06-04: harvest-push fell on missing `actionlint`→`zizmor` (uninstallable); manual grinding took many turns; `/aif-doctor` would have immediately classified «container is a runtime, not a push env → land from host with full toolchain».
+
 ---
 
 ## §0 Invocation

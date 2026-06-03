@@ -114,16 +114,44 @@ Three modes `bridge-health.sh` does **not** cover (confirmed by reading its sour
 
 ## §4 Mutation discipline (the Q2 contract)
 
-Every §3 fix that changes state (`DELETE`, `npm i`, `docker compose build/up`, cap bump, transport switch) is a **mutation**. For each, the skill prints:
+Mutations are split into two tiers by reversibility:
+
+### Tier 1 — Reversible config (auto-apply, no GO needed)
+
+Fixes that change only in-container config or retry state with zero data loss:
+- `git config --global url.https.insteadOf` — reversible (`git config --global --unset`)
+- `git config --global credential.helper` — reversible (`git config --global --unset`)
+- `npm i -g @anthropic-ai/claude-code [--registry=…]` — in-place; superseded by next rebuild
+- `answer.ts --decision retry` — retries a blocked task; no records deleted
+
+For Tier 1, the skill **applies the fix automatically** and logs:
+
+```text
+APPLIED (reversible): <exact command>
+  Evidence: <file:line | log line | probe output>
+  Reversibility: <how to undo>
+```
+
+Then continues without pausing for GO.
+
+### Tier 2 — Destructive or system-disruptive (GO required)
+
+Fixes that delete records or interrupt running processes:
+- `DELETE /tasks/:id` — task record gone, irreversible
+- `docker compose build/up` — interrupts the active agent container
+- Cap bump (`COORDINATOR_MAX_CONCURRENT_TASKS` + `docker compose up -d agent`) — restarts the agent, interrupts in-flight tasks
+- Transport switch to API (Fix C) — paid path, requires explicit authorization
+
+For Tier 2, the skill prints and **stops**:
 
 ```text
 MUTATION (needs GO): <exact command>
-  Evidence: <file:line | log line | probe output that justifies it>
+  Evidence: <file:line | log line | probe output>
   Reversibility: <how to undo, or "DESTRUCTIVE — task record gone">
   Awaiting operator GO.
 ```
 
-Then **stops**. No mutation runs without an explicit GO in the same session. Read-only fixes (re-running a probe) run freely. This is the discipline the whole 2026-06-03 session exercised — the skill codifies it so it is not re-improvised.
+Read-only fixes (re-running a probe) run freely. This split was introduced 2026-06-04 after the session-2 triage: SSH→HTTPS `insteadOf` + `retry` (both Tier 1) required two GO round-trips that added no safety value — the reversibility is immediate and the data risk is zero.
 
 ---
 
@@ -132,7 +160,7 @@ Then **stops**. No mutation runs without an explicit GO in the same session. Rea
 - **Does NOT run the dispatch loop** — that is `/dispatcher`. `/aif-doctor` diagnoses the environment the loop runs in.
 - **Does NOT plan / score priority** — that is `/pipeline`.
 - **Does NOT add npm deps or new scripts** — reuses §1 helpers + endpoints only; a genuinely-needed new probe = surface as a finding, do not build it here.
-- **Does NOT auto-mutate the aif runtime** — every state change needs operator GO (§4).
+- **Does NOT auto-mutate destructive/system fixes** — Tier 2 mutations (DELETE task, container restart, cap bump) need operator GO (§4). Tier 1 reversible fixes (git config, npm install, retry) apply automatically.
 - **Does NOT fix the host proxy tunnel** — but DOES run the §3.3 discriminator first; if the block is host-selective (tunnel alive, only `registry.npmjs.org` dropped), the runtime is fixable via §3.1 Fix D (mirror) **without** touching the VPN. Only a whole-tunnel-down case is name-and-stop.
 - **Does NOT edit `~/.claude/skills/orchestrator/`** — maintainer-owned, agent-uncommittable.
 
@@ -195,7 +223,7 @@ The operator re-derives aif operational knowledge every session: which port the 
 - [no-paid-llm-in-ci.md §1](../../rules/no-paid-llm-in-ci.md) — every probe is `curl`/`docker`/`grep`; zero API-billed calls. The one paid path (§3.1 Fix-C API transport) is explicitly DEFER-gated, never default.
 - [doc-authority-hierarchy.md §3](../../rules/doc-authority-hierarchy.md) — Class C + Authoritative-for/NOT-authoritative-for header present.
 - Principle 15 — `## Without this skill` / `## With this skill` paired-negative block present, halves differ.
-- [recommendation-laziness-discipline.md §3](../../rules/recommendation-laziness-discipline.md) — every emitted fix is evidence-backed; mutations surface for GO rather than auto-acting (the fork-surfacing companion).
+- [recommendation-laziness-discipline.md §3](../../rules/recommendation-laziness-discipline.md) — every emitted fix is evidence-backed; Tier 2 mutations surface for GO; Tier 1 reversible fixes auto-apply with log (2026-06-04 split per §4).
 
 **Backward-check:**
 - [.claude/skills/dispatcher/SKILL.md](../dispatcher/SKILL.md) (SSOT #111) — COMPLEMENTARY, not superseded: dispatcher owns the loop; its NOT-authoritative-for header (verified, line 24) names only planning/pipeline/orchestrator and is silent on operational-environment health — this skill makes that implicit gap explicit. No overlap in trigger (dispatcher = `disable-model-invocation:true`, explicit `/dispatcher`; doctor = fires on failure phrases).

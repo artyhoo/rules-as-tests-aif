@@ -122,6 +122,22 @@ When the **last stage** of a multi-stage umbrella merges, the merging session wr
 
 **Why this convention:** `priority-score.sh` completion-detection Layer C3 checks `done.md` existence per candidate and tags `status=DONE done_pr=<num> basis=done-md`. This is the load-bearing fallback layer (deterministic, zero gh rate-limit cost, covers the 83% NO-MATCH bucket that branch-prefix and jaccard cannot reach). ADAPT of Cline Memory Bank committed-markdown sub-pattern (SSOT #77 — ~85% problem-class match on storage format; diverges on update trigger: Cline = on-demand AI-signalled, ours = explicit at-merge convention).
 
+## Operational conventions (non-obvious harness gates + orchestration obligations)
+
+### Harness gates
+
+- **Agent PR merge gating:** `~/.claude/hooks/git-safety.sh` allows `gh pr merge --squash` when `base=staging` or `base=epic/*`. Base=`main` is blocked — maintainer merges manually. Retrying on a real `main`-base block is futile.
+- **500-line markdown gate:** pre-commit hook blocks commits that push any markdown file past 500 lines. Check `wc -l <file>` before adding content to near-500 files (e.g. `docs/meta-factory/open-questions.md`). To free lines: migrate resolved `§13.x` entries to `docs/meta-factory/closed-questions.md` (append-only archive — TOC row + full entry under `## Archived entries`).
+- **Homebrew PATH in hooks:** CC-launched hooks run with a stripped PATH (Homebrew absent). Hooks calling `gh`, `jq`, or other Homebrew tools must export `PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"` after `set -euo pipefail`. Symptom: hook returns empty output from `gh pr view` despite correct auth. (Codified from memory `feedback_harness_merge_block_and_500line_gate`.)
+
+### Meta-orchestrator self-review obligation
+
+Before any `/meta-orchestrator` session hands off a meta-kickoff to an orchestrator, spawn a Phase -1 cold-review (read-only Agent, adversarial) on the generated `<umbrella>-meta-launch/kickoff.md` against the umbrella's `kickoff.md`. One REVISE round maximum. The orchestrator's own Phase -1 reviews the dispatch prompt — it does NOT cover meta-synthesis bugs. Evidence: 2026-05-28 — a BLOCKER in §3 stage-gate logic was caught only by meta-level cold-review. Codification target is `~/.claude/skills/meta-orchestrator/SKILL.md §4.5` (agent-uncommittable global skill); interim home: this section. (Codified from memory `feedback_meta_orch_self_reviews_own_kickoff`.)
+
+### Phase -1 principle-test allowlist probe
+
+Phase -1 cold-review on any dispatch that ships ≥1 NEW file under principle-test-watched paths MUST include a dimension: «for each NEW path, grep `packages/core/principles/` `EXEMPT_*` allowlists + structural rule; confirm the artefact satisfies the rule OR qualifies for exemption». Watched paths: `.claude/skills/**`, `.claude/rules/**`, `agents/**`, `docs/meta-factory/research-patches/**`, `packages/core/templates/**`. Probe: `grep -rn 'EXEMPT_\|allowlist\|skip' packages/core/principles/ | grep -E '\.(test\.)?ts:' | head -20`. Evidence: PR #264 pushed twice — principle 15 (paired-negative) + principle 10 (scope annotation) both fired after an 11-dimension Phase -1 missed both. Codification target is `~/.claude/skills/orchestrator/SKILL.md` Phase -1 §Critique dimension (l) (agent-uncommittable global skill); interim home: this section. (Codified from memory `feedback_phase_minus_1_probe_exempt_allowlists`.)
+
 ## See also
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — full contributor-facing details (hook setup, bypass policy).
