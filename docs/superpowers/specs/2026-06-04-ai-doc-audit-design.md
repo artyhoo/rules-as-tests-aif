@@ -109,6 +109,21 @@ Reuse-maximal (CLAUDE.md build-vs-reuse + [build-first-reuse-default.md](../../.
 - Gap it fills: `writing-skills` lacks registry-driven portability and our Class lens.
 - Falsifier: wrong if a closer read of `writing-skills` shows it is project-specific or already covers agnosticism → then ADAPT/BUILD. (Read 2026-06-04 — covers authoring; agnosticism only partial.)
 
+## Verify, don't take on faith (live-probe obligations)
+
+«Documents lie; tests don't» applied to the audit's **own inputs** (recursive self-application; T2 «would-catch ≠ ran-it», T3 prose-only finding, T16 pattern-matching-on-name). Every channel / activation / Class claim the audit leans on MUST be **live-probed**, never read from a header. Minimum probe list (extend per cycle):
+
+| Claim to NOT trust | Live probe (not a grep of the claim) |
+|---|---|
+| `inject-matching-rule.sh` is active («wired at settings.json:114» per the rule header) | Edit a path matching a rule's `<!-- globs: -->`; confirm `additionalContext` was **actually injected** (capture hook output / session-cache file) — header ≠ firing |
+| CC `paths:` frontmatter loads a rule at read-time | read a matching file; confirm `InstructionsLoaded load_reason=path_glob_match` fires **on this CC version** |
+| the ~9 «always-on inlined» rules (my own claim this session) | confirm the **real** load mechanism (CC `.claude/rules` auto-load? `CLAUDE.md` @-import? a hook?) and measure what is truly in context — I assumed, did not verify |
+| a rule's `Class: A/B` + «Activation confirmed» | confirm the named principle-test / hook file exists **and fires** (run it) — a Class line is prose |
+| a principle-test `EXEMPT_*` allowlist covers/exempts an artefact | grep `packages/core/principles/` for the path before the verdict (CLAUDE.md Phase -1 probe) |
+| «no script gate exists for rule X» | run the 6-item search-coverage checklist before any `GATE-ONLY` / migration verdict (negative-existence) |
+
+**Rule:** a verdict citing a header/label without a matching probe is **provisional, not load-bearing** (H1). Each Audit finding carries either a probe command + output, a `file:line` with the line's actual content, or an explicit `INCONCLUSIVE-needs-live-probe` — **no prose-only findings** (T3).
+
 ## Success criteria (numeric exit — prevents «declare victory anywhere», T4/T14)
 
 The umbrella is done only when, measured before/after:
