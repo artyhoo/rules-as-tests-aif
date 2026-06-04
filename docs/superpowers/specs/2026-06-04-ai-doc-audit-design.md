@@ -23,6 +23,14 @@ This audit checks **all project documentation + the Claude Code configuration su
 
 **Falsifier:** the criterion is wrong if a rule exists whose bypass the script does **not** catch but the always-on prose **does** — then the prose carries enforcement and may not be compressed. Each of the 11 rules is checked against this.
 
+### Presumption (load-bearing — guards against over-migration / T16)
+
+This project's goal is the **inverse** of Superpowers/AIF's (which are general dev-assistants): here «AI cannot *silently* bypass a rule» ([README.md#why-this-exists](../../../README.md#why-this-exists)). So some prose carries a **second function beyond enforcement — it shapes the agent's reasoning *in the moment*** (e.g. `ai-laziness-traps`, H1 recommendation-discipline). On-demand prose does NOT fire unless the agent *thinks* to load it — and laziness means it won't. Therefore:
+
+- **Default presumption: behavioural-shaping prose STAYS always-on (compressed), not on-demand.** Burden of proof is on *moving it off*, not on keeping it.
+- `MOVE-ON-DEMAND` is justified **only** when the prose merely duplicates a script gate (reference/enforcement-dup), not when its channel is in-context presence at decision time.
+- Blindly copying Superpowers' on-demand model here is `#pattern-matching-on-name` (T16, [ai-laziness-traps.md §2](../../../.claude/rules/ai-laziness-traps.md)) — upstream's problem-class ≠ ours. Each migration verdict states «upstream problem-class X vs ours Y; match? evidence».
+
 ### Evidence base (do not re-derive without re-checking)
 
 - **AIF (`lee-to/ai-factory`, DeepWiki 2026-06-04):** skills load **on-demand** by invocation; «rules» live inside SKILL.md or a thin `AGENTS.md`; context files (`DESCRIPTION.md`, `patches/`) read on demand. Enforcement = scripts (`security-scan.py` regex, `audit.sh` grep, `verify` build/test/lint), **not** context injection. AI-agnosticism via `AGENT_REGISTRY` + `{{config_dir}}/{{skills_dir}}` template-vars + `universal` fallback + `agentskills.io` spec.
@@ -52,6 +60,8 @@ Built **first**, right after R1 establishes the target, **before** C1-Audit — 
 
 Reuse-maximal (CLAUDE.md build-vs-reuse + [build-first-reuse-default.md](../../../.claude/rules/build-first-reuse-default.md)): the wrapper *references* upstream skills and adds only the residue they don't cover. Verdict + scope are produced by R1/C1-Audit; this prerequisite is where it is built.
 
+**Keep Cycle 0 minimal-first.** `writing-skills` mandates TDD-with-subagents for a *new* skill; a full build before the audit even starts can balloon and delay it. Ship the thinnest viable wrapper (invoke upstream + the override residue), grow it on evidence from the cycles — do not gold-plate it up front.
+
 **Standing asset, not one-shot.** The audit cleans the baseline once; this skill is the on-demand standard every *future* doc edit consumes, so documentation stays in order rather than drifting back to always-on bloat. To make «in order» enforced rather than aspirational, it is paired with a lightweight **standing drift-guard** (a deterministic check — e.g. always-on context-budget ceiling, or «rule prose duplicates a script gate» grep — per [dual-implementation-discipline.md §5](../../../.claude/rules/dual-implementation-discipline.md), no paid LLM per [no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md)). Designing that guard is itself a verdict the audit produces; building it lands in a fix phase. This is what keeps the cleaned surface from re-bloating after the umbrella closes.
 
 ### The three cycles (R-target + Audit-surface widen each round)
@@ -68,9 +78,9 @@ Reuse-maximal (CLAUDE.md build-vs-reuse + [build-first-reuse-default.md](../../.
 
 ## Per-artefact classification — 4 axes
 
-1. **Context-cost** — tokens/turn × relevance-frequency. **Measured**, not eyeballed (`wc -c`, injection-frequency from hook wiring).
+1. **Context-cost** — token weight (`wc -c`, measured — baseline 151 558 B across the 11 rules) × a **discrete** relevance bucket (`every-turn` / `by-trigger` / `rare`), classified from hook wiring + a grep over the last N session transcripts for actual citation/fire count. No fabricated continuous «frequency %» (T6).
 2. **Enforcement-channel** — does a script gate exist; does always-on prose duplicate the script.
-3. **AI-agnosticism** — portable (AIF registry / template-vars) or CC-hardcoded; does it degrade gracefully without the harness.
+3. **AI-agnosticism** — portable (AIF registry / template-vars) or CC-hardcoded; does it degrade gracefully without the harness. **`MAKE-PORTABLE` requires a cited real consumer need** — if no non-CC consumer exists today, portability work is `#integration-overhead-overestimate` (build-ahead-of-need); record as DEFER-with-trigger, not an active fix.
 4. **Standard-conformance** — against AIF / Superpowers / Anthropic / 2H-2026 practice; what drifted.
 
 ## Doc-skill — BFR verdict (verdict in C1-Audit; built in C1-I)
@@ -80,6 +90,16 @@ Reuse-maximal (CLAUDE.md build-vs-reuse + [build-first-reuse-default.md](../../.
 - Rationale: duplicating `writing-skills` = `#parallel-evolution-creep` ([build-first-reuse-default.md §4](../../../.claude/rules/build-first-reuse-default.md)).
 - Gap it fills: `writing-skills` lacks registry-driven portability and our Class lens.
 - Falsifier: wrong if a closer read of `writing-skills` shows it is project-specific or already covers agnosticism → then ADAPT/BUILD. (Read 2026-06-04 — covers authoring; agnosticism only partial.)
+
+## Success criteria (numeric exit — prevents «declare victory anywhere», T4/T14)
+
+The umbrella is done only when, measured before/after:
+
+- **Net always-on context ↓** — total bytes of always-on-injected rule/doc prose strictly lower than the 151 558 B baseline (target set per-cycle in C1-Audit; the cure must not out-bloat the disease — new doc-skill + drift-guard + spec count *against* the budget).
+- **Zero script-gate weakened** — every existing hook / principle-test gate still fires on the same bypass it caught before (the spine falsifier, re-run each Verify).
+- **Every behavioural-shaping rule still reaches the agent** at its decision point (always-on-compressed or path-scoped-injected — never silently dropped).
+
+If net context did not drop OR any gate weakened → the cycle failed Verify, regardless of how clean the verdict table looks.
 
 ## Recursive self-application (project invariant #2)
 
