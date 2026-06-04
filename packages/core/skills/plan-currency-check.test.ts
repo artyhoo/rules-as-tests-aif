@@ -124,9 +124,11 @@ beforeEach(() => {
   write(wavePlanPath, WAVE_PLAN_WITH_ITEMS);
 
   // mock-gh binary: returns two merged PRs — #100 (in plan) and #200 (not in plan)
-  // Both use mergedAt = "1970-01-01T00:00:00Z" which will be >= cutoff 0 (guaranteed recent-ish for test)
-  // We use a very old date AND pass cutoff=0 via the argjson in jq to ensure both pass the filter.
-  // The mock returns current-ish dates to pass the 30d filter (use a fixed recent date).
+  // mergedAt is computed dynamically (5 days ago) so it always falls within the script's
+  // 30-day cutoff window regardless of wall-clock date. A hard-coded date (was 2026-05-01)
+  // bit-rots: once `now` advances >30d past it, both PRs get filtered out and the positive
+  // UNTRACKED-N tests silently fail. The date math mirrors the script's own portable
+  // darwin (`-v`) → GNU (`-d`) fallback (plan-currency-check.sh:82,136).
   const mockGhDir = join(tmpRoot, 'bin');
   mkdirSync(mockGhDir, { recursive: true });
   mockGhBin = join(mockGhDir, 'mock-gh');
@@ -135,11 +137,11 @@ beforeEach(() => {
     [
       '#!/usr/bin/env bash',
       '# Mock gh — returns two merged PRs; #100 is in the wave plan, #200 is not.',
-      '# mergedAt is set to 2026-05-01 (within 30d from 2026-05-25) to pass the cutoff filter.',
-      'echo \'[',
-      '  {"number":100,"title":"feat: some feature already in plan","mergedAt":"2026-05-01T00:00:00Z"},',
-      '  {"number":200,"title":"feat: untracked feature not in plan","mergedAt":"2026-05-01T00:00:00Z"}',
-      ']\'',
+      "RECENT=\"$(date -u -v-5d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '5 days ago' +%Y-%m-%dT%H:%M:%SZ)\"",
+      'echo "[',
+      '  {\\"number\\":100,\\"title\\":\\"feat: some feature already in plan\\",\\"mergedAt\\":\\"${RECENT}\\"},',
+      '  {\\"number\\":200,\\"title\\":\\"feat: untracked feature not in plan\\",\\"mergedAt\\":\\"${RECENT}\\"}',
+      ']"',
     ].join('\n'),
   );
   chmodSync(mockGhBin, 0o755);
