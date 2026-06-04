@@ -1,4 +1,12 @@
+---
+paths:
+  - ".claude/orchestrator-prompts/**"
+---
+
 # Parallel sub-wave isolation — discipline rule
+
+<!-- globs: .claude/orchestrator-prompts/** -->
+<!-- inject: Parallel sub-wave isolation: use git worktrees (scripts/create-worktree.sh). Never run parallel sessions in shared workdir. Sequential fallback if worktree-add fails. -->
 
 > **Class:** C — prose-only; the preventive enforcement primitive is **dogfooded from upstream** (Superpowers `using-git-worktrees`, SSOT #65) rather than built — the own AST-detection ambition is **dropped** per §4 (N7, 2026-05-22).
 > **Authoritative for:** parallel-subwave-isolation rule — §1 git worktree requirement for parallel Sonnet sessions, §2 sequential-fallback escape hatch, §3 anti-patterns (`#shared-workdir-parallel`, `#branch-race-on-checkout`), §4 promotion / retirement triggers, §5 §1.7 self-reflexive note.
