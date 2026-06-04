@@ -1,14 +1,14 @@
 # AI Documentation & Context-Hygiene Audit — design spec
 
 > **Status:** design approved 2026-06-04 (brainstorming). Awaiting writing-plans.
-> **Authoritative for:** the `ai-doc-audit` umbrella — **ONE mega-umbrella, one task**: 3 progressively-widening audit→fix cycles. Its goal, spine criterion, stage decomposition, per-artefact classification axes, doc-skill BFR verdict, and self-application obligation.
+> **Authoritative for:** the `ai-doc-audit` umbrella — **ONE mega-umbrella, one task**: 3 progressively-widening cycles, each = **R (research the target) → Audit (conformance + fix-plan) → I (implement) → Verify (check the work)**. Its goal, spine criterion, stage decomposition, per-artefact classification axes, doc-skill BFR verdict, and self-application obligation.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
 
 ## Why this exists
 
 The project enforces conventions by front-loading them: **11 `.claude/rules/*.md` (~151 KB), ~9 inlined always-on every session**, plus **13 hooks** injecting on each prompt/turn. This is the exact failure the maintainer named — rules/MCP/skills polluting context where they are not needed — and it reproduces live: most of those rules sit in this very session's context unused.
 
-This audit checks **all project documentation + the Claude Code configuration surface** against three external standards that converge on one criterion. It is **one mega-umbrella, one task**, run as **3 progressively-widening audit→fix cycles**: each audit produces verdicts, the paired fix applies them, and the next (wider) audit runs on the cleaned base and re-checks the prior fix held. Fixes are **not** deferred to separate umbrellas — they are interleaved stages of this umbrella.
+This audit checks **all project documentation + the Claude Code configuration surface** against three external standards that converge on one criterion. It is **one mega-umbrella, one task**, run as **3 progressively-widening cycles**. Each cycle re-runs the full phase sequence — **R → Audit → I → Verify** — on a wider surface, then re-checks the prior cycle's fixes held. Fixes are **not** deferred to separate umbrellas; every phase is a stage of this one umbrella.
 
 ## Spine criterion (triple-validated)
 
@@ -29,25 +29,42 @@ This audit checks **all project documentation + the Claude Code configuration su
 - **Superpowers `writing-skills/SKILL.md` (local cache):** «Mechanical constraints (if it's enforceable with regex/validation, **automate it — save documentation for judgment calls**). Project-specific conventions (put in CLAUDE.md).» Bundles `anthropic-best-practices.md` (progressive disclosure). Skills are on-demand via the Skill tool; only `using-superpowers` is injected at SessionStart.
 - **Anthropic official** ([Equipping agents with Agent Skills](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills); [skill-authoring patterns](https://generativeprogrammer.com/p/skill-authoring-patterns-from-anthropics); [context engineering](https://01.me/en/2025/12/context-engineering-from-claude/)): **progressive disclosure** (small SKILL.md, referenced files loaded only as needed); descriptions third-person + «pushy» + ≤1024 chars; explain the *reason* behind a rule; code is either an executable tool or reference — mark which.
 
-## Decomposition — 3 audit→fix cycles, progressively widening (separate session each)
+## Decomposition — 3 cycles × (R → Audit → I → Verify), progressively widening
 
-Whole surface, decomposed to preserve quality and avoid `#focus-tunnel` / T-series traps. Each stage is its own session. Scope widens each cycle; each fix runs before the next audit so the wider audit operates on a cleaned base **and** re-verifies the prior fix did not regress.
+Whole surface, decomposed to preserve quality and avoid `#focus-tunnel` / T-series traps. **Each phase is its own session.** Scope widens each cycle; the I-phase runs before the next cycle's R/Audit so the wider cycle operates on a cleaned base, and each cycle's Verify re-checks the prior cycle did not regress.
 
-| Stage | Kind | Surface | Rationale |
-|---|---|---|---|
-| **A1** | audit | CC-config: `.claude/rules/*` (×11), `.claude/hooks/*` (×13), `.claude/skills/*` (×7), `agents/*` (×5), `.claude/settings.json` + root docs: README, CLAUDE.md, INSTALL.md, INSTALL-FOR-AI.md, `.claude/session-bootstrap.md` | Sharpest signal — exactly what is **always-on (eats context)** + **shipped to consumers**. |
-| **F1** | fix | apply A1 verdicts (incl. doc-skill build) | Clean the highest-cost surface first. |
-| **A2** | audit | **A1 surface (regression re-check) +** `docs/meta-factory/*` — EXECUTION-PLAN, open/closed-questions, research-patches, retros | Wider; large prose volume, drift + duplication. |
-| **F2** | fix | apply A2 verdicts | — |
-| **A3** | audit | **everything: A1+A2 surface (regression) +** `packages/*` — principle-tests, templates, preset | Full sweep; final roll-up consolidates all verdicts. |
-| **F3** | fix | apply A3 verdicts + close-out | Umbrella `done.md`. |
+### The four phases (re-run every cycle)
 
-Each **audit** stage output:
-- Per-artefact verdict table: `KEEP-ALWAYS-ON / COMPRESS-TO-DIGEST / MOVE-ON-DEMAND / MAKE-PORTABLE`.
-- Ordered fix-list for the paired fix stage.
-- A1 additionally: the doc-skill BFR verdict (below).
+| Phase | Project term | Does | Deliverable | Discipline |
+|---|---|---|---|---|
+| **R** | R-phase (research) | Establish **«how it should be»** — the target standard for this cycle's surface (AIF / Superpowers / Anthropic / 2H-2026). No source edits (T5). | research-patch under `docs/meta-factory/research-patches/` | search-coverage 6-item checklist; cite SSOT by ID |
+| **Audit** | conformance check | Measure this cycle's surface **against R's target**; classify each artefact; decide **«how to fix»**. No source edits. | verdict table + ordered fix-list | T1/T9/T10 sampling-floor + population-enumeration |
+| **I** | I-phase (implement) | Apply the fix-list. Atomic commits; capability-commit gate where it applies. | PR(s) of edits | atomic-umbrella; no scope creep |
+| **Verify** | own QA + regression | Cold-review the diff (T19, own-QA-before-handoff); confirm spine-criterion falsifier did not fire; **re-check prior cycles' fixes held**. | verify note / cold-review verdict | CI ≠ design review |
 
-Each **fix** stage applies its audit's verdicts (atomic commits, capability-commit gate where it applies), then a cold-review before the next audit.
+### Cycle 0 — prerequisite: the doc-authoring skill (thin wrapper)
+
+Built **first**, right after R1 establishes the target, **before** C1-Audit — so every later Audit + I phase *consumes it* as the binding «how to write/fix an AI doc» standard rather than re-deriving it. It is a **thin project wrapper that composes existing skills, not a fork**:
+
+- **base:** Superpowers `writing-skills` (TDD-for-docs + bundled `anthropic-best-practices.md` + progressive disclosure) — invoked, not copied.
+- **+ AIF layer:** `AGENT_REGISTRY` + `{{config_dir}}/{{skills_dir}}` template-vars + `universal` fallback (the portability `writing-skills` lacks).
+- **+ project lens:** `rules-as-tests` Class A/B/C + doc-authority header spec + the spine criterion.
+
+Reuse-maximal (CLAUDE.md build-vs-reuse + [build-first-reuse-default.md](../../../.claude/rules/build-first-reuse-default.md)): the wrapper *references* upstream skills and adds only the residue they don't cover. Verdict + scope are produced by R1/C1-Audit; this prerequisite is where it is built.
+
+**Standing asset, not one-shot.** The audit cleans the baseline once; this skill is the on-demand standard every *future* doc edit consumes, so documentation stays in order rather than drifting back to always-on bloat. To make «in order» enforced rather than aspirational, it is paired with a lightweight **standing drift-guard** (a deterministic check — e.g. always-on context-budget ceiling, or «rule prose duplicates a script gate» grep — per [dual-implementation-discipline.md §5](../../../.claude/rules/dual-implementation-discipline.md), no paid LLM per [no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md)). Designing that guard is itself a verdict the audit produces; building it lands in a fix phase. This is what keeps the cleaned surface from re-bloating after the umbrella closes.
+
+### The three cycles (R-target + Audit-surface widen each round)
+
+| Cycle | Surface (Audit + I + Verify operate on) | R-phase target focus |
+|---|---|---|
+| **C1** | CC-config: `.claude/rules/*` (×11), `.claude/hooks/*` (×13), `.claude/skills/*` (×7), `agents/*` (×5), `.claude/settings.json` + root docs (README, CLAUDE.md, INSTALL.md, INSTALL-FOR-AI.md, `.claude/session-bootstrap.md`) | Context-hygiene + AI-agnosticism for **always-on + shipped** surface. **R1 substantially pre-done this session** → the spine criterion above + doc-skill BFR verdict. |
+| **C2** | **C1 surface (regression) +** `docs/meta-factory/*` (EXECUTION-PLAN, open/closed-questions, research-patches, retros) | Doc-authority + drift/duplication standard for large prose corpus. |
+| **C3** | **C1+C2 surface (regression) +** `packages/*` (principle-tests, templates, preset) + final roll-up | Standard for executable artefacts + shipped templates; consolidate. C3-I closes the umbrella (`done.md`). |
+
+**Audit-phase output** = per-artefact verdict table `KEEP-ALWAYS-ON / COMPRESS-TO-DIGEST / MOVE-ON-DEMAND / MAKE-PORTABLE` + ordered fix-list. C1-Audit additionally carries the doc-skill BFR verdict (below); C1-I builds it.
+
+**Gate between phases:** R's research-patch is the binding target for that cycle's Audit; the Audit's fix-list is the binding scope for that cycle's I; Verify must pass before the next cycle's R begins.
 
 ## Per-artefact classification — 4 axes
 
@@ -56,7 +73,7 @@ Each **fix** stage applies its audit's verdicts (atomic commits, capability-comm
 3. **AI-agnosticism** — portable (AIF registry / template-vars) or CC-hardcoded; does it degrade gracefully without the harness.
 4. **Standard-conformance** — against AIF / Superpowers / Anthropic / 2H-2026 practice; what drifted.
 
-## Doc-skill — BFR verdict (verdict produced in A1; built in F1)
+## Doc-skill — BFR verdict (verdict in C1-Audit; built in C1-I)
 
 **Verdict: ADOPT Superpowers `writing-skills` as the authoring base (it already bundles Anthropic's official guidance + progressive disclosure + the exact «automate vs document» boundary) + ADAPT an AI-agnostic layer from AIF (`AGENT_REGISTRY` + template-vars + `universal` fallback) + our `rules-as-tests` Class A/B/C lens.** Result = a thin project override/wrapper referencing upstream, **not** a fork.
 
@@ -75,6 +92,7 @@ The audit MUST audit itself: this spec and the umbrella kickoffs themselves foll
 
 ## Open questions for writing-plans
 
-- Wiring the 6 stages into the project's `.claude/orchestrator-prompts/<umbrella>/kickoff.md` machinery (one kickoff with 6 stage-gates) vs. running each as a plain dispatched session.
-- Whether A1's context-cost measurement needs a reusable helper script (capability-commit gate applies if ≥50–80 LOC).
-- Gate policy between cycles: does a wider audit (A2/A3) block on its predecessor fix's PR merge, or run in parallel on the branch.
+- Wiring the cycles into the project's `.claude/orchestrator-prompts/<umbrella>/kickoff.md` machinery — one kickoff with R/Audit/I/Verify stage-gates per cycle vs. a plain dispatched session per phase.
+- Whether C1-Audit's context-cost measurement needs a reusable helper script (capability-commit gate applies if ≥50–80 LOC).
+- Gate policy between cycles: does the next cycle's R/Audit block on the predecessor cycle's I-phase PR merge, or run on the branch ahead of merge.
+- Whether C2/C3 R-phases are full re-research or thin deltas over R1's target (likely deltas — the spine criterion is surface-agnostic).
