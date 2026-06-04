@@ -81,9 +81,10 @@ function write(filePath: string, content: string): void {
   writeFileSync(filePath, content, 'utf8');
 }
 
-/** Run plan-currency-check.sh with all fixture env vars injected. */
-function runScript(extraEnv: Record<string, string> = {}): string {
-  return execFileSync('bash', [SCRIPT], {
+/** Run plan-currency-check.sh with optional umbrella arg + fixture env vars. */
+function runScript(extraEnv: Record<string, string> = {}, umbrella?: string): string {
+  const args = umbrella ? [SCRIPT, umbrella] : [SCRIPT];
+  return execFileSync('bash', args, {
     encoding: 'utf8',
     // plan-currency-check.sh may exit non-zero on git errors; capture stderr too
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -291,5 +292,34 @@ describe('plan-currency-check.sh — T15 self-application + structural verificat
 
     // Existing T17 marker (pre-L2 behaviour preserved)
     expect(src).toContain('@cc-only-rationale');
+    // pipeline-ux P1: named-mode guard present in script (not prose-only)
+    expect(src).toContain('named-mode');
+  });
+});
+
+// ── Named-mode compact output tests (pipeline-ux Stage 1) ────────────────────
+describe('plan-currency-check.sh — named-mode compact (pipeline-ux P1)', () => {
+  it('named-mode: exits with compact header (not the full 47KB scan)', () => {
+    const out = runScript({}, 'some-umbrella');
+    expect(out).toContain("umbrella='some-umbrella' named-mode");
+  });
+  it('named-mode: kickoff EXISTS reported when dir present', () => {
+    // Create a kickoff.md fixture for 'some-umbrella'
+    const promptsDir2 = join(tmpRoot, '.claude', 'orchestrator-prompts', 'some-umbrella');
+    mkdirSync(promptsDir2, { recursive: true });
+    writeFileSync(join(promptsDir2, 'kickoff.md'), '# kickoff\n');
+    const out = runScript({}, 'some-umbrella');
+    expect(out).toContain('kickoff: EXISTS');
+    expect(out).not.toContain('MISSING');
+  });
+  it('named-mode: kickoff MISSING reported when dir absent', () => {
+    const out = runScript({}, 'nonexistent-umbrella');
+    expect(out).toContain('kickoff: MISSING');
+  });
+  it('named-mode: output is compact (no raw JSON blobs or merged-PR listings)', () => {
+    const out = runScript({}, 'some-umbrella');
+    expect(out).not.toContain('"number"');    // no JSON PR dump
+    expect(out).not.toContain('merged PRs');  // no full merged-PR section
+    expect(out.split('\n').length).toBeLessThan(10); // ≤10 lines
   });
 });

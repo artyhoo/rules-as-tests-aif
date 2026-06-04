@@ -65,6 +65,16 @@
 #   no portable equivalent fires at the same moment (PostToolUse timing is CC-specific).
 set -euo pipefail
 
+# Named-mode early-exit: priority scoring is §2 only (no-arg / integer-arg mode).
+# String arg = named umbrella → skip full backlog scan (pipeline-ux P2).
+# Integer arg = top-N request → proceed normally (V4 binding).
+_ARG="${1:-}"
+if [[ -n "$_ARG" ]] && [[ "$_ARG" =~ [^0-9] ]]; then
+  echo "=== priority-score: named-mode skip (umbrella=${_ARG}) ==="
+  echo "=== priority-score: END rc=0 ==="
+  exit 0
+fi
+
 # Seam overrides (used by tests to inject fixtures; set BEFORE git-derived defaults)
 # REPO_ROOT may be pre-set by caller (e.g. test harness); if not, derive from git.
 # REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh

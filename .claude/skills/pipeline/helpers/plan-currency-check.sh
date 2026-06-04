@@ -21,6 +21,24 @@ set -euo pipefail
 
 UMBRELLA="${1:-}"
 
+# Named-mode compact: skip the full 47KB scan — only check kickoff existence.
+# CC fires all !-fences at skill-load before arg-routing, so the cost must be
+# suppressed in the script itself (pipeline-ux P1/P2).
+if [[ -n "$UMBRELLA" ]]; then
+  echo "=== plan-currency-check: umbrella='${UMBRELLA}' named-mode ==="
+  # REPO_ROOT needed for kickoff check; source minimal path without full seam setup.
+  _SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+  source "${_SCRIPT_DIR}/lib/common.sh"
+  KICKOFF_PATH="${REPO_ROOT}/.claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"
+  if [[ -f "$KICKOFF_PATH" ]]; then
+    echo "kickoff: EXISTS — .claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"
+  else
+    echo "kickoff: MISSING — .claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"
+  fi
+  echo "=== plan-currency-check: END rc=0 ==="
+  exit 0
+fi
+
 # Seam overrides (used by tests to inject fixtures; set BEFORE git-derived defaults)
 # REPO_ROOT may be pre-set by caller (e.g. test harness); if not, derive from git.
 # REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh

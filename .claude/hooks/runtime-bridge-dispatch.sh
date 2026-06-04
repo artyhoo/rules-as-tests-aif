@@ -49,13 +49,18 @@ esac
 
 [[ -z "$FILE_PATH" ]] && exit 0
 
-# ── Path filter: *-meta-launch/kickoff.md ────────────────────────────────────
-# Matches: .claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md
-# Does NOT match: arbitrary source files, other kickoff.md files.
+# ── Path filter ──────────────────────────────────────────────────────────────
+# *-meta-launch/kickoff.md: SKIP (pipeline-ux P4). These are /pipeline dispatch
+#   records written by the SKILL, not umbrella kickoffs to send to aif. Auto-
+#   dispatch here creates a spurious aif task that must be hand-parked on every
+#   /pipeline invocation. Dispatch happens explicitly via /dispatcher instead.
+# */kickoff.md (other): active — umbrella kickoffs written directly by an agent
+#   or operator should dispatch to aif.
 # Bash glob note: the [[ == ]] pattern uses bash extglob (not regex); we use
 # a case statement for broader compatibility.
 case "$FILE_PATH" in
-  *-meta-launch/kickoff.md) ;;
+  *-meta-launch/kickoff.md) exit 0 ;;  # pipeline-ux P4: skip /pipeline dispatch records
+  */kickoff.md) ;;
   *) exit 0 ;;
 esac
 

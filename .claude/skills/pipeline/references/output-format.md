@@ -109,6 +109,45 @@ Total open umbrellas: <K> (after §2.5 completion-filter; recently DONE entries 
 
 ---
 
+## §1B Named-dispatch compact format (pipeline-ux Stage 2)
+
+> **Origin:** pipeline-ux Stage 2 (2026-06-04). Operator feedback: «почему столько текста». The live run produced walls of per-step narration on every `/pipeline <umbrella>` invocation.
+
+Emitted by `/pipeline <umbrella>` (string arg). Same 3-layer structure as §1 but **bounded to ≤~15 visible lines**: dep-graph + action-queue + 1-liner blocks WITHOUT the verbose 3-line `What it does / Deliverable / Why now` description block per stage. Description blocks are optional in named-dispatch mode — the operator already selected the umbrella.
+
+**Rule:** drop per-step §2.5 narration (plan-currency annotation, priority scoring trace, classify-work output) from the session report. Emit result only. Keep `## Dependency graph` / `↓` / `## Action queue` / `### Stage` structure — principle 18 anchors must remain.
+
+```text
+═══════════════════════════════════════════════════════════════
+EXECUTION PLAN — <umbrella> (<YYYY-MM-DD>)
+═══════════════════════════════════════════════════════════════
+
+## Dependency graph
+
+├── Stage 1 — <name>   (<Mode>, ~<cost>)
+│
+↓
+└── Stage 2 — <name>   (<Mode>, ~<cost>)
+
+## Action queue — what you do next
+
+| Paste into a new CC tab | When | Waiting on | Can parallel with |
+|---|---|---|---|
+| `<1-liner Stage 1>` | now | — | nothing |
+
+### Stage 1 — <name> (<Mode>, ~<cost>)
+
+`<1-liner>` ← paste this into a new CC tab
+
+═══════════════════════════════════════════════════════════════
+```
+
+**Coexistence:** §1B does not replace §1. Full §1 format (with description blocks) is used when emitting for the first time or when the operator explicitly requested detail. §1B is the default for re-invocations and follow-up dispatches where context is already established.
+
+**Falsifiers:** wrong if §1B output exceeds ~15 lines for a 2-stage umbrella; wrong if any of the 6 principle-18 substrings (`## Dependency graph` / `↓` / `## Action queue` / `Paste into a new CC tab` / `Can parallel with` / `### Stage`) is absent from the §1B skeleton above.
+
+---
+
 ## §2 Dependency graph
 
 ADAPTed from Argo Workflows' CLI tree (F.1 §A.1 Candidate 3). Prospective (shows WILL run), not retrospective (which is what Argo shows during execution).

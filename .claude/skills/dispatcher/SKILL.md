@@ -62,6 +62,20 @@ All 4 CLI primitives are pre-built. `/dispatcher` wires them — it does NOT bui
 
 Steps run in order for each stage kickoff. After §2.7, loop back to §2.1 with the next stage kickoff, or emit "umbrella complete".
 
+**§2.0 — Pre-dispatch dedup guard (run before §2.1)**
+```bash
+slug="<umbrella>"
+git branch -a --list "*${slug}*"                              # Signal 1: branch match
+gh pr list --state all --search "${slug}" --json number,state # Signal 2: broad PR search (not in:title)
+test -f ".claude/orchestrator-prompts/${slug}/done.md"        # Signal 3: done.md (Layer-C3)
+```
+Verdict — **≥2 of 3 signals required** to mark ALREADY-DONE (T-DUX-A: lone slug-substring PR hit is insufficient):
+- **ALREADY-DONE**: skip dispatch → auto-write `done.md` + CANON sync + report (CLEAR action — **never surface as question**, T15 / P4); see §2.8 for schema
+- **IN-FLIGHT**: open PR or live branch, no done.md → surface + let operator decide
+- **FRESH** (0–1 signals): proceed to §2.1
+
+**Base normalization (P3):** before §2.1, run `git remote set-head origin --auto` to refresh trunk ref. If kickoff's stated base diverges from live trunk, warn and use live trunk for harvest `--base` in §2.4.
+
 **§2.1 — Dispatch**
 ```bash
 tsx packages/runtime-bridge/src/cli/dispatch.ts \
@@ -69,12 +83,17 @@ tsx packages/runtime-bridge/src/cli/dispatch.ts \
 ```
 `AifHandoffBackend.dispatch()` → `POST /tasks (paused:true)` → `PUT /tasks/:id (unpause)` → aif coordinator picks up: `backlog → planning` (per-task worktree created) → `implementing`. The `exit 0` contract holds at every call-site — a ManualBackend fallback (written to `/tmp/runtime-bridge-<taskId>.md`) means aif was unreachable; retry once the blocker clears.
 
-**§2.2 — Monitor (poll)**
-Poll `GET /tasks/:id` until status changes. Status branches:
-- `implementing` / `planning` → still running, continue polling
-- `done` / `verified` → terminal → go to §2.4 (harvest)
-- Any parked signal (see §3 taxonomy) → go to §2.3 (Q&A)
-- Timeout after operator-configured ceiling → surface as **ATTN: task stalled** to operator. A stall is an *environment* symptom, not a loop bug — **run [`/aif-doctor`](../aif-doctor/SKILL.md)** to triage it (distinguishes a runtime crash-loop / capacity saturation / proxy block from a slow-stale task the upstream watchdog will recover on its own). Do not re-dispatch blindly.
+Emit watch-link immediately after dispatch (P6): `http://${AIF_WEB_HOST:-localhost}:${AIF_WEB_PORT:-5180}/tasks/<taskId>`. Web port (`AIF_WEB_PORT`, default `5180`) is separate from API port (`AIF_PORT`, default `3009`). If the web container is absent, emit the REST task URL instead.
+
+**§2.2 — Monitor (single-poll-per-turn)**
+Classify one poll using `monitor-classify.sh` (proven by `packages/core/skills/dispatcher/monitor.test.ts`):
+```bash
+TASK_JSON=$(curl -s "http://${AIF_HOST:-localhost}:${AIF_PORT:-3009}/tasks/<taskId>")
+classification=$(TASK_JSON="$TASK_JSON" bash .claude/skills/dispatcher/helpers/monitor-classify.sh)
+```
+Branch on output prefix: `RUNNING:*` → re-invoke `/dispatcher <umbrella>` next turn. `DONE:*` → §2.4. `PARKED:*` → §2.3. `ERROR:*` → ATTN operator.
+**DO NOT** use foreground `sleep <N>` — harness-blocked. **DO NOT** chain commands with `;` compound sequences — harness-blocked.
+Timeout: track invocation count; after operator-configured ceiling → surface **ATTN: task stalled**. A stall is an *environment* symptom, not a loop bug — **run [`/aif-doctor`](../aif-doctor/SKILL.md)** to triage it (distinguishes a runtime crash-loop / capacity saturation / proxy block from a slow-stale task the upstream watchdog will recover on its own). Do not re-dispatch blindly.
 
 **§2.3 — Q&A (three types — see §3)**
 
@@ -99,7 +118,15 @@ gh pr list --search "is:merged head:<branch> base:staging" --json number,mergedA
 Empty → HALT (PR not yet merged; wait for CI). Non-empty → CLEAR, proceed to §2.7.
 
 **§2.7 — Advance**
-Dispatch next stage kickoff → back to §2.1. If no remaining stages → emit "umbrella complete".
+Dispatch next stage kickoff → back to §2.1. If no remaining stages → §2.8.
+
+**§2.8 — Closure marker (P2)**
+Write `done.md` schema (`# <umbrella> — DONE` / `- Final PR: #<num>` / `- Closed: <YYYY-MM-DD>` / `- Summary: <one-line>`) and CANON sync:
+```bash
+cp .claude/orchestrator-prompts/<umbrella>/done.md \
+   ~/.claude-coordination/<repo-slug>/<umbrella>/done.md
+```
+Also write retroactively when §2.0 detects ALREADY-DONE but `done.md` is absent.
 
 ---
 
@@ -185,17 +212,6 @@ The operator manually tracked task IDs, polled `GET /tasks/:id` in a shell loop,
 
 ## §6 §1.7 self-reflexive note
 
-**Forward-check:**
-- `build-first-reuse-default.md §3` — BUILD verdict confirmed via all 5 BFR mechanism layers: SSOT consult (#27/#28/#64/#65/#67/#88/#83/#109 reviewed, no existing row covers the loop-wiring capability); DeepWiki ≥3 phrasings (aif autoMode, bassimeledath/dispatch, obra/superpowers SDD — all confirmed T16 problem-class mismatch); WebSearch ≥3 phrasings. New SSOT #111 added in this commit. `build-first-reuse-default.md:3`
-- `dual-implementation-discipline.md §3` — dual (CC-native primary + portable fallback): `/dispatcher` is the execution sibling of the shipped `/pipeline` (both are `.claude/skills/*` consumer-facing skills); per `dual-implementation-discipline.md §3` the consumer-facing default is dual, so the skill is authored dual proactively. The `install.sh` payload copy-block for `/dispatcher` is a Stage-2/follow-up step (precedent: the `/pipeline` block at `install.sh:240`) — not yet wired in this commit. CC-absent path degrades technical forks to surface-to-operator. `dual-implementation-discipline.md:3`
-- `no-paid-llm-in-ci.md §1` — all dispatch is session-bound; `harvest.ts:18-19` is ZERO LLM; `questions.ts` is READ-ONLY HTTP; `answer.ts` is REST-only. No API-billed calls. `no-paid-llm-in-ci.md:1`
-- `recommendation-laziness-discipline.md §3` — autonomous technical-fork resolution applies `superpowers:brainstorming` before calling `answer.ts` (brainstorm-before-answer, evidence-bearing). `recommendation-laziness-discipline.md:3`
-- `ai-laziness-traps.md §2 T16` — explicit problem-class X-vs-Y written for all 3 upstream candidates (aif autoMode, bassimeledath/dispatch, obra/superpowers SDD — all confirmed no match). `ai-laziness-traps.md:2`
+**Stage 1 (dispatcher-ux):** `monitor-classify.sh` REUSES `priority-score.sh` Layer-C3 completion-detection pattern (BFR verdict REUSE, `build-first-reuse-default.md:3`; same problem class confirmed — task-status classification vs umbrella-completion classification). Tests at `packages/core/skills/dispatcher/monitor.test.ts:1`. Original BUILD-verdict forward/backward checks at `docs/meta-factory/dispatcher-skill-rphase.md`.
 
-**Backward-check:**
-- `.claude/skills/pipeline/SKILL.md` — `/dispatcher` is COMPLEMENTARY; `/pipeline` owns plan + priority + launch-table. No supersession; `/pipeline §5` dispatch-tree «autonomous-dispatch» row is what this skill automates. `pipeline/SKILL.md:313`
-- `packages/runtime-bridge/src/cli/dispatch.ts` — primary dispatch primitive; `exit 0` contract across all call-sites (`dispatch.ts:14-19`). Loop step §2.1 maps to `AifHandoffBackend.ts:148-214`.
-- `packages/runtime-bridge/src/cli/harvest.ts` — egress primitive; ZERO LLM (`harvest.ts:18-19`); wrong-branch throw documented as §4 ATTN condition.
-- `packages/runtime-bridge/src/cli/questions.ts` — read-only; park detection at `questions.ts:85-93`; brainstorm nudge at `questions.ts:155-158`.
-- `packages/runtime-bridge/src/cli/answer.ts` — A-park `resume` path at `answer.ts:207-212`; B-park `request_changes`/`retry` at `answer.ts:228-254`. Park-type taxonomy in §3 reflects both.
-- `packages/runtime-bridge/src/cli/park.ts` (SSOT #109) — the deliberate-park primitive this skill's Q&A loop consumes; built as a separate capability commit.
+**Stage 2 (dispatcher-ux-s2):** P2 (`§2.8` closure-marker schema + CANON sync, `CLAUDE.md:umbrella-closure`), P3 (base-normalization note in `§2.0`, `parallel-subwave-isolation.md:1`), P4 (self-application — ALREADY-DONE writes done.md without surfacing question, `recommendation-laziness-discipline.md:3`), P6 (watch-link `§2.1`, `packages/core/skills/dispatcher/dispatch.test.ts:1`). No new CLI primitives, no npm deps.
