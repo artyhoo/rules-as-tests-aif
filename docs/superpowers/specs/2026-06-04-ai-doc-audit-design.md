@@ -55,6 +55,28 @@ The deepest risk (over-migration) is resolved by an existing **mature, dogfooded
 - **Superpowers `writing-skills/SKILL.md` (local cache):** «Mechanical constraints (if it's enforceable with regex/validation, **automate it — save documentation for judgment calls**). Project-specific conventions (put in CLAUDE.md).» Bundles `anthropic-best-practices.md` (progressive disclosure). Skills are on-demand via the Skill tool; only `using-superpowers` is injected at SessionStart.
 - **Anthropic official** ([Equipping agents with Agent Skills](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills); [skill-authoring patterns](https://generativeprogrammer.com/p/skill-authoring-patterns-from-anthropics); [context engineering](https://01.me/en/2025/12/context-engineering-from-claude/)): **progressive disclosure** (small SKILL.md, referenced files loaded only as needed); descriptions third-person + «pushy» + ≤1024 chars; explain the *reason* behind a rule; code is either an executable tool or reference — mark which.
 
+## The reconciliation — «every rule = a test» AND «no context pollution» do not conflict
+
+The two requirements are about **different artefacts**: the *test* (code) and the *doc* (prose). The felt conflict is conflation; separate them and it dissolves.
+
+**Grounded in the project's own invariant** ([README.md#why-this-exists](../../../README.md#why-this-exists)): «every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit». Every listed channel is **code/gate** — none is «always-on context». So «rule = test» is satisfied by **code at a channel, zero standing context**. Keeping prose always-on adds nothing to the test property.
+
+**Generalisation: every rule carries a *deterministic activation artefact* — gate OR trigger — never best-effort semantic loading or always-on bloat. Context is paid only when the trigger fires.**
+
+| Rule kind | The activation artefact (= the «test») | Prose lives | Idle context |
+|---|---|---|---|
+| mechanically detectable | **gate**: hook / principle-test / regex at earliest channel (code) | on-demand reference | **0** |
+| judgment + detectable trigger-moment | **trigger-test**: deterministic hook (path / event / tool) injects the digest *when the trigger fires* | path-scoped / event-injected | **0** until trigger |
+| pure always-relevant invariant (**only the 3–4**) | the always-on digest itself (its presence IS the mechanism) | compressed digest | small (justified) |
+
+**Worked example (live-verified, not asserted):** `ai-laziness-traps.md` — the test is `packages/core/principles/12-ai-laziness-traps.test.ts` (confirmed present, 9273 B; CI-checks every kickoff cites the rule + enumerates T-numbers). Its 186-line catalogue is *reference* — needed only when authoring a kickoff (the test gates that) or running an open-ended audit (load on-demand / path-scoped on `.claude/orchestrator-prompts/**/kickoff.md`). In a normal coding session the catalogue is **not in context** (no pollution) yet the rule is **fully a test**. Both constraints met today, with existing machinery.
+
+**Skills specifically:** skill body = on-demand (no pollution); its risk is best-effort semantic invocation (may not fire). Fix = pair the skill with a **deterministic trigger-hook** (path/event) that nudges «invoke skill X» at the right moment — best-effort → deterministic. Body stays out of context until the trigger fires.
+
+**What the audit must BUILD** (where «rule = test» bites): rules that are *currently* only always-on prose with no gate and no deterministic trigger (today's Class C). For each, per cycle: (a) find a mechanical gate (promote C→A), or (b) build a deterministic trigger-test (path/event hook), or (c) accept it as one of the 3–4 invariants (compressed digest). **(c) is the bounded exception, not the default.**
+
+**Falsifier:** wrong if a rule is a «test» *only* by virtue of always-on prose (no code artefact possible) AND is not one of the 3–4 invariants — then prose-as-test is irreducible for it. **This reconciliation is a hypothesis to live-verify per artefact** (the §Verify-don't-trust probes — each claimed test must EXIST + FIRE; each Class-C «no gate possible» needs the 6-item negative-existence check), **not an axiom**.
+
 ## Decomposition — 3 cycles × (R → Audit → I → Verify), progressively widening
 
 Whole surface, decomposed to preserve quality and avoid `#focus-tunnel` / T-series traps. **Each phase is its own session.** Scope widens each cycle; the I-phase runs before the next cycle's R/Audit so the wider cycle operates on a cleaned base, and each cycle's Verify re-checks the prior cycle did not regress.
