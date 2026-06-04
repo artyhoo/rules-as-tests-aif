@@ -1,6 +1,6 @@
 # AI Documentation & Context-Hygiene Audit — design spec
 
-> **Status:** design approved 2026-06-04 (brainstorming). Awaiting writing-plans.
+> **Status:** design drafted 2026-06-04 (brainstorming) — **under maintainer review**, not yet approved. Awaiting writing-plans.
 > **Authoritative for:** the `ai-doc-audit` umbrella — **ONE mega-umbrella, one task**: 3 progressively-widening cycles, each = **R (research the target) → Audit (conformance + fix-plan) → I (implement) → Verify (check the work)**. Its goal, spine criterion, stage decomposition, per-artefact classification axes, doc-skill BFR verdict, and self-application obligation.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
 
@@ -16,7 +16,7 @@ This audit checks **all project documentation + the Claude Code configuration su
 
 | If an artefact has… | → Channel | Source of criterion |
 |---|---|---|
-| a script gate (hook / principle-test / regex) | enforcement is the **script**; prose → **on-demand** (Skill / path-scoped inject) | AIF `security-scan.py`/`audit.sh`; Superpowers «automate it»; Anthropic |
+| a script gate (hook / principle-test / regex) | enforcement is the **script**; prose channel decided per §Risk-resolution combo (often `GATE-ONLY` or path/event-scoped — not always-on; `ON-DEMAND-SKILL` only if non-load-bearing) | AIF `security-scan.py`/`audit.sh`; Superpowers «automate it»; Anthropic |
 | pure behavioural discipline, only channel = being in context (Class C, no script) | **compressed digest + pointer** always-on, not the verbatim wall | `inject-session-bootstrap` pattern |
 | reference / catalogue / history (long) | **progressive disclosure** — separate file, loaded by reference | Anthropic official |
 | project-specific convention | CLAUDE.md (not a standalone always-on rule) | Superpowers `writing-skills` |
@@ -90,7 +90,7 @@ Reuse-maximal (CLAUDE.md build-vs-reuse + [build-first-reuse-default.md](../../.
 | **C2** | **C1 surface (regression) +** `docs/meta-factory/*` (EXECUTION-PLAN, open/closed-questions, research-patches, retros) | Doc-authority + drift/duplication standard for large prose corpus. |
 | **C3** | **C1+C2 surface (regression) +** `packages/*` (principle-tests, templates, preset) + final roll-up | Standard for executable artefacts + shipped templates; consolidate. C3-I closes the umbrella (`done.md`). |
 
-**Audit-phase output** = per-artefact verdict table `KEEP-ALWAYS-ON / COMPRESS-TO-DIGEST / MOVE-ON-DEMAND / MAKE-PORTABLE` + ordered fix-list. C1-Audit additionally carries the doc-skill BFR verdict (below); C1-I builds it.
+**Audit-phase output** = per-artefact verdict table (candidate vocabulary from §Risk-resolution: `GATE-ONLY / KEEP-ALWAYS-ON / COMPRESS-TO-DIGEST / PATH/EVENT-SCOPED-INJECT / ON-DEMAND-SKILL / MAKE-PORTABLE`) + ordered fix-list. C1-Audit additionally carries the doc-skill BFR verdict (below); C1-I builds it.
 
 **Gate between phases:** R's research-patch is the binding target for that cycle's Audit; the Audit's fix-list is the binding scope for that cycle's I; Verify must pass before the next cycle's R begins.
 
