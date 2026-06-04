@@ -90,9 +90,9 @@ Header verified at [dual-implementation-discipline.md:3-4](../../.claude/rules/d
 
 | Artefact | File:line | §3 Classification | CC counterpart | Action |
 |---|---|---|---|---|
-| `best-practices-sidecar.md` | [agents/best-practices-sidecar.md:1](../../agents/best-practices-sidecar.md) | Consumer-facing (shipped via `install.sh`) | None today | No action at this time; if a CC PostToolUse hook is added later, it would be the `@dual-pair` counterpart. The agent IS the portable side. |
+| `best-practices-sidecar.md` | `agents/best-practices-sidecar.md` (removed per C-1 KEEP-AIF 2026-05-20) | Consumer-facing (shipped via `install.sh`) | N/A | Removed per C-1 resolution 2026-05-20. |
 | `compliance-verifier.md` | [agents/compliance-verifier.md:1](../../agents/compliance-verifier.md) | Consumer-facing (shipped via `install.sh`) | None today | Same — portable side only; no CC hook equivalent. |
-| `docs-auditor.md` | [agents/docs-auditor.md:1](../../agents/docs-auditor.md) | Consumer-facing (shipped via `install.sh`) | None today | Same. |
+| `living-docs-auditor.md` | [agents/living-docs-auditor.md:1](../../agents/living-docs-auditor.md) | Consumer-facing (shipped via `install.sh`) | None today | Same (renamed from `docs-auditor.md` per C-1 resolution 2026-05-20). |
 | `review-sidecar.md` | [agents/review-sidecar.md:1](../../agents/review-sidecar.md) | Consumer-facing (shipped via `install.sh`) | None today | Same. |
 
 **Rule scope note:** the `@dual-pair` / `@cc-only-rationale` marker requirement (§6) applies to **CC hooks**, not to portable agents. Portable agents do not need markers — they are inherently portable. The rule's drift-check (§5) fires when a *CC hook* declares `@dual-pair` but the portable counterpart cannot be found. None of the above agents have a CC hook counterpart today, so no `@dual-pair` is declared and §5 grep produces zero DRIFT findings.
