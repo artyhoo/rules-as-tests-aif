@@ -8,45 +8,13 @@
 
 ## §1 The discipline
 
-When acting as reviewer (after `/review`, `/ultrareview`, or any explicit «проверь / verdict / second opinion» request), do NOT cross into orchestrator-role decisions mid-session.
+When acting as reviewer (after `/review` or «проверь / verdict / second opinion»), do NOT cross into orchestrator-role decisions mid-session.
 
-Specifically: if a review finding requires choosing project strategy (e.g. «is this v2 future spec or v1 active requirement?», «should we adopt approach A or B?»), surface it as **decision-needed** with both legitimate options described, and let the maintainer either confirm explicitly or start a separate `/orchestrator` session.
+If a review finding requires choosing project strategy, surface it as **DECISION-NEEDED** with both legitimate options described. Let the maintainer confirm or start a separate `/orchestrator` session. The reviewer describes consequences; **the reviewer cannot pick between options.**
 
-The reviewer can describe what each path implies; **the reviewer cannot pick between them.**
+Anti-patterns: `#role-swap-mid-session`, `#strategy-decided-by-reviewer`, `#reviewer-as-secondary-orchestrator`
 
-## §2 Surface-as-decision-needed pattern
-
-When a reviewer finding requires a «which way should the project go?» answer:
-
-1. **Name the decision explicitly** as «DECISION-NEEDED: <one-line summary>».
-2. **Describe both options' downstream consequences** without endorsing either. Use «Option A → consequence X» / «Option B → consequence Y» format.
-3. **Flag that the answer needs maintainer or `/orchestrator` session**, not the reviewer.
-4. **Stop.** Do not infer the maintainer's likely answer and proceed.
-
-This preserves the reviewer's independence as a falsification check. A reviewer who picks strategy becomes a second orchestrator — losing the independent-verification property.
-
-## §3 Anti-patterns
-
-- **`#role-swap-mid-session`** — reviewer session, prompted with `/review` or similar, makes orchestrator-track decisions instead of surfacing them. Most likely when a finding feels «obvious» and the reviewer infers the answer rather than naming the choice.
-- **`#strategy-decided-by-reviewer`** — variant; reviewer concludes «X is the answer» and writes that as a verdict instead of «X or Y, both legitimate, maintainer decides».
-- **`#reviewer-as-secondary-orchestrator`** — pattern across multiple sessions where reviewer's strategic calls become precedent and subsequent sessions normalize scope creep.
-
-## §4 Promotion / retirement
-
-- **Promotion to principle test:** if 3 cross-session role-swap incidents occur within 6 months, add `packages/core/principles/12-reviewer-discipline.test.ts` — mechanical check on reviewer-session output for strategy-imperative phrases («we should», «I recommend the project», «the decision is»). Detection requires sub-agent integration (active session reads own output before posting verdict).
-- **Retirement:** if no role-swap incident occurs for 12 consecutive months AND companion principle test (if promoted) reports zero violations across the same window, archive to prose in CLAUDE.md.
-
-## §5 Classification — Class C (no current mechanism)
-
-**Class:** C — prose-only, mechanism deferred. No compensating mechanism currently in place; the rule is enforced solely by maintainer / reviewer awareness at session time. Promotion to mechanically-tested (Class A) is gated on the existing §4 incident-threshold criterion: 3+ role-swap incidents within 6 months.
-
-**Why Class C and not Class B (compensating mechanism):**
-
-Track 3 condensed prose-rules audit ([research-patches/2026-05-16-prose-rules-audit-research.md §3.3](../../docs/meta-factory/research-patches/2026-05-16-prose-rules-audit-research.md)) probed the 1A draft claim that `agents/compliance-verifier.md` served as the AI-agnostic compensating mechanism for this rule. The probe found compliance-verifier.md is empirically scoped to PR description §1.7 substance review — Forward/Backward citation integrity and sweep completeness — **not** to reviewer role-swap detection or strategy-imperative phrase checking. Pattern: T16 «pattern-matching-on-name» from [ai-laziness-traps.md §2](ai-laziness-traps.md) — «compliance verifier» sounds catch-all but is narrowly scoped.
-
-**Path forward when promotion criterion fires:** C-revise-1 — design a new `agents/reviewer-discipline-verifier.md` AI-agnostic sub-agent prompt scoped specifically to reviewer-session role-swap detection (active session reads own output before posting final verdict; checks for strategy-imperative phrases). Effort estimate: 1-2 hours design + bench test on ≥3 fabricated role-swap cases. Not pre-built — promote on incident evidence, not anticipation.
-
-**Recursive self-application note:** this rule is currently one of two Class C rules in the project (the other: [parallel-subwave-isolation.md](parallel-subwave-isolation.md), confirmed Class C in [Track 3 §3.5](../../docs/meta-factory/research-patches/2026-05-16-prose-rules-audit-research.md)). The README invariant «every rule = executable artifact» absolutism vs Class C practice tension is surfaced in [research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md](../../docs/meta-factory/research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md) — maintainer-owned resolution pending.
+Promotion to principle test: at 3 role-swap incidents within 6 months. Full rule (§2-§5): `.claude/rules/reviewer-discipline.md` (read on demand).
 
 ## See also
 
