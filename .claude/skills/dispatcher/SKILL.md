@@ -105,6 +105,16 @@ tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
 
 If `/dispatcher` has prepared a §1.7-compliant PR body, pass it via `--body-file <path>`. Otherwise a minimal pointer body is used (harvest warns about missing §1.7 sections in that case).
 
+**§2.4b — Harvest when the container github-host is unroutable (resilience helper).** When the proxy/tunnel blocks `github.com` from the container (`git push` → `gnutls_handshake`/`SSL_ERROR_SYSCALL`/000) but `api.github.com` is reachable (discriminate via `gh api rate_limit`), the stock `harvest.ts` push fails. Use the API-harvest helper instead — it commits the task's declared file via the GitHub Contents API (branch ref + PUT), no `git push` needed:
+```bash
+bash .claude/skills/dispatcher/helpers/harvest-via-api.sh <taskId> staging [path]
+# then (separate command, git-safety blocks compound merge):
+gh pr merge <prUrl> --auto --squash
+```
+It reads the file from the container worktree (uncommitted ok), and **append-merges** onto the current `staging` version (never `git add -A`, never clobber — fixes the stale-overwrite hazard where a worker's stale full-file copy silently reverts newer rounds). Proven 2026-06-05 (PRs #427/#429/#431). Single-file; multi-file needs the Git Data API.
+
+**§2.4c — Notification discipline for unattended runs (3-tier).** Routine ticks are SILENT (journal only). A heartbeat fires at most once per ~30min via `helpers/notify-gate.sh` (so the operator sees "alive" without per-tick spam). Only genuine human-decisions/blockers ping immediately. aif's own notifier sends a TG per status-change with no verbosity knob; to filter to **done / stalled / question only**, silence aif's raw channel (unset `TELEGRAM_BOT_TOKEN` in the container on a between-runs restart) and let the dispatcher send the filtered set via `helpers/tg-notify.sh <done|stalled|question|blocker> "<msg>"`. The operator does not go dark — they get the important events, deduped.
+
 **§2.5 — Phase-1 cold-review**
 ```text
 Invoke superpowers:requesting-code-review on the harvested PR diff.
