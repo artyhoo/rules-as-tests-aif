@@ -27,6 +27,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -233,5 +234,109 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
         re.test('packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md'),
       ),
     ).toBe(true);
+  });
+
+  // ── Criterion 3 — exactly-one-goal-authority ──────────────────────────────
+  // Goal-drift audit 2026-06-05: assert exactly ONE doc in REQUIRED_HEADER_DOCS
+  // claims authority for "project goal". Any second such claim is a
+  // `#contradicting-authority-claims` violation per doc-authority-hierarchy §4.
+  // Source: docs/meta-factory/research-patches/2026-06-05-goal-drift-audit.md §6
+  describe('Criterion 3 — exactly-one-goal-authority-doc', () => {
+    // The goal-authority pattern: a doc whose Authoritative-for line *opens*
+    // with "project goal" as the first-listed scope (not a doc that *references*
+    // the goal in a phrase like "operational restatement of project goal").
+    // This distinguishes README.md (owns the goal) from session-bootstrap.md
+    // (restates it, delegates upward, has an explicit NOT authoritative for goal line).
+    const GOAL_AUTHORITY_RE = /^> \*\*Authoritative for:\*\*\s*project goal/m;
+
+    it('exactly one required-header doc claims goal-authority (README.md)', () => {
+      const matches: string[] = [];
+      for (const relPath of REQUIRED_HEADER_DOCS) {
+        if (isExempt(relPath)) continue;
+        const fullPath = resolve(REPO_ROOT, relPath);
+        if (!existsSync(fullPath)) continue;
+        const content = readFileSync(fullPath, 'utf8');
+        if (GOAL_AUTHORITY_RE.test(content)) {
+          matches.push(relPath);
+        }
+      }
+      expect(
+        matches,
+        `Goal-authority docs found (expected exactly [README.md]):\n${matches.join('\n')}`,
+      ).toEqual(['README.md']);
+    });
+
+    it('mutation: a doc that opens Authoritative-for with "project goal" is detected', () => {
+      const driftedDoc =
+        '# Some operational doc\n\n> **Authoritative for:** project goal and additional concerns.\n\nContent.\n';
+      expect(GOAL_AUTHORITY_RE.test(driftedDoc)).toBe(true);
+    });
+
+    it('mutation: "operational restatement of project goal" does NOT trigger the pattern (mention ≠ ownership)', () => {
+      // session-bootstrap.md uses this phrasing — it's not claiming goal-authority,
+      // it's describing a delegation role. The narrowed regex must NOT match it.
+      const restatingDoc =
+        '# Session bootstrap\n\n> **Authoritative for:** operational restatement of project goal + invariants for AI session start.\n> **NOT authoritative for:** project goal — see README.md.\n\nContent.\n';
+      expect(GOAL_AUTHORITY_RE.test(restatingDoc)).toBe(false);
+    });
+
+    it('mutation: README.md without "project goal" in Authoritative-for triggers the assertion', () => {
+      // Simulate a README.md that lost its goal-authority claim —
+      // the exactly-one assertion would then find 0 matches (not 1) and fail.
+      const modifiedReadme =
+        '# README\n\n> **Authoritative for:** project conventions and docs.\n\nContent.\n';
+      expect(GOAL_AUTHORITY_RE.test(modifiedReadme)).toBe(false);
+    });
+  });
+
+  // ── Criterion 4 — PROPOSAL.md not edited since freeze ────────────────────
+  // Goal-drift audit 2026-06-05: assert PROPOSAL.md received no commits after
+  // the freeze commit 397840c ("docs(proposal): add Authoritative-for header —
+  // freeze as historical artifact"). Post-freeze edits to PROPOSAL.md violate
+  // the `#frozen-doc-still-edited` anti-pattern from doc-authority-hierarchy §4.
+  // Source: docs/meta-factory/research-patches/2026-06-05-goal-drift-audit.md §6
+  describe('Criterion 4 — frozen PROPOSAL.md not edited since freeze', () => {
+    // SHA of the commit that froze PROPOSAL.md (deterministic, stable).
+    const PROPOSAL_FREEZE_SHA = '397840c';
+    const PROPOSAL_PATH = 'docs/meta-factory/PROPOSAL.md';
+
+    it('PROPOSAL.md has zero commits after the freeze SHA', () => {
+      // Assert git is available and the freeze SHA resolves before running assertion.
+      // Fails loud rather than silently skipping if pre-conditions are not met
+      // (e.g. shallow clone missing the SHA).
+      execFileSync('git', ['cat-file', '-e', PROPOSAL_FREEZE_SHA], {
+        cwd: REPO_ROOT,
+        stdio: 'pipe',
+      });
+      const gitOutput = execFileSync(
+        'git',
+        ['log', '--oneline', `${PROPOSAL_FREEZE_SHA}..HEAD`, '--', PROPOSAL_PATH],
+        { cwd: REPO_ROOT, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
+      ).trim();
+      expect(
+        gitOutput,
+        `PROPOSAL.md received post-freeze commit(s) — #frozen-doc-still-edited violation:\n${gitOutput}`,
+      ).toBe('');
+    });
+
+    it('mutation: a post-freeze commit on PROPOSAL.md is detected by git log', () => {
+      // Prove the git log query format is correct: using a very old commit as
+      // "freeze SHA" for a file that HAS had commits after it should return output.
+      // Assert both SHAs resolve before running — fails loud rather than silently
+      // marking detected=true when git is unavailable or the SHA is missing.
+      execFileSync('git', ['cat-file', '-e', '29acb8d'], { cwd: REPO_ROOT, stdio: 'pipe' });
+      execFileSync('git', ['cat-file', '-e', PROPOSAL_FREEZE_SHA], {
+        cwd: REPO_ROOT,
+        stdio: 'pipe',
+      });
+      // Any commit that pre-dates the freeze should produce output when used as lower bound,
+      // since PROPOSAL.md had commits before 397840c.
+      const earlyOutput = execFileSync(
+        'git',
+        ['log', '--oneline', `29acb8d..${PROPOSAL_FREEZE_SHA}`, '--', PROPOSAL_PATH],
+        { cwd: REPO_ROOT, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
+      ).trim();
+      expect(earlyOutput.length > 0).toBe(true);
+    });
   });
 });
