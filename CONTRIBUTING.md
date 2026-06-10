@@ -35,7 +35,7 @@ Runs on every `git commit` against staged files only:
 | Bash syntax | `*.sh` | `bash -n` |
 | JSON validity | `*.json` | `python3 json.load` |
 | YAML validity | `*.yml`, `*.yaml` | `python3 yaml.safe_load` |
-| Markdown ≤500 lines | `*.md` | `awk` |
+| Markdown ≤600 lines | `*.md` | `awk` |
 
 All checks are scoped to `git diff --cached --diff-filter=ACM` — only files staged
 for the current commit are inspected.

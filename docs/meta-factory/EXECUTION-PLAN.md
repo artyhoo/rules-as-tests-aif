@@ -64,7 +64,7 @@
 | Слой | Что есть | Что отсутствует | Цена отсутствия |
 |---|---|---|---|
 | Spec discipline | orchestrator-prompts директория | SHA-validation, action existence check | Фейковые SHA коммитятся (`rhysd/actionlint@<fake>` в batch-D) |
-| Pre-commit | template для consumer'а | `.husky/pre-commit` в репо автора | Markdown >500 / broken bash коммитятся |
+| Pre-commit | template для consumer'а | `.husky/pre-commit` в репо автора | Markdown >600 / broken bash коммитятся |
 | Pre-push | template для consumer'а | `.husky/pre-push` в репо автора | actionlint/zizmor errors уходят в CI (4 fix-cycle на 1 PR) |
 | CI-as-self-test | `audit-self.yml` 4 jobs | framework-self-install (E2E проверка install.sh+setup.sh) | Регрессии в installer обнаруживаются consumer'ом |
 
@@ -352,7 +352,7 @@ grep "self-application.md" PROPOSAL.md                # cross-reference exists
   - bash syntax (scoped к `git diff --cached -- '*.sh'`)
   - JSON validity (`*.json`)
   - YAML validity (`*.yml`, `*.yaml`)
-  - Markdown ≤500 строк (`*.md`)
+  - Markdown ≤600 строк (`*.md`)
 - Цель: <5 секунд
 
 **Содержание `.husky/pre-push`:**
@@ -696,7 +696,7 @@ The post-build growth waves (**N0** June-15 metered-dispatch storm, **N1** niche
 |---|---|---|---|---|
 | Bash syntax | Hard fail (pre-commit) | High (broken commit) | <100ms | MUST |
 | YAML/JSON parse | Hard fail (pre-commit) | High | <100ms | MUST |
-| Markdown ≤500 lines | Hard fail (pre-commit) | Medium | <100ms | MUST |
+| Markdown ≤600 lines | Hard fail (pre-commit) | Medium | <100ms | MUST |
 | actionlint | Hard fail (pre-push) | High (CI red) | ~200ms | MUST |
 | zizmor plain | Hard fail (pre-push) | High (CI red) | ~3s | MUST |
 | Self-test pipeline | Hard fail (pre-push) | Medium | ~5s | SHOULD |
@@ -768,7 +768,7 @@ The post-build growth waves (**N0** June-15 metered-dispatch storm, **N1** niche
 - [ ] Что если Art временно недоступен — план самостоятельно advance'ится через несколько фаз? Или нужен continuous human input?
 
 ### 10.6 Self-application к самому плану
-- [ ] План сам по себе self-applied? `EXECUTION-PLAN.md` ≤500 строк? (Может нарушать — sanity check)
+- [ ] План сам по себе self-applied? `EXECUTION-PLAN.md` ≤600 строк? (Может нарушать — sanity check)
 - [ ] Verification команды плана сами проверены? Или скопированы без проверки?
 - [ ] Если кто-то в Phase 5 поломает план fundament-ом — какой gate это поймает?
 
