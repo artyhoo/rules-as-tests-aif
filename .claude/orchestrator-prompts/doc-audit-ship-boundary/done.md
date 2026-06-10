@@ -1,0 +1,4 @@
+# doc-audit-ship-boundary — DONE
+- Final PR: #374
+- Closed: 2026-06-10
+- Summary: Stage 2 audit shipped (#371 — full doc-population enumeration + one-time mutation run + 29KB findings); DN-1/2/4 doc-staleness fixes applied (#374). All 4 §DECISION-NEEDED items resolved or tracked: DN-1 (stale "Activation pending") + DN-2 (README badges main→staging) + DN-4/G4 (mutation=local not CI) fixed in #374; DN-3 (G1-T16 inject-layer, BUILD-sized) spun out as the inject-layer-extension PLANNED umbrella (plan-now/implement-later per maintainer 2026-06-02). G4 mutation-test placement also closed downstream via mutation-discipline-umbrella DONE (#383). G1 ship-vs-home doctrine carried by dual-implementation-discipline.md §3 + meta-launch §0 decisions; G3 goal/path state held in wave-sequencing-plan.md §0. No dispatchable work remaining.
