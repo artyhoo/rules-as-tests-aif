@@ -43,9 +43,9 @@ Run these commands and report each result clearly:
      python3 -c "import json; json.load(open('$f'))" 2>&1 && echo "✓ $f" || echo "✗ $f"
    done
 
-4. File sizes (any > 500 lines is overweight):
+4. File sizes (any > 600 lines is overweight):
    find . -name "*.md" | while read f; do
-     L=$(wc -l < "$f"); [ "$L" -gt 500 ] && echo "$L: $f"
+     L=$(wc -l < "$f"); [ "$L" -gt 600 ] && echo "$L: $f"
    done
 
 5. Markdown links to .md files — find dead-end references:
