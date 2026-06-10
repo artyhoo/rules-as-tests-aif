@@ -127,7 +127,7 @@ When the **last stage** of a multi-stage umbrella merges, the merging session wr
 ### Harness gates
 
 - **Agent PR merge gating:** `~/.claude/hooks/git-safety.sh` allows `gh pr merge --squash` when `base=staging` or `base=epic/*`. Base=`main` is blocked — maintainer merges manually. Retrying on a real `main`-base block is futile.
-- **500-line markdown gate:** pre-commit hook blocks commits that push any markdown file past 500 lines. Check `wc -l <file>` before adding content to near-500 files (e.g. `docs/meta-factory/open-questions.md`). To free lines: migrate resolved `§13.x` entries to `docs/meta-factory/closed-questions.md` (append-only archive — TOC row + full entry under `## Archived entries`).
+- **600-line markdown gate:** pre-commit hook blocks commits that push any markdown file past 600 lines. Check `wc -l <file>` before adding content to near-600 files (e.g. `docs/meta-factory/open-questions.md`). To free lines: migrate resolved `§13.x` entries to `docs/meta-factory/closed-questions.md` (append-only archive — TOC row + full entry under `## Archived entries`).
 - **Homebrew PATH in hooks:** CC-launched hooks run with a stripped PATH (Homebrew absent). Hooks calling `gh`, `jq`, or other Homebrew tools must export `PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"` after `set -euo pipefail`. Symptom: hook returns empty output from `gh pr view` despite correct auth. (Codified from memory `feedback_harness_merge_block_and_500line_gate`.)
 
 ### Meta-orchestrator self-review obligation
@@ -137,6 +137,10 @@ Before any `/meta-orchestrator` session hands off a meta-kickoff to an orchestra
 ### Phase -1 principle-test allowlist probe
 
 Phase -1 cold-review on any dispatch that ships ≥1 NEW file under principle-test-watched paths MUST include a dimension: «for each NEW path, grep `packages/core/principles/` `EXEMPT_*` allowlists + structural rule; confirm the artefact satisfies the rule OR qualifies for exemption». Watched paths: `.claude/skills/**`, `.claude/rules/**`, `agents/**`, `docs/meta-factory/research-patches/**`, `packages/core/templates/**`. Probe: `grep -rn 'EXEMPT_\|allowlist\|skip' packages/core/principles/ | grep -E '\.(test\.)?ts:' | head -20`. Evidence: PR #264 pushed twice — principle 15 (paired-negative) + principle 10 (scope annotation) both fired after an 11-dimension Phase -1 missed both. Codification target is `~/.claude/skills/orchestrator/SKILL.md` Phase -1 §Critique dimension (l) (agent-uncommittable global skill); interim home: this section. (Codified from memory `feedback_phase_minus_1_probe_exempt_allowlists`.)
+
+### Pre-dispatch in-flight probe
+
+Before dispatching any stage/sub-wave Worker, probe for in-flight parallel work — ALL of: (a) `gh pr list --head <branch> --state all` (PR-stage); (b) `git log origin/staging..<branch>` ahead-commits on any existing worktree/branch (commit-stage — the window the PR-probe misses); (c) scan for parallel CC sessions working the same umbrella (e.g. other worktrees named for the same stage); (d) RE-probe immediately after any Phase -1 review completes, before the actual dispatch — all three historical collisions materialized inside the Phase -1 window. On any hit: STOP and surface, never double-dispatch. Root cause: one stage = one executor session (single-owner-per-stage). (Codified from memory `feedback_probe_inflight_automation_before_dispatch`; 3/3 incident threshold reached 2026-06-10, all during the one-click-installer umbrella.)
 
 ## See also
 
