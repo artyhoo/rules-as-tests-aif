@@ -107,42 +107,42 @@ For details, see `skills/rules-as-tests/references/`:
 ```bash
 git clone https://github.com/Yhooi2/rules-as-tests-aif /tmp/rt
 cd /your/project
-bash /tmp/rt/setup.sh --stack=ts-server      # or --stack=react-next
+bash /tmp/rt/setup ts-server                 # or react-next; omit to get a stack picker
 ```
 
-That's it. `setup.sh` handles everything end-to-end:
+`./setup` is the one-click orchestrator (framework + companions + runtime-bridge). Flags:
 
-1. Installs `ai-factory` globally if missing (`npm install -g ai-factory`).
-2. Runs `ai-factory init --agents claude` to create the `.ai-factory/` skeleton.
-3. Overlays this package's content via `install.sh`.
-4. Runs `npm install -D` for ~25 dev dependencies.
-5. Initializes husky and copies pre-commit / pre-push hooks.
-6. Adds 13 npm scripts (`validate`, `audit:docs`, `arch:check`, `test:mutation`, …) to `package.json` via `jq`.
-7. Optionally installs companion tools (Superpowers, TaskMaster) via `claude plugin install` — see below.
+- `--yes` / `--all` — non-interactive: skip the prompts, install missing companions, run the bridge step.
+- `--dry-run` — print the full plan, write nothing.
+
+It runs four steps:
+
+1. **Preflight** — probes for `bash`, `git`, `python3`, `curl`; reports anything missing.
+2. **Framework** — runs `install.sh` (file deploy only: skill, sub-agents, AI Factory templates, stack configs, husky hook files, audit script).
+3. **Companions** — manifest-driven, detect-first, consent per companion — see below.
+4. **Runtime-bridge** — optional guided aif-handoff setup (`[y/N]`, default N) — see [docs/runtime-bridge-setup.md](docs/runtime-bridge-setup.md).
+
+`./setup` deploys files; it does **not** run `npm install`. When it finishes, the installer prints the remaining wiring steps — the exact `npm install -D` dev-dependency list, the `package.json` scripts to add (`INSTALL.md §3`), and `npx husky init`.
+
+> `setup.sh` (the previous end-to-end wrapper: `ai-factory init` + `npm install` + husky init + npm scripts via `jq`) is **legacy** — superseded by `./setup` and will be absorbed by it.
 
 ### Optional companion install (K-1)
 
-After the core install, `setup.sh` prompts to install optional companion tools:
+Companion installs run as `./setup` step 3, driven by a manifest (`setup.d/companions.manifest`) — one row per companion (detect command, install command, kind), looped by `setup.d/engine.sh`:
 
-- **Interactive (default):** you are prompted for each companion (`Install Superpowers? [y/N]`, `Install TaskMaster? [y/N]`). Default is N — no companion is mandatory.
-- **Headless / CI:** pass the `COMPANIONS` env var before the command:
-  - `COMPANIONS=all bash /tmp/rt/setup.sh --stack=ts-server` — install all companions
-  - `COMPANIONS=none bash /tmp/rt/setup.sh --stack=ts-server` — skip all companion prompts
-  - `COMPANIONS=superpowers,task-master bash /tmp/rt/setup.sh --stack=ts-server` — install specific subset
-- **Non-interactive auto-fallback:** when stdin is not a tty (e.g. piped or CI), `COMPANIONS` defaults to `none` automatically (install.sh:337-338).
+- **Detect-first:** a companion that is already present is skipped.
+- **Consent per companion (interactive):** `Install <name>? [y/N]` — default is N; no companion is mandatory. When stdin is not a tty (piped / CI), prompts fall through to N automatically.
+- **Headless:** `--yes` / `--all` install every missing manifest companion without prompting; `--dry-run` prints what would be installed.
+- **Official installers only, no version pin** — currently Superpowers via `claude plugin install superpowers@claude-plugins-official`.
+- **External services** (manifest kind `external-service` — the aif-handoff runtime-bridge) are not plain installs; they route to the guided-detect bridge step (`./setup` step 4) instead.
 
-Each companion is installed via `claude plugin install` — this is **administrative file-management** (file copy + manifest registration into `~/.claude/`), **not** an API-billed LLM call. Verified VERIFIED-FREE per Stage 2 v3 §4.8.
+Each `cc-plugin` companion is installed via `claude plugin install` — this is **administrative file-management** (file copy + manifest registration into `~/.claude/`), **not** an API-billed LLM call. Verified VERIFIED-FREE per Stage 2 v3 §4.8.
 
-Relevant install.sh lines: arg/env parse (install.sh:62-69), tty fallback (install.sh:337-338), Superpowers install (install.sh:371), TaskMaster install (install.sh:411).
-
-Optional flags:
-- `--skip-aif-init` — skip step 2 (use if AIF is already initialized or you don't want it globally installed).
-- `--skip-deps` — skip step 4 (`npm install`).
-- `--force` — overwrite existing config files.
+TaskMaster is no longer an offered companion — its marketplace plugin slug does not resolve, and the install offer was withdrawn in the one-click rework. The `COMPANIONS=...` env var belonged to the legacy `setup.sh` flow and is gone — use the manifest + flags above.
 
 ### What gets installed automatically
 
-After `setup.sh` finishes, your project has:
+After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` directly), your project has:
 
 | Path | Source | Edit needed? |
 |---|---|---|
@@ -153,13 +153,12 @@ After `setup.sh` finishes, your project has:
 | `.ai-factory/DESCRIPTION.template.md` | template with `<PLACEHOLDERS>` | **Yes — fill in, rename to `DESCRIPTION.md`** |
 | `.ai-factory/ARCHITECTURE.ts-server.md` | drop-in for canonical hexagonal layout | Maybe — rename to `ARCHITECTURE.md` if your layout matches |
 | `AGENTS.md` (root) | from `templates/shared/AGENTS.md.template` | **Yes — review** |
-| `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `stryker.config.json`, `.dependency-cruiser.cjs`, `.lintstagedrc.json`, `.nvmrc` | stack-specific configs | No — work out of the box |
+| `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `stryker.config.json`, `.lintstagedrc.json`, `.nvmrc` | stack-specific configs | No — work out of the box |
 | `.husky/pre-commit`, `.husky/pre-push` | Husky hooks (lint-staged + typecheck + audit) | No |
 | `.github/workflows/ci.yml` | full CI pipeline (lint, typecheck, arch, tests, mutation) | No — works as-is |
 | `scripts/audit-ai-docs.sh` (and `.react-next.sh`) | code-vs-docs probes | No — extend with project-specific probes if useful |
-| `package.json` scripts | 13 entries via `jq` | No |
 
-**Manual work after install** is only the three project-specific items above (DESCRIPTION placeholders, RULES.md trimming, AGENTS.md review). Typically 5-10 minutes — or zero, if you delegate it to an AI (next section).
+**Manual work after install:** the three project-specific items above (DESCRIPTION placeholders, RULES.md trimming, AGENTS.md review), plus the wiring steps the installer prints — `npm install -D` dev-deps, `package.json` scripts (`INSTALL.md §3`), `npx husky init`, and `npx depcruise --init` to generate `.dependency-cruiser.cjs` (the legacy `setup.sh` wrapper automated these). Typically 5-10 minutes — or zero, if you delegate it to an AI (next section).
 
 ### For AI agents — let Claude/Cursor do the install
 
@@ -170,9 +169,11 @@ Install rules-as-tests-aif into this project.
 
 1. Detect stack: `ts-server` (default) or `react-next` (next.config.* present, or
    "next"/"react" in package.json).
-2. Run: bash /path/to/rules-as-tests-aif/setup.sh --stack=<detected>
+2. Run: bash /path/to/rules-as-tests-aif/setup <detected>
    (clone the repo to /tmp/rt first if not on disk; the package is at
-   github.com/Yhooi2/rules-as-tests-aif — needs SSH/HTTPS access).
+   github.com/Yhooi2/rules-as-tests-aif — needs SSH/HTTPS access.
+   With non-tty stdin the companion/bridge prompts default to N, so this
+   deploys the framework files only.)
 3. After setup completes, do these in sequence and report results:
    a. Read .ai-factory/DESCRIPTION.template.md, fill in <PROJECT_NAME>,
       stack details, non-goals based on package.json + README.md +
@@ -182,8 +183,11 @@ Install rules-as-tests-aif into this project.
       Do not commit removals without asking.
    c. Read AGENTS.md root file, adapt to this project (replace template
       placeholders with concrete paths and conventions).
-   d. Run `npm run validate` and report any failures.
-   e. Run `npm run audit:docs` and report results.
+   d. Complete the wiring steps the installer printed: `npm install -D`
+      the listed dev-deps, add the package.json scripts (INSTALL.md §3),
+      run `npx husky init` and `npx depcruise --init`.
+   e. Run `npm run validate` and report any failures.
+   f. Run `npm run audit:docs` and report results.
 4. Stop here. Do not start implementing features.
 ```
 
@@ -211,7 +215,7 @@ cp /tmp/rt/templates/shared/tsconfig.json .
 - **`ts-server`** — Node.js 20.19+ server-only (Fastify, Hono, Express, plain HTTP).
 - **`react-next`** — React 19 + Next.js 15 (App Router) + TypeScript.
 
-Pick during `setup.sh` (auto-detected from `next.config.*` / `react` in `package.json`) or pass `--stack=...` explicitly. Both share base configs (tsconfig, husky, lint-staged, RULES R1-R11). React adds R12-R20 + Storybook + Playwright.
+Pass the stack to `./setup` (or `install.sh`) as a positional argument — `ts-server` / `react-next` — or omit it to get an interactive picker. (The legacy `setup.sh` wrapper auto-detected the stack from `next.config.*` / `react` in `package.json`.) Both share base configs (tsconfig, husky, lint-staged, RULES R1-R11). React adds R12-R20 + Storybook + Playwright.
 
 ## Forward compatibility note on AIF extensions
 
