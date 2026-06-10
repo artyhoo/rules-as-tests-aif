@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# setup — one-click orchestrator: framework (install.sh) + companions (manifest) + runtime-bridge.
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+
+MODE="interactive"; DRY=""; STACK=""
+for a in "$@"; do
+  case "$a" in
+    --yes)      MODE="yes" ;;
+    --all)      MODE="all" ;;
+    --dry-run)  DRY="--dry-run"; MODE="dry-run" ;;
+    ts-server|react-next) STACK="$a" ;;
+  esac
+done
+
+echo "▶ Preflight"
+for tool in bash git python3 curl; do
+  if command -v "$tool" >/dev/null 2>&1; then echo "  ✓ $tool"; else echo "  ⚠ $tool missing"; fi
+done
+
+echo "▶ Framework (install.sh)"
+bash "$HERE/install.sh" ${STACK:+$STACK} ${DRY:+$DRY}
+
+echo "▶ Companions"
+source "$HERE/setup.d/engine.sh"
+emode="$MODE"; [ "$MODE" = "all" ] && emode="yes"
+# manifest is TAB-delimited, single tab, no padding — format contract lives in
+# setup.d/companions.manifest header (S3 parser contract); inner pipes in
+# detect_cmd are preserved because IFS splits on tab only.
+while IFS=$'\t' read -r name detect install kind; do
+  case "$name" in ''|\#*) continue ;; esac
+  [ "$kind" = "external-service" ] && continue   # handled in bridge step
+  companion_step "$name" "$detect" "$install" "$kind" "$emode"
+done < "$HERE/setup.d/companions.manifest"
+
+echo "▶ Runtime-bridge"
+if [ "$MODE" = "dry-run" ]; then
+  echo "  [dry-run] would run bridge guided-detect"
+elif [ "$MODE" = "yes" ] || [ "$MODE" = "all" ]; then
+  source "$HERE/setup.d/bridge-guided.sh"; bridge_guided_run
+else
+  printf '  Set up runtime-bridge (aif-handoff)? [y/N]: '
+  read -r ans || ans=""
+  case "$ans" in [yY]|[yY][eE][sS]) source "$HERE/setup.d/bridge-guided.sh"; bridge_guided_run ;; *) echo "  ⊝ runtime-bridge skipped" ;; esac
+fi
+
+echo ""
+echo "✅ ./setup complete (${MODE})."
