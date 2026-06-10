@@ -7,7 +7,7 @@
 
 ```text
 PostToolUse (CC hook)
-  └─ runtime-bridge-dispatch.sh
+  └─ runtime-bridge-dispatch.sh — opt-IN gate: fires ONLY on `<!-- bridge: auto -->` first line (kickoff §7, 2026-05-31)
        └─ cli/dispatch.ts
             ├─ buildKickoffSpec()   — reads kickoff.md, checks bridge:skip marker
             ├─ checkDedup()         — SHA-256 content hash, 24h TTL JSONL log

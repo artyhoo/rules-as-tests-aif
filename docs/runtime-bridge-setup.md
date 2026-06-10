@@ -120,12 +120,24 @@ aif-handoff exposes more than one surface; they do **not** share a port:
 
 > **Clean-worktree precondition (verify this before relying on autonomy):** aif-handoff refuses to advance a task to `plan_ready` while the target project worktree is dirty (a branch-isolation guard). A dirty tree surfaces as `dispatch_failed`; `dispatch()` then best-effort **deletes** the half-created task (rollback — no orphan) and the bridge falls back to `ManualBackend`. Commit/stash/gitignore the target tree, then re-run `verify-bridge.sh` to confirm a full `backlog → plan_ready` run. (The same guard applies to the MCP path — it is not REST-specific.) The REST dispatch HTTP mechanics + error mapping are unit- and live-verified; the end-to-end `plan_ready` + coordinator-pickup step is the operator's clean-worktree smoke-test check.
 
+## Auto-dispatch is opt-IN (per kickoff)
+
+The PostToolUse hook does **NOT** auto-dispatch by default (maintainer decision 2026-05-31 — auto-dispatch is real, metered autonomous work). To enable it for one kickoff, make its **first line** exactly:
+
+```text
+<!-- bridge: auto -->
+```
+
+Everything else stays manual — dispatch on demand with `tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path>`.
+
+> ⚠️ **Stale hook copy:** consumers who ran `setup-runtime-bridge.sh` **before** this flip hold an opt-OUT hook copy in `.claude/hooks/` that still auto-dispatches every kickoff — re-run the script to refresh it.
+
 ## Opt-out
 
 The bridge is fully optional and degrades gracefully:
 
 - **Session-wide:** `export RUNTIME_BRIDGE_MODE=manual` forces `ManualBackend` even when aif-handoff is installed.
-- **Per task:** make the **first line** of a kickoff `<!-- bridge: skip -->` → that one task uses `ManualBackend` (copy-paste) even when the bridge is active.
+- **Per task (manual path):** make the **first line** of a kickoff `<!-- bridge: skip -->` → that one task uses `ManualBackend` (copy-paste) even when `dispatch.ts` is invoked on it directly (e.g. via `/dispatcher`).
 - **Automatic:** on any backend exception — `quota_exceeded`, `unavailable`, a dropped WebSocket — the bridge auto-falls-back to `ManualBackend` and prints copy-paste instructions. This is expected behaviour, not a bug; the worst case is a return to the manual status quo.
 
 ## Cost cap (read before enabling)

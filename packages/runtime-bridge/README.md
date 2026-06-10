@@ -129,6 +129,12 @@ checks idempotency (dedup by content hash, TTL 24h), resolves the backend, dispa
 records a dedup entry. On `quota_exceeded` / `unavailable` it falls back to `ManualBackend` with a
 stderr warning.
 
+> **Auto-dispatch is opt-IN at the hook layer** (kickoff §7, 2026-05-31): the PostToolUse hook
+> invokes this entrypoint ONLY when the kickoff's first line is exactly `<!-- bridge: auto -->`.
+> Default = no auto-dispatch; run `tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path>`
+> manually on demand (no marker needed on the manual path). Consumers who ran
+> `setup-runtime-bridge.sh` before this flip hold a stale opt-OUT hook copy — re-run the script.
+
 Behaviour:
 
 1. Build `KickoffSpec` from the kickoff path (null → `bridge: skip` marker → exit 0).

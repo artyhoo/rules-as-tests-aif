@@ -234,6 +234,8 @@ jobs:
         run: bash tests/hooks/prepush-upstream-ref.test.sh
       - name: Run pre-push base-ref stdin-detection paired-negative (hook-base-ref-detection I-phase)
         run: bash tests/hooks/prepush-fallback-base-ref.test.sh
+      - name: Run runtime-bridge dispatch opt-IN gate paired-negative (one-click-installer kickoff §7)
+        run: bash tests/hooks/runtime-bridge-dispatch-optin.test.sh
       - name: Run ci-success aggregate-gate paired-negative
         run: bash scripts/ci-success-gate.test.sh
       - name: Run install.sh internal-refs transform test (Item 12 mirror-sync, SSOT)

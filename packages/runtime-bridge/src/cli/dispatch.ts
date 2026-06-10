@@ -1,7 +1,12 @@
 /**
- * CLI dispatch entrypoint — invoked by the PostToolUse hook.
+ * CLI dispatch entrypoint — invoked by the PostToolUse hook, or manually on demand.
  *
  * Usage: tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path> [--force]
+ *
+ * NOTE (kickoff §7, 2026-05-31): the PostToolUse hook layer is opt-IN — it invokes
+ * this entrypoint ONLY when the kickoff's first line is `<!-- bridge: auto -->`.
+ * The manual invocation above needs NO marker; the `bridge: skip` marker below
+ * keeps serving this manual path (/dispatcher, /pipeline) unchanged.
  *
  * Behaviour:
  *   1. Build KickoffSpec from kickoff path (null → bridge: skip marker → exit 0)
@@ -67,7 +72,8 @@ async function main(): Promise<void> {
   }
 
   if (!kickoff) {
-    // bridge: skip marker — silent exit
+    // bridge: skip marker — silent exit. (Manual-path opt-out only: the hook
+    // layer never reaches here without a `bridge: auto` first line, kickoff §7.)
     process.exit(0);
   }
 

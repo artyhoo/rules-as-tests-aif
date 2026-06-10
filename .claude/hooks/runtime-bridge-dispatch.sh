@@ -13,8 +13,13 @@
 # Path filter: matches .claude/orchestrator-prompts/<anything>-meta-launch/kickoff.md
 #   (the *-meta-launch/kickoff.md glob). Other file writes are silently ignored.
 #
-# Per-task opt-out: if first line of file_path is `<!-- bridge: skip -->` the
-#   dispatch entrypoint exits 0 silently (ManualBackend copy-paste UX preserved).
+# Per-task opt-IN (kickoff §7, maintainer decision 2026-05-31): auto-dispatch
+#   is real, metered autonomous work — the hook fires ONLY when the first line
+#   of file_path is exactly `<!-- bridge: auto -->` (trimmed match). Default =
+#   no auto-dispatch; manual flow stays
+#   `tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff>` on demand.
+#   The `<!-- bridge: skip -->` marker in kickoff.ts keeps serving the manual
+#   dispatch.ts path (/dispatcher, /pipeline) unchanged.
 #
 # Fallback: on quota_exceeded / unavailable → dispatch.ts auto-falls-back to
 #   ManualBackend and emits copy-paste instructions to stderr.
@@ -66,6 +71,13 @@ esac
 
 # ── File must exist (Write may fire before flush on some CC versions) ────────
 [[ -f "$FILE_PATH" ]] || exit 0
+
+# ── Opt-IN gate (kickoff §7, maintainer decision 2026-05-31) ──────────────────
+# Only a kickoff whose FIRST line is exactly `<!-- bridge: auto -->` may
+# auto-dispatch. Trimmed-exact match mirrors the kickoff.ts skip-marker
+# precedent (covers CRLF / trailing whitespace).
+first=$(head -n1 "$FILE_PATH" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+[ "$first" = '<!-- bridge: auto -->' ] || exit 0
 
 # ── Locate repo root + entrypoint ────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

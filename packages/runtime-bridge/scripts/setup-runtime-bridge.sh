@@ -12,8 +12,13 @@
 #              (idempotent, backs up to settings.json.bak, JSON-validates, preserves
 #              all existing hooks). Falls back to printing the snippet when declined,
 #              when --no-write-settings is passed, or when python3 is absent.
-#      - no  → prints the per-task `<!-- bridge: skip -->` opt-out; sets nothing.
+#      - no  → prints the per-task `<!-- bridge: auto -->` opt-in; sets nothing.
 #              ManualBackend (copy-paste) is always the default — no install needed.
+#
+# Auto-dispatch is opt-IN (kickoff §7, 2026-05-31): even with the hook installed,
+# ONLY kickoffs whose first line is exactly `<!-- bridge: auto -->` auto-dispatch.
+# If you ran this script BEFORE the opt-in flip, your .claude/hooks/ copy is a
+# stale opt-OUT hook that dispatches every kickoff — re-run this script to refresh.
 #
 # The bridge never degrades the manual-paste experience; it only adds automation
 # when aif-handoff is present AND the consumer opts in.
@@ -210,15 +215,23 @@ JSON
     fi
 
     say ""
-    say "Done. New meta-launch kickoffs auto-dispatch to aif-handoff; anything else"
-    say "(or quota_exceeded / unreachable) falls back to ManualBackend automatically."
+    say "Done. Auto-dispatch is OPT-IN per kickoff: only a kickoff whose FIRST line is"
+    say "  <!-- bridge: auto -->"
+    say "auto-dispatches to aif-handoff. Everything else stays manual — run"
+    say "  tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path>"
+    say "on demand. On quota_exceeded / unreachable the bridge falls back to"
+    say "ManualBackend automatically."
+    say "Note: hook copies installed BEFORE the opt-in flip (2026-05-31) auto-dispatch"
+    say "every kickoff — re-running this script just refreshed yours."
     ;;
   *)
     say ""
     say "Skipping bridge install — ManualBackend (copy-paste) stays the default."
-    say "To force manual mode per-task even when a bridge is active, make the FIRST"
-    say "line of the kickoff.md:"
-    say "  <!-- bridge: skip -->"
+    say "Auto-dispatch is opt-in anyway: even with the bridge active, only kickoffs"
+    say "with FIRST line"
+    say "  <!-- bridge: auto -->"
+    say "auto-dispatch; anything else is dispatched manually on demand via"
+    say "  tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path>"
     say "To force manual mode session-wide: export RUNTIME_BRIDGE_MODE=manual"
     ;;
 esac
