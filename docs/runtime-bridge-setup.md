@@ -130,6 +130,8 @@ The PostToolUse hook does **NOT** auto-dispatch by default (maintainer decision 
 
 Everything else stays manual — dispatch on demand with `tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path>`.
 
+The opt-in default also lives at the library layer: `buildKickoffSpec()` returns `null` without the `<!-- bridge: auto -->` marker unless the caller explicitly passes `requireAutoMarker: false` — `cli/dispatch.ts` (the manual on-demand path) is the one caller that does.
+
 > ⚠️ **Stale hook copy:** consumers who ran `setup-runtime-bridge.sh` **before** this flip hold an opt-OUT hook copy in `.claude/hooks/` that still auto-dispatches every kickoff — re-run the script to refresh it.
 
 ## Opt-out

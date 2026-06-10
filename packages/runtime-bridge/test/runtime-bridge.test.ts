@@ -202,39 +202,35 @@ describe('Test 4 — RUNTIME_BRIDGE_MODE=manual forces ManualBackend', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Test 5: <!-- bridge: skip --> first-line → buildKickoffSpec returns null
+// Test 5: buildKickoffSpec marker contract — opt-IN default (kickoff §7)
 // ═══════════════════════════════════════════════════════════════════════════════
-describe('Test 5 — <!-- bridge: skip --> marker forces ManualBackend per-task', () => {
-  it('buildKickoffSpec returns null when first line is <!-- bridge: skip -->', async () => {
-    // Source: kickoff.ts — firstLine === '<!-- bridge: skip -->' → return null
-    const { buildKickoffSpec } = await import('../src/kickoff.js');
-
+describe('Test 5 — buildKickoffSpec opt-in marker contract (kickoff §7)', () => {
+  /** Write a kickoff fixture and return its path. */
+  function writeKickoff(content: string): string {
     const sandbox = makeSandbox();
     const kickoffDir = join(sandbox, 'my-feature-meta-launch');
     mkdirSync(kickoffDir, { recursive: true });
     const kickoffPath = join(kickoffDir, 'kickoff.md');
-    writeFileSync(
-      kickoffPath,
-      '<!-- bridge: skip -->\n# Kickoff\nThis task should not be auto-dispatched.\n',
-      'utf8',
-    );
+    writeFileSync(kickoffPath, content, 'utf8');
+    return kickoffPath;
+  }
 
+  it('(a) unmarked kickoff → null under the default (opt-in paired-negative)', async () => {
+    // Source: kickoff.ts — requireAutoMarker defaults to true; no auto marker → null.
+    const { buildKickoffSpec } = await import('../src/kickoff.js');
+
+    const kickoffPath = writeKickoff('# Kickoff\nDispatch me!\n');
     const spec = buildKickoffSpec(kickoffPath);
 
-    // null return signals caller to use ManualBackend / skip dispatch
+    // Inverted default (kickoff §7): an unmarked kickoff must NOT yield a spec.
     expect(spec).toBeNull();
   });
 
-  it('buildKickoffSpec returns a valid spec when skip marker is absent', async () => {
+  it('(b) <!-- bridge: auto --> first line → valid spec under the default', async () => {
     const { buildKickoffSpec } = await import('../src/kickoff.js');
 
-    const sandbox = makeSandbox();
-    const kickoffDir = join(sandbox, 'my-feature-meta-launch');
-    mkdirSync(kickoffDir, { recursive: true });
-    const kickoffPath = join(kickoffDir, 'kickoff.md');
-    const content = '# Kickoff\nDispatch me!\n';
-    writeFileSync(kickoffPath, content, 'utf8');
-
+    const content = '<!-- bridge: auto -->\n# Kickoff\nDispatch me!\n';
+    const kickoffPath = writeKickoff(content);
     const spec = buildKickoffSpec(kickoffPath);
 
     expect(spec).not.toBeNull();
@@ -242,5 +238,33 @@ describe('Test 5 — <!-- bridge: skip --> marker forces ManualBackend per-task'
     expect(spec?.content).toBe(content);
     expect(spec?.contentHash).toMatch(/^[0-9a-f]{64}$/); // SHA-256 hex
     expect(existsSync(kickoffPath)).toBe(true); // file untouched
+  });
+
+  it('(c) <!-- bridge: skip --> → null on every path, nothing overrides it', async () => {
+    // Source: kickoff.ts — skip marker checked before the requireAutoMarker gate.
+    const { buildKickoffSpec } = await import('../src/kickoff.js');
+
+    const kickoffPath = writeKickoff(
+      '<!-- bridge: skip -->\n# Kickoff\nThis task should not be auto-dispatched.\n',
+    );
+
+    expect(buildKickoffSpec(kickoffPath)).toBeNull();
+    // Even the explicit manual path cannot dispatch a skip-marked kickoff.
+    expect(buildKickoffSpec(kickoffPath, { requireAutoMarker: false })).toBeNull();
+  });
+
+  it('(d) unmarked + requireAutoMarker: false → valid spec (manual on-demand path)', async () => {
+    // Source: cli/dispatch.ts — the one caller that opts out; explicit CLI
+    // invocation is the operator's consent (kickoff §7 «stays manual on demand»).
+    const { buildKickoffSpec } = await import('../src/kickoff.js');
+
+    const content = '# Kickoff\nDispatch me!\n';
+    const kickoffPath = writeKickoff(content);
+    const spec = buildKickoffSpec(kickoffPath, { requireAutoMarker: false });
+
+    expect(spec).not.toBeNull();
+    expect(spec?.umbrellaName).toBe('my-feature-meta-launch');
+    expect(spec?.content).toBe(content);
+    expect(spec?.contentHash).toMatch(/^[0-9a-f]{64}$/); // SHA-256 hex
   });
 });

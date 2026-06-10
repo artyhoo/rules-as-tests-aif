@@ -137,7 +137,8 @@ stderr warning.
 
 Behaviour:
 
-1. Build `KickoffSpec` from the kickoff path (null → `bridge: skip` marker → exit 0).
+1. Build `KickoffSpec` from the kickoff path with `{ requireAutoMarker: false }` — the manual-path
+   opt-out of the library's opt-in default (null → `bridge: skip` marker → exit 0).
 2. Check idempotency (dedup by content hash, TTL 24h) → if hit, exit 0.
 3. Resolve backend (`RUNTIME_BRIDGE_MODE` env, probe `available()`).
 4. Dispatch kickoff → record dedup entry.

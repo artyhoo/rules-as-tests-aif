@@ -9,7 +9,8 @@
 PostToolUse (CC hook)
   └─ runtime-bridge-dispatch.sh — opt-IN gate: fires ONLY on `<!-- bridge: auto -->` first line (kickoff §7, 2026-05-31)
        └─ cli/dispatch.ts
-            ├─ buildKickoffSpec()   — reads kickoff.md, checks bridge:skip marker
+            ├─ buildKickoffSpec()   — reads kickoff.md; opt-in default (requireAutoMarker: true);
+            │                         dispatch.ts opts out for the manual path; bridge:skip always blocks
             ├─ checkDedup()         — SHA-256 content hash, 24h TTL JSONL log
             ├─ resolveBackend()     — RUNTIME_BRIDGE_MODE env + available() probes
             │    ├─ AifHandoffBackend  (3-step planner-skip via MCP)

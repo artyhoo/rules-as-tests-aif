@@ -6,7 +6,10 @@
  * NOTE (kickoff §7, 2026-05-31): the PostToolUse hook layer is opt-IN — it invokes
  * this entrypoint ONLY when the kickoff's first line is `<!-- bridge: auto -->`.
  * The manual invocation above needs NO marker; the `bridge: skip` marker below
- * keeps serving this manual path (/dispatcher, /pipeline) unchanged.
+ * keeps serving this manual path (/dispatcher, /pipeline) unchanged. At the
+ * library layer `buildKickoffSpec` defaults to requireAutoMarker: true — this
+ * entrypoint is the ONE caller that opts out (`requireAutoMarker: false`),
+ * because an explicit CLI invocation is itself the operator's consent.
  *
  * Behaviour:
  *   1. Build KickoffSpec from kickoff path (null → bridge: skip marker → exit 0)
@@ -63,9 +66,12 @@ async function main(): Promise<void> {
   }
 
   // ── Step 1: Build KickoffSpec ─────────────────────────────────────────────
+  // requireAutoMarker: false — manual on-demand contract (kickoff §7 «everything
+  // else stays manual»): /dispatcher, /pipeline and operators invoke this CLI on
+  // unmarked kickoffs; the hook path is already auto-marker-gated in bash.
   let kickoff;
   try {
-    kickoff = buildKickoffSpec(kickoffPath);
+    kickoff = buildKickoffSpec(kickoffPath, { requireAutoMarker: false });
   } catch (err) {
     process.stderr.write(`[runtime-bridge] Failed to read kickoff ${kickoffPath}: ${err}\n`);
     process.exit(0);
