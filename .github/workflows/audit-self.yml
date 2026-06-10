@@ -248,6 +248,8 @@ jobs:
         run: bash tests/install-sh/setup-orchestrator.test.sh
       - name: Run ci-success aggregate-gate paired-negative
         run: bash scripts/ci-success-gate.test.sh
+      - name: Run harvest-via-api mode/ref paired-negative (Git Data API push fallback)
+        run: bash tests/dispatcher/harvest-via-api.test.sh
       - name: Run install.sh internal-refs transform test (Item 12 mirror-sync, SSOT)
         run: bash tests/install-sh/transform-internal-refs.test.sh
 
