@@ -59,14 +59,11 @@ fi
 STACK=""
 FORCE=""
 DRY_RUN=""
-# Per Stage 2 v3 §4.4 — COMPANIONS flag parse; CSV or none|all
-COMPANIONS="${COMPANIONS:-}"
 for arg in "$@"; do
   case "$arg" in
     --dry-run)              DRY_RUN="--dry-run" ;;
     --force)                FORCE="--force" ;;
     ts-server|react-next)   STACK="$arg" ;;
-    --companions=*)         COMPANIONS="${arg#*=}" ;;
     *)                      ;;
   esac
 done
@@ -328,131 +325,6 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/skill-context/aif-rules-chec
 if [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-next.md"
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.react-next.md" "$PROJECT_ROOT/.ai-factory/RULES.react-next.md"
-fi
-
-# ─── 3.5. Optional companion installs ───────────────────
-# Per Stage 2 v3 §4.6 — K-1 companion-install prompts (Superpowers, TaskMaster, OhMyOpencode).
-# Placement: after Phase 3 AIF templates (enforcement wiring complete), before Phase 4 Scripts.
-# All prompts default [y/N] (capital N = default no). No companion is mandatory.
-# Per Stage 2 v3 §4.4 — Non-interactive fallback: auto-default COMPANIONS=none when stdin is not a tty.
-if [ -z "${COMPANIONS:-}" ] && [ ! -t 0 ]; then
-  COMPANIONS="none"
-fi
-
-echo "▶ Optional companion installs"
-
-# ── Superpowers ──────────────────────────────────────────
-# Per Stage 2 v3 §4.2 + §4.4 — interactive prompt or COMPANIONS dispatch
-should_install_superpowers=""
-case "${COMPANIONS:-}" in
-  all)            should_install_superpowers="y" ;;
-  none)           should_install_superpowers="" ;;
-  *superpowers*)  should_install_superpowers="y" ;;
-  "")             # no env var set → interactive when stdin is a tty
-    if [ -t 0 ]; then
-      if [ "$DRY_RUN" = "--dry-run" ]; then
-        # Per Stage 2 v3 §4.4 — dry-run skips the prompt and prints "would prompt:"
-        echo "  [dry-run] would prompt: Install Superpowers? [y/N]"
-      else
-        read -rp "  Install Superpowers? (CC plugin — optional skills framework) [y/N]: " _sp_choice
-        case "$_sp_choice" in [yY]|[yY][eE][sS]) should_install_superpowers="y" ;; esac
-      fi
-    fi
-    ;;
-esac
-
-if [ "$should_install_superpowers" = "y" ]; then
-  # Per Stage 2 v3 §4.5 — idempotency detect-and-skip
-  if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q superpowers; then
-    echo "  ⊝ Superpowers already installed — skipping"
-  elif [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would install: claude plugin install superpowers@claude-plugins-official --scope user"
-  elif command -v claude >/dev/null 2>&1; then
-    # Per Stage 2 v3 §4.7 — warn-and-continue on failure
-    if ! claude plugin install superpowers@claude-plugins-official --scope user 2>&1; then
-      echo "  ⚠ Superpowers install failed — retry manually:"
-      echo "    claude plugin install superpowers@claude-plugins-official --scope user"
-    else
-      echo "  ✓ Superpowers installed"
-    fi
-  else
-    # `claude` CLI absent — print manual command per Stage 2 v3 D6 Option A
-    echo "  ⚠ claude CLI not on PATH — Superpowers not installed. Manual:"
-    echo "    claude plugin install superpowers@claude-plugins-official --scope user"
-  fi
-fi
-
-# ── TaskMaster ───────────────────────────────────────────
-# Per Stage 2 v3 §4.2 + §4.4 — interactive prompt or COMPANIONS dispatch
-should_install_taskmaster=""
-case "${COMPANIONS:-}" in
-  all)             should_install_taskmaster="y" ;;
-  none)            should_install_taskmaster="" ;;
-  *taskmaster*)    should_install_taskmaster="y" ;;
-  "")              # no env var → interactive when stdin is a tty
-    if [ -t 0 ]; then
-      if [ "$DRY_RUN" = "--dry-run" ]; then
-        echo "  [dry-run] would prompt: Install TaskMaster? [y/N]"
-      else
-        read -rp "  Install TaskMaster? (CC plugin — AI-driven task management) [y/N]: " _tm_choice
-        case "$_tm_choice" in [yY]|[yY][eE][sS]) should_install_taskmaster="y" ;; esac
-      fi
-    fi
-    ;;
-esac
-
-if [ "$should_install_taskmaster" = "y" ]; then
-  # Per Stage 2 v3 §4.5 — idempotency detect-and-skip
-  if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q task-master; then
-    echo "  ⊝ TaskMaster already installed — skipping"
-  elif [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would install: claude plugin install claude-task-master@claude-plugins-official --scope user"
-  elif command -v claude >/dev/null 2>&1; then
-    # Per Stage 2 v3 §4.7 — warn-and-continue on failure
-    if ! claude plugin install claude-task-master@claude-plugins-official --scope user 2>&1; then
-      echo "  ⚠ TaskMaster install failed — retry manually:"
-      echo "    claude plugin install claude-task-master@claude-plugins-official --scope user"
-    else
-      echo "  ✓ TaskMaster installed"
-    fi
-  else
-    # `claude` CLI absent — print manual command per Stage 2 v3 D6 Option A
-    echo "  ⚠ claude CLI not on PATH — TaskMaster not installed. Manual:"
-    echo "    claude plugin install claude-task-master@claude-plugins-official --scope user"
-  fi
-fi
-
-# ── OhMyOpencode ─────────────────────────────────────────
-# Per Stage 2 v3 §4.2 + D5 (Option A — print + instruct, do NOT invoke automatically)
-should_install_omo=""
-case "${COMPANIONS:-}" in
-  all)              should_install_omo="y" ;;
-  none)             should_install_omo="" ;;
-  *ohmyopencode*)   should_install_omo="y" ;;
-  "")               # no env var → interactive when stdin is a tty
-    if [ -t 0 ]; then
-      if [ "$DRY_RUN" = "--dry-run" ]; then
-        echo "  [dry-run] would prompt: Install OhMyOpencode? [y/N]"
-      else
-        read -rp "  Install OhMyOpencode? (OpenCode companion — requires bun) [y/N]: " _omo_choice
-        case "$_omo_choice" in [yY]|[yY][eE][sS]) should_install_omo="y" ;; esac
-      fi
-    fi
-    ;;
-esac
-
-if [ "$should_install_omo" = "y" ]; then
-  # Per Stage 2 v3 D5 Option A — print command + instruct; do NOT invoke bunx automatically
-  echo "  ▶ OhMyOpencode install (run AFTER install.sh completes):"
-  if command -v bun >/dev/null 2>&1; then
-    echo "    bunx oh-my-openagent install"
-  else
-    echo "    # First install bun (https://bun.sh); then:"
-    echo "    bunx oh-my-openagent install"
-  fi
-  # Per Stage 3 §4.2 — escape hatch for skill dup-tool-names
-  echo "    Note: if you see HTTP 400 'Duplicate tool names detected' in CC after install,"
-  echo "    set \"claude_code.skills\": false in OhMyOpencode config."
 fi
 
 # ── aif-handoff integration note ─────────────────────────
