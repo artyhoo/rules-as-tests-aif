@@ -44,6 +44,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   '.claude/rules/build-first-reuse-default.md',
   '.claude/rules/memory-codification.md',
   '.claude/rules/rule-enforcement-channel-selection.md',
+  '.claude/rules/companion-install-principle.md',
 
   // docs/meta-factory/ reference docs (excluding sub-folders + filename-convention transients)
   'docs/meta-factory/EXECUTION-PLAN.md',
