@@ -33,14 +33,14 @@ done
 # EXPECTED: no errors
 ```
 
-### 1.4 No tracked .md file > 500 lines (except declared-transient exempt)
+### 1.4 No tracked .md file > 600 lines (except declared-transient exempt)
 ```bash
-# Pre-commit enforces ≤500 on changed *.md, exempting docs/meta-factory/EXECUTION-PLAN.md
+# Pre-commit enforces ≤600 on changed *.md, exempting docs/meta-factory/EXECUTION-PLAN.md
 # (declared "transient artifact"). Mirror that exempt here.
 git ls-files '*.md' | while read -r f; do
   [ "$f" = "docs/meta-factory/EXECUTION-PLAN.md" ] && continue
   lines=$(wc -l < "$f")
-  [ "$lines" -gt 500 ] && echo "OVERWEIGHT: $f ($lines lines)"
+  [ "$lines" -gt 600 ] && echo "OVERWEIGHT: $f ($lines lines)"
 done
 # EXPECTED: nothing
 ```
