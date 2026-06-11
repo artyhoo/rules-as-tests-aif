@@ -26,7 +26,10 @@
 import { Linter } from 'eslint';
 import * as tseslintParser from '@typescript-eslint/parser';
 import corePlugin from '../../eslint-rules/index.ts';
-import presetPlugin from '@rules-as-tests/preset-next-15-canonical/eslint-rules';
+// Relative import (not the @rules-as-tests/... package name): the workspace
+// symlink only exists after a root-level install, but CI jobs run
+// `npm ci --prefix packages/core` — the sibling package is reachable on disk.
+import presetPlugin from '../../../preset-next-15-canonical/eslint-rules/index.ts';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
