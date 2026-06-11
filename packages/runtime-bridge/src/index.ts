@@ -19,3 +19,5 @@ export { resolveBackend } from './resolver.js';
 export type { BridgeMode, ResolverOptions } from './resolver.js';
 export { buildKickoffSpec } from './kickoff.js';
 export { checkDedup, recordDispatch, hashContent } from './idempotency.js';
+export { AifFireBackend } from './AifFireBackend.js';
+export type { AifFireConfig, AifFireHandle } from './AifFireBackend.js';

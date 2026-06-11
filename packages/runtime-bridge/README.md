@@ -290,3 +290,83 @@ stderr).
 ```bash
 tsx packages/runtime-bridge/src/cli/questions.ts --json
 ```
+
+---
+
+## Operator runbook — `/fire` cloud dispatch (opt-in)
+
+`AifFireBackend` lets you dispatch a kickoff to a CC Routine via the `/fire` API when you want the
+agent to run in the cloud (laptop-closed / async). This is **operator-manual only** — it is **not**
+the default backend (REST `AifHandoffBackend` remains the default with full `cli/await.ts` parity).
+
+### Overview
+
+- **Dispatch-only, no `await` parity.** `/fire` returns a `session_url`; the routine runs asynchronously.
+  `awaitDone()` resolves immediately with `{ success:false, finalStatus:'dispatched_no_readback' }` and
+  `meta.sessionUrl` — it does **not** block or poll (the token has no read access by design).
+- **REST remains the default.** `AifHandoffBackend` is the agnostic default with full WebSocket
+  status readback. Use `AifFireBackend` only when you need laptop-closed / cloud dispatch.
+- Cross-reference: [`docs/meta-factory/research-patches/2026-06-01-f2-runtime-bridge-fire.md`](../../docs/meta-factory/research-patches/2026-06-01-f2-runtime-bridge-fire.md) (F2 R-phase).
+
+### Step 1 — Create a routine and generate an API trigger token
+
+1. Go to `claude.ai/code/routines` → select or create your routine.
+2. Open **Settings → Triggers** → click **Add API trigger**.
+3. Click **Generate token** — copy it now (shown once only).
+4. Note the **routine ID** from the URL (`/routines/<routine-id>`).
+
+### Step 2 — Configure env vars
+
+```bash
+export RUNTIME_BRIDGE_FIRE_ROUTINE_ID="<routine-id>"
+export RUNTIME_BRIDGE_FIRE_TOKEN="sk-ant-oat01-…"
+# Optional overrides (defaults shown):
+# export RUNTIME_BRIDGE_FIRE_BASE_URL="https://api.anthropic.com/v1/claude_code/routines"
+# export RUNTIME_BRIDGE_FIRE_BETA="experimental-cc-routine-2026-04-01"
+# export RUNTIME_BRIDGE_FIRE_ANTHROPIC_VERSION="2023-06-01"
+```
+
+### Step 3 — Fire via the curl helper (operator-manual)
+
+```bash
+# Inline text:
+bash scripts/fire-routine.sh --text "Run the f2-aif-fire-backend I-phase per the kickoff."
+
+# From a kickoff file:
+bash scripts/fire-routine.sh --text "$(cat .claude/orchestrator-prompts/my-umbrella/kickoff.md)"
+
+# Output: the claude_code_session_url (open in a browser to monitor)
+```
+
+Or use `AifFireBackend` directly in TypeScript:
+
+```typescript
+import { AifFireBackend } from '@rules-as-tests-aif/runtime-bridge';
+
+const backend = new AifFireBackend(); // reads env vars
+const handle = await backend.dispatch({ filePath, content, umbrellaName, contentHash });
+// handle.sessionUrl — open this in a browser
+const result = await backend.awaitDone(handle);
+// result.success === false, result.finalStatus === 'dispatched_no_readback'
+// result.meta.sessionUrl — same URL for browser monitoring
+```
+
+### Step 4 — Monitor the session in a browser
+
+Open `handle.sessionUrl` (printed by the curl helper) in a browser. The routine's agent runs in
+the cloud; you can close your laptop and come back later.
+
+### Step 5 — Review the routine's PR
+
+When the agent finishes, it creates a PR in the linked repository. Review and merge it as normal.
+
+### Cost policy (DN-2)
+
+| Usage pattern | Verdict |
+| --- | --- |
+| Operator-manual `/fire` (subscription-bundled) | **OK** — draws from the operator's Claude Max subscription, no per-call API billing beyond subscription overage. |
+| Committed-CI `/fire` in `.github/workflows/*` | **DEFER-permanent** — classified as `#paid-llm-creep` under [`.claude/rules/no-paid-llm-in-ci.md §3`](../../.claude/rules/no-paid-llm-in-ci.md). Each CI invocation draws subscription usage + possible metered overage silently. No CI workflow may call `/fire` or `routines/*/fire`. |
+
+This is the DN-2 resolution from the F2 brainstorm (2026-06-01). The DEFER-permanent verdict for
+committed-CI usage is permanent under the project's no-paid-LLM-in-CI policy; it is not
+"armed-and-waiting" — it requires an explicit policy change and a separate PR to unblock.
