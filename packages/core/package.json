@@ -40,8 +40,10 @@
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@types/node": "^22.0.0",
-    "@typescript-eslint/rule-tester": "^8.59.0",
-    "@typescript-eslint/utils": "^8.59.0",
+    "@typescript-eslint/parser": "^8.61.0",
+    "@typescript-eslint/rule-tester": "^8.61.0",
+    "@typescript-eslint/utils": "^8.61.0",
+    "eslint": "^10.4.1",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^4.1.8"
