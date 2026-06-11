@@ -69,7 +69,7 @@ describe('L4 gate 4 — tautology check (negative-corpus)', () => {
           check: { type: 'eslint', rule: 'no-restricted-imports' },
           examples: { bad: 'import x from "react"', good: '// nothing' },
           'negative-test': {
-            input: 'import x from "react"',
+            input: ['import x from "react"'],
             'expect-violation': 'no-restricted-imports',
           },
           research: { entryId: 'taut', provenance: [provenance] },
