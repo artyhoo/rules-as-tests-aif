@@ -103,14 +103,23 @@ TSX_LOADER="$REAL_NODE_MODULES/tsx/dist/esm/index.mjs"
 # sections 1–6 (actionlint/zizmor/self-tests/manifest/principles) and their deps.
 # NODE_PATH resolves tsx; PATH override keeps any residual stub binaries ahead.
 run_hook() {
-  local repo="$1"
+  local repo="$1" rc
   (
     cd "$repo"
     NODE_PATH="$REAL_NODE_MODULES" \
     PREPUSH_ONLY="prior-art" \
     PATH="$repo/_stub_bin:$PATH" \
-      node --import "$TSX_LOADER" "$TS_HOOK" >/dev/null 2>&1
+      node --import "$TSX_LOADER" "$TS_HOOK" >"$repo/_hook_out.log" 2>&1
   )
+  rc=$?
+  # Diagnostic on non-zero exit: a silent FAIL hides the actual hook error
+  # (root cause of the 2026-06-11 PR #460 blind-debug incident). Expected-non-zero
+  # cases (2/4) also print — harmless, and it shows WHICH rejection fired.
+  if [ "$rc" -ne 0 ] && [ -s "$repo/_hook_out.log" ]; then
+    printf '  ── hook output (exit %s) ──\n' "$rc"
+    sed 's/^/  │ /' "$repo/_hook_out.log" | tail -15
+  fi
+  return "$rc"
 }
 
 # add_capability_commit: adds a new dep to package.json and commits.
