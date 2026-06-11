@@ -20,8 +20,9 @@
 # Drift checks (separate from R-rules):
 #   D1 Skills declared exist     → probe_D1
 #   D2 No TODO in JSON configs   → probe_D2
-#   D3 Goal-phrase parity        → probe_D3 (sub-wave 7.1.d)
+#   D3 Goal-phrase parity        → probe_D3 (sub-wave 7.1.d; authoring repo only — consumer installs skip, see AUDIT_MODE)
 #   D4 Tool-decisions staleness  → probe_D4
+#   D5 Inverse enrollment        → probe_D5 (authoring repo only — consumer installs skip, see AUDIT_MODE)
 #
 # Exit codes:
 #   0 — all probes PASS (WARN allowed)
@@ -160,6 +161,25 @@ DOWNSTREAM_DOCS=(
   "docs/meta-factory/EXECUTION-PLAN.md"
 )
 
+# Mode detection (D3/D5 only): authoring repo vs consumer install.
+# D3/D5 are authoring-repo drift probes — they track goal-phrase parity across
+# THIS framework's own goal-bearing docs, none of which install.sh ships to
+# consumers (it ships AGENTS.md + .ai-factory/RULES.md, which do not carry the
+# canonical phrase). Without this gate every fresh consumer install failed D3
+# (4× "file not found") and D5 (the installed script itself is a phrase-carrying
+# orphan at scripts/audit-ai-docs.sh — TEST_INFRA only exempts the authoring
+# path), making install.sh's "Run ./scripts/audit-ai-docs.sh — should PASS"
+# unsatisfiable (verified 2026-06-11 on a fresh /tmp install).
+# Capability check, not brand-name (dual-implementation-discipline §4): the
+# framework source tree uniquely contains this script's own source path;
+# consumer installs receive only scripts/audit-ai-docs.sh (+ the unrelated
+# packages/core/hooks/pre-push.fallback.sh).
+if [ -f "packages/core/audit-self/audit-ai-docs.sh" ]; then
+  AUDIT_MODE="authoring"
+else
+  AUDIT_MODE="consumer"
+fi
+
 # ────────────────────────────────────────────────────────────────────────
 # D3 — Goal-phrase parity: canonical phrase present in downstream goal-bearing docs
 # Source: Wave 6 D-3 SHIP-B (added sub-wave 7.1.d, 2026-05-11)
@@ -179,22 +199,26 @@ DOWNSTREAM_DOCS=(
 # ────────────────────────────────────────────────────────────────────────
 if skip_unless D3; then : ; else
   RULE="D3 (drift): canonical goal phrase present in downstream goal-bearing docs"
-  D3_VIOL=""
-  for doc in "${DOWNSTREAM_DOCS[@]}"; do
-    if [ ! -f "$doc" ]; then
-      D3_VIOL="$D3_VIOL"$'\n'"  $doc: file not found"
-      continue
-    fi
-    if ! grep -qF "$CANON_PHRASE" "$doc" && ! grep -qF "$CANON_ALT" "$doc"; then
-      D3_VIOL="$D3_VIOL"$'\n'"  $doc: missing canonical goal phrase or synonym"
-    fi
-  done
-
-  if [ -z "$D3_VIOL" ]; then
-    pass "$RULE"
+  if [ "$AUDIT_MODE" = "consumer" ]; then
+    pass "$RULE (skipped: consumer install — authoring-repo goal docs are not part of the shipped payload)"
   else
-    fail "$RULE"
-    echo "$D3_VIOL"
+    D3_VIOL=""
+    for doc in "${DOWNSTREAM_DOCS[@]}"; do
+      if [ ! -f "$doc" ]; then
+        D3_VIOL="$D3_VIOL"$'\n'"  $doc: file not found"
+        continue
+      fi
+      if ! grep -qF "$CANON_PHRASE" "$doc" && ! grep -qF "$CANON_ALT" "$doc"; then
+        D3_VIOL="$D3_VIOL"$'\n'"  $doc: missing canonical goal phrase or synonym"
+      fi
+    done
+
+    if [ -z "$D3_VIOL" ]; then
+      pass "$RULE"
+    else
+      fail "$RULE"
+      echo "$D3_VIOL"
+    fi
   fi
 fi
 
@@ -243,58 +267,61 @@ fi
 # ────────────────────────────────────────────────────────────────────────
 if skip_unless D5; then : ; else
   RULE="D5 (drift, inverse): every file with canonical phrase is enrolled or exempt"
-
-  # FROZEN — historical artefacts; phrase appears in research/audit prose, not
-  # as live downstream goal-bearing claim.
-  D5_FROZEN_PATTERNS='(docs/meta-factory/research-patches/|docs/audits/)'
-  # TEST_INFRASTRUCTURE — files that define the canon or test it.
-  D5_TEST_INFRA_PATTERNS='(packages/core/audit-self/audit-ai-docs\.sh|packages/core/audit-self/audit-ai-docs\.test\.sh|packages/core/audit-self/template-render\.audit\.ts)'
-  # ROOT_SOURCE — README.md defines CANON_ALT as the project's own goal statement;
-  # it is the upstream authority, not a downstream consumer requiring drift-tracking.
-  D5_ROOT_SOURCE_PATTERNS='(^README\.md$)'
-  # GITIGNORED — transient operational prompts; gitignored per .gitignore:2 and
-  # explicitly «out of project doc surface» per CLAUDE.md §doc-authority-hierarchy.
-  D5_GITIGNORED_PATTERNS='(^\.claude/orchestrator-prompts/)'
-  # FALSE-POSITIVE allowlist removed Wave 8.5 — was dead per Wave 8.2 audit:
-  # packages/preset-next-15-canonical/RULES.md never matched either canon phrase
-  # (grep -F confirmed 0 matches); exemption was pre-emptive and unnecessary.
-
-  # Enrollment set
-  D5_ENROLLED=$(printf '%s\n' "${DOWNSTREAM_DOCS[@]}")
-
-  # Find set: grep -lF for both canon phrases, excluding node_modules + .git
-  D5_FOUND=$(
-    {
-      grep -rlF "$CANON_PHRASE" --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null
-      grep -rlF "$CANON_ALT" --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null
-    } | sed 's|^\./||' | sort -u
-  )
-
-  D5_ORPHANS=""
-  while IFS= read -r file; do
-    [ -z "$file" ] && continue
-    # Enrolled?
-    if printf '%s\n' "$D5_ENROLLED" | grep -qxF "$file"; then continue; fi
-    # Frozen?
-    if echo "$file" | grep -qE "$D5_FROZEN_PATTERNS"; then continue; fi
-    # Test infra?
-    if echo "$file" | grep -qE "$D5_TEST_INFRA_PATTERNS"; then continue; fi
-    # Root source?
-    if echo "$file" | grep -qE "$D5_ROOT_SOURCE_PATTERNS"; then continue; fi
-    # Gitignored transient prompts?
-    if echo "$file" | grep -qE "$D5_GITIGNORED_PATTERNS"; then continue; fi
-    # Orphan — coverage gap.
-    D5_ORPHANS="$D5_ORPHANS"$'\n'"  $file: contains canonical phrase but not in DOWNSTREAM_DOCS or any exemption"
-  done <<< "$D5_FOUND"
-
-  if [ -z "$D5_ORPHANS" ]; then
-    pass "$RULE"
+  if [ "$AUDIT_MODE" = "consumer" ]; then
+    pass "$RULE (skipped: consumer install — inverse enrollment tracks the framework authoring repo)"
   else
-    fail "$RULE"
-    echo "$D5_ORPHANS"
-    echo ""
-    echo "  Fix: add the file to DOWNSTREAM_DOCS in audit-ai-docs.sh,"
-    echo "       OR add a justified pattern to D5_FROZEN/TEST_INFRA/ROOT_SOURCE/GITIGNORED."
+    # FROZEN — historical artefacts; phrase appears in research/audit prose, not
+    # as live downstream goal-bearing claim.
+    D5_FROZEN_PATTERNS='(docs/meta-factory/research-patches/|docs/audits/)'
+    # TEST_INFRASTRUCTURE — files that define the canon or test it.
+    D5_TEST_INFRA_PATTERNS='(packages/core/audit-self/audit-ai-docs\.sh|packages/core/audit-self/audit-ai-docs\.test\.sh|packages/core/audit-self/template-render\.audit\.ts)'
+    # ROOT_SOURCE — README.md defines CANON_ALT as the project's own goal statement;
+    # it is the upstream authority, not a downstream consumer requiring drift-tracking.
+    D5_ROOT_SOURCE_PATTERNS='(^README\.md$)'
+    # GITIGNORED — transient operational prompts; gitignored per .gitignore:2 and
+    # explicitly «out of project doc surface» per CLAUDE.md §doc-authority-hierarchy.
+    D5_GITIGNORED_PATTERNS='(^\.claude/orchestrator-prompts/)'
+    # FALSE-POSITIVE allowlist removed Wave 8.5 — was dead per Wave 8.2 audit:
+    # packages/preset-next-15-canonical/RULES.md never matched either canon phrase
+    # (grep -F confirmed 0 matches); exemption was pre-emptive and unnecessary.
+
+    # Enrollment set
+    D5_ENROLLED=$(printf '%s\n' "${DOWNSTREAM_DOCS[@]}")
+
+    # Find set: grep -lF for both canon phrases, excluding node_modules + .git
+    D5_FOUND=$(
+      {
+        grep -rlF "$CANON_PHRASE" --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null
+        grep -rlF "$CANON_ALT" --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null
+      } | sed 's|^\./||' | sort -u
+    )
+
+    D5_ORPHANS=""
+    while IFS= read -r file; do
+      [ -z "$file" ] && continue
+      # Enrolled?
+      if printf '%s\n' "$D5_ENROLLED" | grep -qxF "$file"; then continue; fi
+      # Frozen?
+      if echo "$file" | grep -qE "$D5_FROZEN_PATTERNS"; then continue; fi
+      # Test infra?
+      if echo "$file" | grep -qE "$D5_TEST_INFRA_PATTERNS"; then continue; fi
+      # Root source?
+      if echo "$file" | grep -qE "$D5_ROOT_SOURCE_PATTERNS"; then continue; fi
+      # Gitignored transient prompts?
+      if echo "$file" | grep -qE "$D5_GITIGNORED_PATTERNS"; then continue; fi
+      # Orphan — coverage gap.
+      D5_ORPHANS="$D5_ORPHANS"$'\n'"  $file: contains canonical phrase but not in DOWNSTREAM_DOCS or any exemption"
+    done <<< "$D5_FOUND"
+
+    if [ -z "$D5_ORPHANS" ]; then
+      pass "$RULE"
+    else
+      fail "$RULE"
+      echo "$D5_ORPHANS"
+      echo ""
+      echo "  Fix: add the file to DOWNSTREAM_DOCS in audit-ai-docs.sh,"
+      echo "       OR add a justified pattern to D5_FROZEN/TEST_INFRA/ROOT_SOURCE/GITIGNORED."
+    fi
   fi
 fi
 

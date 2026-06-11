@@ -17,9 +17,9 @@
  *   R11 CI integrity             → manual review only
  *   D1  Skills declared exist    → probeD1() — remark AST (code-fence-aware; ignores negative mentions)
  *   D2  No TODO/_comment in JSON → probeD2() — JSON.parse key-match (not substring grep)
- *   D3  Goal-phrase parity       → probeD3() — includes() check on prose text
+ *   D3  Goal-phrase parity       → probeD3() — includes() check on prose text (authoring repo only; consumer installs skip — see isAuthoringRepo)
  *   D4  Tool-decisions staleness → probeD4() — mtime comparison
- *   D5  Inverse-completeness     → probeD5() — includes() grep over repo files + exemption list
+ *   D5  Inverse-completeness     → probeD5() — includes() grep over repo files + exemption list (authoring repo only; consumer installs skip — see isAuthoringRepo)
  *
  * skip_unless R4 — active probe (probeR4 function below); all others delegated or manual.
  *
@@ -45,6 +45,27 @@ export const DOWNSTREAM_DOCS: readonly string[] = [
   '.claude/hooks/inject-session-bootstrap.sh',
   'docs/meta-factory/EXECUTION-PLAN.md',
 ];
+
+/**
+ * Mode detection (D3/D5 only): authoring repo vs consumer install.
+ *
+ * D3/D5 are authoring-repo drift probes — they track goal-phrase parity across
+ * THIS framework's own goal-bearing docs, none of which install.sh ships to
+ * consumers (it ships AGENTS.md + .ai-factory/RULES.md, which do not carry the
+ * canonical phrase). Without this gate every fresh consumer install failed D3
+ * (4× "file not found") and D5 (the installed script itself is a phrase-carrying
+ * orphan at scripts/audit-ai-docs.sh — TEST_INFRA only exempts the authoring
+ * path), making install.sh's "Run ./scripts/audit-ai-docs.sh — should PASS"
+ * unsatisfiable (verified 2026-06-11 on a fresh /tmp install).
+ *
+ * Capability check, not brand-name (dual-implementation-discipline §4): the
+ * framework source tree uniquely contains the audit script's own source path;
+ * consumer installs receive only scripts/audit-ai-docs.sh (+ the unrelated
+ * packages/core/hooks/pre-push.fallback.sh).
+ */
+export function isAuthoringRepo(cwd: string): boolean {
+  return existsSync(join(cwd, 'packages/core/audit-self/audit-ai-docs.sh'));
+}
 
 // ─── remark helpers for code-fence-aware parsing (D1) ───────────────────────
 
@@ -471,11 +492,20 @@ export function runAudit(cwd: string = process.cwd(), only: string = ''): AuditR
   // ── D3 ──────────────────────────────────────────────────────────────────────
   if (!shouldSkip('D3')) {
     const RULE = 'D3 (drift): canonical goal phrase present in downstream goal-bearing docs';
-    const d3Viols = probeD3(cwd);
-    if (d3Viols.length === 0) {
-      results.push({ probe: 'D3', level: 'pass', message: RULE, details: [] });
+    if (!isAuthoringRepo(cwd)) {
+      results.push({
+        probe: 'D3',
+        level: 'pass',
+        message: `${RULE} (skipped: consumer install — authoring-repo goal docs are not part of the shipped payload)`,
+        details: [],
+      });
     } else {
-      results.push({ probe: 'D3', level: 'fail', message: RULE, details: d3Viols });
+      const d3Viols = probeD3(cwd);
+      if (d3Viols.length === 0) {
+        results.push({ probe: 'D3', level: 'pass', message: RULE, details: [] });
+      } else {
+        results.push({ probe: 'D3', level: 'fail', message: RULE, details: d3Viols });
+      }
     }
   }
 
@@ -488,21 +518,30 @@ export function runAudit(cwd: string = process.cwd(), only: string = ''): AuditR
   // ── D5 ──────────────────────────────────────────────────────────────────────
   if (!shouldSkip('D5')) {
     const RULE = 'D5 (drift, inverse): every file with canonical phrase is enrolled or exempt';
-    const d5Findings = probeD5(cwd);
-    if (d5Findings.length === 0) {
-      results.push({ probe: 'D5', level: 'pass', message: RULE, details: [] });
-    } else {
+    if (!isAuthoringRepo(cwd)) {
       results.push({
         probe: 'D5',
-        level: 'fail',
-        message: RULE,
-        details: [
-          ...d5Findings.map((f) => `${f.file}: ${f.reason}`),
-          '',
-          'Fix: add the file to DOWNSTREAM_DOCS in audit-ai-docs.ts,',
-          '     OR add a justified pattern to D5_FROZEN/TEST_INFRA/ROOT_SOURCE/GITIGNORED.',
-        ],
+        level: 'pass',
+        message: `${RULE} (skipped: consumer install — inverse enrollment tracks the framework authoring repo)`,
+        details: [],
       });
+    } else {
+      const d5Findings = probeD5(cwd);
+      if (d5Findings.length === 0) {
+        results.push({ probe: 'D5', level: 'pass', message: RULE, details: [] });
+      } else {
+        results.push({
+          probe: 'D5',
+          level: 'fail',
+          message: RULE,
+          details: [
+            ...d5Findings.map((f) => `${f.file}: ${f.reason}`),
+            '',
+            'Fix: add the file to DOWNSTREAM_DOCS in audit-ai-docs.ts,',
+            '     OR add a justified pattern to D5_FROZEN/TEST_INFRA/ROOT_SOURCE/GITIGNORED.',
+          ],
+        });
+      }
     }
   }
 

@@ -252,6 +252,8 @@ jobs:
         run: bash tests/dispatcher/harvest-via-api.test.sh
       - name: Run install.sh internal-refs transform test (Item 12 mirror-sync, SSOT)
         run: bash tests/install-sh/transform-internal-refs.test.sh
+      - name: Run audit-ai-docs consumer-mode paired-negative (D3/D5 skip on consumer installs)
+        run: bash tests/install-sh/audit-consumer-mode.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type

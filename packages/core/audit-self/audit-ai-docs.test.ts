@@ -31,6 +31,7 @@ import {
   probeD3,
   probeD4,
   probeD5,
+  isAuthoringRepo,
   runAudit,
   main,
   CANON_PHRASE,
@@ -53,6 +54,16 @@ function writeFile(dir: string, relPath: string, content: string): string {
   mkdirSync(resolve(full, '..'), { recursive: true });
   writeFileSync(full, content, 'utf8');
   return full;
+}
+
+/**
+ * Mark a tmp dir as authoring-repo-shaped for D3/D5 mode detection
+ * (see isAuthoringRepo): consumer installs do not have the script's own
+ * source path, so a bare tmp dir is consumer-shaped and D3/D5 skip there.
+ * Marker content is phrase-free so it never enters the D5 found-set.
+ */
+function markAuthoring(dir: string): void {
+  writeFile(dir, 'packages/core/audit-self/audit-ai-docs.sh', '# authoring-repo marker for D3/D5 mode detection\n');
 }
 
 // ─── extractProseText() — remark code-fence-aware extraction ─────────────────
@@ -998,7 +1009,8 @@ describe('test_R17 — R17: component .stories.tsx (react-next preset)', () => {
 
 describe('runAudit() — orchestration layer', () => {
   let dir: string;
-  beforeEach(() => { dir = makeTmpDir(); });
+  // authoring-shaped: D3/D5 enforce here (consumer-mode skip is tested separately)
+  beforeEach(() => { dir = makeTmpDir(); markAuthoring(dir); });
   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
   it('returns AuditReport with zero failCount when everything is clean', () => {
@@ -2063,7 +2075,7 @@ describe('grepFilesContaining() — readFileSync encoding and path relativizatio
 // Surviving probes: R4, D1-warn, D1-pass, D2-pass, D3-pass, D4-any, D5-fail-empty
 describe('runAudit() — probe result details[] must be empty for pass/warn (L428-497)', () => {
   let dir: string;
-  beforeEach(() => { dir = makeTmpDir(); });
+  beforeEach(() => { dir = makeTmpDir(); markAuthoring(dir); });
   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
   it('R4 pass result has empty details array (L428)', () => {
@@ -2122,7 +2134,7 @@ describe('runAudit() — probe result details[] must be empty for pass/warn (L42
 // ── L457/491: ArrowFunction + StringLiteral in details.map() ──────────────────
 describe('runAudit() — details.map() content format (L457, L491)', () => {
   let dir: string;
-  beforeEach(() => { dir = makeTmpDir(); });
+  beforeEach(() => { dir = makeTmpDir(); markAuthoring(dir); });
   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
   it('D2 warn details items are "file: reason" strings (not empty strings from map(() => ``))', () => {
@@ -2174,6 +2186,7 @@ describe('main() — argv parsing (L518)', () => {
 
   beforeEach(() => {
     dir = makeTmpDir();
+    markAuthoring(dir);
     exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: string | number | null) => {
       throw new Error(`process.exit(${_code})`);
     });
@@ -2248,6 +2261,7 @@ describe('main() — separator lines in output (L533-534)', () => {
 
   beforeEach(() => {
     dir = makeTmpDir();
+    markAuthoring(dir);
     exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: string | number | null) => {
       throw new Error(`process.exit(${_code})`);
     });
@@ -2303,6 +2317,7 @@ describe('main() — CLI entrypoint', () => {
 
   beforeEach(() => {
     dir = makeTmpDir();
+    markAuthoring(dir);
     // Mock process.exit so it doesn't terminate the test process
     exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: string | number | null) => {
       throw new Error(`process.exit(${_code})`);
@@ -2438,5 +2453,95 @@ describe('main() — CLI entrypoint', () => {
     // Detail lines are indented with 4 spaces
     const detailLines = stdoutLines.filter((l) => l.startsWith('    '));
     expect(detailLines.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── consumer mode — D3/D5 are authoring-repo probes ──────────────────────────
+// Bug (2026-06-11): fresh consumer installs (install.sh ships the audit to
+// scripts/audit-ai-docs.sh) failed D3 (4× "file not found" — none of
+// DOWNSTREAM_DOCS is in the shipped payload) and D5 (the installed script
+// itself carries the canonical phrase; the TEST_INFRA exemption only covered
+// the authoring path). install.sh "Next steps: Run ./scripts/audit-ai-docs.sh
+// — should PASS" was unsatisfiable. Fix: D3/D5 run only in the framework
+// authoring repo (detected via presence of the script's own source path);
+// on consumer installs they pass as skipped — same pattern as D4's
+// "(no package.json — skipped)".
+
+describe('consumer mode — D3/D5 skip outside the authoring repo', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('isAuthoringRepo(): false for a consumer-shaped dir, true when the source-path marker exists', () => {
+    expect(isAuthoringRepo(dir)).toBe(false);
+    markAuthoring(dir);
+    expect(isAuthoringRepo(dir)).toBe(true);
+  });
+
+  it('D3 passes as skipped on a consumer install (DOWNSTREAM_DOCS not shipped)', () => {
+    // Fresh consumer shape: installed script only, none of the 4 authoring docs
+    writeFile(dir, 'scripts/audit-ai-docs.sh', `# installed copy\nCANON_PHRASE="${CANON_PHRASE}"\n`);
+    const report = runAudit(dir, 'D3');
+    const d3 = report.results.find((r) => r.probe === 'D3');
+    expect(d3!.level).toBe('pass');
+    expect(d3!.message).toContain('skipped: consumer install');
+    expect(d3!.details).toHaveLength(0);
+  });
+
+  it('D5 passes as skipped on a consumer install (installed script carries the phrase but is not an orphan)', () => {
+    writeFile(dir, 'scripts/audit-ai-docs.sh', `# installed copy\nCANON_PHRASE="${CANON_PHRASE}"\n`);
+    const report = runAudit(dir, 'D5');
+    const d5 = report.results.find((r) => r.probe === 'D5');
+    expect(d5!.level).toBe('pass');
+    expect(d5!.message).toContain('skipped: consumer install');
+    expect(d5!.details).toHaveLength(0);
+  });
+
+  it('main() exits 0 on a fresh consumer-shaped install (the install.sh next-steps invariant)', () => {
+    writeFile(dir, 'scripts/audit-ai-docs.sh', `# installed copy\nCANON_PHRASE="${CANON_PHRASE}"\n`);
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: string | number | null) => {
+      throw new Error(`process.exit(${_code})`);
+    });
+    const stdoutLines: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      stdoutLines.push(args.join(' '));
+    });
+    let caught: string | null = null;
+    try {
+      main(dir, ['node', 'audit-ai-docs.ts']);
+    } catch (e) {
+      caught = (e as Error).message;
+    } finally {
+      vi.restoreAllMocks();
+    }
+    expect(exitSpy).toHaveBeenCalled();
+    expect(caught).toBe('process.exit(0)');
+    const summaryLine = stdoutLines.find((l) => l.includes('Audit complete:'));
+    expect(summaryLine).toContain('0 FAIL');
+  });
+
+  it('paired negative: consumer mode does NOT neuter the audit — D1 still fails on a phantom skill', () => {
+    writeFile(dir, 'AGENTS.md', '# Agents\n\nUse skill `phantom-skill` for X.\n');
+    const report = runAudit(dir, 'D1');
+    const d1 = report.results.find((r) => r.probe === 'D1');
+    expect(d1!.level).toBe('fail');
+    expect(d1!.details.some((d) => d.includes('phantom-skill'))).toBe(true);
+  });
+
+  it('paired negative: the authoring marker restores D3 FAIL on missing docs', () => {
+    markAuthoring(dir);
+    const report = runAudit(dir, 'D3');
+    const d3 = report.results.find((r) => r.probe === 'D3');
+    expect(d3!.level).toBe('fail');
+    expect(d3!.details.some((d) => d.includes('file not found'))).toBe(true);
+  });
+
+  it('paired negative: the authoring marker restores D5 FAIL on an orphan file', () => {
+    markAuthoring(dir);
+    writeFile(dir, 'docs/consumer-orphan.md', `${CANON_PHRASE}\n`);
+    const report = runAudit(dir, 'D5');
+    const d5 = report.results.find((r) => r.probe === 'D5');
+    expect(d5!.level).toBe('fail');
+    expect(d5!.details.some((d) => d.includes('docs/consumer-orphan.md'))).toBe(true);
   });
 });
