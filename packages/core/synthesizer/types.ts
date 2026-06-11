@@ -12,7 +12,8 @@ export type ManifestCheck =
   | { type: 'manual'; rationale?: string };
 
 export interface NegativeTest {
-  input: string;
+  /** One or more code snippets — each must produce the expected violation (bypass variants). */
+  input: string[];
   'expect-violation': string;
 }
 

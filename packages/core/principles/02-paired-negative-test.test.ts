@@ -41,12 +41,13 @@ interface RuleEntry {
   check: { type: string; [key: string]: unknown };
   examples: { bad: string; good: string };
   policy?: string;
+  'negative-test'?: { input: string[]; 'expect-violation': string; eslintRuleConfig?: unknown };
   [key: string]: unknown;
 }
 
 interface SynthesizedRuleEntry extends RuleEntry {
   id: string;
-  'negative-test'?: { input: string; 'expect-violation': string };
+  'negative-test'?: { input: string[]; 'expect-violation': string; eslintRuleConfig?: unknown };
 }
 
 interface SynthFixture {
@@ -135,6 +136,37 @@ function runBashMutator(hookPath: string, testCmd: string, floor = '60') {
     encoding: 'utf8',
     cwd: REPO_ROOT,
   });
+}
+
+/**
+ * Assert liveness corpus constraints for an ESLint rule's negative-test field.
+ * Accumulates violations rather than throwing, so the caller can batch all rules.
+ *
+ * Constraints (parallel to assertPrinciple2's tautology arm):
+ *   1. input array is non-empty
+ *   2. each entry is non-trivial (≥ MIN_EXAMPLE_LENGTH chars)
+ *   3. no entry is identical to examples.good
+ *   4. all entries are distinct (no duplicate bypass variants)
+ */
+function assertNegativeTestLiveness(id: string, rule: RuleEntry, violations: string[]): void {
+  const nt = rule['negative-test'];
+  if (!nt) return; // no negative-test present — structural absence checked elsewhere
+  if (!Array.isArray(nt.input) || nt.input.length === 0) {
+    violations.push(`${id}: negative-test.input must be a non-empty array`);
+    return;
+  }
+  for (const inp of nt.input) {
+    if (!inp || inp.trim().length < MIN_EXAMPLE_LENGTH) {
+      violations.push(`${id}: negative-test.input entry is empty or trivial`);
+    }
+    if (inp.trim() === rule.examples.good.trim()) {
+      violations.push(`${id}: negative-test.input entry is identical to examples.good — tautology`);
+    }
+  }
+  const distinct = new Set(nt.input.map((s) => s.trim()));
+  if (distinct.size < nt.input.length) {
+    violations.push(`${id}: negative-test.input has duplicate entries — variants must be distinct`);
+  }
 }
 
 function assertPrinciple2(id: string, rule: RuleEntry): void {
@@ -329,7 +361,7 @@ describe('Principle 2 — Paired negative test (examples.bad + examples.good)', 
     expect(violations, `Violations:\n${violations.join('\n')}`).toHaveLength(0);
   });
 
-  it('every eslint-checked synthesized rule has a non-empty negative-test.input distinct from examples.good [M2]', () => {
+  it('every eslint-checked synthesized rule has a non-empty negative-test.input array with distinct variants [M2]', () => {
     const fixture = loadSynthFixture();
     const violations: string[] = [];
     for (const rule of fixture.rules) {
@@ -339,19 +371,81 @@ describe('Principle 2 — Paired negative test (examples.bad + examples.good)', 
         violations.push(`${rule.id}: eslint rule has no negative-test`);
         continue;
       }
-      if (!nt.input || nt.input.trim().length < MIN_EXAMPLE_LENGTH) {
-        violations.push(`${rule.id}: negative-test.input is empty or trivial`);
+      if (!Array.isArray(nt.input) || nt.input.length === 0) {
+        violations.push(`${rule.id}: negative-test.input must be a non-empty array`);
         continue;
       }
       if (!nt['expect-violation'] || nt['expect-violation'].trim().length === 0) {
         violations.push(`${rule.id}: negative-test.expect-violation is empty`);
         continue;
       }
-      if (nt.input.trim() === rule.examples.good.trim()) {
-        violations.push(
-          `${rule.id}: negative-test.input is identical to examples.good — tautology (input must violate the rule)`,
-        );
+      for (const inp of nt.input) {
+        if (!inp || inp.trim().length < MIN_EXAMPLE_LENGTH) {
+          violations.push(`${rule.id}: negative-test.input entry is empty or trivial`);
+        }
+        if (inp.trim() === rule.examples.good.trim()) {
+          violations.push(
+            `${rule.id}: negative-test.input entry is identical to examples.good — tautology`,
+          );
+        }
       }
+      const distinct = new Set(nt.input.map((s) => s.trim()));
+      if (distinct.size < nt.input.length) {
+        violations.push(`${rule.id}: negative-test.input has duplicate entries — variants must be distinct`);
+      }
+    }
+    expect(violations, `Violations:\n${violations.join('\n')}`).toHaveLength(0);
+  });
+});
+
+describe('Principle 2 — Liveness corpus (manifest ESLint rules)', () => {
+  /**
+   * Extension of the structural paired-negative check to the manifest layer.
+   * For ESLint rules that carry a negative-test field, assert:
+   *   1. input array is non-empty (≥1 entry)
+   *   2. all entries are distinct (anti-tautology — no duplicate bypass variants)
+   *   3. no entry is identical to examples.good (existing paired-negative invariant)
+   *
+   * mutation-sanity-checked (write-time):
+   *   ❌ ESLint rule with duplicate negative-test inputs → "duplicate entries" violation
+   *   ✅ ESLint rule with distinct negative-test inputs → no violation
+   *
+   * Paired-negative contract:
+   *   ❌ duplicate inputs in negative-test.input → duplicate-entries error thrown
+   *   ✅ distinct inputs, non-trivial → no error
+   */
+  it('mutation: ESLint rule with duplicate negative-test inputs fails liveness assertion [M4]', () => {
+    const dupRule: RuleEntry = {
+      title: 'test rule',
+      stack: ['ts-server'],
+      check: { type: 'eslint', rule: 'test/rule' },
+      examples: { bad: 'bad code', good: 'good code' },
+      'negative-test': { input: ['bad code', 'bad code'], 'expect-violation': 'test/rule' },
+    };
+    const violations: string[] = [];
+    assertNegativeTestLiveness('TEST', dupRule, violations);
+    expect(violations.join('')).toMatch(/duplicate/);
+  });
+
+  it('mutation: ESLint rule with distinct negative-test inputs passes liveness assertion [M4]', () => {
+    const goodRule: RuleEntry = {
+      title: 'test rule',
+      stack: ['ts-server'],
+      check: { type: 'eslint', rule: 'test/rule' },
+      examples: { bad: 'bad code', good: 'good code' },
+      'negative-test': { input: ['bad code v1', 'bad code v2'], 'expect-violation': 'test/rule' },
+    };
+    const violations: string[] = [];
+    assertNegativeTestLiveness('TEST', goodRule, violations);
+    expect(violations).toHaveLength(0);
+  });
+
+  it('all manifest ESLint rules with negative-test have non-empty distinct input arrays [M4]', () => {
+    const manifest = loadManifest();
+    const violations: string[] = [];
+    for (const [id, rule] of Object.entries(manifest)) {
+      if (rule.check.type !== 'eslint') continue;
+      assertNegativeTestLiveness(id, rule, violations);
     }
     expect(violations, `Violations:\n${violations.join('\n')}`).toHaveLength(0);
   });

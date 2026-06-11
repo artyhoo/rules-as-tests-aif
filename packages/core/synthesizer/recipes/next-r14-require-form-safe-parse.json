@@ -14,7 +14,7 @@
       "good": "export async function action(formData: FormData) {\n       const parsed = schema.safeParse(Object.fromEntries(formData));\n       return parsed;\n     }"
     },
     "negative-test": {
-      "input": "export async function action(formData: FormData) {\n        return formData.get('name');\n      }",
+      "input": ["export async function action(formData: FormData) {\n        return formData.get('name');\n      }"],
       "expect-violation": "rules-as-tests/require-form-safe-parse"
     }
   },

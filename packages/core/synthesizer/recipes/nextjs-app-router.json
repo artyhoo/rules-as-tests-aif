@@ -14,7 +14,7 @@
       "good": "// src/app/page.tsx\nimport { useRouter } from 'next/navigation';\nexport default function Page() {\n  const router = useRouter();\n  return null;\n}"
     },
     "negative-test": {
-      "input": "import { useRouter } from 'next/router';\nexport default function Page() { return null; }",
+      "input": ["import { useRouter } from 'next/router';\nexport default function Page() { return null; }"],
       "expect-violation": "no-restricted-imports"
     }
   },

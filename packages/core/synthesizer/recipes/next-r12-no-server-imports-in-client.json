@@ -14,7 +14,7 @@
       "good": "'use client';\nimport { useState } from 'react';\nexport function C() { return null; }"
     },
     "negative-test": {
-      "input": "'use client';\nimport fs from 'fs';\nexport const x = 1;",
+      "input": ["'use client';\nimport fs from 'fs';\nexport const x = 1;"],
       "expect-violation": "rules-as-tests/no-server-imports-in-client"
     }
   },

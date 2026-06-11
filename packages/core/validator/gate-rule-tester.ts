@@ -83,19 +83,21 @@ function runEslintRoundtrip(
   const linter = new Linter();
   const failures: GateFailure[] = [];
 
-  const negMessages = linter.verify(negativeTest.input, config, {
-    filename: 'negative-test.tsx',
-  });
-  const negMatched = negMessages.some((m) =>
-    matches(m, negativeTest['expect-violation'], ruleName),
-  );
-  if (!negMatched) {
-    failures.push({
-      ruleId: rule.id,
-      reason: `negative-test.input did not produce expected violation '${negativeTest['expect-violation']}' for rule '${ruleName}'; got ${JSON.stringify(
-        negMessages.map((m) => ({ rule: m.ruleId, messageId: m.messageId })),
-      )}`,
+  for (const [idx, input] of negativeTest.input.entries()) {
+    const negMessages = linter.verify(input, config, {
+      filename: 'negative-test.tsx',
     });
+    const negMatched = negMessages.some((m) =>
+      matches(m, negativeTest['expect-violation'], ruleName),
+    );
+    if (!negMatched) {
+      failures.push({
+        ruleId: rule.id,
+        reason: `negative-test.input[${idx}] did not produce expected violation '${negativeTest['expect-violation']}' for rule '${ruleName}'; got ${JSON.stringify(
+          negMessages.map((m) => ({ rule: m.ruleId, messageId: m.messageId })),
+        )}`,
+      });
+    }
   }
 
   const posMessages = linter.verify(rule.examples.good, config, {

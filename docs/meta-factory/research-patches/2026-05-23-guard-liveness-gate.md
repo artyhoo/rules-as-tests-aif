@@ -5,7 +5,7 @@
 
 > **Origin:** 2026-05-23 maintainer dialogue (session «investigate superpowers plugin usage» → branched into "can we mutation-test our own guards?"). The maintainer asked whether the Stryker idea could be adapted to verify that the project's own *documentation-as-tests* (guards) actually catch violations — «все ли сторожа поймают, или сторож декоративный». This patch records the design we converged on + the prior-art check that gates it.
 
-> **Status:** DESIGN — not implemented. Executable brief lives at `.claude/orchestrator-prompts/guard-liveness-gate/kickoff.md` (gitignored). Wave admission + launch order = maintainer call per [reviewer-discipline.md §2](../../../.claude/rules/reviewer-discipline.md).
+> **Status:** v1 IMPLEMENTED (2026-06-10) — ESLint sub-wave shipped on `feature/guard-liveness-gate-42aced`. Schema widened (`NegativeTest.input: string[]`), all 11 ESLint manifest rules carry `negative-test.input[]`, pre-commit structural gate + pre-push liveness gate wired, principle 02 extended with liveness corpus assertions. v0 audit / v1.5 command-script / v3 manual sub-waves pending.
 
 ---
 

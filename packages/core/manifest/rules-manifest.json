@@ -1,8 +1,14 @@
 {
   "R1": {
     "title": "TypeScript hygiene",
-    "stack": ["ts-server", "react-next"],
-    "check": { "type": "command", "command": "tsc --noEmit && eslint <files>" },
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "check": {
+      "type": "command",
+      "command": "tsc --noEmit && eslint <files>"
+    },
     "examples": {
       "bad": "const x = data as any;",
       "good": "const x = data as unknown as User;"
@@ -11,19 +17,41 @@
   },
   "R2": {
     "title": "Validation at boundaries",
-    "stack": ["ts-server", "react-next"],
-    "applies-to": ["src/web/handlers/**", "src/app/actions/**", "src/app/api/**"],
-    "check": { "type": "eslint", "rule": "rules-as-tests/no-unsafe-zod-parse" },
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "applies-to": [
+      "src/web/handlers/**",
+      "src/app/actions/**",
+      "src/app/api/**"
+    ],
+    "check": {
+      "type": "eslint",
+      "rule": "rules-as-tests/no-unsafe-zod-parse"
+    },
     "examples": {
       "bad": "const body = OrderSchema.parse(req.body);",
       "good": "const r = OrderSchema.safeParse(req.body); if (!r.success) return reply.code(400).send(r.error.flatten());"
     },
-    "policy": "`.parse()` is forbidden in HTTP boundary code. Use `.safeParse()` and branch on `.success`. Outside the path-scoped globs, `.parse()` is allowed (e.g. `src/config/env.ts` startup). Escape hatch: `// audit:exempt` on the same line. See factory/RULES.md#r2--validation-at-boundaries."
+    "policy": "`.parse()` is forbidden in HTTP boundary code. Use `.safeParse()` and branch on `.success`. Outside the path-scoped globs, `.parse()` is allowed (e.g. `src/config/env.ts` startup). Escape hatch: `// audit:exempt` on the same line. See factory/RULES.md#r2--validation-at-boundaries.",
+    "negative-test": {
+      "input": [
+        "const body = OrderSchema.parse(req.body);"
+      ],
+      "expect-violation": "rules-as-tests/no-unsafe-zod-parse"
+    }
   },
   "R3": {
     "title": "Architectural boundaries",
-    "stack": ["ts-server", "react-next"],
-    "check": { "type": "command", "command": "npm run arch:check" },
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "check": {
+      "type": "command",
+      "command": "npm run arch:check"
+    },
     "examples": {
       "bad": "// in src/domain/order.ts:\nimport { db } from '../infrastructure/db';",
       "good": "// in src/application/place-order.ts:\nimport type { OrderRepo } from './ports/order-repo';"
@@ -32,8 +60,14 @@
   },
   "R4": {
     "title": "Tests for new public code",
-    "stack": ["ts-server", "react-next"],
-    "check": { "type": "script", "script": "scripts/audit-r4.ts" },
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "check": {
+      "type": "script",
+      "script": "scripts/audit-r4.ts"
+    },
     "examples": {
       "bad": "export function isAdult(age: number) { return age >= 18; } // no test",
       "good": "// + isAdult.unit.ts:\nit('returns true for >= 18', () => { expect(isAdult(18)).toBe(true); });"
@@ -42,61 +76,140 @@
   },
   "R5": {
     "title": "Async correctness",
-    "stack": ["ts-server", "react-next"],
-    "check": { "type": "eslint", "rule": "@typescript-eslint/no-floating-promises" },
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "check": {
+      "type": "eslint",
+      "rule": "@typescript-eslint/no-floating-promises"
+    },
     "examples": {
       "bad": "function send(): void { fetch('/x'); }",
       "good": "async function send(): Promise<void> { await fetch('/x'); }"
     },
-    "policy": "All Promises either `await`ed or explicitly handled with `.catch()`. No floating promises. No mixing `await` and `.then()` in the same function."
+    "policy": "All Promises either `await`ed or explicitly handled with `.catch()`. No floating promises. No mixing `await` and `.then()` in the same function.",
+    "negative-test": {
+      "input": [
+        "function send(): void { fetch('/x'); }"
+      ],
+      "expect-violation": "@typescript-eslint/no-floating-promises"
+    }
   },
   "R6": {
     "title": "Errors",
-    "stack": ["ts-server", "react-next"],
-    "check": { "type": "eslint", "rule": "no-throw-literal" },
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "check": {
+      "type": "eslint",
+      "rule": "no-throw-literal"
+    },
     "examples": {
       "bad": "throw 'bad input';",
       "good": "throw new ValidationError('bad input', { cause: err });"
     },
-    "policy": "No `throw 'string'` — always throw an Error subclass. No empty `catch (_)` blocks. Domain errors extend `DomainError`; infrastructure errors extend `InfraError`. All HTTP errors go through the central error mapper."
+    "policy": "No `throw 'string'` — always throw an Error subclass. No empty `catch (_)` blocks. Domain errors extend `DomainError`; infrastructure errors extend `InfraError`. All HTTP errors go through the central error mapper.",
+    "negative-test": {
+      "input": [
+        "throw 'bad input';"
+      ],
+      "expect-violation": "no-throw-literal"
+    }
   },
   "R7": {
     "title": "Time, randomness, IO",
-    "stack": ["ts-server", "react-next"],
-    "check": { "type": "eslint", "rule": "rules-as-tests/no-direct-time-randomness" },
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "check": {
+      "type": "eslint",
+      "rule": "rules-as-tests/no-direct-time-randomness"
+    },
     "examples": {
       "bad": "const now = Date.now();",
       "good": "const now = clock.now(); // injected from infrastructure/clock"
     },
-    "policy": "No `Date.now()`, `new Date()`, `performance.now()` in `src/` (except `infrastructure/clock/`). No `Math.random()` (except `infrastructure/random/`). No direct `fs`, `http`, `https` outside `infrastructure/`."
+    "policy": "No `Date.now()`, `new Date()`, `performance.now()` in `src/` (except `infrastructure/clock/`). No `Math.random()` (except `infrastructure/random/`). No direct `fs`, `http`, `https` outside `infrastructure/`.",
+    "negative-test": {
+      "input": [
+        "const now = Date.now();"
+      ],
+      "expect-violation": "rules-as-tests/no-direct-time-randomness"
+    }
   },
   "R8": {
     "title": "Observability",
-    "stack": ["ts-server", "react-next"],
-    "applies-to": ["src/application/**"],
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "applies-to": [
+      "src/application/**"
+    ],
     "requires-package": "@opentelemetry/api",
     "auto-skip-if-missing": true,
-    "check": { "type": "eslint", "rule": "rules-as-tests/require-otel-span" },
+    "check": {
+      "type": "eslint",
+      "rule": "rules-as-tests/require-otel-span"
+    },
     "examples": {
       "bad": "export async function placeOrder(o) { return await save(o); }",
       "good": "export async function placeOrder(o) {\n  return tracer.startActiveSpan('placeOrder', () => save(o));\n}"
     },
-    "policy": "Public application commands/queries open an OTel span. Span attributes include relevant business identifiers and active feature flags. Errors set span status with structured cause."
+    "policy": "Public application commands/queries open an OTel span. Span attributes include relevant business identifiers and active feature flags. Errors set span status with structured cause.",
+    "negative-test": {
+      "input": [
+        "export async function placeOrder(o) { return await save(o); }"
+      ],
+      "expect-violation": "rules-as-tests/require-otel-span"
+    }
   },
   "R9": {
     "title": "Imports / dependencies",
-    "stack": ["ts-server", "react-next"],
-    "check": { "type": "eslint", "rule": "no-restricted-imports" },
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "check": {
+      "type": "eslint",
+      "rule": "no-restricted-imports"
+    },
     "examples": {
       "bad": "import fs from 'fs'; // in src/domain/",
       "good": "// import only from stdlib + zod in domain"
     },
-    "policy": "No `lodash`, `moment`, `axios`, `request`, `node-fetch`. New top-level dep requires ADR. No `* as` star imports except for namespaces (zod, ts)."
+    "policy": "No `lodash`, `moment`, `axios`, `request`, `node-fetch`. New top-level dep requires ADR. No `* as` star imports except for namespaces (zod, ts).",
+    "negative-test": {
+      "input": [
+        "import fs from 'fs';"
+      ],
+      "expect-violation": "no-restricted-imports",
+      "eslintRuleConfig": [
+        "error",
+        {
+          "paths": [
+            {
+              "name": "fs",
+              "message": "Use infrastructure/io instead of direct 'fs' in domain code (R9)."
+            }
+          ]
+        }
+      ]
+    }
   },
   "R10": {
     "title": "Naming",
-    "stack": ["ts-server", "react-next"],
-    "check": { "type": "manual", "rationale": "Naming conventions are too project-specific to formalize reliably; sidecar runs ad-hoc grep on the diff." },
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "check": {
+      "type": "manual",
+      "rationale": "Naming conventions are too project-specific to formalize reliably; sidecar runs ad-hoc grep on the diff."
+    },
     "examples": {
       "bad": "// file: utils.ts containing only date helpers",
       "good": "// file: date-utils.ts"
@@ -105,8 +218,14 @@
   },
   "R11": {
     "title": "CI integrity",
-    "stack": ["ts-server", "react-next"],
-    "check": { "type": "command", "command": "audit-self.yml (actionlint + zizmor → ci-success aggregate) + workflow-integrity.yml (branch-protection-assertion)" },
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "check": {
+      "type": "command",
+      "command": "audit-self.yml (actionlint + zizmor → ci-success aggregate) + workflow-integrity.yml (branch-protection-assertion)"
+    },
     "examples": {
       "bad": "# in .github/workflows/ci.yml:\n- uses: actions/checkout@main",
       "good": "- uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1"
@@ -115,22 +234,38 @@
   },
   "R12": {
     "title": "Server vs Client Components",
-    "stack": ["react-next"],
+    "stack": [
+      "react-next"
+    ],
     "requires-package": "next",
     "auto-skip-if-missing": true,
-    "check": { "type": "eslint", "rule": "rules-as-tests/no-server-imports-in-client" },
+    "check": {
+      "type": "eslint",
+      "rule": "rules-as-tests/no-server-imports-in-client"
+    },
     "examples": {
       "bad": "// no 'use client' directive\nexport function Counter() {\n  const [n, setN] = useState(0); // useState in Server Component\n}",
       "good": "'use client';\nexport function Counter() {\n  const [n, setN] = useState(0);\n}"
     },
-    "policy": "Components default to Server. `'use client'` only when hooks/event handlers/browser API are used. `'use client'` at top of file. `import 'server-only'` files cannot be imported from `'use client'` files."
+    "policy": "Components default to Server. `'use client'` only when hooks/event handlers/browser API are used. `'use client'` at top of file. `import 'server-only'` files cannot be imported from `'use client'` files.",
+    "negative-test": {
+      "input": [
+        "'use client';\nimport fs from 'fs';\nexport const x = 1;"
+      ],
+      "expect-violation": "rules-as-tests/no-server-imports-in-client"
+    }
   },
   "R13": {
     "title": "Data fetching",
-    "stack": ["react-next"],
+    "stack": [
+      "react-next"
+    ],
     "requires-package": "next",
     "auto-skip-if-missing": true,
-    "check": { "type": "manual", "rationale": "AST grep on TanStack Query / SWR usage; no ESLint rule today." },
+    "check": {
+      "type": "manual",
+      "rationale": "AST grep on TanStack Query / SWR usage; no ESLint rule today."
+    },
     "examples": {
       "bad": "'use client';\nexport function Orders() {\n  useEffect(() => { fetch('/api/orders').then(r => r.json()).then(setData); }, []);\n}",
       "good": "'use client';\nexport function Orders() {\n  const { data } = useQuery({ queryKey: ['orders'], queryFn: fetchOrders });\n}"
@@ -139,44 +274,82 @@
   },
   "R14": {
     "title": "Forms",
-    "stack": ["react-next"],
+    "stack": [
+      "react-next"
+    ],
     "requires-package": "next",
     "auto-skip-if-missing": true,
-    "check": { "type": "eslint", "rule": "rules-as-tests/require-form-safe-parse" },
+    "check": {
+      "type": "eslint",
+      "rule": "rules-as-tests/require-form-safe-parse"
+    },
     "examples": {
       "bad": "'use server';\nexport async function submit(fd: FormData) {\n  await save(fd.get('name') as string); // no safeParse\n}",
       "good": "'use server';\nexport async function submit(fd: FormData) {\n  const r = Schema.safeParse(Object.fromEntries(fd));\n  if (!r.success) return { ok: false, error: r.error.message };\n  await save(r.data);\n}"
     },
-    "policy": "Forms via Server Actions. Zod validation server-side. `useActionState` for UI feedback. Errors returned, not thrown. `revalidatePath()` / `revalidateTag()` after mutations."
+    "policy": "Forms via Server Actions. Zod validation server-side. `useActionState` for UI feedback. Errors returned, not thrown. `revalidatePath()` / `revalidateTag()` after mutations.",
+    "negative-test": {
+      "input": [
+        "'use server';\nexport async function submit(fd: FormData) {\n  await save(fd.get('name') as string);\n}"
+      ],
+      "expect-violation": "rules-as-tests/require-form-safe-parse"
+    }
   },
   "R15": {
     "title": "Accessibility",
-    "stack": ["react-next"],
-    "check": { "type": "eslint", "rule": "jsx-a11y/strict" },
+    "stack": [
+      "react-next"
+    ],
+    "check": {
+      "type": "eslint",
+      "rule": "jsx-a11y/strict"
+    },
     "examples": {
       "bad": "<div onClick={handleClick}>Click me</div>\n<button>✕</button>",
       "good": "<button type=\"button\" onClick={handleClick}>Click me</button>\n<button type=\"button\" aria-label=\"Close\">✕</button>"
     },
-    "policy": "Every interactive element has accessible name. All `<button>` have `type`. No `<div onClick>`. Color contrast checked via axe-playwright. All form fields have `<label>`. Dynamic alerts use `role=\"alert\"`."
+    "policy": "Every interactive element has accessible name. All `<button>` have `type`. No `<div onClick>`. Color contrast checked via axe-playwright. All form fields have `<label>`. Dynamic alerts use `role=\"alert\"`.",
+    "negative-test": {
+      "input": [
+        "<div onClick={handleClick}>Click me</div>"
+      ],
+      "expect-violation": "jsx-a11y/strict"
+    }
   },
   "R16": {
     "title": "Performance",
-    "stack": ["react-next"],
+    "stack": [
+      "react-next"
+    ],
     "requires-package": "next",
     "auto-skip-if-missing": true,
-    "check": { "type": "eslint", "rule": "@next/next/no-img-element" },
+    "check": {
+      "type": "eslint",
+      "rule": "@next/next/no-img-element"
+    },
     "examples": {
       "bad": "<img src=\"/hero.jpg\" alt=\"Hero\" />\n<a href=\"/about\">About</a>",
       "good": "import Image from 'next/image';\n<Image src=\"/hero.jpg\" width={800} height={400} alt=\"Hero\" />\n<Link href=\"/about\">About</Link>"
     },
-    "policy": "`next/image` for all images; `next/link` for internal nav; `dynamic()` for heavy components; images have width/height (CLS); fonts via `next/font` (FOIT/FOUT); bundle size monitored."
+    "policy": "`next/image` for all images; `next/link` for internal nav; `dynamic()` for heavy components; images have width/height (CLS); fonts via `next/font` (FOIT/FOUT); bundle size monitored.",
+    "negative-test": {
+      "input": [
+        "<img src=\"/hero.jpg\" alt=\"Hero\" />"
+      ],
+      "expect-violation": "@next/next/no-img-element"
+    }
   },
   "R17": {
     "title": "Component tests",
-    "stack": ["react-next"],
+    "stack": [
+      "react-next"
+    ],
     "requires-package": "storybook",
     "auto-skip-if-missing": true,
-    "check": { "type": "script", "script": "scripts/audit-ai-docs.react-next.sh" },
+    "check": {
+      "type": "script",
+      "script": "scripts/audit-ai-docs.react-next.sh"
+    },
     "examples": {
       "bad": "// Button.tsx has no Button.stories.tsx or Button.unit.ts\nexport function Button({ label }: { label: string }) { return <button>{label}</button>; }",
       "good": "// Button.stories.tsx\nexport const Default: Story = { args: { label: 'Submit' } };\n// Button.unit.ts: default render + userEvent click + empty label edge case"
@@ -185,10 +358,15 @@
   },
   "R18": {
     "title": "TanStack Query / SWR",
-    "stack": ["react-next"],
+    "stack": [
+      "react-next"
+    ],
     "requires-package": "@tanstack/react-query",
     "auto-skip-if-missing": true,
-    "check": { "type": "manual", "rationale": "AST grep on `useQuery` without `.parse()` in `queryFn` (project-specific)." },
+    "check": {
+      "type": "manual",
+      "rationale": "AST grep on `useQuery` without `.parse()` in `queryFn` (project-specific)."
+    },
     "examples": {
       "bad": "const { data } = useQuery({\n  queryKey: ['orders'],\n  queryFn: () => fetch('/api/orders').then(r => r.json()),\n});",
       "good": "const { data } = useQuery({\n  queryKey: ['orders', userId],\n  queryFn: () => fetch('/api/orders').then(r => r.json()).then(OrderSchema.parse),\n  staleTime: 60_000,\n});"
@@ -197,8 +375,13 @@
   },
   "R19": {
     "title": "Styles",
-    "stack": ["react-next"],
-    "check": { "type": "command", "command": "depcruise --validate (blocks styled-components/@emotion)" },
+    "stack": [
+      "react-next"
+    ],
+    "check": {
+      "type": "command",
+      "command": "depcruise --validate (blocks styled-components/@emotion)"
+    },
     "examples": {
       "bad": "import styled from 'styled-components';\nconst Card = styled.div`padding: 1rem;`;",
       "good": "import { cn } from '@/lib/utils';\n<div className={cn('p-4', active && 'bg-primary')}>...</div>"
@@ -207,20 +390,36 @@
   },
   "R20": {
     "title": "Server Actions",
-    "stack": ["react-next"],
+    "stack": [
+      "react-next"
+    ],
     "requires-package": "next",
     "auto-skip-if-missing": true,
-    "check": { "type": "eslint", "rule": "rules-as-tests/require-use-server-directive" },
+    "check": {
+      "type": "eslint",
+      "rule": "rules-as-tests/require-use-server-directive"
+    },
     "examples": {
       "bad": "export async function deleteItem(id: string) {\n  await db.delete(id); // no 'use server'\n}",
       "good": "'use server';\nexport async function deleteItem(id: string) {\n  await db.delete(id);\n  revalidatePath('/items');\n}"
     },
-    "policy": "`'use server'` at top of file or in function. Return type: `{ ok: true, data: T } | { ok: false, error: string, fieldErrors? }`. `formData` validated via Zod `.safeParse()`. Errors returned, not thrown. `revalidatePath()`/`revalidateTag()` after mutations. Auth-protected actions start with `requireUser()` or equivalent."
+    "policy": "`'use server'` at top of file or in function. Return type: `{ ok: true, data: T } | { ok: false, error: string, fieldErrors? }`. `formData` validated via Zod `.safeParse()`. Errors returned, not thrown. `revalidatePath()`/`revalidateTag()` after mutations. Auth-protected actions start with `requireUser()` or equivalent.",
+    "negative-test": {
+      "input": [
+        "export async function deleteItem(id: string) {\n  await db.delete(id);\n}"
+      ],
+      "expect-violation": "rules-as-tests/require-use-server-directive"
+    }
   },
   "IR1": {
     "title": "API contracts",
-    "stack": ["microservices"],
-    "check": { "type": "command", "command": "CI job: zod-to-openapi diff against published OpenAPI" },
+    "stack": [
+      "microservices"
+    ],
+    "check": {
+      "type": "command",
+      "command": "CI job: zod-to-openapi diff against published OpenAPI"
+    },
     "examples": {
       "bad": "// HTTP endpoint with no OpenAPI entry, hand-crafted contract",
       "good": "// Zod schema → zod-to-openapi → openapi/<service>.yaml committed"
@@ -229,8 +428,13 @@
   },
   "IR2": {
     "title": "Consumer-driven contracts (Pact)",
-    "stack": ["microservices"],
-    "check": { "type": "command", "command": "CI: pact-publish + pact-verify + can-i-deploy" },
+    "stack": [
+      "microservices"
+    ],
+    "check": {
+      "type": "command",
+      "command": "CI: pact-publish + pact-verify + can-i-deploy"
+    },
     "examples": {
       "bad": "// consumer test calls real provider URL with fixtures, no Pact",
       "good": "// consumer test produces pact JSON published to Broker; provider verification runs in CI"
@@ -239,8 +443,13 @@
   },
   "IR3": {
     "title": "Event schemas (async messaging)",
-    "stack": ["microservices"],
-    "check": { "type": "script", "script": "audit-ai-docs.sh probe — `publish()` calls reference @org/event-schemas" },
+    "stack": [
+      "microservices"
+    ],
+    "check": {
+      "type": "script",
+      "script": "audit-ai-docs.sh probe — `publish()` calls reference @org/event-schemas"
+    },
     "examples": {
       "bad": "queue.publish({ id: order.id, status: order.status }); // ad-hoc shape",
       "good": "queue.publish(OrderPlacedV1.parse({ id: order.id, status: order.status }));"
@@ -249,8 +458,13 @@
   },
   "IR4": {
     "title": "Service-to-service auth",
-    "stack": ["microservices"],
-    "check": { "type": "command", "command": "depcruise blocks bare fetch() to internal service URLs" },
+    "stack": [
+      "microservices"
+    ],
+    "check": {
+      "type": "command",
+      "command": "depcruise blocks bare fetch() to internal service URLs"
+    },
     "examples": {
       "bad": "await fetch('http://users-svc/internal/lookup', { headers: { 'x-api-key': KEY }});",
       "good": "await authedClient('users-svc').get('/internal/lookup'); // mTLS or signed JWT injected"
@@ -259,8 +473,13 @@
   },
   "IR5": {
     "title": "Observability propagation",
-    "stack": ["microservices"],
-    "check": { "type": "manual", "rationale": "Trace propagation is hard to lint; verify in integration tests + Jaeger/Tempo dashboards." },
+    "stack": [
+      "microservices"
+    ],
+    "check": {
+      "type": "manual",
+      "rationale": "Trace propagation is hard to lint; verify in integration tests + Jaeger/Tempo dashboards."
+    },
     "examples": {
       "bad": "await fetch(url); // trace context dropped at service boundary",
       "good": "await tracedFetch(url); // injects W3C traceparent header"
@@ -269,8 +488,13 @@
   },
   "IR6": {
     "title": "Resilience",
-    "stack": ["microservices"],
-    "check": { "type": "manual", "rationale": "Resilience patterns (retry, circuit breaker, timeout) verified by chaos tests in staging." },
+    "stack": [
+      "microservices"
+    ],
+    "check": {
+      "type": "manual",
+      "rationale": "Resilience patterns (retry, circuit breaker, timeout) verified by chaos tests in staging."
+    },
     "examples": {
       "bad": "await fetch(url); // no timeout, no retry, no circuit breaker",
       "good": "await resilient(() => fetch(url), { timeoutMs: 2000, retries: 3, breaker: 'users-svc' });"

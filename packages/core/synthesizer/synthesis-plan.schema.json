@@ -87,7 +87,7 @@
           "additionalProperties": false,
           "required": ["input", "expect-violation"],
           "properties": {
-            "input": { "type": "string" },
+            "input": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
             "expect-violation": { "type": "string" }
           }
         },

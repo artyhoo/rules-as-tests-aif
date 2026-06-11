@@ -55,6 +55,28 @@
         "policy": {
           "type": "string",
           "description": "Free-form Markdown body for the rule"
+        },
+        "negative-test": {
+          "type": "object",
+          "required": ["input", "expect-violation"],
+          "additionalProperties": false,
+          "description": "Liveness data for ESLint-type rules: prove the guard catches its own bad corpus.",
+          "properties": {
+            "input": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 1,
+              "description": "Code snippets that must each trigger the expected violation (bypass variants)."
+            },
+            "expect-violation": {
+              "type": "string",
+              "minLength": 1,
+              "description": "ESLint messageId or ruleId expected from each input."
+            },
+            "eslintRuleConfig": {
+              "description": "Optional ESLint rule config value, replacing bare 'error' for option-bearing rules (e.g. no-restricted-imports)."
+            }
+          }
         }
       }
     }

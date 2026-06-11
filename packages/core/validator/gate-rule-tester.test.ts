@@ -79,7 +79,7 @@ describe('L4 gate 2 — rule-tester roundtrip', () => {
       rules: synthPlan.rules.map((r) => ({
         ...r,
         'negative-test': {
-          input: '// no imports here, just a comment',
+          input: ['// no imports here, just a comment'],
           'expect-violation': 'no-restricted-imports',
         },
       })),
