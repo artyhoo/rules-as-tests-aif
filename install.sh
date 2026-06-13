@@ -102,6 +102,7 @@ SHIPPED_DOCS=(
   "agents/living-docs-auditor.md"
   "agents/compliance-verifier.md"
   "agents/memory-codification-auditor.md"
+  "agents/manual-rule-liveness-prober.md"
   "skills/tool-bootstrapping/SKILL.md"
   "skills/tool-bootstrapping/references/decision-format.md"
 )
