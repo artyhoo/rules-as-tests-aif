@@ -8,8 +8,10 @@
 #   ./install.sh react-next --dry-run --force   # preview overwrite plan
 #
 # What it does:
-#   1. Copies skills/ + .claude/skills/pipeline/ → .claude/skills/
-#      (meta-orchestrator is shipped from .claude/skills/ as single source of truth;
+#   1. Copies skills/ + .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit}/ → .claude/skills/
+#      (the meta-orchestrator pipeline + its orchestration companions are shipped from
+#       .claude/skills/ as single source of truth; self-reflection + ai-doc are intentionally
+#       NOT shipped — repo-internal per build-first-reuse-default.md §1.1 shipped-axis;
 #       cross-refs to repo-internal paths get sed-transformed to GitHub blob URLs —
 #       see UPSTREAM_BLOB_URL + transform_internal_refs() below;
 #       per .claude/rules/dual-implementation-discipline.md §7 SSOT)
@@ -245,6 +247,38 @@ patch_stryker_package_manager() {
   echo "  ✓ stryker packageManager → $_pm"
 }
 
+# copy_skill_with_transform <skill-slug>
+# Copies .claude/skills/<slug>/ to the consumer and rewrites repo-internal markdown
+# cross-refs to GitHub blob URLs (transform_internal_refs). Used for pipeline + its
+# orchestration companion skills (dispatcher / aif-doctor / template-audit) — every one
+# carries ](../../../{docs,packages,README}) refs that would dangle on a consumer tree.
+# Honors --force (skip-if-exists default) and --dry-run, matching copy_safe semantics.
+copy_skill_with_transform() {
+  local slug="$1"
+  local src="$PKG_ROOT/.claude/skills/$slug"
+  local dst="$PROJECT_ROOT/.claude/skills/$slug"
+  if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
+    SKIPPED+=("$dst")
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: .claude/skills/$slug (exists)"
+    else
+      echo "  ⊝ .claude/skills/$slug (exists — skipping)"
+    fi
+    return 0
+  fi
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would copy: $src → $dst (+ transform internal refs)"
+    return 0
+  fi
+  rm -rf "$dst"
+  cp -r "$src" "$dst"
+  # Rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
+  while IFS= read -r -d '' mdfile; do
+    transform_internal_refs "$mdfile"
+  done < <(find "$dst" -name '*.md' -print0)
+  echo "  ✓ .claude/skills/$slug/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+}
+
 # ─── 1. Skills ──────────────────────────────────────────
 echo "▶ Skills → .claude/skills/"
 mkdir_safe "$PROJECT_ROOT/.claude/skills"
@@ -276,27 +310,20 @@ else
   cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
-# meta-orchestrator: shipped from authoring location .claude/skills/pipeline/
-# as single source of truth (no separate mirror under skills/). Repo-internal cross-refs
-# in .md files get rewritten to GitHub blob URLs via transform_internal_refs().
-if [ -e "$PROJECT_ROOT/.claude/skills/pipeline" ] && [ "$FORCE" != "--force" ]; then
-  SKIPPED+=("$PROJECT_ROOT/.claude/skills/pipeline")
-  if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would skip: .claude/skills/pipeline (exists)"
-  else
-    echo "  ⊝ .claude/skills/pipeline (exists — skipping)"
-  fi
-elif [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "  [dry-run] would copy: $PKG_ROOT/.claude/skills/pipeline → $PROJECT_ROOT/.claude/skills/pipeline (+ transform internal refs)"
-else
-  rm -rf "$PROJECT_ROOT/.claude/skills/pipeline"
-  cp -r "$PKG_ROOT/.claude/skills/pipeline" "$PROJECT_ROOT/.claude/skills/pipeline"
-  # Rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
-  while IFS= read -r -d '' mdfile; do
-    transform_internal_refs "$mdfile"
-  done < <(find "$PROJECT_ROOT/.claude/skills/pipeline" -name '*.md' -print0)
-  echo "  ✓ .claude/skills/pipeline/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
-fi
+# meta-orchestrator + its orchestration companions: shipped from authoring location
+# .claude/skills/ as single source of truth (no separate mirror under skills/). Repo-internal
+# cross-refs in .md files get rewritten to GitHub blob URLs via transform_internal_refs().
+#   - pipeline      — the planner (/pipeline): umbrella triage, priority ranking, plan/state.md.
+#   - dispatcher    — pipeline's execution companion: dispatches a chosen umbrella's stages
+#                     through the aif-control loop the ./setup runtime-bridge step installs.
+#   - aif-doctor    — diagnoses that same aif-handoff runtime when a task stalls / runtime breaks.
+#   - template-audit — local advisory audit of the rendered templates this installer ships.
+# self-reflection + ai-doc are intentionally NOT shipped: they are repo-internal (reference
+# THIS repo's rules / docs paths a consumer does not have) — see the build-vs-reuse shipped-axis
+# default in .claude/rules/build-first-reuse-default.md §1.1 + dual-implementation-discipline.md §3.
+for _skill in pipeline dispatcher aif-doctor template-audit; do
+  copy_skill_with_transform "$_skill"
+done
 
 # ─── 1b. Hooks ──────────────────────────────────────────
 echo "▶ Claude hooks → .claude/hooks/"
