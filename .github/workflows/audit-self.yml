@@ -280,6 +280,8 @@ jobs:
         run: bash tests/install-sh/f5-stryker-globs.test.sh
       - name: Run install-sh prettierignore-generated-docs test (consumer-install-hardening F15)
         run: bash tests/install-sh/f15-prettierignore.test.sh
+      - name: Run install-sh lint-staged binary-resolution test (consumer-install-hardening F14)
+        run: bash tests/install-sh/f14-lintstaged-resolves.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type

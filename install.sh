@@ -394,6 +394,10 @@ copy_safe "$PKG_ROOT/packages/core/probes/audit-r4.ts" "$PROJECT_ROOT/scripts/au
 # (silent-inertness alarm). Dependency-free bash; run pre-PR once the layout settles.
 copy_safe "$PKG_ROOT/packages/core/audit-self/check-rule-globs.sh" "$PROJECT_ROOT/scripts/check-rule-globs.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/check-rule-globs.sh" 2>/dev/null || true
+# cih-s3 F14: lint-staged binary-resolution gate — fails if a .lintstagedrc command's binary
+# can't resolve from the cwd lint-staged would use (the ENOENT-before-commit alarm on monorepos).
+copy_safe "$PKG_ROOT/packages/core/audit-self/check-lintstaged-resolves.sh" "$PROJECT_ROOT/scripts/check-lintstaged-resolves.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/check-lintstaged-resolves.sh" 2>/dev/null || true
 if [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh"
   chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh" 2>/dev/null || true
@@ -403,6 +407,23 @@ fi
 echo "▶ Shared templates → project root"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/.nvmrc" "$PROJECT_ROOT/.nvmrc"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json"
+# cih-s3 F14 (M3): in a workspace, a single root .lintstagedrc runs `eslint` from git-root; in
+# a pnpm/isolated-node_modules monorepo the per-package eslint binary isn't at root → ENOENT
+# blocks the commit. Drop a per-package .lintstagedrc.json stub in each EXISTING package dir so
+# lint-staged runs with cwd=that package and resolves the local binary. PM-agnostic (no
+# `pnpm exec`). Best-effort — packages added later need the same stub; scripts/check-lintstaged-
+# resolves.sh is the alarm that catches an unstubbed package before its first blocked commit.
+if [ "$DRY_RUN" != "--dry-run" ] && { [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; }; then
+  _ndrop=0
+  while IFS= read -r _pkgjson; do
+    _pkgdir=$(dirname "$_pkgjson")
+    [ "$_pkgdir" = "$PROJECT_ROOT" ] && continue
+    if [ ! -f "$_pkgdir/.lintstagedrc.json" ]; then
+      cp "$PROJECT_ROOT/.lintstagedrc.json" "$_pkgdir/.lintstagedrc.json" && _ndrop=$((_ndrop + 1))
+    fi
+  done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name package.json -print 2>/dev/null)
+  echo "  ✓ workspace detected → dropped $_ndrop per-package .lintstagedrc.json stub(s) (F14 lint-staged cwd fix)"
+fi
 # cih-s3 F15: keep prettier off the generated RULES.md table region (rendered SSOT, not
 # format-stable) so a `*.md → prettier --write` lint-staged step can't reflow it.
 copy_safe "$PKG_ROOT/packages/core/templates/shared/.prettierignore" "$PROJECT_ROOT/.prettierignore"
