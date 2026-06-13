@@ -78,9 +78,13 @@
             }
           }
         },
+        "liveness-mode": {
+          "enum": ["run", "workflow-exists", "config-presence", "exempt"],
+          "description": "v1.5 override for the cmd/script guard-liveness mode. Mode is DERIVED from check.type by default (command→run-and-assert, script→resolve-and-run); set this only for exceptions. 'workflow-exists' = assert the named CI workflow exists + references its jobs; 'config-presence' = assert the rule's required config exists; 'exempt' = no runnable form, excluded from the gate + the fixture-required flip."
+        },
         "fixture": {
           "type": "object",
-          "description": "Liveness data for command/script rules: a violating filesystem/env state the rule's check.command/check.script must exit-non-zero on. Presence is optional; v1.5 flips to required for command/script rules after migration.",
+          "description": "Liveness data for command/script rules: a violating filesystem/env state the rule's check.command/check.script must exit-non-zero on. Required ONLY for the modes that actually execute it — run-and-assert (check.type=command, or liveness-mode='run') and resolve-and-run (check.type=script). NOT required for workflow-exists / config-presence / exempt (those modes never run a fixture).",
           "required": ["setup-script"],
           "additionalProperties": false,
           "properties": {
@@ -123,7 +127,26 @@
             }
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "description": "v1.5: fixture is REQUIRED only for the modes that execute it — run-and-assert (command, or liveness-mode='run') and resolve-and-run (script). NOT required for liveness-mode='workflow-exists' / 'config-presence' / 'exempt' (those modes never run a fixture, so a required setup-script would be inert dead data).",
+          "if": {
+            "required": ["check"],
+            "properties": {
+              "check": {
+                "required": ["type"],
+                "properties": { "type": { "enum": ["command", "script"] } }
+              }
+            },
+            "not": {
+              "required": ["liveness-mode"],
+              "properties": { "liveness-mode": { "enum": ["workflow-exists", "config-presence", "exempt"] } }
+            }
+          },
+          "then": { "required": ["fixture"] }
+        }
+      ]
     }
   },
   "additionalProperties": false

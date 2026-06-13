@@ -111,4 +111,32 @@ if (bad.length) {
 ' "$REPO_ROOT/packages/core/manifest/rules-manifest.json" || { fail=1; }
 fi
 
+# ── Cmd/script liveness: structural check — command/script rules need fixture ─
+# Change-scoped: fires only when rules-manifest.json is staged.
+# Liveness (actually running the check) is deferred to pre-push (cmd-script-liveness gate).
+# Fixture is required ONLY for the modes that execute it — run-and-assert
+# (command, or liveness-mode="run") and resolve-and-run (script). The non-executing
+# modes (workflow-exists / config-presence / exempt) are excluded, so a required
+# setup-script there is not inert dead data.
+if [ -n "$MANIFEST_STAGED" ] && command -v node &>/dev/null; then
+  node -e '
+const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+const MIN = 5;
+const FIXTURE_OPTIONAL = new Set(["workflow-exists", "config-presence", "exempt"]);
+const bad = [];
+for (const [id, r] of Object.entries(d)) {
+  if (r.check.type !== "command" && r.check.type !== "script") continue;
+  if (FIXTURE_OPTIONAL.has(r["liveness-mode"])) continue;
+  const fx = r.fixture;
+  const setup = fx && fx["setup-script"];
+  if (!setup || setup.trim().length < MIN) bad.push(id);
+}
+if (bad.length) {
+  console.error("❌ command/script run/resolve rules missing fixture.setup-script: " + bad.join(", "));
+  console.error("  Add a fixture.setup-script embodying the violation, or set a non-executing liveness-mode (workflow-exists/config-presence/exempt).");
+  process.exit(1);
+}
+' "$REPO_ROOT/packages/core/manifest/rules-manifest.json" || { fail=1; }
+fi
+
 exit "$fail"

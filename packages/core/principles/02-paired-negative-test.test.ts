@@ -508,6 +508,43 @@ function assertFixtureLiveness(id: string, fixture: Fixture): void {
   }
 }
 
+interface CmdScriptRuleLike {
+  check: { type: string };
+  fixture?: Fixture;
+  'liveness-mode'?: string;
+}
+
+/**
+ * v1.5: fixture is REQUIRED ONLY for the liveness modes that actually execute it —
+ * run-and-assert (check.type="command", or liveness-mode="run") and resolve-and-run
+ * (check.type="script"). It is NOT required for the modes that never run a fixture:
+ * "workflow-exists", "config-presence", and "exempt" — a required setup-script there
+ * would be inert dead data (operator rework 2026-06-13, MINOR fix). Mirrors the
+ * schema's conditional-required `if/then`. When present, the fixture must still be
+ * well-formed (assertFixtureLiveness).
+ *
+ * mutation-sanity-checked (write-time):
+ *   ❌ command/script run/resolve rule with NO fixture → throws "missing a required fixture"
+ *   ✅ command/script run/resolve rule with a well-formed fixture → no throw
+ *   ✅ workflow-exists / config-presence / exempt rule with NO fixture → no throw
+ */
+const FIXTURE_OPTIONAL_MODES = new Set(['workflow-exists', 'config-presence', 'exempt']);
+
+function assertFixtureRequired(id: string, rule: CmdScriptRuleLike): void {
+  const t = rule.check.type;
+  if (t !== 'command' && t !== 'script') return;
+  // Modes that never execute a fixture do not require one (avoids inert dead data).
+  if (rule['liveness-mode'] && FIXTURE_OPTIONAL_MODES.has(rule['liveness-mode'])) return;
+  if (!rule.fixture) {
+    throw new Error(
+      `Rule ${id}: command/script rule (liveness mode run-and-assert/resolve-and-run) is missing a required fixture (v1.5). ` +
+        "Add a fixture.setup-script that embodies the rule's violation, " +
+        'or set a non-executing liveness-mode ("workflow-exists" / "config-presence" / "exempt") with a per-rule rationale.',
+    );
+  }
+  assertFixtureLiveness(id, rule.fixture);
+}
+
 /**
  * Asserts pressure-scenario is well-formed IF present (presence-optional — v3 flips to required).
  *
@@ -545,21 +582,52 @@ function assertPressureScenarioLiveness(id: string, ps: PressureScenario): void 
 }
 
 describe('Principle 2 — Liveness fixture well-formedness (command/script rules) [M4]', () => {
-  it('all manifest command/script rules with fixture have well-formed setup-script [M4]', () => {
+  it('all manifest command/script rules (except exempt) have a required, well-formed fixture [M4]', () => {
     const manifest = loadManifest();
     const violations: string[] = [];
     for (const [id, rule] of Object.entries(manifest)) {
       const checkType = (rule.check as { type: string }).type;
       if (checkType !== 'command' && checkType !== 'script') continue;
-      const fixtureField = rule['fixture'] as Fixture | undefined;
-      if (!fixtureField) continue; // presence-optional: no fixture = skip (v1.5 flips to required)
       try {
-        assertFixtureLiveness(id, fixtureField);
+        assertFixtureRequired(id, rule as unknown as CmdScriptRuleLike);
       } catch (err) {
         violations.push((err as Error).message);
       }
     }
     expect(violations, `Violations:\n${violations.join('\n')}`).toHaveLength(0);
+  });
+
+  it('mutation: command/script rule with NO fixture (not exempt) fails the required-presence assertion [M4]', () => {
+    const noFixtureRule: CmdScriptRuleLike = { check: { type: 'command' } };
+    expect(() => assertFixtureRequired('R-test', noFixtureRule)).toThrow(/missing a required fixture/);
+  });
+
+  it('mutation: command/script rule WITH a well-formed fixture passes the required-presence assertion [M4]', () => {
+    const okRule: CmdScriptRuleLike = {
+      check: { type: 'command' },
+      fixture: { 'setup-script': 'mkdir -p src && printf "as any" > src/bad.ts' },
+    };
+    expect(() => assertFixtureRequired('R-test', okRule)).not.toThrow();
+  });
+
+  it('mutation: exempt command/script rule with NO fixture passes (exempt from the flip) [M4]', () => {
+    const exemptRule: CmdScriptRuleLike = { check: { type: 'command' }, 'liveness-mode': 'exempt' };
+    expect(() => assertFixtureRequired('IR-test', exemptRule)).not.toThrow();
+  });
+
+  it('mutation: workflow-exists rule with NO fixture passes (mode never executes a fixture) [M4]', () => {
+    const wfRule: CmdScriptRuleLike = { check: { type: 'command' }, 'liveness-mode': 'workflow-exists' };
+    expect(() => assertFixtureRequired('R11-test', wfRule)).not.toThrow();
+  });
+
+  it('mutation: config-presence rule with NO fixture passes (mode never executes a fixture) [M4]', () => {
+    const cfgRule: CmdScriptRuleLike = { check: { type: 'command' }, 'liveness-mode': 'config-presence' };
+    expect(() => assertFixtureRequired('R3-test', cfgRule)).not.toThrow();
+  });
+
+  it('mutation: liveness-mode="run" rule with NO fixture still fails (run-and-assert executes it) [M4]', () => {
+    const runRule: CmdScriptRuleLike = { check: { type: 'script' }, 'liveness-mode': 'run' };
+    expect(() => assertFixtureRequired('R-run-test', runRule)).toThrow(/missing a required fixture/);
   });
 
   it('mutation: fixture with trivial force-fail setup-script causes assertion to fail [M4]', () => {
