@@ -74,20 +74,30 @@ Loaded by AI Factory in `.claude/agents/`:
 
 ## Test commands
 
+Core test commands — shipped for **every** stack (`install.sh` adds these to `package.json`):
+
 ```bash
-npm run test                    # vitest run (unit + audit tests)
-npm run test:watch              # vitest watch mode
-npm run test:coverage           # with coverage thresholds
-npm run test:integration        # *.integration.ts files (real DB)
-npm run test:mutation           # Stryker incremental
-npm run test-storybook          # Storybook test runner (UI projects)
-npx playwright test             # E2E (UI projects)
+npm run test                       # vitest run (unit + audit tests)
+npm run test:watch                 # vitest watch mode
+npm run test:coverage              # with coverage thresholds
+npm run test:integration           # *.integration.ts files (real DB)
+npm run test:mutation              # Stryker — full run (all files)
+npm run test:mutation:incremental  # Stryker — changed files only (the PR-diff gate)
+```
+
+### UI projects (react-next stack) — only if you installed Storybook / Playwright
+
+**Not shipped by default.** `install.sh react-next` ships `playwright.config.ts`, but no `npm run` script and no `@playwright/test` dependency; Storybook is never scaffolded. Install the tooling yourself first, then add these:
+
+```bash
+npm run test-storybook             # Storybook test runner — needs @storybook/test-runner
+npx playwright test                # E2E — react-next config only; needs @playwright/test
 ```
 
 ## Validate everything
 
 ```bash
-npm run validate                # lint + typecheck + format:check + arch:check + test
+npm run validate                # typecheck + lint + format:check + arch:check + audit:docs + test (parallel)
 ./scripts/audit-ai-docs.sh     # drift + code-vs-docs probes (~10 sec)
 ```
 

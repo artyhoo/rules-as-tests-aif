@@ -266,6 +266,8 @@ jobs:
         run: bash tests/install-sh/f13-stryker-pm.test.sh
       - name: Run install-sh CI node-version-file test (consumer-install-hardening F11)
         run: bash tests/install-sh/f11-ci-node-version.test.sh
+      - name: Run install-sh AGENTS scripts-shipped test (consumer-install-hardening F8)
+        run: bash tests/install-sh/f8-agents-scripts-shipped.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type
