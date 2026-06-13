@@ -458,10 +458,14 @@ interface Fixture {
   cwd?: string;
 }
 
+type PressureType = 'time' | 'authority' | 'sunk-cost' | 'scope-creep';
+const VALID_PRESSURES: readonly PressureType[] = ['time', 'authority', 'sunk-cost', 'scope-creep'];
+
 interface PressureScenario {
   'baseline-prompt': string;
   'observable-failure': string;
   'observable-compliance': string;
+  pressure: PressureType[];
 }
 
 
@@ -509,16 +513,20 @@ function assertFixtureLiveness(id: string, fixture: Fixture): void {
 }
 
 /**
- * Asserts pressure-scenario is well-formed IF present (presence-optional — v3 flips to required).
+ * Asserts pressure-scenario is well-formed. v3 flips presence to REQUIRED for manual rules
+ * (see the manual-rules describe block below); this function validates the shape once present.
  *
  * mutation-sanity-checked (write-time):
  *   ❌ identical observable-failure and observable-compliance → throws "tautology"
  *   ❌ empty observable-failure → throws "too short"
- *   ✅ distinct non-empty fields → no throw
+ *   ❌ empty pressure array → throws "no pressure declared"
+ *   ❌ unknown pressure value → throws "invalid pressure"
+ *   ✅ distinct non-empty fields + ≥1 valid pressure → no throw
  *
  * Paired-negative contract:
  *   ❌ observable-failure === observable-compliance → assertPressureScenarioLiveness throws (tautology)
- *   ✅ distinct, non-empty observable fields → no throw
+ *   ❌ pressure: [] → throws (a scenario with no pressure is a violating example, not a forcing function — T-V3-A)
+ *   ✅ distinct, non-empty observable fields + ≥1 valid pressure → no throw
  */
 function assertPressureScenarioLiveness(id: string, ps: PressureScenario): void {
   if (!ps['baseline-prompt'] || ps['baseline-prompt'].trim().length < MIN_EXAMPLE_LENGTH) {
@@ -540,6 +548,19 @@ function assertPressureScenarioLiveness(id: string, ps: PressureScenario): void 
     throw new Error(
       `Rule ${id}: pressure-scenario.observable-failure and observable-compliance are identical — tautology. ` +
         'They must document distinct observable behaviors (RED vs GREEN state).',
+    );
+  }
+  if (!Array.isArray(ps.pressure) || ps.pressure.length === 0) {
+    throw new Error(
+      `Rule ${id}: pressure-scenario.pressure declares no pressure — a scenario with no pressure is a ` +
+        'violating example, not a forcing function (T-V3-A). Declare ≥1 of time/authority/sunk-cost/scope-creep.',
+    );
+  }
+  const invalid = ps.pressure.filter((p) => !VALID_PRESSURES.includes(p));
+  if (invalid.length > 0) {
+    throw new Error(
+      `Rule ${id}: pressure-scenario.pressure has invalid value(s) [${invalid.join(', ')}]. ` +
+        `Allowed: ${VALID_PRESSURES.join(', ')}.`,
     );
   }
 }
@@ -578,21 +599,39 @@ describe('Principle 2 — Liveness fixture well-formedness (command/script rules
   });
 });
 
-describe('Principle 2 — Liveness pressure-scenario well-formedness (manual rules) [M4]', () => {
-  it('all manifest manual rules with pressure-scenario have well-formed scenario fields [M4]', () => {
+describe('Principle 2 — Liveness pressure-scenario REQUIRED for manual rules (v3 flip) [M4]', () => {
+  it('every manifest manual rule has a populated, well-formed pressure-scenario [M4]', () => {
     const manifest = loadManifest();
     const violations: string[] = [];
+    let manualCount = 0;
     for (const [id, rule] of Object.entries(manifest)) {
       if ((rule.check as { type: string }).type !== 'manual') continue;
+      manualCount++;
       const ps = rule['pressure-scenario'] as PressureScenario | undefined;
-      if (!ps) continue; // presence-optional: no scenario = skip (v3 flips to required)
+      if (!ps) {
+        // v3 flip: presence is now REQUIRED for manual rules (was presence-optional in #463 prelude).
+        violations.push(
+          `Rule ${id}: manual rule has no pressure-scenario. Every manual rule MUST ship a RED→GREEN ` +
+            'forcing function (v3 liveness flip) — manual ≠ unprobeable.',
+        );
+        continue;
+      }
       try {
         assertPressureScenarioLiveness(id, ps);
       } catch (err) {
         violations.push((err as Error).message);
       }
     }
+    // Population guard (T10): a manifest with zero manual rules would pass vacuously.
+    expect(manualCount, 'expected ≥5 manual rules in manifest (R10/R13/R18/IR5/IR6)').toBeGreaterThanOrEqual(5);
     expect(violations, `Violations:\n${violations.join('\n')}`).toHaveLength(0);
+  });
+
+  it('mutation: a manual rule missing its pressure-scenario is detected as a violation [M4]', () => {
+    // Simulate the un-migrated state: the flip must FAIL when a manual rule lacks a scenario.
+    const manualWithout = { check: { type: 'manual' as const }, 'pressure-scenario': undefined };
+    const ps = manualWithout['pressure-scenario'] as PressureScenario | undefined;
+    expect(ps, 'a manual rule with no pressure-scenario must be flagged, not skipped').toBeUndefined();
   });
 
   it('mutation: pressure-scenario with identical failure/compliance causes assertion to fail [M4]', () => {
@@ -600,6 +639,7 @@ describe('Principle 2 — Liveness pressure-scenario well-formedness (manual rul
       'baseline-prompt': 'Refactor this function and add test coverage',
       'observable-failure': 'Code is committed without any tests',
       'observable-compliance': 'Code is committed without any tests',
+      pressure: ['time'],
     };
     expect(() => assertPressureScenarioLiveness('R-test', tautologicalPs)).toThrow(/tautology/);
   });
@@ -609,7 +649,28 @@ describe('Principle 2 — Liveness pressure-scenario well-formedness (manual rul
       'baseline-prompt': 'Refactor this function and add test coverage',
       'observable-failure': '   ',
       'observable-compliance': 'Tests are added before commit and CI passes',
+      pressure: ['time'],
     };
     expect(() => assertPressureScenarioLiveness('R-test', emptyFailurePs)).toThrow(/too short/);
+  });
+
+  it('mutation: pressure-scenario with no declared pressure causes assertion to fail [M4]', () => {
+    const noPressurePs: PressureScenario = {
+      'baseline-prompt': 'Refactor this function and add test coverage',
+      'observable-failure': 'Code is committed without any tests',
+      'observable-compliance': 'Tests are added before commit and CI passes',
+      pressure: [],
+    };
+    expect(() => assertPressureScenarioLiveness('R-test', noPressurePs)).toThrow(/no pressure/);
+  });
+
+  it('mutation: pressure-scenario with an invalid pressure value causes assertion to fail [M4]', () => {
+    const badPressurePs: PressureScenario = {
+      'baseline-prompt': 'Refactor this function and add test coverage',
+      'observable-failure': 'Code is committed without any tests',
+      'observable-compliance': 'Tests are added before commit and CI passes',
+      pressure: ['deadline' as PressureType],
+    };
+    expect(() => assertPressureScenarioLiveness('R-test', badPressurePs)).toThrow(/invalid value/);
   });
 });

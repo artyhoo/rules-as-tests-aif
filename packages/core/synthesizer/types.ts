@@ -23,10 +23,16 @@ export interface Fixture {
   cwd?: string;
 }
 
+/** Rationalizing pressures a baseline-prompt may apply — the forcing function (T-V3-A). */
+export type PressureType = 'time' | 'authority' | 'sunk-cost' | 'scope-creep';
+
 export interface PressureScenario {
   'baseline-prompt': string;
   'observable-failure': string;
   'observable-compliance': string;
+  /** Which pressure(s) the baseline-prompt applies (≥1). A scenario with no pressure is a
+   *  violating example, not a forcing function (T-V3-A). */
+  pressure: PressureType[];
 }
 
 export interface SynthesizedRule {
