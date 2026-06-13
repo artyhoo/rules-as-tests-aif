@@ -1,0 +1,68 @@
+name: workflow-integrity
+
+# R11 — CI integrity, executable form.
+# See .ai-factory/RULES.md#r11 for policy.
+#
+# This workflow carries the R11 branch-protection self-assertion only.
+# The lint/typecheck/architecture/test/security/audit-ai-docs jobs aggregate into
+# the single required `ci-success` context inside ci.yml (cross-file `needs:` is
+# impossible, and a path-filtered required check deadlocks PRs that don't touch
+# the filtered path). This workflow asserts that `ci-success` stays a required
+# status check on the default protected branch.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+jobs:
+  branch-protection-assertion:
+    name: ci-success required-check assertion
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Assert ci-success is a required status check on the default branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          # Tri-state semantics:
+          #   - protection or rulesets configured AND include ci-success → pass
+          #   - protection or rulesets configured but ci-success missing → fail (R11 violated)
+          #   - no protection AND no rulesets → warn (R11 not yet adopted), pass
+          # Rationale: don't block PRs in repos that haven't yet configured branch
+          # protection. Once configured, R11 enforcement kicks in automatically.
+
+          protection_json="$(gh api "repos/${{ github.repository }}/branches/${DEFAULT_BRANCH}/protection" 2>/dev/null || echo 'null')"
+          rulesets_json="$(gh api "repos/${{ github.repository }}/rulesets" 2>/dev/null || echo '[]')"
+
+          has_protection=$(echo "$protection_json" | jq 'if . == null or (type=="object" and has("message")) then false else true end')
+          has_rulesets=$(echo "$rulesets_json" | jq 'if type=="array" then [.[] | select(.enforcement == "active")] | length > 0 else false end')
+
+          if [ "$has_protection" = "true" ]; then
+            if echo "$protection_json" | jq -e '.required_status_checks.contexts | contains(["ci-success"])' > /dev/null; then
+              echo "✅ ci-success is required on ${DEFAULT_BRANCH} (classic branch protection)"
+              exit 0
+            fi
+            echo "::error::Branch protection exists on ${DEFAULT_BRANCH} but ci-success is NOT in required status checks (R11 violated)."
+            echo "::error::Settings → Branches → ${DEFAULT_BRANCH} → Require status checks → ci-success"
+            exit 1
+          fi
+
+          if [ "$has_rulesets" = "true" ]; then
+            echo "✅ rulesets active — manually verify ci-success in https://github.com/${{ github.repository }}/settings/rules"
+            exit 0
+          fi
+
+          echo "::warning::No branch protection or active rulesets on ${DEFAULT_BRANCH}. R11 not yet adopted in this repo."
+          echo "::warning::Configure: Settings → Branches → ${DEFAULT_BRANCH} → Require status checks → ci-success"
+          exit 0

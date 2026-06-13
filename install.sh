@@ -207,6 +207,35 @@ chmod_safe() {
   chmod "$@"
 }
 
+# The shipped stryker.config.json hardcodes "packageManager": "npm" (the template can't
+# self-detect). Patch the COPIED config in place to match the consumer's lockfile so a
+# pnpm/yarn consumer doesn't get an npm-locked mutation run. Non-destructive: rewrites only
+# the packageManager key. Guarded on --dry-run and on node availability (no node → leave npm).
+patch_stryker_package_manager() {
+  _cfg="$PROJECT_ROOT/stryker.config.json"
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would set stryker packageManager from consumer lockfile"
+    return 0
+  fi
+  command -v node >/dev/null 2>&1 || return 0
+  [ -f "$_cfg" ] || return 0
+  if [ -f "$PROJECT_ROOT/pnpm-lock.yaml" ]; then
+    _pm="pnpm"
+  elif [ -f "$PROJECT_ROOT/yarn.lock" ]; then
+    _pm="yarn"
+  else
+    _pm="npm"
+  fi
+  AIF_STRYKER_CFG="$_cfg" AIF_STRYKER_PM="$_pm" node -e '
+    const fs = require("fs");
+    const p = process.env.AIF_STRYKER_CFG;
+    const cfg = JSON.parse(fs.readFileSync(p, "utf8"));
+    cfg.packageManager = process.env.AIF_STRYKER_PM;
+    fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n");
+  '
+  echo "  ✓ stryker packageManager → $_pm"
+}
+
 # ─── 1. Skills ──────────────────────────────────────────
 echo "▶ Skills → .claude/skills/"
 mkdir_safe "$PROJECT_ROOT/.claude/skills"
@@ -358,6 +387,8 @@ echo "▶ Scripts → scripts/"
 mkdir_safe "$PROJECT_ROOT/scripts"
 copy_safe "$PKG_ROOT/packages/core/audit-self/audit-ai-docs.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.sh" 2>/dev/null || true
+# R4 probe (ts-morph) invoked by audit-ai-docs.sh via `npx tsx scripts/audit-r4.ts`.
+copy_safe "$PKG_ROOT/packages/core/probes/audit-r4.ts" "$PROJECT_ROOT/scripts/audit-r4.ts"
 if [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh"
   chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh" 2>/dev/null || true
@@ -375,8 +406,36 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-push.sh" "$PROJECT
 # Wave 10.5: also install the bash critical-only fallback so the dispatcher can find it.
 # The runtime dispatcher (husky-pre-push.sh) selects between TS-core and fallback at each push.
 copy_safe "$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh" "$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh"
+# cih-s1 F1: also ship the TS-core hook + its bounded static import closure so the
+# dispatcher's Node≥20 arm is reachable (without these, husky-pre-push.sh always
+# falls to the presence-only bash fallback). The relative layout under
+# packages/core/hooks/ is preserved so the dispatcher resolves $REPO_ROOT/packages/
+# core/hooks/pre-push.ts. Closure (static, re-derived to fixpoint): pre-push.ts →
+# {utils/run-check.ts, utils/git.ts, checks/prior-art.ts, checks/s17.ts}. NOT shipped:
+# checks/guard-liveness.ts is dynamically import()ed and degrades gracefully when absent.
+for ts_hook in \
+  pre-push.ts \
+  utils/run-check.ts \
+  utils/git.ts \
+  checks/prior-art.ts \
+  checks/s17.ts; do
+  copy_safe "$PKG_ROOT/packages/core/hooks/$ts_hook" "$PROJECT_ROOT/packages/core/hooks/$ts_hook"
+done
 chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" \
   "$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh" 2>/dev/null || true
+
+# cih-s1 F2: activate the shipped hooks deterministically. Copying the files alone leaves them
+# inert — git never calls .husky/* until core.hooksPath points there. We set it directly instead
+# of `npx husky init` (which would CLOBBER the .husky/pre-commit + pre-push we just shipped).
+# Guarded on DRY_RUN and on PROJECT_ROOT being a git repo (no-op in non-git dirs, e.g. some tests).
+if [ -n "$DRY_RUN" ]; then
+  echo "▶ git hooks → [dry-run] would set core.hooksPath=.husky"
+elif git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  git -C "$PROJECT_ROOT" config core.hooksPath .husky
+  echo "▶ Activated git hooks → core.hooksPath=.husky"
+else
+  echo "  ⚠  not a git repo — skipped core.hooksPath activation (run: git config core.hooksPath .husky)"
+fi
 
 # ─── 5b. Custom ESLint rules plugin (used by eslint.config.mjs) ───
 echo "▶ Custom ESLint rules → eslint-rules-local/"
@@ -445,7 +504,10 @@ if [ "$STACK" = "ts-server" ]; then
   # with no config on the ./setup path — the template exists, just copy it).
   copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
   copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+  patch_stryker_package_manager
   copy_safe "$PKG_ROOT/templates/ts-server/github-actions-ci.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
+  # R11 branch-protection self-assertion (the executable arm RULES.md#r11 names alongside ci-success).
+  copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
 elif [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
@@ -454,7 +516,10 @@ elif [ "$STACK" = "react-next" ]; then
   # stack-agnostic; a react-tailored layering config is a follow-up (residual R-1).
   copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
   copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+  patch_stryker_package_manager
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
+  # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
+  copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
 fi
 
 # ─── 7. package.json scripts (FQA S1-A W4) ──────────────
@@ -494,8 +559,23 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
       };
       let added = 0;
       for (const [k, v] of Object.entries(want)) if (!(k in pkg.scripts)) { pkg.scripts[k] = v; added++; }
+      // cih-s1 F2: also merge the devDeps the SHIPPED HOOKS need so they run, not just exist.
+      // .husky/pre-commit calls `npx lint-staged`; the canonical scripts call `husky` (prepare)
+      // and sort-package-json. Without these the hooks are dead even after `npm install`. Same
+      // non-destructive guard as scripts: only keys the consumer lacks; caret ranges (not in the
+      // framework root package.json — no range to mirror, per orchestrator note) so consumers get
+      // patches. devDependencies object created if absent.
+      pkg.devDependencies = pkg.devDependencies || {};
+      const wantDev = {
+        "husky": "^9.1.7",
+        "lint-staged": "^15.2.10",
+        "sort-package-json": "^2.10.1"
+      };
+      let addedDev = 0;
+      for (const [k, v] of Object.entries(wantDev)) if (!(k in pkg.devDependencies)) { pkg.devDependencies[k] = v; addedDev++; }
       fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
       process.stderr.write("  ✓ added " + added + " script(s); " + (Object.keys(want).length - added) + " already present (kept)\n");
+      process.stderr.write("  ✓ added " + addedDev + " hook devDep(s); " + (Object.keys(wantDev).length - addedDev) + " already present (kept)\n");
     '
   else
     echo "  ⚠  node not found — skipped scripts merge; add them manually per INSTALL.md §3"

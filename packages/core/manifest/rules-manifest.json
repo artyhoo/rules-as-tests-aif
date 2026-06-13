@@ -224,7 +224,7 @@
     ],
     "check": {
       "type": "command",
-      "command": "audit-self.yml (actionlint + zizmor → ci-success aggregate) + workflow-integrity.yml (branch-protection-assertion)"
+      "command": "ci.yml (lint/typecheck/architecture/test/security/audit-ai-docs → ci-success aggregate) + workflow-integrity.yml (branch-protection-assertion)"
     },
     "examples": {
       "bad": "# in .github/workflows/ci.yml:\n- uses: actions/checkout@main",
