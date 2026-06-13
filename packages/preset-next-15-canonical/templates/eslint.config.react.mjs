@@ -15,6 +15,38 @@ import globals from 'globals';
 import { defineConfig } from 'eslint/config';
 import customRules from './eslint-rules-local/index.ts';
 
+// ─── AIF rule-scope globs (F3) ──────────────────────────
+// LAYOUT-AGNOSTIC custom-rule globs (its OWN Next/app-router shape, NOT cloned from the
+// ts-server template) so the shields fire on flat, src/-nested, AND monorepo (apps/*,
+// packages/*) React layouts — not only the bare `app/` + `src/`+DDD layout the template
+// originally assumed. Edit if your structure differs; the post-install
+// `check-globs-nonempty` gate fails loudly if any expands to zero files.
+const RULE_GLOBS = {
+  // R2 no-unsafe-zod-parse + R14/R20 (form / Server-Action safety) — Next boundary code
+  boundary: [
+    '**/app/**/actions/**/*.{ts,tsx}',
+    '**/app/api/**/*.{ts,tsx}',
+    '**/actions/**/*.{ts,tsx}',
+    '**/features/*/api/**/*.{ts,tsx}',
+  ],
+  // R7 no-direct-time-randomness — all app code except infrastructure (opt-in, see below)
+  appCode: ['**/*.{ts,tsx}'],
+  appCodeIgnore: ['**/infrastructure/**/*.{ts,tsx}'],
+  // R8 require-otel-span — application / use-case layer (opt-in, see below)
+  application: [
+    '**/application/**/*.{ts,tsx}',
+    '**/use-cases/**/*.{ts,tsx}',
+    '**/usecases/**/*.{ts,tsx}',
+  ],
+  applicationIgnore: ['**/application/**/ports/**'],
+};
+
+// ─── F7: runtime-discipline rules (R7/R8) are opt-in ────
+// R7 (injected Clock/Random + infrastructure layer) and R8 (OpenTelemetry spans) demand
+// infra a fresh skeleton lacks → deferred unless AIF_STRICT_RUNTIME=1. R2/R12/R14/R20 need
+// no such infra → stay unconditional.
+const STRICT_RUNTIME = process.env.AIF_STRICT_RUNTIME === '1';
+
 export default defineConfig(
   {
     ignores: [
@@ -182,33 +214,13 @@ export default defineConfig(
     },
   },
 
-  // Custom AST rules (R2 / R7 / R8 / R12 / R14 / R20)
+  // Custom AST rules — R2 + R12 + R14 + R20 unconditional (no infra needed); R7/R8 opt-in
+  // via AIF_STRICT_RUNTIME=1 (F3 layout-agnostic globs + F7 deferred runtime discipline).
   {
-    files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/infrastructure/**/*.{ts,tsx}'],
-    plugins: { 'rules-as-tests': customRules },
-    rules: {
-      'rules-as-tests/no-direct-time-randomness': 'error',
-    },
-  },
-  {
-    files: [
-      'app/**/actions/**/*.{ts,tsx}',
-      'src/app/**/actions/**/*.{ts,tsx}',
-      'app/api/**/*.{ts,tsx}',
-      'src/app/api/**/*.{ts,tsx}',
-    ],
+    files: RULE_GLOBS.boundary,
     plugins: { 'rules-as-tests': customRules },
     rules: {
       'rules-as-tests/no-unsafe-zod-parse': 'error',
-    },
-  },
-  {
-    files: ['src/application/**/*.{ts,tsx}'],
-    ignores: ['src/application/**/ports/**'],
-    plugins: { 'rules-as-tests': customRules },
-    rules: {
-      'rules-as-tests/require-otel-span': 'error',
     },
   },
   // R12 part 2 — 'use client' files cannot import server-only modules
@@ -220,21 +232,36 @@ export default defineConfig(
       'rules-as-tests/no-server-imports-in-client': 'error',
     },
   },
-  // R14 + R20 — Server Actions / API handlers
+  // R14 + R20 — Server Actions / API handlers (same Next boundary globs as R2)
   {
-    files: [
-      'app/**/actions/**/*.{ts,tsx}',
-      'src/app/**/actions/**/*.{ts,tsx}',
-      'app/api/**/*.{ts,tsx}',
-      'src/app/api/**/*.{ts,tsx}',
-      'src/features/*/api/**/*.{ts,tsx}',
-    ],
+    files: RULE_GLOBS.boundary,
     plugins: { 'rules-as-tests': customRules },
     rules: {
       'rules-as-tests/require-form-safe-parse': 'error',
       'rules-as-tests/require-use-server-directive': 'error',
     },
   },
+  // R7 / R8 — runtime discipline, opt-in via AIF_STRICT_RUNTIME=1 (F7)
+  ...(STRICT_RUNTIME
+    ? [
+        {
+          files: RULE_GLOBS.appCode,
+          ignores: RULE_GLOBS.appCodeIgnore,
+          plugins: { 'rules-as-tests': customRules },
+          rules: {
+            'rules-as-tests/no-direct-time-randomness': 'error',
+          },
+        },
+        {
+          files: RULE_GLOBS.application,
+          ignores: RULE_GLOBS.applicationIgnore,
+          plugins: { 'rules-as-tests': customRules },
+          rules: {
+            'rules-as-tests/require-otel-span': 'error',
+          },
+        },
+      ]
+    : []),
 
   // Tests
   {

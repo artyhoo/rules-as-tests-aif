@@ -43,10 +43,13 @@ For React/Next projects: also `.ai-factory/ARCHITECTURE.react-next.md` (Server v
 Before every commit or PR, run the gate this installer actually ships:
 
 - **`./scripts/audit-ai-docs.sh`** — drift + code-vs-docs probes (~10 sec). Run it before you commit.
+- **`./scripts/check-rule-globs.sh`** — fails if a custom ESLint rule (R2 always; R7/R8 under `AIF_STRICT_RUNTIME=1`) matches **zero** source files, i.e. is silently inert against your layout. Run it once your directory structure settles.
 - The **pre-push hook** (`.husky/pre-push`) fires automatically on `git push` — typecheck, `vitest related`, dependency-cruiser.
 - **CI** gates the PR (`ci-success` required check). This is the last-resort authority that does not depend on local tooling.
 
 These are unconditional — they ship with the project and need no extra install.
+
+**Runtime-discipline rules R7/R8 are opt-in.** `no-direct-time-randomness` (R7) and `require-otel-span` (R8) need an injected Clock/Random + `infrastructure/` layer and an OpenTelemetry tracer — infra a fresh skeleton lacks. The shipped `eslint.config.mjs` enables them only when `AIF_STRICT_RUNTIME=1` is set in the environment; R2 (validation at boundaries) stays unconditional. Custom-rule file globs are **layout-agnostic** (flat / layered / monorepo) — widen `RULE_GLOBS` in `eslint.config.mjs` if `check-rule-globs.sh` reports a rule inert.
 
 ### AI Factory commands (only if you have aif installed)
 

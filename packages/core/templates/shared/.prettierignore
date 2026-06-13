@@ -1,0 +1,14 @@
+# Generated rule docs — the `<!-- begin/end: rules-table-generated -->` region is rendered
+# from the rules manifest (the SSOT) and is NOT prettier-format-stable. A shipped
+# `*.md → prettier --write` lint-staged step would reflow the generated table on every
+# md-touching commit (cosmetic churn on a static consumer; a recurring fight on a consumer
+# that regenerates RULES.md via AIF recipes). Keep prettier off them. (cih-s3 F15)
+.ai-factory/RULES.md
+.ai-factory/RULES.react-next.md
+
+# Build output / deps (consumers may extend this file)
+dist/
+coverage/
+.stryker-tmp/
+node_modules/
+reports/

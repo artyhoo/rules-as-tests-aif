@@ -11,6 +11,40 @@ import globals from 'globals';
 import { defineConfig } from 'eslint/config';
 import customRules from './eslint-rules-local/index.ts';
 
+// ─── AIF rule-scope globs (F3) ──────────────────────────
+// Custom-rule `files` globs default to LAYOUT-AGNOSTIC patterns so the shields fire on
+// flat (Hono), layered (DDD), AND monorepo (apps/*, packages/*) shapes — not only the
+// `src/`+DDD layout the template originally assumed (which matched ZERO files on a flat
+// server or monorepo → silently inert). Edit these if your structure differs; the
+// post-install `check-globs-nonempty` gate fails loudly if any expands to zero files —
+// silent inertness is the worst failure for a "no check → no rule" framework.
+const RULE_GLOBS = {
+  // R2 no-unsafe-zod-parse — HTTP boundary code (request payloads parsed at the edge)
+  boundary: [
+    '**/handlers/**/*.{ts,tsx}',
+    '**/routes/**/*.{ts,tsx}',
+    '**/controllers/**/*.{ts,tsx}',
+    '**/app/api/**/*.{ts,tsx}',
+    '**/actions/**/*.{ts,tsx}',
+  ],
+  // R7 no-direct-time-randomness — all app code except infrastructure (opt-in, see below)
+  appCode: ['**/*.{ts,tsx}'],
+  appCodeIgnore: ['**/infrastructure/**/*.{ts,tsx}'],
+  // R8 require-otel-span — application / use-case layer (opt-in, see below)
+  application: [
+    '**/application/**/*.{ts,tsx}',
+    '**/use-cases/**/*.{ts,tsx}',
+    '**/usecases/**/*.{ts,tsx}',
+  ],
+  applicationIgnore: ['**/application/**/ports/**'],
+};
+
+// ─── F7: runtime-discipline rules (R7/R8) are opt-in ────
+// R7 (injected Clock/Random + infrastructure layer) and R8 (OpenTelemetry spans) demand
+// infra a fresh skeleton lacks → friction-without-benefit by default. Deferred unless
+// AIF_STRICT_RUNTIME=1. R2 (validation at boundaries) needs no infra → stays unconditional.
+const STRICT_RUNTIME = process.env.AIF_STRICT_RUNTIME === '1';
+
 export default defineConfig(
   // 1. Global ignores
   {
@@ -114,34 +148,35 @@ export default defineConfig(
     },
   },
 
-  // 4b. Custom AST rules (R2 / R7 / R8)
+  // 4b. Custom AST rules — R2 unconditional (no infra needed); R7/R8 opt-in via
+  //     AIF_STRICT_RUNTIME=1 (F3 layout-agnostic globs + F7 deferred runtime discipline).
   {
-    files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/infrastructure/**/*.{ts,tsx}'],
-    plugins: { 'rules-as-tests': customRules },
-    rules: {
-      'rules-as-tests/no-direct-time-randomness': 'error',
-    },
-  },
-  {
-    files: [
-      'src/web/handlers/**/*.{ts,tsx}',
-      'src/app/actions/**/*.{ts,tsx}',
-      'src/app/api/**/*.{ts,tsx}',
-    ],
+    files: RULE_GLOBS.boundary,
     plugins: { 'rules-as-tests': customRules },
     rules: {
       'rules-as-tests/no-unsafe-zod-parse': 'error',
     },
   },
-  {
-    files: ['src/application/**/*.{ts,tsx}'],
-    ignores: ['src/application/**/ports/**'],
-    plugins: { 'rules-as-tests': customRules },
-    rules: {
-      'rules-as-tests/require-otel-span': 'error',
-    },
-  },
+  ...(STRICT_RUNTIME
+    ? [
+        {
+          files: RULE_GLOBS.appCode,
+          ignores: RULE_GLOBS.appCodeIgnore,
+          plugins: { 'rules-as-tests': customRules },
+          rules: {
+            'rules-as-tests/no-direct-time-randomness': 'error',
+          },
+        },
+        {
+          files: RULE_GLOBS.application,
+          ignores: RULE_GLOBS.applicationIgnore,
+          plugins: { 'rules-as-tests': customRules },
+          rules: {
+            'rules-as-tests/require-otel-span': 'error',
+          },
+        },
+      ]
+    : []),
 
   // 5. Test files — relax strict rules, enable test-specific ones
   {
