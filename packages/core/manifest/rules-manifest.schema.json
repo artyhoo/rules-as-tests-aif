@@ -106,8 +106,8 @@
         },
         "pressure-scenario": {
           "type": "object",
-          "description": "RED→GREEN forcing-function data for the manual rule prober (v3). Presence is optional; v3 flips to required for manual rules after migration.",
-          "required": ["baseline-prompt", "observable-failure", "observable-compliance"],
+          "description": "RED→GREEN forcing-function data for the manual rule prober (v3). Presence is optional; v3 flips to required for manual rules after migration. A pressure-scenario is a forcing function: it must name the pressure (`pressure`) that tempts the shortcut over the rule, not merely show a violating example.",
+          "required": ["baseline-prompt", "observable-failure", "observable-compliance", "pressure"],
           "additionalProperties": false,
           "properties": {
             "baseline-prompt": {
@@ -124,6 +124,13 @@
               "type": "string",
               "minLength": 1,
               "description": "What the AI produces when the rule IS enforced (GREEN state). Must differ from observable-failure."
+            },
+            "pressure": {
+              "type": "array",
+              "description": "The forcing pressure(s) the baseline-prompt applies — what tempts the shortcut over the rule. At least one required (T-V3-A: a pressure-scenario is a forcing function, not just a violating example).",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string", "enum": ["time", "authority", "sunk-cost", "scope-creep"] }
             }
           }
         }

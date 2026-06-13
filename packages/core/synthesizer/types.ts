@@ -34,10 +34,13 @@ export interface Fixture {
  */
 export type LivenessModeOverride = 'run' | 'workflow-exists' | 'config-presence' | 'exempt';
 
+export type PressureType = 'time' | 'authority' | 'sunk-cost' | 'scope-creep';
+
 export interface PressureScenario {
   'baseline-prompt': string;
   'observable-failure': string;
   'observable-compliance': string;
+  pressure: PressureType[];
 }
 
 export interface SynthesizedRule {

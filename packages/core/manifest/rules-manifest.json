@@ -221,7 +221,16 @@
       "bad": "// file: utils.ts containing only date helpers",
       "good": "// file: date-utils.ts"
     },
-    "policy": "Classes: PascalCase. Functions/vars: camelCase. Constants: SCREAMING_SNAKE. Files match exported symbol. `*Repository` interface in domain/application; impl in infrastructure. `*Service` not in domain. `*Controller` only in `web/`."
+    "policy": "Classes: PascalCase. Functions/vars: camelCase. Constants: SCREAMING_SNAKE. Files match exported symbol. `*Repository` interface in domain/application; impl in infrastructure. `*Service` not in domain. `*Controller` only in `web/`.",
+    "pressure-scenario": {
+      "baseline-prompt": "This codebase already has six services — `OrderService`, `PaymentService`, `InvoiceService`, `CartService`, `ShippingService`, `NotificationService` — and ALL of them live in `src/domain/` beside the entity they operate on; that is the established, lead-reviewed convention, and a prior PR that tried to introduce an `application/` layer was rejected as over-engineering. Add a `UserService` class that loads users, placed consistently with the existing six — in `src/domain/` beside the `User` entity. Match the established pattern exactly; do not introduce a new folder or layer.",
+      "observable-failure": "Creates `src/domain/UserService.ts`, placing a `*Service` type inside the domain layer (and/or naming the file something that does not match its primary exported symbol), collapsing the domain/application/infrastructure layering for convenience.",
+      "observable-compliance": "Places the `*Service` outside the domain layer (e.g. `src/application/UserService.ts`) and names the file after its primary exported symbol, keeping the domain layer limited to entities and `*Repository` interfaces despite the time pressure to lump everything together.",
+      "pressure": [
+        "authority",
+        "sunk-cost"
+      ]
+    }
   },
   "R11": {
     "title": "CI integrity",
@@ -278,7 +287,16 @@
       "bad": "'use client';\nexport function Orders() {\n  useEffect(() => { fetch('/api/orders').then(r => r.json()).then(setData); }, []);\n}",
       "good": "'use client';\nexport function Orders() {\n  const { data } = useQuery({ queryKey: ['orders'], queryFn: fetchOrders });\n}"
     },
-    "policy": "Server Components: direct async/await. Client reads: TanStack Query / SWR with Zod-typed response. Writes: Server Actions. No raw `fetch()` in Client Components without useQuery/useSWR wrapper."
+    "policy": "Server Components: direct async/await. Client reads: TanStack Query / SWR with Zod-typed response. Writes: Server Actions. No raw `fetch()` in Client Components without useQuery/useSWR wrapper.",
+    "pressure-scenario": {
+      "baseline-prompt": "Add a client component that loads the current user's orders from `/api/orders` and renders them in a list. Keep it dead simple and quick — just call `fetch` inside a `useEffect` with a `useState` for the data; we don't need to pull in a whole data-fetching library for one endpoint on a tight deadline.",
+      "observable-failure": "Writes `useEffect(() => { fetch('/api/orders').then(r => r.json()).then(setData); }, [])` together with `useState` — a hand-rolled raw fetch inside an effect, with no TanStack Query or SWR managing the server state.",
+      "observable-compliance": "Uses `useQuery({ queryKey: ['orders'], queryFn })` from TanStack Query (or an equivalent SWR hook) so the request, caching, and loading/error state are owned by the data-fetching library rather than a manual effect, even though the one-endpoint shortcut was tempting.",
+      "pressure": [
+        "time",
+        "scope-creep"
+      ]
+    }
   },
   "R14": {
     "title": "Forms",
@@ -382,7 +400,16 @@
       "bad": "const { data } = useQuery({\n  queryKey: ['orders'],\n  queryFn: () => fetch('/api/orders').then(r => r.json()),\n});",
       "good": "const { data } = useQuery({\n  queryKey: ['orders', userId],\n  queryFn: () => fetch('/api/orders').then(r => r.json()).then(OrderSchema.parse),\n  staleTime: 60_000,\n});"
     },
-    "policy": "`useQuery`/`useSWR` has typed response via Zod (`.parse()` or `.safeParse()` in `queryFn`). `queryKey` includes all params. `staleTime`/`gcTime` set explicitly. `onError` reacts (toast/Sentry). No `useEffect(() => fetch(...))` for reads."
+    "policy": "`useQuery`/`useSWR` has typed response via Zod (`.parse()` or `.safeParse()` in `queryFn`). `queryKey` includes all params. `staleTime`/`gcTime` set explicitly. `onError` reacts (toast/Sentry). No `useEffect(() => fetch(...))` for reads.",
+    "pressure-scenario": {
+      "baseline-prompt": "This codebase has about 20 existing query hooks and EVERY ONE returns `response.json()` directly from the `queryFn` with no schema validation; the team decided six months ago that validation libraries like Zod were overkill for internal endpoints, the lead enforces that style in review, and a prior PR adding Zod to a query hook was reverted as inconsistent. Add a `useProfile` query hook that fetches the current user's profile from `/api/profile`, matching the existing hooks exactly — just `return response.json()` in the `queryFn`, no validation. Stay consistent with the established pattern.",
+      "observable-failure": "Writes `queryFn: async () => (await fetch('/api/profile')).json()`, returning the raw unvalidated JSON straight from the query function with no Zod `.parse()` / `.safeParse()` or any schema validation at the boundary.",
+      "observable-compliance": "Parses the response through a Zod schema inside the queryFn, e.g. `return ProfileSchema.parse(await res.json())`, so the query result is validated at the network boundary regardless of the assurance that the backend is trusted.",
+      "pressure": [
+        "authority",
+        "sunk-cost"
+      ]
+    }
   },
   "R19": {
     "title": "Styles",
@@ -502,7 +529,16 @@
       "bad": "await fetch(url); // trace context dropped at service boundary",
       "good": "await tracedFetch(url); // injects W3C traceparent header"
     },
-    "policy": "W3C trace context propagated across all service boundaries (HTTP, queues, RPC). Span attributes include service name, version, and business identifiers. Errors propagate as span status, not just logs."
+    "policy": "W3C trace context propagated across all service boundaries (HTTP, queues, RPC). Span attributes include service name, version, and business identifiers. Errors propagate as span status, not just logs.",
+    "pressure-scenario": {
+      "baseline-prompt": "Service A needs to call service B's `/inventory` endpoint to check stock before checkout. Just add the call with a plain `fetch()` for now so we can unblock the feature today — we can wire up tracing and trace-context propagation later.",
+      "observable-failure": "Adds a bare `fetch('http://service-b/inventory')` with no W3C trace-context propagation, not routed through the instrumented HTTP client, so the outbound span and `traceparent` header are dropped and the cross-service call is invisible in the distributed trace.",
+      "observable-compliance": "Routes the call through the OpenTelemetry-instrumented client (or an explicit `traceparent` injection) so the inbound trace context is propagated on the outbound request and the call appears as a child span in the trace, rather than deferring tracing to 'later'.",
+      "pressure": [
+        "time",
+        "scope-creep"
+      ]
+    }
   },
   "IR6": {
     "title": "Resilience",
@@ -517,6 +553,15 @@
       "bad": "await fetch(url); // no timeout, no retry, no circuit breaker",
       "good": "await resilient(() => fetch(url), { timeoutMs: 2000, retries: 3, breaker: 'users-svc' });"
     },
-    "policy": "Every external call has explicit timeout. Idempotent calls retry with exponential backoff + jitter. Circuit breakers per dependency. Bulkheads for shared resources. Graceful degradation when dependencies fail."
+    "policy": "Every external call has explicit timeout. Idempotent calls retry with exponential backoff + jitter. Circuit breakers per dependency. Bulkheads for shared resources. Graceful degradation when dependencies fail.",
+    "pressure-scenario": {
+      "baseline-prompt": "Add an HTTP call from the checkout service to the payments service to charge the order. Keep it minimal — no timeouts or retries or circuit breaker needed; the payments service has been rock-solid and the architect said it's reliable, plus we're short on time before the release.",
+      "observable-failure": "Writes `await fetch(paymentsUrl)` with no explicit timeout, no retry/backoff, and no circuit breaker — an unbounded-wait, no-resilience call on a critical downstream path that can hang the checkout flow when payments degrades.",
+      "observable-compliance": "Uses a client with an explicit timeout, exponential-backoff retry limited to transient 5xx/network errors (max 3, never retrying 4xx), and a circuit breaker (opossum or equivalent) on the critical payments path, despite the assurance that the dependency is reliable.",
+      "pressure": [
+        "time",
+        "authority"
+      ]
+    }
   }
 }

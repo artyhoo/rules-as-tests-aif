@@ -107,6 +107,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'agents/living-docs-auditor.md',
   'agents/compliance-verifier.md',
   'agents/memory-codification-auditor.md',
+  'agents/manual-rule-liveness-prober.md',
 ];
 
 /**
