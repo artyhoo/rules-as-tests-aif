@@ -6,6 +6,7 @@
 #   ./install.sh react-next --force             # overwrite existing files
 #   ./install.sh react-next --dry-run           # preview without writing
 #   ./install.sh react-next --dry-run --force   # preview overwrite plan
+#   ./install.sh ts-server --full               # also auto-install dev-deps (no prompts)
 #
 # What it does:
 #   1. Copies skills/ + .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit}/ → .claude/skills/
@@ -22,6 +23,8 @@
 #
 # Safety: by default never overwrites existing files. Use --force to overwrite.
 # Use --dry-run to preview the plan without touching disk.
+# Use --full to also run the consumer's package manager to install the dev-deps the shipped
+# hooks/scripts need (default is to ask [y/N], default No — a mutating step is opt-in).
 
 set -euo pipefail
 
@@ -61,10 +64,12 @@ fi
 STACK=""
 FORCE=""
 DRY_RUN=""
+FULL=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run)              DRY_RUN="--dry-run" ;;
     --force)                FORCE="--force" ;;
+    --full)                 FULL="--full" ;;
     ts-server|react-next)   STACK="$arg" ;;
     *)                      ;;
   esac
@@ -210,6 +215,28 @@ chmod_safe() {
   chmod "$@"
 }
 
+# Detect the consumer's package manager from corepack / workspace / lockfile signals present
+# AT INSTALL TIME. The explicit package.json "packageManager" field (corepack source of truth)
+# wins; else workspace/lock markers (pnpm-workspace.yaml exists pre-install in a monorepo even
+# before the lockfile lands — R-S4-3 note below); else npm. Echoes one of: npm | pnpm | yarn.
+# node-optional: the field check is skipped when node is absent (markers still resolve). SSOT —
+# shared by patch_stryker_package_manager() and the §8 dev-dep install so the two never drift.
+detect_pm() {
+  local _pm _field
+  if [ -f "$PROJECT_ROOT/pnpm-lock.yaml" ] || [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then
+    _pm="pnpm"
+  elif [ -f "$PROJECT_ROOT/yarn.lock" ] || [ -f "$PROJECT_ROOT/.yarnrc.yml" ]; then
+    _pm="yarn"
+  else
+    _pm="npm"
+  fi
+  if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/package.json" ]; then
+    _field=$(AIF_PJ="$PROJECT_ROOT/package.json" node -e 'try{const m=(JSON.parse(require("fs").readFileSync(process.env.AIF_PJ,"utf8")).packageManager||"").split("@")[0];if(["npm","pnpm","yarn"].includes(m))process.stdout.write(m)}catch{}' 2>/dev/null || true)
+    [ -n "$_field" ] && _pm="$_field"
+  fi
+  printf '%s' "$_pm"
+}
+
 # The shipped stryker.config.json hardcodes "packageManager": "npm" (the template can't
 # self-detect). Patch the COPIED config in place to match the consumer's lockfile so a
 # pnpm/yarn consumer doesn't get an npm-locked mutation run. Non-destructive: rewrites only
@@ -228,15 +255,7 @@ patch_stryker_package_manager() {
   # source of truth) wins; else workspace/lock markers (pnpm-workspace.yaml exists pre-install
   # in a monorepo); else npm. A flat pnpm consumer with neither marker nor field still defaults
   # npm — re-run install after the lockfile lands, or set package.json "packageManager".
-  if [ -f "$PROJECT_ROOT/pnpm-lock.yaml" ] || [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then
-    _pm="pnpm"
-  elif [ -f "$PROJECT_ROOT/yarn.lock" ] || [ -f "$PROJECT_ROOT/.yarnrc.yml" ]; then
-    _pm="yarn"
-  else
-    _pm="npm"
-  fi
-  _field=$(AIF_PJ="$PROJECT_ROOT/package.json" node -e 'try{const m=(JSON.parse(require("fs").readFileSync(process.env.AIF_PJ,"utf8")).packageManager||"").split("@")[0];if(["npm","pnpm","yarn"].includes(m))process.stdout.write(m)}catch{}' 2>/dev/null || true)
-  [ -n "$_field" ] && _pm="$_field"
+  _pm=$(detect_pm)   # SSOT detector (lockfile/workspace/corepack signals; see detect_pm above)
   AIF_STRYKER_CFG="$_cfg" AIF_STRYKER_PM="$_pm" node -e '
     const fs = require("fs");
     const p = process.env.AIF_STRYKER_CFG;
@@ -646,6 +665,80 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
   fi
 fi
 
+# ─── 8. dev-dependency install — one-button completeness (#483, DN-B=A) ──────
+# The scripts-merge above only DECLARES the toolchain; the Next-steps block historically handed
+# back a manual `npm install`. So the wired hooks (core.hooksPath=.husky → .husky/pre-commit runs
+# `npx lint-staged`) fired with their tools ABSENT → ENOENT on the consumer's first commit (#478
+# root, #483). Close it: detect the consumer's PM (detect_pm SSOT) and actually RUN the dev-dep
+# install so the declared tools land before that first commit. Mutating + opinionated → OPT-IN:
+# interactive [y/N] default-No, or --full to skip the prompt (non-interactive without --full → No).
+# Shells out to the consumer's own PM — adds NO dependency to the framework (per §3 scope fence /
+# BFR). DEVDEPS is the single source for both the install command and the Next-steps fallback echo
+# (so "what we install" and "what we tell you to install" can't drift — #two-prompts-drift).
+CORE_DEVDEPS=(
+  eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils
+  prettier eslint-config-prettier @vitest/eslint-plugin
+  vitest@^4.1.5 @vitest/coverage-v8@^4.1.5
+  @stryker-mutator/core @stryker-mutator/vitest-runner @stryker-mutator/typescript-checker
+  dependency-cruiser fast-check glob tsx
+  husky lint-staged sort-package-json
+  npm-run-all2
+)
+REACT_DEVDEPS=(
+  @vitejs/plugin-react jsdom @testing-library/react
+  @testing-library/jest-dom @next/eslint-plugin-next
+  eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
+  eslint-plugin-testing-library @playwright/test
+)
+DEVDEPS=( "${CORE_DEVDEPS[@]}" )
+[ "$STACK" = "react-next" ] && DEVDEPS+=( "${REACT_DEVDEPS[@]}" )
+
+DEPS_INSTALLED=""
+_do_dep_install=""
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "▶ dev-deps → [dry-run] would offer to install ${#DEVDEPS[@]} dev-deps with $(detect_pm)"
+elif [ ! -f "$PROJECT_ROOT/package.json" ]; then
+  :   # no package.json to install into — nothing to do
+elif [ -n "$FULL" ]; then
+  _do_dep_install="yes"
+elif [ -t 0 ]; then
+  printf "▶ Install %s dev-dependencies now with %s? [y/N] " "${#DEVDEPS[@]}" "$(detect_pm)"
+  read -r _ans || _ans=""
+  case "$_ans" in [yY]|[yY][eE][sS]) _do_dep_install="yes" ;; esac
+else
+  :   # non-interactive (no tty) without --full → default No; the manual command prints in Next steps
+fi
+
+if [ "$_do_dep_install" = "yes" ]; then
+  _pm=$(detect_pm)
+  if ! command -v "$_pm" >/dev/null 2>&1; then
+    echo "  ⚠  $_pm not found on PATH — skipped dev-dep install (install manually, see Next steps)."
+  else
+    echo "▶ Installing ${#DEVDEPS[@]} dev-dependencies with $_pm (this may take a minute) …"
+    _ok=""
+    case "$_pm" in
+      pnpm)
+        # pnpm refuses to add to a workspace root without -w; pass it only when a workspace exists.
+        # Explicit branch (not an empty-array expansion) for bash 3.2 + `set -u` safety.
+        if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then
+          if ( cd "$PROJECT_ROOT" && pnpm add -D -w "${DEVDEPS[@]}" ); then _ok="yes"; fi
+        else
+          if ( cd "$PROJECT_ROOT" && pnpm add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi
+        fi ;;
+      yarn)
+        if ( cd "$PROJECT_ROOT" && yarn add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
+      *)
+        if ( cd "$PROJECT_ROOT" && npm install --save-dev "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
+    esac
+    if [ -n "$_ok" ]; then
+      DEPS_INSTALLED="1"
+      echo "  ✓ dev-dependencies installed → node_modules/ (wired hooks now have their tools)"
+    else
+      echo "  ⚠  dev-dep install failed — run it manually (see Next steps)."
+    fi
+  fi
+fi
+
 # ─── cih-s3 V2: runtime-discipline arming WARN (consumer-side, deps-free) ───
 # R7/R8 (no-direct-time-randomness / require-otel-span) ship DEFERRED behind AIF_STRICT_RUNTIME=1
 # in the eslint config templates. If the consumer already depends on @opentelemetry/* yet has not
@@ -685,28 +778,23 @@ echo "Next steps:"
 echo "  1. Edit .ai-factory/DESCRIPTION.template.md → save as .ai-factory/DESCRIPTION.md"
 echo "  2. Edit .ai-factory/ARCHITECTURE.ts-server.md (or ARCHITECTURE.react-next.md) → save as .ai-factory/ARCHITECTURE.md"
 echo "  3. Edit AGENTS.md placeholders to match your project"
-echo "  4. Install required npm dev-deps:"
-echo ""
-echo "     npm install --save-dev \\"
-echo "       eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils \\"
-echo "       prettier eslint-config-prettier @vitest/eslint-plugin \\"
-echo "       vitest@^4.1.5 @vitest/coverage-v8@^4.1.5 \\"
-echo "       @stryker-mutator/core @stryker-mutator/vitest-runner @stryker-mutator/typescript-checker \\"
-echo "       dependency-cruiser fast-check glob tsx \\"
-echo "       husky lint-staged sort-package-json \\"
-echo "       npm-run-all2 prettier"
-if [ "$STACK" = "react-next" ]; then
-echo "     # Plus React/Next deps:"
-echo "     npm install --save-dev \\"
-echo "       @vitejs/plugin-react jsdom @testing-library/react \\"
-echo "       @testing-library/jest-dom @next/eslint-plugin-next \\"
-echo "       eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y \\"
-echo "       eslint-plugin-testing-library @playwright/test"
+if [ "${DEPS_INSTALLED:-}" = "1" ]; then
+  echo "  4. ✓ Dev-dependencies installed into node_modules/ — nothing to do."
+else
+  # step 4 fallback: the manual dep-install (run only when --full/[y/N] consent was not given).
+  # Built from the same DEVDEPS array the installer uses → list cannot drift from what we install.
+  case "$(detect_pm)" in
+    pnpm) _add="pnpm add -D" ;;
+    yarn) _add="yarn add -D" ;;
+    *)    _add="npm install --save-dev" ;;
+  esac
+  echo "  4. Install dev-dependencies (or re-run: ./install.sh ${STACK:-ts-server} --full):"
+  echo ""
+  echo "     $_add \\"
+  printf '       %s\n' "${DEVDEPS[*]}"
 fi
-echo ""
-echo "  5. Add scripts to package.json (see INSTALL.md §3)"
-echo "  6. Verify git hooks: 'git config core.hooksPath' should print .husky (install activated it; do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push)"
-echo "  7. Run: ./scripts/audit-ai-docs.sh — should PASS"
-echo "  8. Run: npm run validate"
+echo "  5. Verify git hooks: 'git config core.hooksPath' should print .husky (install activated it; do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push)"
+echo "  6. Run: ./scripts/audit-ai-docs.sh — should PASS"
+echo "  7. Run: npm run validate"
 echo ""
 echo "For full guide: see INSTALL.md"
