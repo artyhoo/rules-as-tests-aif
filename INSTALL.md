@@ -195,14 +195,14 @@ For React/Next, also add:
 
 ```bash
 npm install --save-dev \
-  eslint@^10.0.0 typescript-eslint@^8.59.0 @eslint/js \
+  eslint@^9.0.0 typescript-eslint@^8.59.0 @eslint/js@^9.0.0 @typescript-eslint/utils@^8.59.0 \
   globals@^15.14.0 \
-  prettier@^3.4.0 eslint-config-prettier@^9.1.0 eslint-plugin-vitest@^0.5.4 \
+  prettier@^3.4.0 eslint-config-prettier@^9.1.0 @vitest/eslint-plugin@^1.0.0 \
   typescript@^5.7.0 \
   vitest@^4.1.5 @vitest/coverage-v8@^4.1.5 \
-  @stryker-mutator/core@^8.7.0 @stryker-mutator/vitest-runner@^8.7.0 stryker-cli \
+  @stryker-mutator/core@^8.7.0 @stryker-mutator/vitest-runner@^8.7.0 @stryker-mutator/typescript-checker@^8.7.0 stryker-cli \
   dependency-cruiser@^16.8.0 \
-  fast-check@^3.23.0 glob@^11.0.0 \
+  fast-check@^3.23.0 glob@^11.0.0 tsx@^4.19.0 \
   husky@^9.1.7 lint-staged@^15.2.10 sort-package-json@^2.12.0 \
   npm-run-all2@^7.0.0 \
   @types/node@^22.10.0

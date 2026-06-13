@@ -220,13 +220,21 @@ patch_stryker_package_manager() {
   fi
   command -v node >/dev/null 2>&1 || return 0
   [ -f "$_cfg" ] || return 0
-  if [ -f "$PROJECT_ROOT/pnpm-lock.yaml" ]; then
+  # R-S4-3: install.sh runs BEFORE the consumer's `npm/pnpm install` in the canonical flow,
+  # so a lockfile may not exist yet (a pnpm monorepo would silently stay "npm"). Detect from
+  # signals present AT INSTALL TIME: the explicit package.json "packageManager" field (corepack
+  # source of truth) wins; else workspace/lock markers (pnpm-workspace.yaml exists pre-install
+  # in a monorepo); else npm. A flat pnpm consumer with neither marker nor field still defaults
+  # npm — re-run install after the lockfile lands, or set package.json "packageManager".
+  if [ -f "$PROJECT_ROOT/pnpm-lock.yaml" ] || [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then
     _pm="pnpm"
-  elif [ -f "$PROJECT_ROOT/yarn.lock" ]; then
+  elif [ -f "$PROJECT_ROOT/yarn.lock" ] || [ -f "$PROJECT_ROOT/.yarnrc.yml" ]; then
     _pm="yarn"
   else
     _pm="npm"
   fi
+  _field=$(AIF_PJ="$PROJECT_ROOT/package.json" node -e 'try{const m=(JSON.parse(require("fs").readFileSync(process.env.AIF_PJ,"utf8")).packageManager||"").split("@")[0];if(["npm","pnpm","yarn"].includes(m))process.stdout.write(m)}catch{}' 2>/dev/null || true)
+  [ -n "$_field" ] && _pm="$_field"
   AIF_STRYKER_CFG="$_cfg" AIF_STRYKER_PM="$_pm" node -e '
     const fs = require("fs");
     const p = process.env.AIF_STRYKER_CFG;
@@ -653,11 +661,11 @@ echo "  3. Edit AGENTS.md placeholders to match your project"
 echo "  4. Install required npm dev-deps:"
 echo ""
 echo "     npm install --save-dev \\"
-echo "       eslint@^10 typescript-eslint@^8.59 @eslint/js \\"
-echo "       prettier eslint-config-prettier eslint-plugin-vitest \\"
+echo "       eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils \\"
+echo "       prettier eslint-config-prettier @vitest/eslint-plugin \\"
 echo "       vitest@^4.1.5 @vitest/coverage-v8@^4.1.5 \\"
-echo "       @stryker-mutator/core @stryker-mutator/vitest-runner \\"
-echo "       dependency-cruiser fast-check glob \\"
+echo "       @stryker-mutator/core @stryker-mutator/vitest-runner @stryker-mutator/typescript-checker \\"
+echo "       dependency-cruiser fast-check glob tsx \\"
 echo "       husky lint-staged sort-package-json \\"
 echo "       npm-run-all2 prettier"
 if [ "$STACK" = "react-next" ]; then
