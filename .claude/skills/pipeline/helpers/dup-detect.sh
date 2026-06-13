@@ -46,6 +46,30 @@ PR_JSON="$("${MO_GH_BIN}" pr list --state merged --search "merged:>=${SINCE}" --
 # Tokenise stdin: lowercase, split, keep >=4 chars, strip stopwords. Outputs sorted unique tokens.
 tok_stdin() { tr '[:upper:][:punct:]' '[:lower:] ' | tr -s ' ' '\n' | mo_filter_tokens "$STOP"; }
 
+# Precompute the research-patch filename token index ONCE. The deliverable tree and its
+# per-file token sets are umbrella-invariant, so scanning + tokenising them inside the
+# per-umbrella check_umbrella (Signal 3) was O(umbrellas x patch-files) — the dominant
+# cost of `--all` across 100+ umbrellas. Hoisted here: one git ls-tree + one tokenise pass.
+# Populates globals DELIV_PATHS / DELIV_FTOKS (parallel arrays, git-ls-tree order preserved
+# so the per-umbrella output order is unchanged). Skips empty-token filenames exactly as the
+# inline scan did, so the compared set is identical.
+precompute_deliverables() {
+  DELIV_PATHS=(); DELIV_FTOKS=()
+  local dir paths path fbase ftok
+  for dir in ${MO_DELIVERABLE_DIRS}; do
+    paths="$(git -C "${REPO_ROOT}" ls-tree -r --name-only "${MO_DELIVERABLE_REF}" -- "${dir}" 2>/dev/null || true)"
+    [[ -z "${paths}" ]] && continue
+    while IFS= read -r path; do
+      [[ -z "${path}" ]] && continue
+      fbase="$(basename "${path}")"
+      ftok="$(printf '%s' "${fbase}" | tok_stdin)"
+      [[ -z "${ftok}" ]] && continue
+      DELIV_PATHS+=("${path}")
+      DELIV_FTOKS+=("${ftok}")
+    done < <(printf '%s\n' "${paths}")
+  done
+}
+
 check_umbrella() {
   local name="$1" kickoff="${PROMPTS_DIR}/$1/kickoff.md" flagged=0
   if [[ ! -f "${kickoff}" ]]; then echo "MISSING: ${name} no kickoff.md found"; return; fi
@@ -76,33 +100,34 @@ check_umbrella() {
     fi
   done < <(printf '%s\n' "${PR_JSON}" | grep -oE '\{[^}]+\}' 2>/dev/null || true)
   # Signal 3: deliverable already committed on the staging ref. Derive significant
-  # umbrella slug-tokens (strip -meta-launch/-iphase/-rphase suffixes), then scan the
-  # committed research-patch tree for any filename matching >=2 of them. The >=2 floor
-  # avoids false hits on a single shared word. Deterministic; no LLM, no gh.
+  # umbrella slug-tokens (strip -meta-launch/-iphase/-rphase suffixes), then compare
+  # against the research-patch filename tokens precomputed ONCE in DELIV_PATHS/DELIV_FTOKS
+  # (the tree + per-file tokens are umbrella-invariant — recomputing them inside this
+  # per-umbrella function was O(umbrellas x patch-files); hoisted to precompute_deliverables).
+  # The >=2 floor avoids false hits on a single shared word. Deterministic; no LLM, no gh.
   local base_name; base_name="$(printf '%s' "${name}" | sed -E 's/-(meta-launch|iphase|rphase)$//')"
   local utok; utok="$(printf '%s' "${base_name}" | tok_stdin)"
   if [[ -n "${utok}" ]]; then
-    local dir paths path fbase ftok common ccount
-    for dir in ${MO_DELIVERABLE_DIRS}; do
-      paths="$(git -C "${REPO_ROOT}" ls-tree -r --name-only "${MO_DELIVERABLE_REF}" -- "${dir}" 2>/dev/null || true)"
-      [[ -z "${paths}" ]] && continue
-      while IFS= read -r path; do
-        [[ -z "${path}" ]] && continue
-        fbase="$(basename "${path}")"
-        ftok="$(printf '%s' "${fbase}" | tok_stdin)"
-        [[ -z "${ftok}" ]] && continue
-        common="$(comm -12 <(printf '%s\n' "${utok}") <(printf '%s\n' "${ftok}") || true)"
-        ccount="$(printf '%s\n' "${common}" | grep -c . 2>/dev/null || echo 0)"
-        ccount="${ccount//[[:space:]]/}"
-        if [[ "${ccount}" -ge 2 ]]; then
-          echo "POTENTIAL_DUPE: ${name} deliverable already on staging: ${path} (basis=deliverable-on-staging score=100%)"
-          flagged=1
-        fi
-      done < <(printf '%s\n' "${paths}")
+    # Iterate the precomputed arrays by index count (git-ls-tree order preserved →
+    # output order identical to the pre-hoist per-umbrella scan). ${#arr[@]} is
+    # empty-array-safe under `set -u` on bash 3.2 (macOS default); ${!arr[@]} is not.
+    local n="${#DELIV_PATHS[@]}" i=0 common ccount
+    while [[ "${i}" -lt "${n}" ]]; do
+      common="$(comm -12 <(printf '%s\n' "${utok}") <(printf '%s\n' "${DELIV_FTOKS[$i]}") || true)"
+      ccount="$(printf '%s\n' "${common}" | grep -c . 2>/dev/null || echo 0)"
+      ccount="${ccount//[[:space:]]/}"
+      if [[ "${ccount}" -ge 2 ]]; then
+        echo "POTENTIAL_DUPE: ${name} deliverable already on staging: ${DELIV_PATHS[$i]} (basis=deliverable-on-staging score=100%)"
+        flagged=1
+      fi
+      i=$((i+1))
     done
   fi
   if [[ "${flagged}" -eq 0 ]]; then echo "OK: ${name} no dup-detect signal vs merged-PRs-30d"; fi
 }
+
+# Build the umbrella-invariant deliverable token index once; check_umbrella reads it per umbrella.
+precompute_deliverables
 
 ARG="${1:-}"
 # Empty arg = --all (silent fall-through). Lets SKILL.md §2.5 Step 2 use a single
