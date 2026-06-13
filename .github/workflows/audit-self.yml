@@ -274,6 +274,12 @@ jobs:
         run: bash tests/install-sh/f8b-rulecreator-doc-urls.test.sh
       - name: Run install-sh no-husky-init-advice test (consumer-install-hardening F8c)
         run: bash tests/install-sh/f8c-no-husky-init-advice.test.sh
+      - name: Run install-sh rule-glob liveness test (consumer-install-hardening F3/F7/V)
+        run: bash tests/install-sh/f3-f7-rule-globs.test.sh
+      - name: Run install-sh stryker-globs layout-agnostic test (consumer-install-hardening F5)
+        run: bash tests/install-sh/f5-stryker-globs.test.sh
+      - name: Run install-sh prettierignore-generated-docs test (consumer-install-hardening F15)
+        run: bash tests/install-sh/f15-prettierignore.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type

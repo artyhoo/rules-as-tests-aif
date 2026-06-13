@@ -184,7 +184,9 @@ throw new ValidationError('bad input', { cause: err });
 - No `Math.random()` (except `infrastructure/random/`).
 - No direct `fs`, `http`, `https` imports outside `infrastructure/`.
 
-**Check:** ESLint rule `rules-as-tests/no-direct-time-randomness` (allows `src/infrastructure/**`).
+**Check:** ESLint rule `rules-as-tests/no-direct-time-randomness` (layout-agnostic globs, ignores `**/infrastructure/**`).
+
+**Opt-in (cih-s3 F7):** deferred by default — R7 needs an injected Clock/Random + an `infrastructure/` layer a fresh skeleton lacks. The shipped `eslint.config.mjs` enables it only when the environment sets `AIF_STRICT_RUNTIME=1`. Turn it on once those primitives exist.
 
 ### Examples
 
@@ -203,7 +205,9 @@ const now = clock.now(); // injected from infrastructure/clock
 - Span attributes include: relevant business identifiers and active feature flags.
 - Errors set span status with structured cause, never bare error strings.
 
-**Check:** ESLint rule `rules-as-tests/require-otel-span` (scoped to `src/application/**`).
+**Check:** ESLint rule `rules-as-tests/require-otel-span` (layout-agnostic globs, e.g. `**/application/**`, `**/use-cases/**`).
+
+**Opt-in (cih-s3 F7):** deferred by default — R8 needs an OpenTelemetry tracer a fresh skeleton lacks. The shipped `eslint.config.mjs` enables it only when the environment sets `AIF_STRICT_RUNTIME=1`. Turn it on once a tracer is wired.
 
 ### Examples
 
