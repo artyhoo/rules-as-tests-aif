@@ -165,7 +165,7 @@ async function send(): Promise<void> { await fetch('/x'); }
 - Domain errors extend `DomainError`. Infrastructure errors extend `InfraError`.
 - All HTTP error responses go through the central error mapper.
 
-**Check:** ESLint rules `no-throw-literal` + `@typescript-eslint/no-useless-catch`.
+**Check:** ESLint rules `no-throw-literal` + `no-useless-catch`.
 
 ### Examples
 
