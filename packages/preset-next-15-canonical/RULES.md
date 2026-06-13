@@ -271,7 +271,9 @@ import fs from 'fs'; // in src/domain/
 
 **Check:** two executable layers, both shipped by `install.sh`:
 1. `.github/workflows/ci.yml` — every quality job (`lint`, `typecheck`, `architecture`, `test`, `security`, `audit-ai-docs`) is funnelled into the single required `ci-success` aggregate via `needs:`. `ci-success` is the only context that must be a required check (it always runs and depends on all jobs).
-2. `.github/workflows/workflow-integrity.yml` — `branch-protection-assertion` job asserts the `ci-success` gate stays a required status check on the default protected branch. Tri-states: pass when configured-and-present, fail when configured-but-missing, warn-and-pass when no protection is configured yet (so it never blocks a fresh consumer).
+2. `.github/workflows/workflow-integrity.yml` — `branch-protection-assertion` job asserts the `ci-success` gate stays a required status check on the default protected branch. Tri-states: pass when configured-and-present, fail when configured-but-missing, warn-and-pass when no protection is configured (so it never blocks a fresh consumer).
+
+> **Caveat — GitHub Free private repos:** classic branch protection AND rulesets both require GitHub Pro (or Team/Enterprise) on a *private* repo — or making the repo public. On that plan `branches/*/protection` and `rulesets` return `403 Upgrade to GitHub Pro or make this repository public`, so the warn-and-pass branch is **permanent** and there is no consumer-side remediation. Treat R11 branch-protection as **unavailable** on a GitHub Free private repo, not "not yet adopted" — it activates automatically once the repo moves to a paid plan or becomes public. The `ci-success` aggregate (layer 1) still runs everywhere; only the protection *assertion* is plan-gated.
 
 Why one aggregate context: `needs:` aggregation works only within one workflow file, and a path-filtered required check (e.g. one scoped to `.github/workflows/**`) never reports on PRs that don't touch that path → the PR deadlocks. Requiring only `ci-success` (which always runs and `needs:` every job) avoids both.
 

@@ -38,7 +38,8 @@ jobs:
           # Tri-state semantics:
           #   - protection or rulesets configured AND include ci-success → pass
           #   - protection or rulesets configured but ci-success missing → fail (R11 violated)
-          #   - no protection AND no rulesets → warn (R11 not yet adopted), pass
+          #   - no protection AND no rulesets → warn, pass (not yet adopted, OR permanently
+          #     unavailable on a GitHub Free private repo — protection/rulesets need GitHub Pro)
           # Rationale: don't block PRs in repos that haven't yet configured branch
           # protection. Once configured, R11 enforcement kicks in automatically.
 
@@ -63,6 +64,6 @@ jobs:
             exit 0
           fi
 
-          echo "::warning::No branch protection or active rulesets on ${DEFAULT_BRANCH}. R11 not yet adopted in this repo."
-          echo "::warning::Configure: Settings → Branches → ${DEFAULT_BRANCH} → Require status checks → ci-success"
+          echo "::warning::No branch protection or active rulesets on ${DEFAULT_BRANCH}. R11 branch-protection is not active — either not yet adopted, or unavailable on a GitHub Free private repo (classic protection and rulesets require GitHub Pro, or a public repo)."
+          echo "::warning::To enable (needs a public repo, or GitHub Pro/Team for private): Settings → Branches → ${DEFAULT_BRANCH} → Require status checks → ci-success"
           exit 0
