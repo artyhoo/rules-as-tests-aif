@@ -348,12 +348,22 @@ jobs:
           git rev-parse --verify "origin/${BASE_REF}" >/dev/null \
             || { echo "::error::base ref origin/${BASE_REF} not resolvable — refusing to skip the backstop"; exit 1; }
       - name: §1.7 discipline-trailer check over PR commits (hard-enforced)
+        # Promotion exemption: a staging→main PR re-checks the SAME commits this
+        # job already enforced at each feature→staging merge (it runs there too).
+        # The 134-commit promotion range inevitably includes trailerless commits
+        # (dependabot bumps, merge commits), so promotions are ALWAYS red and
+        # train routine admin-override (#discipline-theatre). Tolerate failures on
+        # promotion ONLY — the step still runs and logs violations (record kept),
+        # but no longer blocks. All non-promotion PRs keep hard enforcement.
+        continue-on-error: ${{ github.base_ref == 'main' && github.head_ref == 'staging' }}
         env:
           S17_WARN_ONLY: 'false'
           S17_SUBSTANCE_WARN_ONLY: 'false'
           PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
         run: PREPUSH_ONLY=s17 npx tsx packages/core/hooks/pre-push.ts
       - name: §7 Prior-art trailer check over PR commits (base blocks; substance warn-only per Option B)
+        # Same promotion exemption as the §1.7 step above (head=staging && base=main).
+        continue-on-error: ${{ github.base_ref == 'main' && github.head_ref == 'staging' }}
         env:
           PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
         run: PREPUSH_ONLY=prior-art npx tsx packages/core/hooks/pre-push.ts
