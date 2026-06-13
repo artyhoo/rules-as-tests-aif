@@ -611,6 +611,22 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
   fi
 fi
 
+# ─── cih-s3 V2: runtime-discipline arming WARN (consumer-side, deps-free) ───
+# R7/R8 (no-direct-time-randomness / require-otel-span) ship DEFERRED behind AIF_STRICT_RUNTIME=1
+# in the eslint config templates. If the consumer already depends on @opentelemetry/* yet has not
+# armed the runtime rules, R8 silently never fires — surface that. Greps the package.json TEXT
+# (deps may be uninstalled at install time → no module/require check). Non-fatal: WARN only,
+# exit stays 0 (a fresh skeleton legitimately defers). --dry-run-aware.
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "  [dry-run] would check @opentelemetry/* vs AIF_STRICT_RUNTIME for the R7/R8 arming WARN"
+elif [ -f "$PROJECT_ROOT/package.json" ] && \
+     grep -q '@opentelemetry/' "$PROJECT_ROOT/package.json" && \
+     [ "${AIF_STRICT_RUNTIME:-}" != "1" ]; then
+  echo ""
+  echo "⚠  Detected @opentelemetry/* but AIF_STRICT_RUNTIME is unset — R8 (require-otel-span) will not fire."
+  echo "   Set AIF_STRICT_RUNTIME=1 to arm runtime-discipline rules (R7/R8)."
+fi
+
 # ─── Done ───────────────────────────────────────────────
 if [ ${#SKIPPED[@]} -gt 0 ]; then
   echo ""

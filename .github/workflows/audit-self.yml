@@ -282,6 +282,8 @@ jobs:
         run: bash tests/install-sh/f15-prettierignore.test.sh
       - name: Run install-sh lint-staged binary-resolution test (consumer-install-hardening F14)
         run: bash tests/install-sh/f14-lintstaged-resolves.test.sh
+      - name: Run install-sh runtime-arming WARN test (consumer-install-hardening S3 V2)
+        run: bash tests/install-sh/v2-strict-runtime-armed.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type
