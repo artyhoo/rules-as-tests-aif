@@ -38,14 +38,24 @@ For React/Next projects: also `.ai-factory/ARCHITECTURE.react-next.md` (Server v
 
 ## Workflow
 
-This project uses **AI Factory (aif)** for spec-driven development.
+### Gate before commit / PR (always present — shipped by this installer)
 
-### Required commands
+Before every commit or PR, run the gate this installer actually ships:
+
+- **`./scripts/audit-ai-docs.sh`** — drift + code-vs-docs probes (~10 sec). Run it before you commit.
+- The **pre-push hook** (`.husky/pre-push`) fires automatically on `git push` — typecheck, `vitest related`, dependency-cruiser.
+- **CI** gates the PR (`ci-success` required check). This is the last-resort authority that does not depend on local tooling.
+
+These are unconditional — they ship with the project and need no extra install.
+
+### AI Factory commands (only if you have aif installed)
+
+**If you use AI Factory (aif)** for spec-driven development, the commands below are available. AI Factory is **not bundled** by this installer — install it separately to use them.
 
 - **`/aif-explore <task>`** — when scope is unclear. Saves research to `.ai-factory/RESEARCH.md`.
 - **`/aif-plan <task>`** — for any non-trivial change. Creates branch, writes plan to `.ai-factory/plans/`.
 - **`/aif-implement`** — execute plan step by step with checkpoints.
-- **`/aif-verify`** — **required before commit.** Runs `review-sidecar`, `living-docs-auditor` over RULES.md and audit-ai-docs.sh probes.
+- **`/aif-verify`** — *if you use aif*, runs `review-sidecar`, `living-docs-auditor` over RULES.md and the audit-ai-docs probes. A convenience wrapper around the unconditional gate above — not a substitute for it.
 - **`/aif-fix <error>`** — targeted bug fix. Reads the plan, knows exactly what was intended.
 - **`/aif-commit`** — final commit, groups checkpoint commits, pushes.
 
@@ -53,7 +63,7 @@ This project uses **AI Factory (aif)** for spec-driven development.
 
 - `git commit --no-verify` — bypassing pre-commit/pre-push hooks.
 - `git push -f` to `main`.
-- Skipping `/aif-verify` before PR.
+- Skipping `./scripts/audit-ai-docs.sh` / the pre-push hook before PR.
 - Adding rules to AGENTS.md / RULES.md without a measurable check.
 
 ## Skills available

@@ -268,6 +268,8 @@ jobs:
         run: bash tests/install-sh/f11-ci-node-version.test.sh
       - name: Run install-sh AGENTS scripts-shipped test (consumer-install-hardening F8)
         run: bash tests/install-sh/f8-agents-scripts-shipped.test.sh
+      - name: Run install-sh /aif-* command honesty test (consumer-install-hardening F9)
+        run: bash tests/install-sh/f9-aif-commands-honesty.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type

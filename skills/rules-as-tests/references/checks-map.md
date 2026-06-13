@@ -17,10 +17,10 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
  ms             <5s            10–60s         1–3min         3–10min         10+min           seconds         continuous
 ─────────       ──────         ──────         ──────         ──────          ──────           ──────          ──────
- IDE LSP        prettier       typecheck      /aif-verify    full tests      full mutation    can-i-deploy    SLO
- typecheck      eslint --fix   vitest         (sub-agents)   coverage        bundle size      error budget    canary
+ IDE LSP        prettier       typecheck      audit-ai-docs  full tests      full mutation    can-i-deploy    SLO
+ typecheck      eslint --fix   vitest         sub-agents     coverage        bundle size      error budget    canary
                                related        rules R1..R20  Stryker         security audit   chaos          synthetic
-                               depcruise                     Storybook+E2E                                    rollback
+                               depcruise      (+aif-verify)  Storybook+E2E                                    rollback
 
   локально       локально       локально       локально       GitHub         GitHub           CI / Pact      Datadog/
                                                               Actions        Actions          Broker         Honeycomb
@@ -41,7 +41,7 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 | 1 | **Edit-time** | мгновенно | Редактор / IDE | TypeScript LSP, ESLint LSP подсвечивают ошибки в коде по мере набора | Не запускают тесты, не делают агрегатных проверок | TS-сервер, eslint daemon |
 | 2 | **Pre-commit** (lint-staged через Husky) | <5 сек | Локально, перед `git commit` | `prettier --write` и `eslint --fix --max-warnings=0` **только** на staged-файлах | Не запускает тесты, не делает typecheck всего проекта | `.husky/pre-commit` + `.lintstagedrc.json` |
 | 3 | **Pre-push** (Husky) | 10–60 сек | Локально, перед `git push` | `tsc --noEmit` всего проекта, `vitest related` на изменённых файлах, `dependency-cruiser` | Не запускает Stryker, не делает полный сьют тестов | `.husky/pre-push` |
-| 4 | **Pre-PR** (`/aif-verify`) | 1–3 мин | Локально, в Claude Code | Sub-agents AIF проверяют `.ai-factory/RULES.md`, two-AI review, валидация плана | Не заменяет CI — только дополняет | `rules-sidecar`, `review-sidecar` |
+| 4 | **Pre-PR** (`audit-ai-docs.sh` + review-sidecar) | 1–3 мин | Локально, в Claude Code | `./scripts/audit-ai-docs.sh` + sub-agents (`review-sidecar`, `living-docs-auditor`) проверяют `.ai-factory/RULES.md`, two-AI review (+ `/aif-verify` обёртка, если используете AI-Factory) | Не заменяет CI — только дополняет | `audit-ai-docs.sh`, `review-sidecar` |
 | 5 | **CI on PR** | 3–10 мин | GitHub Actions / GitLab CI | Полный сьют unit + integration + Storybook + Playwright (для UI). **Stryker incremental** на diff. Coverage threshold. | Не делает full mutation на всём репо, не делает chaos engineering | `.github/workflows/ci.yml` |
 | 6 | **CI on merge** | 10+ мин | GitHub Actions, после merge в main | Full mutation sweep, bundle size, security audit (npm audit, gitleaks), build artifacts | Не разворачивает в прод сразу — артефакт ждёт deploy gate | `.github/workflows/post-merge.yml` |
 | 7 | **Pre-deploy** | секунды | CI / Pact Broker | `can-i-deploy --to production` (для микросервисов), error budget burn rate check, snapshot signing | Не запускает тесты — это уже сделано | `pact-broker can-i-deploy`, SLO-сервер |
@@ -103,7 +103,7 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 | 1 — IDE | Не выделено отдельно — это feature редактора |
 | 2 — Pre-commit | `templates/shared/.lintstagedrc.json` + `husky-pre-commit.sh` |
 | 3 — Pre-push | `templates/shared/husky-pre-push.sh` (с fallback на новые ветки) |
-| 4 — Pre-PR / `/aif-verify` | AIF `rules-sidecar` (reads `RULES.md`) + our `agents/review-sidecar.md` + `agents/living-docs-auditor.md` |
+| 4 — Pre-PR (`audit-ai-docs.sh` + review-sidecar / living-docs-auditor) | `./scripts/audit-ai-docs.sh` + our `agents/review-sidecar.md` + `agents/living-docs-auditor.md` (+ AIF `rules-sidecar` / `/aif-verify` wrapper, если используете AI-Factory) |
 | 5 — CI on PR | `templates/ts-server/github-actions-ci.yml` или `templates/react-next/github-actions-ci-ui.yml` |
 | 6 — CI on merge | Расширение `github-actions-ci.yml` для full mutation sweep (см. комментарии в файле) |
 | 7 — Pre-deploy / can-i-deploy | `factory/rules/integration-rules.md` (IR2 — Pact + can-i-deploy) |
@@ -204,7 +204,7 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 - **`skills/rules-as-tests/SKILL.md`** + `references/overview.md` — общая 5-слойная рамка (применима к уровням 4, 5).
 - **`templates/ts-server/`** — конфиги для серверного TS-стека (уровни 2, 3, 5, 6).
 - **`templates/react-next/`** — React/Next.js конфиги (уровни 2, 3, 5, 6).
-- **`agents/review-sidecar.md`** + **`living-docs-auditor.md`** (ours) + AIF's own **`rules-sidecar`** (reads `RULES.md`) — sub-agents для уровня 4 (`/aif-verify`). (`best-practices-sidecar` is AIF's — KEEP-AIF; R-rule residue rides the `aif-rules-check` skill-context.)
+- **`agents/review-sidecar.md`** + **`living-docs-auditor.md`** (ours) + AIF's own **`rules-sidecar`** (reads `RULES.md`) — sub-agents для уровня 4. На этом уровне всегда работает `./scripts/audit-ai-docs.sh` + наши sub-agents; `/aif-verify` — обёртка AI-Factory поверх них, если вы её используете. (`best-practices-sidecar` is AIF's — KEEP-AIF; R-rule residue rides the `aif-rules-check` skill-context.)
 - **`scripts/audit-ai-docs.sh`** — code-vs-docs probes (уровень 4 + 5).
 - **`factory/rules/integration-rules.md`** — IR1-IR6 для уровней 5 (Pact CI), 7 (can-i-deploy), 8 (observability propagation).
 - **`references/self-testing-docs.md`** — детально про code-vs-docs probes как extension рамки на саму AI-документацию.
