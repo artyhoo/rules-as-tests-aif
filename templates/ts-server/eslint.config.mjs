@@ -101,7 +101,7 @@ export default defineConfig(
 
       // ─── Error handling ─────────────────────────────
       'no-throw-literal': 'error',
-      '@typescript-eslint/no-useless-catch': 'error',
+      'no-useless-catch': 'error',
 
       // ─── Switch / control flow ──────────────────────
       'default-case': 'error',
