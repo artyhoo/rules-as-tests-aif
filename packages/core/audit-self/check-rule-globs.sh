@@ -61,8 +61,12 @@ SHADOWS="$(shadow_dirs)"
 # No shadows → passthrough, so a flat / single-config repo behaves exactly as before.
 filter_unshadowed() {
   if [ -z "$SHADOWS" ]; then cat; return; fi
-  awk -v s="$SHADOWS" '
-    BEGIN { n = split(s, P, "\n") }
+  # $SHADOWS is one dir per line and is MULTI-LINE whenever ≥2 packages shadow the root. BSD/macOS
+  # awk rejects a literal newline in a `-v` assignment ("awk: newline in string") → the filter would
+  # crash and emit nothing, blinding the root probe (false-RED). Pass it through the environment
+  # (ENVIRON[]) instead of `-v` — newline-safe on every awk (gawk / BSD / mawk). (GH #516.)
+  SHADOWS="$SHADOWS" awk '
+    BEGIN { n = split(ENVIRON["SHADOWS"], P, "\n") }
     { drop = 0
       for (i = 1; i <= n; i++) if (P[i] != "" && index($0, P[i] "/") == 1) { drop = 1; break }
       if (!drop) print
@@ -122,15 +126,24 @@ any_glob_matches() {
 
 # Classify whether a shadowed package's own ESLint config wires R2: wired | uncertain | dead.
 #   wired     — textual reference to the rules-as-tests plugin / the rule → R2 is live there.
-#   uncertain — re-exports / extends another config (relative eslint.config.* or a bare
-#               eslint-config pkg); the rule MAY be inherited but bash can't follow the chain →
-#               WARN, never FAIL (avoids a false-FAIL on a correct re-export-of-root monorepo).
+#   uncertain — re-exports / extends another config (relative eslint.config.*, a bare eslint-config
+#               pkg, or an imported config FILE whose path contains `eslint` and ends in a JS/TS
+#               module extension, e.g. `@scope/config/eslint/base.mjs`); the rule MAY be inherited
+#               but bash can't follow the chain → WARN, never FAIL (avoids a false-FAIL on a correct
+#               re-export-of-root monorepo). (GH #516 broadened this to the base-file import style.)
 #   dead      — self-contained config with no R2 and no extends → R2 is genuinely inert there.
 classify_config_r2() {
   local cfg="$1"
   [ -n "$cfg" ] && [ -f "$cfg" ] || { echo uncertain; return; }
   if grep -qE 'rules-as-tests|no-unsafe-zod-parse' "$cfg"; then echo wired; return; fi
-  if grep -qE "(from|require\()[[:space:]]*[(]?['\"][^'\"]*eslint[.-]?config[^'\"]*['\"]|extends" "$cfg"; then
+  # A package re-exports / extends a shared base when it: `extends`; imports an `eslint-config`
+  # pkg/path; OR imports a config FILE whose specifier contains `eslint` and ends in a JS/TS module
+  # extension (timeliner's `import base from '@scope/config/eslint/base.mjs'`). Any of these MAY
+  # inherit R2 — bash can't follow the chain → uncertain (WARN), never a false-FAIL. The trailing
+  # extension anchors the file-import branch so a bare plugin like `@typescript-eslint/eslint-plugin`
+  # (no module extension in its specifier) is NOT swallowed and stays classifiable as dead. (GH #516.)
+  if grep -qE "(from|require\()[[:space:]]*[(]?['\"][^'\"]*eslint[.-]?config[^'\"]*['\"]|extends" "$cfg" \
+     || grep -qE "(from|require\()[[:space:]]*[(]?['\"][^'\"]*eslint[^'\"]*\.(mjs|cjs|js|ts)['\"]" "$cfg"; then
     echo uncertain; return
   fi
   echo dead

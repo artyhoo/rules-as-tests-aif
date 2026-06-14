@@ -128,4 +128,73 @@ else
   ok "#3 NEG: predicate rejects a dep list lacking globals (non-vacuous)"
 fi
 
+# ══════════════════════════════════════════════════════════════════════════════
+# #516 — BSD/macOS awk portability + re-export classifier gap (regressions in #513)
+# ══════════════════════════════════════════════════════════════════════════════
+# §1 BSD/macOS awk crash: filter_unshadowed passed a MULTI-LINE $SHADOWS via `awk -v`, which
+# BSD/macOS awk rejects ("awk: newline in string"). With ≥2 shadowed packages $SHADOWS is multi-
+# line, so the filter crashed and emitted NOTHING → the root probe was fed an empty stream → it
+# went blind → false-RED on a repo whose root R2 genuinely reaches a root-governed boundary file.
+# Latent on gawk/Linux CI (only the BSD/macOS default awk crashes) — this arm catches it on macOS.
+
+# §1 POS (behavioral): ≥2 shadow packages (→ multi-line $SHADOWS) + a ROOT-governed boundary file.
+# Gate must PASS — root R2 reaches ./src/routes/x.ts. Pre-fix on BSD awk this FALSE-REDs (rc=1).
+T5=$(mktemp -d); install_into "$T5" ts-server
+mkdir -p "$T5/src/routes"; echo 'export const x=1;' > "$T5/src/routes/x.ts"   # root-governed boundary file
+mkdir -p "$T5/pkg-a" "$T5/pkg-b"                                              # ≥2 shadows → $SHADOWS is multi-line
+printf 'export default [];\n' > "$T5/pkg-a/eslint.config.mjs"
+printf 'export default [];\n' > "$T5/pkg-b/eslint.config.mjs"
+OUT5=$(gate "$T5"); RC5=$?
+[ "$RC5" = "0" ] \
+  && ok "#516 §1 POS: ≥2 shadow pkgs + root boundary file → gate PASSES (no false-RED from multi-line SHADOWS)" \
+  || bad "#516 §1 POS: gate exited $RC5 — root probe went blind on multi-line SHADOWS (BSD-awk -v newline crash)"
+printf '%s' "$OUT5" | grep -q "newline in string" \
+  && bad "#516 §1 POS: awk crashed on multi-line SHADOWS ('newline in string') — filter_unshadowed went blind" \
+  || ok "#516 §1 POS: no awk 'newline in string' crash on multi-line SHADOWS"
+
+# §1 NEG (load-bearing): the multi-shadow filter must still PRUNE — not become a blanket passthrough.
+# A boundary file living ONLY under a shadow package must NOT count as root coverage, else the
+# false-green #513 removed would silently return under multi-shadow inputs.
+T6=$(mktemp -d); install_into "$T6" ts-server
+mkdir -p "$T6/pkg-a/src/routes" "$T6/pkg-b"
+echo 'export const x=1;' > "$T6/pkg-a/src/routes/u.ts"          # boundary file ONLY under a shadow pkg
+printf 'export default [];\n' > "$T6/pkg-a/eslint.config.mjs"   # dead config (owns boundary → FAIL)
+printf 'export default [];\n' > "$T6/pkg-b/eslint.config.mjs"   # 2nd shadow → multi-line $SHADOWS
+OUT6=$(gate "$T6"); RC6=$?
+printf '%s' "$OUT6" | grep -q "no root-governed match" \
+  && ok "#516 §1 NEG: multi-shadow filter still prunes — shadowed-only boundary file is not counted as root coverage" \
+  || bad "#516 §1 NEG: shadowed-only file faked root coverage (filter became a passthrough): $(printf '%s' "$OUT6" | grep -i 'RULE_GLOBS.boundary' | head -1)"
+
+# §2 re-export classifier gap: a package re-exporting a shared base config FILE whose path contains
+# `eslint` and ends in a JS/TS module extension (timeliner's `import base from '@scope/config/eslint/base.mjs'`)
+# was classified `dead` → false-FAIL. It MAY inherit R2 → must be `uncertain` (WARN), never FAIL.
+T7=$(mktemp -d); install_into "$T7" ts-server
+mkdir -p "$T7/apps/api/src/routes"; echo 'export const x=1;' > "$T7/apps/api/src/routes/u.ts"
+printf "import base from '@scope/config/eslint/base.mjs';\nexport default [...base];\n" > "$T7/apps/api/eslint.config.mjs"
+OUT7=$(gate "$T7"); RC7=$?
+[ "$RC7" = "0" ] \
+  && ok "#516 §2 POS: re-export of a base.mjs config → uncertain (WARN), no false-FAIL" \
+  || bad "#516 §2 POS: gate exited $RC7 — re-export base.mjs config classified dead (false-FAIL)"
+printf '%s' "$OUT7" | grep -q "⚠ apps/api" \
+  && ok "#516 §2 POS: re-export base.mjs config gets a WARN (uncertain coverage surfaced)" \
+  || bad "#516 §2 POS: no WARN — re-export base.mjs treated as dead instead of uncertain"
+
+# §2 NEG (load-bearing): a genuinely self-contained dead config (no R2, no extends, no config-FILE
+# import — only the typescript-eslint PLUGIN, which has no module extension in its specifier) must
+# STILL be classified dead → FAIL. The broadened `uncertain` must not swallow it.
+T8=$(mktemp -d); install_into "$T8" ts-server
+mkdir -p "$T8/apps/api/src/routes"; echo 'export const x=1;' > "$T8/apps/api/src/routes/u.ts"
+printf "import tseslint from 'typescript-eslint';\nexport default tseslint.config({rules:{}});\n" > "$T8/apps/api/eslint.config.mjs"
+OUT8=$(gate "$T8"); RC8=$?
+[ "$RC8" = "1" ] \
+  && ok "#516 §2 NEG: self-contained dead config (typescript-eslint plugin only) still FAILS (not swallowed by uncertain)" \
+  || bad "#516 §2 NEG: gate exited $RC8 — broadened uncertain wrongly swallowed a genuinely dead config"
+
+# §1 portability guard (platform-independent — catches a reintroduction on gawk/Linux CI too):
+# $SHADOWS can be multi-line; it must never reach awk via `-v` (BSD/macOS awk crashes on the newline).
+SRC516="$REPO_ROOT/packages/core/audit-self/check-rule-globs.sh"
+grep -Eq 'awk[[:space:]]+-v[[:space:]]+[A-Za-z_]+="\$SHADOWS"' "$SRC516" \
+  && bad "#516 §1 guard: \$SHADOWS passed via 'awk -v' (multi-line crashes BSD/macOS awk — use env/ENVIRON)" \
+  || ok "#516 §1 guard: \$SHADOWS not passed via 'awk -v' (newline-free → BSD/macOS awk safe)"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
