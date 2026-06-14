@@ -286,6 +286,10 @@ jobs:
         run: bash tests/install-sh/v2-strict-runtime-armed.test.sh
       - name: Run install-sh dev-dep install test (consumer-install-completeness S3 one-button #483)
         run: bash tests/install-sh/cic-s3-dep-install.test.sh
+      - name: Run install-sh arch:check monorepo-target test (GH #508)
+        run: bash tests/install-sh/arch-target-monorepo.test.sh
+      - name: Run install-sh .nvmrc↔CI node-version drift WARN test (GH #509)
+        run: bash tests/install-sh/nvmrc-ci-drift.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type

@@ -617,6 +617,31 @@ elif [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
 fi
 
+# ─── 6b. #509: .nvmrc ↔ pre-existing CI Node-version drift WARN ──────────
+# Install ships .nvmrc but copy_safe does NOT overwrite an existing CI workflow. A consumer
+# whose own CI hardcodes a different `node-version: NN` then gets local `nvm use` (.nvmrc) ≠ CI.
+# It is the consumer's own CI — nothing is broken — so this is a non-destructive WARN only, never
+# a failure. (A workflow using `node-version-file: '.nvmrc'` reads .nvmrc directly → can't drift.)
+if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/.nvmrc" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; then
+  # `|| true`: parity with the _ci_ver line below — under set -euo pipefail a SIGPIPE from
+  # head closing a multi-line read (rc=141) would otherwise abort the whole install.
+  _nvmrc_major=$(tr -dc '0-9.\n' < "$PROJECT_ROOT/.nvmrc" 2>/dev/null | head -1 | cut -d. -f1 || true)
+  if [ -n "$_nvmrc_major" ]; then
+    for _wf in "$PROJECT_ROOT/.github/workflows/"*.yml "$PROJECT_ROOT/.github/workflows/"*.yaml; do
+      [ -f "$_wf" ] || continue
+      # hardcoded `node-version: NN` only — `node-version-file:` has "-file" before its colon so it
+      # never matches; a `${{ matrix.* }}` value yields no digit → skipped (can't compare).
+      # `|| true`: under the script's `set -euo pipefail`, a no-match grep returns 1 and pipefail
+      # would abort the whole install — the common case (shipped CI uses node-version-file).
+      _ci_ver=$(grep -oE "node-version:[[:space:]]*['\"]?[0-9]+" "$_wf" 2>/dev/null | grep -oE "[0-9]+" | head -1 || true)
+      [ -n "$_ci_ver" ] || continue
+      if [ "$_ci_ver" != "$_nvmrc_major" ]; then
+        echo "⚠ .nvmrc pins Node ${_nvmrc_major}.x but ${_wf#"$PROJECT_ROOT"/} hardcodes node-version: ${_ci_ver} — local 'nvm use' will differ from this CI. Align them, or switch the workflow to: node-version-file: '.nvmrc'."
+      fi
+    done
+  fi
+fi
+
 # ─── 7. package.json scripts (FQA S1-A W4) ──────────────
 # install.sh historically left scripts as a manual INSTALL.md §3 step, so consumers landed
 # `scripts: {}` while AGENTS.md + the shipped ci.yml call `npm run lint/typecheck/arch:check/
@@ -630,7 +655,27 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     echo "▶ package.json scripts → [dry-run] would merge canonical block (non-destructive)"
   elif command -v node >/dev/null 2>&1; then
     echo "▶ Merging canonical scripts → package.json (non-destructive)"
-    AIF_PKG="$PROJECT_ROOT/package.json" node -e '
+    # #508: arch:check target. A pnpm monorepo has no root src/ (only apps/*/src, packages/*/src),
+    # so a hardcoded `depcruise … src` hard-fails (exit 1, "Can't open 'src'") and breaks the
+    # shipped CI's architecture job. Resolve to source roots that EXIST so arch:check cruises
+    # something on flat, layered, AND monorepo shapes instead of crashing on a missing dir. The
+    # layer rules in .dependency-cruiser.cjs match nested package src via (?:^|/)src/<layer>.
+    # The target must NEVER be a non-existent dir (that is the crash). Resolution order:
+    #   1. workspace + a known package root present → that root (apps/packages/services/libs/modules)
+    #   2. else a root src/ present → src
+    #   3. else → "." (cwd always exists; never "Can't open"). Exotic-named workspace roots fall to
+    #      (2)/(3); a one-line arch:check edit lets the consumer point at their exact roots.
+    AIF_ARCH_TARGET=""
+    if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+      for _d in apps packages services libs modules; do
+        [ -d "$PROJECT_ROOT/$_d" ] && AIF_ARCH_TARGET="$AIF_ARCH_TARGET $_d"
+      done
+      AIF_ARCH_TARGET="${AIF_ARCH_TARGET# }"
+    fi
+    if [ -z "$AIF_ARCH_TARGET" ]; then
+      if [ -d "$PROJECT_ROOT/src" ]; then AIF_ARCH_TARGET="src"; else AIF_ARCH_TARGET="."; fi
+    fi
+    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
@@ -647,9 +692,10 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "test:integration": "vitest run -- --include 'src/**/*.integration.{ts,tsx}'",
         "test:mutation": "stryker run",
         "test:mutation:incremental": "stryker run --incremental",
-        "arch:check": "depcruise --config .dependency-cruiser.cjs src",
+        "arch:check": "depcruise --config .dependency-cruiser.cjs " + (process.env.AIF_ARCH_TARGET || "src"),
         "audit:docs": "./scripts/audit-ai-docs.sh",
-        "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs test",
+        "check:globs": "bash scripts/check-rule-globs.sh",
+        "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs test",
         "prepare": "husky"
       };
       let added = 0;

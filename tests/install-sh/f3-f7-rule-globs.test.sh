@@ -53,6 +53,20 @@ grep -q "STRICT_RUNTIME" "$CFG" && grep -q "AIF_STRICT_RUNTIME" "$CFG" \
 CHK="$T/scripts/check-rule-globs.sh"
 [ -x "$CHK" ] || bad "V: scripts/check-rule-globs.sh not shipped/executable"
 
+# ── #507: the V-gate is WIRED, not merely shipped (was advisory-only → silence still shipped) ──
+node -e 'const s=require(process.argv[1]).scripts||{}; process.exit((s["check:globs"]&&/check:globs/.test(s.validate||""))?0:1)' "$T/package.json" \
+  && ok "#507: check:globs script present AND in the validate chain (gate runs on npm run validate)" \
+  || bad "#507: check-rule-globs not wired into validate (silent inertness can still ship)"
+grep -q "check-rule-globs.sh" "$T/.github/workflows/ci.yml" \
+  && ok "#507: shipped CI runs check-rule-globs.sh (loud at the CI channel)" \
+  || bad "#507: shipped CI does NOT run check-rule-globs.sh (gate unwired in CI)"
+# NEG (load-bearing): the wiring predicate discriminates — a validate lacking check:globs fails it.
+if node -e 'process.exit(/check:globs/.test("npm-run-all2 --parallel typecheck lint test")?0:1)'; then
+  bad "#507-neg: predicate matched a validate WITHOUT check:globs → vacuous"
+else
+  ok "#507-neg: predicate rejects a validate lacking check:globs (non-vacuous)"
+fi
+
 # ── F3 behavioral: globs REACH a flat-Hono handler (was zero before the fix) ──
 mkdir -p "$T/src/routes"; echo 'export const x = 1;' > "$T/src/routes/users.ts"
 ( cd "$T" && ESLINT_CONFIG="$CFG" bash "$CHK" ) >/dev/null 2>&1 \
