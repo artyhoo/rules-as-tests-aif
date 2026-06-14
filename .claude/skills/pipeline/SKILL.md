@@ -475,6 +475,7 @@ The FIRST live invocation MUST run on the BUILD umbrella that produced the skill
 
 **File cleanup policy:**
 
+- **Lifecycle split (committed durable doc vs gitignored runtime) — SSOT #116:** `kickoff.md` is a **committed durable design doc** — git-tracked at its existing path (joins `done.md` as a `.gitignore` tracked exception), portable across machines/containers, NOT symlink-managed. `state.md` + `_plan-cache.md` + `_master-backlog-delta.json` are **gitignored regenerable runtime** — per-machine, symlink-managed by [`scripts/link-coordination.sh`](../../../scripts/link-coordination.sh). Commit `kickoff.md` at authoring (and deliberate revisions); keep in-flight churn in `state.md`.
 - `<umbrella>-meta-launch/` directory is NOT auto-deleted. It persists as the dispatch record for that umbrella's lifecycle.
 - If a second invocation occurs on the same umbrella, state.md is updated; kickoff.md is preserved (not overwritten) unless `--force` arg is passed.
 

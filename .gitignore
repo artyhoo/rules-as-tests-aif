@@ -6,12 +6,16 @@ node_modules
 packages/*/node_modules
 .claude/orchestrator-prompts/*
 !.claude/orchestrator-prompts/README.md
-# Allow umbrella subdirs back into tracking so done.md closure markers can be
-# committed (CLAUDE.md «Umbrella closure convention», #274). Kickoff/state files
-# inside subdirs stay ignored via the explicit subpath ignore below.
+# Allow umbrella subdirs back into tracking so done.md closure markers AND
+# kickoff design docs can be committed (CLAUDE.md «Umbrella closure convention»,
+# #274; cross-session kickoff portability, SSOT #116). kickoff.md is a durable
+# committed design doc (joins done.md as a tracked exception); state.md and the
+# _plan-cache / _master-backlog-delta runtime files inside subdirs stay ignored
+# via the explicit subpath ignore below.
 !.claude/orchestrator-prompts/*/
 .claude/orchestrator-prompts/*/*
 !.claude/orchestrator-prompts/*/done.md
+!.claude/orchestrator-prompts/*/kickoff.md
 *.log
 .DS_Store
 *.tgz

@@ -42,54 +42,11 @@ jobs:
           exit "$fail"
 
       - name: No file > 500 lines (markdown)
-        run: |
-          fail=0
-          # Exempt list: declared-transient artifacts per their own disclaimer.
-          # Each entry MUST include rationale comment.
-          # Guard: each exempt file must contain "transient artifact" in first 20 lines
-          # — prevents agents from adding entries to EXEMPT without in-file justification.
-          EXEMPT=(
-            "./docs/meta-factory/EXECUTION-PLAN.md"  # transient pre-1.0 plan, see line 8
-          )
-          # Exempt directories: audit-trail accumulators where length is proportional
-          # to investigation depth, not freedom-of-prose. Each entry MUST include
-          # rationale comment. The 500-line limit was designed for freedom-of-prose
-          # docs (README, retros, canonical docs) where brevity is discipline.
-          # Audit-trail accumulators have a different shape: evidence-per-claim
-          # (T3), adversarial counter-prompt (T7), §1.7 self-review — collectively
-          # incompressible without losing the substance the discipline mandates.
-          # Recursive self-application gap discovered 2026-05-16 (CI fail on
-          # 785-line research-patch honestly applying all discipline):
-          # .claude/rules/phase-research-coverage.md §4 #recursive-self-application-gap
-          EXEMPT_DIRS=(
-            "./docs/meta-factory/research-patches/"  # research-patches: evidence accumulator, length ∝ investigation depth
-          )
-          while IFS= read -r f; do
-            # Directory-level exemption first (cheaper than per-file marker check)
-            for ex_dir in "${EXEMPT_DIRS[@]}"; do
-              case "$f" in
-                "$ex_dir"*) continue 2 ;;
-              esac
-            done
-            for ex in "${EXEMPT[@]}"; do
-              if [ "$f" = "$ex" ]; then
-                if head -20 "$f" | grep -qi "transient artifact"; then
-                  echo "::notice file=$f::skipped overweight check (declared transient)"
-                  continue 2
-                else
-                  echo "::error file=$f::listed in EXEMPT but no 'transient artifact' marker in first 20 lines"
-                  fail=1
-                  continue 2
-                fi
-              fi
-            done
-            n=$(wc -l < "$f")
-            if [ "$n" -gt 600 ]; then
-              echo "::error file=$f::overweight ($n lines, max 600)"
-              fail=1
-            fi
-          done < <(find . -name "*.md" -not -path "./.git/*")
-          exit "$fail"
+        # Gate logic extracted to a unit-testable script (single source) so the
+        # exemptions — EXECUTION-PLAN.md, research-patches/, and committed durable
+        # kickoff.md design docs (cross-session kickoff portability, SSOT #116) —
+        # ship with a paired positive+negative test. See md-line-gate.test.ts.
+        run: bash packages/core/audit-self/md-line-gate.sh .
 
       - name: Dead-link check (.md → .md)
         run: |

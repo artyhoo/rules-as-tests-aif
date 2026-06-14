@@ -511,6 +511,21 @@ async function main(): Promise<void> {
     emit(r);
   }
 
+  // ── 3e. Kickoff portability (D5) — in-flight kickoffs must be git-tracked ─────
+  // cross-session kickoff portability, SSOT #116. A kickoff committed only when the
+  // author remembers is a memory-dependent convention (the goal forbids it); this
+  // makes portability a checked property at the earliest reachable channel. Warn-only
+  // during the calibration window (script default KICKOFF_PORTABILITY_WARN_ONLY=true);
+  // flips to hard fail when that env is "false" (post back-catalog migration). No-ops
+  // in repos without .claude/orchestrator-prompts (consumers — out of scope); the
+  // script lives at packages/core/audit-self/ only in the maintainer repo (same guard
+  // as 3c/3d), so existsSync skips it on consumers.
+  if (existsSync(resolve(REPO_ROOT, 'packages/core/audit-self/check-kickoff-portability.sh'))) {
+    const r = run('bash', ['packages/core/audit-self/check-kickoff-portability.sh']);
+    if (r.exitCode !== 0) die('❌ kickoff-portability check failed', r);
+    emit(r);
+  }
+
   // ── 4. Manifest render drift ──────────────────────────────────────────────────
   {
     const r = run('npx', ['tsx', 'packages/core/render/render-rules.ts', '--check']);
