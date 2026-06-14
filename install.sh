@@ -344,6 +344,18 @@ for _skill in pipeline dispatcher aif-doctor template-audit; do
   copy_skill_with_transform "$_skill"
 done
 
+# aif-doctor ships portable base-refresh ("heal") helpers under helpers/ — a consumer runs
+# aif-handoff too, so their container base can go stale and false-`done` off-scope diffs
+# (aif-doctor SKILL §3.4). The recursive `cp -r` in copy_skill_with_transform already lands
+# helpers/*.sh; here we just keep them executable and surface the OPT-IN auto-heal seam. Keep
+# it opt-in + degrading — making a companion mandatory is a goal change (build-first-reuse-default.md §1.1).
+_AIF_HELPERS="$PROJECT_ROOT/.claude/skills/aif-doctor/helpers"
+if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$_AIF_HELPERS" ]; then
+  chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" 2>/dev/null || true
+  echo "  ✓ aif-doctor heal helpers → .claude/skills/aif-doctor/helpers/ (executable)"
+  echo "    ↳ opt-in: export RUNTIME_BRIDGE_PREFLIGHT='bash .claude/skills/aif-doctor/helpers/heal.sh' to auto-heal the aif base before each dispatch"
+fi
+
 # ─── 1b. Hooks ──────────────────────────────────────────
 echo "▶ Claude hooks → .claude/hooks/"
 mkdir_safe "$PROJECT_ROOT/.claude/hooks"
