@@ -82,11 +82,15 @@ jobs:
       - name: Stale path references
         run: |
           fail=0
-          if grep -rn "ai-factory-RULES\.md" --include="*.md" --include="*.sh" .; then
+          # Excludes orchestrator-prompts/: kickoffs are committed historical design
+          # docs (cross-session kickoff portability, SSOT #116) that legitimately quote
+          # now-removed artifacts as audit subjects (e.g. an audit kickoff whose job is
+          # to remove the stale ref). The guard targets canonical/shipped docs.
+          if grep -rn "ai-factory-RULES\.md" --include="*.md" --include="*.sh" --exclude-dir=orchestrator-prompts .; then
             echo "::error::stale 'ai-factory-RULES.md' reference (renamed to factory/RULES.md)"
             fail=1
           fi
-          if grep -rn "best-practices-sidecar\.react\.md" --include="*.md" .; then
+          if grep -rn "best-practices-sidecar\.react\.md" --include="*.md" --exclude-dir=orchestrator-prompts .; then
             echo "::error::stale 'best-practices-sidecar.react.md' reference (was inlined)"
             fail=1
           fi
