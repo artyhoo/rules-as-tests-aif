@@ -37,6 +37,11 @@ jobs:
       # This gate FAILS loudly so the gap can never ship unnoticed. Dependency-free (pure bash).
       - name: Rule-glob liveness (custom ESLint rules must not be silently inert)
         run: bash scripts/check-rule-globs.sh
+      # Same gate `npm run validate` runs locally — a single root .lintstagedrc.json can leave a
+      # per-package binary unresolvable (ENOENT) before the first commit. Pure bash, dependency-free;
+      # exits 0 (skips) when node_modules is absent, runs for real after `npm ci`.
+      - name: lint-staged config resolves (binaries reachable before first commit)
+        run: bash scripts/check-lintstaged-resolves.sh
 
   typecheck:
     name: TypeScript
