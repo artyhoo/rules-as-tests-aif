@@ -143,6 +143,18 @@ for dir in "${PROMPTS_DIR}"/*/; do
   # Skip internal-only dirs (state-only, no kickoff)
   if [[ ! -f "${kickoff}" ]]; then
     echo "${name} kickoff=missing"
+    # D6 (legacy reconstruct fallback, cross-session kickoff portability SSOT #116):
+    # if a committed plan row references this umbrella, surface a non-authoritative
+    # reconstruct notice. Does NOT auto-write the plan (Direction A REJECTED — see
+    # SKILL.md §2.5 Step 8). Degraded safety net for LEGACY umbrellas whose kickoffs
+    # predate the portability convention and were never committed.
+    # Word-boundary match (treat hyphen as a name char) so a short umbrella name
+    # is not a false-positive substring of an unrelated plan row (e.g. "ux" inside
+    # "ux-improvements"). Kebab-case names are regex-safe (alnum + hyphen only).
+    _rs_re="(^|[^[:alnum:]-])${name}([^[:alnum:]-]|$)"
+    if [[ -f "${MO_WAVE_PLAN}" ]] && grep -qE "${_rs_re}" "${MO_WAVE_PLAN}" 2>/dev/null; then
+      echo "RECONSTRUCT-STUB: ${name} has a committed plan row but kickoff=missing — author + commit .claude/orchestrator-prompts/${name}/kickoff.md to restore portability (no auto-write)"
+    fi
     continue
   fi
 
