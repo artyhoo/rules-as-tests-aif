@@ -7,6 +7,7 @@
 #   ./install.sh react-next --dry-run           # preview without writing
 #   ./install.sh react-next --dry-run --force   # preview overwrite plan
 #   ./install.sh ts-server --full               # also auto-install dev-deps (no prompts)
+#   ./install.sh ts-server --wire-ci            # also auto-wire missing CI gates via yq (opt-in, detect-first)
 #
 # What it does:
 #   1. Copies skills/ + .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit}/ → .claude/skills/
@@ -25,6 +26,9 @@
 # Use --dry-run to preview the plan without touching disk.
 # Use --full to also run the consumer's package manager to install the dev-deps the shipped
 # hooks/scripts need (default is to ask [y/N], default No — a mutating step is opt-in).
+# Use --wire-ci to also auto-wire any CI-orphan rule-enforcement gate (§6c) into your existing
+# workflow via yq (used-if-present, never installed by us; default is the non-destructive WARN +
+# paste-block — wiring edits your kept workflow in place, so it is opt-in). No effect in --dry-run.
 
 set -euo pipefail
 
@@ -65,11 +69,13 @@ STACK=""
 FORCE=""
 DRY_RUN=""
 FULL=""
+WIRE_CI=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run)              DRY_RUN="--dry-run" ;;
     --force)                FORCE="--force" ;;
     --full)                 FULL="--full" ;;
+    --wire-ci)              WIRE_CI="--wire-ci" ;;
     ts-server|react-next)   STACK="$arg" ;;
     *)                      ;;
   esac
@@ -653,6 +659,7 @@ fi
 if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; then
   _aif_missing=()
   _aif_steps=()
+  _aif_cmds=()
   _aif_gate_check() { # $1 "gate — what it enforces"  $2 wired-grep  $3 installed-artifact  $4 paste-step
     [ -e "$PROJECT_ROOT/$3" ] || return 0          # gate not installed for this stack → nothing to warn
     local _wf
@@ -661,12 +668,65 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
       # grep inside `if` is set-e-safe (non-zero no-match is consumed by the if-test, not seen by set -e)
       if grep -qE "$2" "$_wf" 2>/dev/null; then return 0; fi   # referenced by some workflow → wired
     done
-    _aif_missing+=("$1"); _aif_steps+=("$4")
+    _aif_missing+=("$1"); _aif_steps+=("$4"); _aif_cmds+=("${4#- run: }")
   }
-  _aif_gate_check "check:globs — R2/R7/R8 ESLint-rule liveness"        'check-rule-globs\.sh|check:globs'               "scripts/check-rule-globs.sh"          "- run: bash scripts/check-rule-globs.sh"
-  _aif_gate_check "arch:check — R3 architecture boundaries"            'arch:check|depcruise'                           ".dependency-cruiser.cjs"              "- run: npm run arch:check"
-  _aif_gate_check "audit:docs — AI-documentation drift"               'audit:docs|audit-ai-docs\.sh'                   "scripts/audit-ai-docs.sh"             "- run: bash scripts/audit-ai-docs.sh"
-  _aif_gate_check "check:lintstaged — lint-staged binaries resolve"   'check:lintstaged|check-lintstaged-resolves\.sh' "scripts/check-lintstaged-resolves.sh" "- run: bash scripts/check-lintstaged-resolves.sh"
+  _aif_detect_gates() {   # (re)build the missing-set from scratch — idempotent, callable again post-wire
+    _aif_missing=(); _aif_steps=(); _aif_cmds=()
+    _aif_gate_check "check:globs — R2/R7/R8 ESLint-rule liveness"        'check-rule-globs\.sh|check:globs'               "scripts/check-rule-globs.sh"          "- run: bash scripts/check-rule-globs.sh"
+    _aif_gate_check "arch:check — R3 architecture boundaries"            'arch:check|depcruise'                           ".dependency-cruiser.cjs"              "- run: npm run arch:check"
+    _aif_gate_check "audit:docs — AI-documentation drift"               'audit:docs|audit-ai-docs\.sh'                   "scripts/audit-ai-docs.sh"             "- run: bash scripts/audit-ai-docs.sh"
+    _aif_gate_check "check:lintstaged — lint-staged binaries resolve"   'check:lintstaged|check-lintstaged-resolves\.sh' "scripts/check-lintstaged-resolves.sh" "- run: bash scripts/check-lintstaged-resolves.sh"
+  }
+  _aif_detect_gates
+
+  # ─── #521 Stage P: opt-in auto-wire (REFERENCE mikefarah/yq, detect-first) ───
+  # The WARN below is the non-destructive default (writes nothing). This OPT-IN path mutates the
+  # consumer's kept workflow in place, so it fires ONLY on explicit consent: --wire-ci, or an
+  # interactive [y/N] (default No), mirroring the §8 dep-install prompt. yq is USED-IF-PRESENT,
+  # never installed/pinned by us (companion-install-principle.md §1; BFR §1.1 shipped-axis —
+  # integrate, never hard-depend). yq's comment preservation is best-effort, which is exactly why
+  # it is DISQUALIFIED as the *silent* default (research-patch 2026-06-14-s3-workflow-merge §4/§6,
+  # SSOT #117) — confining it behind a visible flag makes that risk the consumer's informed choice.
+  # yq absent / declined → fall through to the broadened WARN + paste-block unchanged.
+  if [ "${#_aif_missing[@]}" -gt 0 ]; then
+    _aif_wire="no"
+    if [ -n "$WIRE_CI" ]; then _aif_wire="yes"
+    elif [ -t 0 ]; then
+      printf "▶ Auto-wire %s missing CI gate(s) into your workflow via yq (edits the file in place)? [y/N] " "${#_aif_missing[@]}"
+      read -r _ans || _ans=""
+      case "$_ans" in [yY]|[yY][eE][sS]) _aif_wire="yes" ;; esac
+    fi
+    if [ "$_aif_wire" = "yes" ]; then
+      if command -v yq >/dev/null 2>&1; then
+        # Locate the first workflow + job that owns a `steps:` sequence (the lint/test job) to append into.
+        _wire_wf=""; _wire_job=""
+        for _wf in "$PROJECT_ROOT/.github/workflows/"*.yml "$PROJECT_ROOT/.github/workflows/"*.yaml; do
+          [ -f "$_wf" ] || continue
+          _job=$(yq -r '.jobs | to_entries | map(select(.value.steps != null)) | (.[0].key // "")' "$_wf" 2>/dev/null || echo "")
+          if [ -n "$_job" ] && [ "$_job" != "null" ]; then _wire_wf="$_wf"; _wire_job="$_job"; break; fi
+        done
+        if [ -n "$_wire_job" ]; then
+          _wired=0
+          # `${arr[@]+"${arr[@]}"}` = bash-3.2-safe empty-array expansion under set -u (macOS ships 3.2).
+          # _cmd is one of the 4 hard-coded gate commands (no quotes/special chars) — keep it that way:
+          # it is interpolated raw into the yq double-quoted YAML string below.
+          for _cmd in ${_aif_cmds[@]+"${_aif_cmds[@]}"}; do
+            # idempotent append-if-absent: add then de-dup on .run, so re-running install adds nothing.
+            if yq -i ".jobs.${_wire_job}.steps += [{\"run\": \"${_cmd}\"}] | .jobs.${_wire_job}.steps |= unique_by(.run)" "$_wire_wf" 2>/dev/null; then
+              _wired=$((_wired+1))
+            fi
+          done
+          echo "  ✓ auto-wired ${_wired} gate(s) into ${_wire_wf#"$PROJECT_ROOT"/} job '${_wire_job}' via yq (idempotent — re-running install adds nothing)."
+          _aif_detect_gates   # re-check: wired gates are now referenced → drop them from the WARN below
+        else
+          echo "  ⚠ --wire-ci: found no job with a 'steps:' list to wire into — see the paste-block below."
+        fi
+      else
+        echo "  ⚠ --wire-ci requested but 'yq' is not installed (we never install it for you) — see the paste-block below."
+      fi
+    fi
+  fi
+
   if [ "${#_aif_missing[@]}" -gt 0 ]; then
     echo ""
     echo "⚠ CI-orphan: some rule-enforcement gates run in 'npm run validate' but are NOT in any kept workflow under .github/workflows/."
@@ -686,10 +746,11 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
           break ;;
       esac
     done
-    echo "   (or re-run install with --force to adopt the shipped ci.yml that wires them — but --force overwrites"
-    echo "    ALL kept files, e.g. vitest.config.ts / .prettierignore, not just the workflow)."
+    echo "   (or re-run install with --wire-ci to auto-wire them via yq — edits your workflow in place, opt-in;"
+    echo "    or with --force to adopt the shipped ci.yml that wires them — but --force overwrites ALL kept files,"
+    echo "    e.g. vitest.config.ts / .prettierignore, not just the workflow)."
   fi
-  unset -f _aif_gate_check
+  unset -f _aif_gate_check _aif_detect_gates
 fi
 
 # ─── 7. package.json scripts (FQA S1-A W4) ──────────────

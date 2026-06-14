@@ -253,6 +253,8 @@ jobs:
         run: bash tests/install-sh/nvmrc-ci-drift.test.sh
       - name: Run install-sh R2 glob-reach test — CI-orphan WARN + per-package shadow + globals (GH #507 reopen)
         run: bash tests/install-sh/r2-glob-reach.test.sh
+      - name: Run install-sh --wire-ci opt-in yq auto-wirer test (universalization-fix-s3 Stage P, GH #521)
+        run: bash tests/install-sh/s3-wire-ci.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type
