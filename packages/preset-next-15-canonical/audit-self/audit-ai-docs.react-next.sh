@@ -74,19 +74,31 @@ fi
 # ────────────────────────────────────────────────────────────────────────
 if skip_unless R17; then : ; else
   RULE="R17: Each component has matching .stories.tsx"
-  VIOL=""
-  for f in $(find src/shared/ui src/features/*/ui -name "*.tsx" 2>/dev/null \
-    | grep -v "\\.unit\\.\\|\\.test\\.\\|\\.stories\\.\\|\\.types\\.\\|\\.module\\." \
-    | grep -v "/index\\.tsx$" || true); do
-    base=${f%.tsx}
-    [ -f "${base}.stories.tsx" ] || VIOL="$VIOL"$'\n'"$f → missing ${base}.stories.tsx"
-  done
-
-  if [ -z "$VIOL" ]; then
-    pass "$RULE"
+  # Layout-presence check — without the canonical UI dirs, find matches zero
+  # files; an unconditional pass() would be a silent-PASS (the probe checked
+  # zero files). Emit WARN (probe could not run) instead. [universalization-fix F2]
+  shopt -s nullglob
+  ROOTS=()
+  [ -d src/shared/ui ] && ROOTS+=(src/shared/ui)
+  for d in src/features/*/ui; do [ -d "$d" ] && ROOTS+=("$d"); done
+  shopt -u nullglob
+  if [ ${#ROOTS[@]} -eq 0 ]; then
+    warn "$RULE (skipped: no src/shared/ui or src/features/*/ui — probe could not run)"
   else
-    warn "$RULE (treat as MAJOR if pre-merge, OK if WIP)"
-    echo "$VIOL" | sed 's/^/    /'
+    VIOL=""
+    for f in $(find "${ROOTS[@]}" -name "*.tsx" 2>/dev/null \
+      | grep -v "\\.unit\\.\\|\\.test\\.\\|\\.stories\\.\\|\\.types\\.\\|\\.module\\." \
+      | grep -v "/index\\.tsx$" || true); do
+      base=${f%.tsx}
+      [ -f "${base}.stories.tsx" ] || VIOL="$VIOL"$'\n'"$f → missing ${base}.stories.tsx"
+    done
+
+    if [ -z "$VIOL" ]; then
+      pass "$RULE"
+    else
+      warn "$RULE (treat as MAJOR if pre-merge, OK if WIP)"
+      echo "$VIOL" | sed 's/^/    /'
+    fi
   fi
 fi
 

@@ -18,6 +18,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, utimesSync, 
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 // Resolve the repo root from this test file's location (works in vitest + stryker)
 const THIS_FILE = fileURLToPath(import.meta.url);
@@ -310,11 +311,13 @@ describe('test_R4 — R4: domain export tests', () => {
   beforeEach(() => { dir = makeTmpDir(); });
   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
-  it('returns pass when no src/domain dir (explicit pass result)', () => {
-    // No src/domain → pass(skipped)
+  it('returns warn (not silent pass) when no src/domain — probe could not run', () => {
+    // No src/domain → WARN(skipped): the probe checked zero files, so it must
+    // surface a WARN, never silently PASS (project thesis — a probe that cannot
+    // run must FAIL or at minimum WARN). universalization-fix F1a.
     const result = probeR4(dir);
-    // Multi-assertion: result is 'pass' specifically AND message has R4
-    expect(result.result).toBe('pass');
+    // Multi-assertion: result is 'warn' specifically AND message has R4 + skip
+    expect(result.result).toBe('warn');
     expect(result.message).toMatch(/R4/);
     expect(result.message).toMatch(/skip/i);
   });
@@ -367,6 +370,41 @@ describe('test_R4 — R4: domain export tests', () => {
     // The result can be fail or warn but NOT pass-skipped-for-missing-env
     // (it's not the "no tsconfig AND no ts-morph" path)
     expect(['fail', 'warn']).toContain(result.result);
+  });
+});
+
+// ─── test_R4 bash (shipped script) — exec-based paired-negative ───────────────
+// universalization-fix F1b — the shipped scripts/audit-ai-docs.sh is what
+// install.sh ships to consumers. Its R4 skip-branch (no src/domain) must emit
+// WARN, never a silent PASS. This test EXECs the real script in a fresh temp
+// dir with NO src/domain and asserts the live verdict is WARN (T-UF-A: assert
+// the real script's output, not a string literal). No positive arm: a genuine
+// bash R4 PASS needs ts-morph + scripts/audit-r4.ts, which a fresh temp dir
+// lacks (it would FAIL there, not PASS); the anti-tautology contrast for the
+// R4 verdict is already given by the TS probeR4 arms above (src/domain present
+// → fail/warn, never silent-pass).
+
+describe('test_R4 bash (shipped audit-ai-docs.sh) — WARN, not silent PASS, when no src/domain', () => {
+  const coreScript = join(REPO_ROOT, 'packages/core/audit-self/audit-ai-docs.sh');
+  // Stryker-sandbox guard: skip when the shipped script is not present at
+  // REPO_ROOT (mirrors the isRealRepo check used by the R17 structural test).
+  const isRealRepo = existsSync(join(REPO_ROOT, 'packages/core/package.json')) &&
+                     existsSync(coreScript);
+
+  it('emits WARN (not PASS) for R4 when src/domain is absent', () => {
+    // Arrange: fresh temp dir with no src/domain (probe cannot run there).
+    if (!isRealRepo) return; // sandbox: script absent, nothing to exec
+    const dir = mkdtempSync(join(tmpdir(), 'audit-ai-docs-test-'));
+
+    // Act: run the SHIPPED script's R4 probe only, in the empty dir.
+    const out = execFileSync('bash', [coreScript, '--only=R4'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
+
+    // Assert: live verdict is WARN R4, and NOT a silent PASS R4.
+    expect(out).toMatch(/WARN.*R4/);
+    expect(out).not.toMatch(/PASS:\s*R4/);
   });
 });
 
@@ -994,12 +1032,50 @@ describe('test_R17 — R17: component .stories.tsx (react-next preset)', () => {
     // (If not in real repo, the probeR4/probeD1 assertions above are sufficient)
   });
 
-  it('WARN is the expected outcome for missing .stories.tsx (message structure)', () => {
-    // Documents the expected probe behaviour: R17 emits WARN (not FAIL),
-    // mentioning the component file name. Verified in bash integration test.
-    // Here we assert the test structure is correct (not the probe itself, which is bash).
-    const expectedBehaviour = 'WARN mentioning component filename';
-    expect(expectedBehaviour).toMatch(/WARN/);
+  // universalization-fix F2 — exec-based paired-negative for the SHIPPED preset
+  // script's R17 probe (install.sh ships it to consumers). Without the canonical
+  // UI dirs, find matches zero files; an unconditional pass() would be a silent
+  // PASS. These arms EXEC the real script (T-UF-A: assert the real output, not a
+  // string literal) and prove both: (negative) absent layout → WARN R17, and
+  // (positive) a present component + matching .stories.tsx → genuine PASS R17 —
+  // the anti-tautology contrast that distinguishes the fix from a blanket WARN.
+  const presetScript = join(REPO_ROOT, 'packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh');
+  const isRealRepo = existsSync(join(REPO_ROOT, 'packages/core/package.json')) &&
+                     existsSync(presetScript);
+
+  it('emits WARN (not PASS) for R17 when no src/shared/ui or src/features/*/ui', () => {
+    // Arrange: temp dir with NO UI dirs (probe cannot run there).
+    if (!isRealRepo) return; // sandbox: script absent, nothing to exec
+    const dir = mkdtempSync(join(tmpdir(), 'audit-ai-docs-test-'));
+
+    // Act: run the SHIPPED preset script's R17 probe only.
+    const out = execFileSync('bash', [presetScript, '--only=R17'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
+
+    // Assert: live verdict is WARN R17, NOT a silent PASS R17.
+    expect(out).toMatch(/WARN.*R17/);
+    expect(out).not.toMatch(/PASS:\s*R17/);
+  });
+
+  it('emits genuine PASS for R17 when a component has a matching .stories.tsx', () => {
+    // Arrange: temp dir WITH the canonical UI layout — a component plus its
+    // matching story → the probe has files to check and must genuinely PASS.
+    if (!isRealRepo) return; // sandbox: script absent, nothing to exec
+    const dir = mkdtempSync(join(tmpdir(), 'audit-ai-docs-test-'));
+    mkdirSync(join(dir, 'src/shared/ui'), { recursive: true });
+    writeFileSync(join(dir, 'src/shared/ui/Button.tsx'), 'export const Button = () => null;\n', 'utf8');
+    writeFileSync(join(dir, 'src/shared/ui/Button.stories.tsx'), 'export default { component: Button };\n', 'utf8');
+
+    // Act: run the SHIPPED preset script's R17 probe only.
+    const out = execFileSync('bash', [presetScript, '--only=R17'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
+
+    // Assert: genuine PASS R17 fires (anti-tautology contrast to the WARN arm).
+    expect(out).toMatch(/PASS:\s*R17/);
   });
 });
 
@@ -1218,8 +1294,9 @@ describe('runAudit() — orchestration layer', () => {
     const report = runAudit(dir, '');
     const r4 = report.results.find((r) => r.probe === 'R4');
     expect(r4).toBeDefined();
-    // No src/domain → pass(skipped)
-    expect(r4!.level).toBe('pass');
+    // No src/domain → warn(skipped): probeR4 could not run, so runAudit must
+    // surface its honest WARN verdict (never a silent pass). universalization-fix F1a.
+    expect(r4!.level).toBe('warn');
     expect(r4!.message).toMatch(/R4/);
   });
 
