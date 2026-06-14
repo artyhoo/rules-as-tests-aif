@@ -89,7 +89,7 @@ if skip_unless R4; then : ; else
   fi
 fi
 
-# R6: delegated to ESLint rules no-throw-literal + @typescript-eslint/no-useless-catch
+# R6: delegated to ESLint rules no-throw-literal + no-useless-catch
 
 # R7: delegated to local ESLint rule rules-as-tests/no-direct-time-randomness
 

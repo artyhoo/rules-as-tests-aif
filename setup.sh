@@ -315,15 +315,16 @@ if [ "$SKIP_DEPS" = false ]; then
 
   # Common deps for both stacks
   COMMON_DEPS=(
-    "@eslint/js@^10.0.0"
+    "@eslint/js@^9.0.0"
     "@stryker-mutator/core@^8.7.0"
     "@stryker-mutator/vitest-runner@^8.7.0"
+    "@stryker-mutator/typescript-checker@^8.7.0"
     "@types/node@^22.10.0"
     "@vitest/coverage-v8@^4.1.5"
     "dependency-cruiser@^16.8.0"
-    "eslint@^10.0.0"
+    "eslint@^9.0.0"
     "eslint-config-prettier@^9.1.0"
-    "eslint-plugin-vitest@^0.5.4"
+    "@vitest/eslint-plugin@^1.0.0"
     "fast-check@^3.23.0"
     "glob@^11.0.0"
     "globals@^15.14.0"
@@ -336,6 +337,7 @@ if [ "$SKIP_DEPS" = false ]; then
     "tsx@^4.19.0"
     "typescript@^5.7.0"
     "typescript-eslint@^8.59.0"
+    "@typescript-eslint/utils@^8.59.0"
     "vitest@^4.1.5"
   )
 

@@ -1,6 +1,6 @@
 // @ts-check
 // ESLint flat config for React 19 / Next.js 15 App Router projects
-// Requires: ESLint ^10.0.0, typescript-eslint ^8.59.0, @next/eslint-plugin-next, eslint-plugin-react, eslint-plugin-react-hooks, eslint-plugin-jsx-a11y
+// Requires: ESLint ^9.0.0, typescript-eslint ^8.59.0, @next/eslint-plugin-next, eslint-plugin-react, eslint-plugin-react-hooks, eslint-plugin-jsx-a11y
 
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
@@ -8,7 +8,7 @@ import nextPlugin from '@next/eslint-plugin-next';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
-import vitestPlugin from 'eslint-plugin-vitest';
+import vitestPlugin from '@vitest/eslint-plugin';
 import testingLibrary from 'eslint-plugin-testing-library';
 import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
@@ -90,7 +90,7 @@ export default defineConfig(
       '@typescript-eslint/prefer-optional-chain': 'error',
       // ─── Error handling ─────────────────────────────
       'no-throw-literal': 'error',
-      '@typescript-eslint/no-useless-catch': 'error',
+      'no-useless-catch': 'error',
 
       // ─── Forbidden imports (banned dependencies) ────
       'no-restricted-imports': [

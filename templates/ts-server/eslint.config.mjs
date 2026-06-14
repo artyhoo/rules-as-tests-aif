@@ -1,11 +1,11 @@
 // @ts-check
 // ESLint flat config for server-side TypeScript projects (Node.js, Fastify, Hono, etc.)
-// Requires: ESLint ^10.0.0, typescript-eslint ^8.59.0
+// Requires: ESLint ^9.0.0, typescript-eslint ^8.59.0
 // For React/Next.js, see eslint.config.react.mjs
 
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import vitestPlugin from 'eslint-plugin-vitest';
+import vitestPlugin from '@vitest/eslint-plugin';
 import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
 import { defineConfig } from 'eslint/config';
@@ -101,7 +101,7 @@ export default defineConfig(
 
       // ─── Error handling ─────────────────────────────
       'no-throw-literal': 'error',
-      '@typescript-eslint/no-useless-catch': 'error',
+      'no-useless-catch': 'error',
 
       // ─── Switch / control flow ──────────────────────
       'default-case': 'error',

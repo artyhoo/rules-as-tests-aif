@@ -29,6 +29,7 @@
  * @cc-only-rationale: PostToolUse hook entrypoint — but the logic is pure TS
  *   so also callable from portable test harness.
  */
+import { spawnSync } from 'node:child_process';
 import { buildKickoffSpec } from '../kickoff.js';
 import { checkDedup, recordDispatch } from '../idempotency.js';
 import { resolveBackend } from '../resolver.js';
@@ -53,6 +54,36 @@ export function resolveKickoffPath(argv: readonly string[]): string | undefined 
  */
 export function shouldRecordDedup(backendName: string): boolean {
   return backendName !== 'manual';
+}
+
+/**
+ * Optional doctor-heal preflight — "the dispatcher calls the doctor; the doctor heals."
+ * If RUNTIME_BRIDGE_PREFLIGHT is set, run it before dispatch so the aif container base
+ * is current (a stale base makes the agent branch off old code → false-`done` garbage;
+ * see aif-doctor SKILL §3.4). The operator points it at the aif-doctor heal entrypoint,
+ * e.g. `RUNTIME_BRIDGE_PREFLIGHT="bash ~/.claude/heal.sh"`.
+ *
+ * Ship-safe: NO-OP when the env var is unset (consumers without the script are
+ * unaffected; no host path is hard-coded here — the dispatcher only knows "call the
+ * doctor", the doctor owns what healing means). Non-blocking: a preflight failure
+ * warns and dispatch proceeds — the base may already be fine, and the bridge's
+ * contract is "never leave the operator stuck".
+ */
+export function runPreflight(env: NodeJS.ProcessEnv = process.env): void {
+  const cmd = env['RUNTIME_BRIDGE_PREFLIGHT'];
+  if (!cmd) return;
+  try {
+    const r = spawnSync('bash', ['-c', cmd], { encoding: 'utf8', timeout: 150_000 });
+    if (r.stdout) process.stderr.write(r.stdout);
+    if (r.stderr) process.stderr.write(r.stderr);
+    if (r.status !== 0) {
+      process.stderr.write(
+        `[runtime-bridge] preflight exited ${r.status ?? 'signal'} — proceeding with dispatch anyway\n`,
+      );
+    }
+  } catch (err) {
+    process.stderr.write(`[runtime-bridge] preflight error: ${err} — proceeding with dispatch\n`);
+  }
 }
 
 async function main(): Promise<void> {
@@ -93,6 +124,13 @@ async function main(): Promise<void> {
       process.exit(0);
     }
   }
+
+  // ── Step 2.5: Doctor heal preflight (the dispatcher calls the doctor) ─────
+  // Ship-safe + non-blocking: NO-OP unless RUNTIME_BRIDGE_PREFLIGHT is set. The
+  // operator points it at the aif-doctor heal entrypoint so the container base is
+  // refreshed before dispatch (stale base → false-`done` garbage; aif-doctor §3.4).
+  // Runs only past the dedup gate — i.e. when an actual dispatch is about to happen.
+  runPreflight();
 
   // ── Step 3 + 4: Resolve backend + dispatch ────────────────────────────────
   let backend = await resolveBackend();

@@ -6,10 +6,13 @@
 #   ./install.sh react-next --force             # overwrite existing files
 #   ./install.sh react-next --dry-run           # preview without writing
 #   ./install.sh react-next --dry-run --force   # preview overwrite plan
+#   ./install.sh ts-server --full               # also auto-install dev-deps (no prompts)
 #
 # What it does:
-#   1. Copies skills/ + .claude/skills/pipeline/ → .claude/skills/
-#      (meta-orchestrator is shipped from .claude/skills/ as single source of truth;
+#   1. Copies skills/ + .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit}/ → .claude/skills/
+#      (the meta-orchestrator pipeline + its orchestration companions are shipped from
+#       .claude/skills/ as single source of truth; self-reflection + ai-doc are intentionally
+#       NOT shipped — repo-internal per build-first-reuse-default.md §1.1 shipped-axis;
 #       cross-refs to repo-internal paths get sed-transformed to GitHub blob URLs —
 #       see UPSTREAM_BLOB_URL + transform_internal_refs() below;
 #       per .claude/rules/dual-implementation-discipline.md §7 SSOT)
@@ -20,6 +23,8 @@
 #
 # Safety: by default never overwrites existing files. Use --force to overwrite.
 # Use --dry-run to preview the plan without touching disk.
+# Use --full to also run the consumer's package manager to install the dev-deps the shipped
+# hooks/scripts need (default is to ask [y/N], default No — a mutating step is opt-in).
 
 set -euo pipefail
 
@@ -59,10 +64,12 @@ fi
 STACK=""
 FORCE=""
 DRY_RUN=""
+FULL=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run)              DRY_RUN="--dry-run" ;;
     --force)                FORCE="--force" ;;
+    --full)                 FULL="--full" ;;
     ts-server|react-next)   STACK="$arg" ;;
     *)                      ;;
   esac
@@ -208,6 +215,28 @@ chmod_safe() {
   chmod "$@"
 }
 
+# Detect the consumer's package manager from corepack / workspace / lockfile signals present
+# AT INSTALL TIME. The explicit package.json "packageManager" field (corepack source of truth)
+# wins; else workspace/lock markers (pnpm-workspace.yaml exists pre-install in a monorepo even
+# before the lockfile lands — R-S4-3 note below); else npm. Echoes one of: npm | pnpm | yarn.
+# node-optional: the field check is skipped when node is absent (markers still resolve). SSOT —
+# shared by patch_stryker_package_manager() and the §8 dev-dep install so the two never drift.
+detect_pm() {
+  local _pm _field
+  if [ -f "$PROJECT_ROOT/pnpm-lock.yaml" ] || [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then
+    _pm="pnpm"
+  elif [ -f "$PROJECT_ROOT/yarn.lock" ] || [ -f "$PROJECT_ROOT/.yarnrc.yml" ]; then
+    _pm="yarn"
+  else
+    _pm="npm"
+  fi
+  if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/package.json" ]; then
+    _field=$(AIF_PJ="$PROJECT_ROOT/package.json" node -e 'try{const m=(JSON.parse(require("fs").readFileSync(process.env.AIF_PJ,"utf8")).packageManager||"").split("@")[0];if(["npm","pnpm","yarn"].includes(m))process.stdout.write(m)}catch{}' 2>/dev/null || true)
+    [ -n "$_field" ] && _pm="$_field"
+  fi
+  printf '%s' "$_pm"
+}
+
 # The shipped stryker.config.json hardcodes "packageManager": "npm" (the template can't
 # self-detect). Patch the COPIED config in place to match the consumer's lockfile so a
 # pnpm/yarn consumer doesn't get an npm-locked mutation run. Non-destructive: rewrites only
@@ -220,13 +249,13 @@ patch_stryker_package_manager() {
   fi
   command -v node >/dev/null 2>&1 || return 0
   [ -f "$_cfg" ] || return 0
-  if [ -f "$PROJECT_ROOT/pnpm-lock.yaml" ]; then
-    _pm="pnpm"
-  elif [ -f "$PROJECT_ROOT/yarn.lock" ]; then
-    _pm="yarn"
-  else
-    _pm="npm"
-  fi
+  # R-S4-3: install.sh runs BEFORE the consumer's `npm/pnpm install` in the canonical flow,
+  # so a lockfile may not exist yet (a pnpm monorepo would silently stay "npm"). Detect from
+  # signals present AT INSTALL TIME: the explicit package.json "packageManager" field (corepack
+  # source of truth) wins; else workspace/lock markers (pnpm-workspace.yaml exists pre-install
+  # in a monorepo); else npm. A flat pnpm consumer with neither marker nor field still defaults
+  # npm — re-run install after the lockfile lands, or set package.json "packageManager".
+  _pm=$(detect_pm)   # SSOT detector (lockfile/workspace/corepack signals; see detect_pm above)
   AIF_STRYKER_CFG="$_cfg" AIF_STRYKER_PM="$_pm" node -e '
     const fs = require("fs");
     const p = process.env.AIF_STRYKER_CFG;
@@ -235,6 +264,38 @@ patch_stryker_package_manager() {
     fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n");
   '
   echo "  ✓ stryker packageManager → $_pm"
+}
+
+# copy_skill_with_transform <skill-slug>
+# Copies .claude/skills/<slug>/ to the consumer and rewrites repo-internal markdown
+# cross-refs to GitHub blob URLs (transform_internal_refs). Used for pipeline + its
+# orchestration companion skills (dispatcher / aif-doctor / template-audit) — every one
+# carries ](../../../{docs,packages,README}) refs that would dangle on a consumer tree.
+# Honors --force (skip-if-exists default) and --dry-run, matching copy_safe semantics.
+copy_skill_with_transform() {
+  local slug="$1"
+  local src="$PKG_ROOT/.claude/skills/$slug"
+  local dst="$PROJECT_ROOT/.claude/skills/$slug"
+  if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
+    SKIPPED+=("$dst")
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: .claude/skills/$slug (exists)"
+    else
+      echo "  ⊝ .claude/skills/$slug (exists — skipping)"
+    fi
+    return 0
+  fi
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would copy: $src → $dst (+ transform internal refs)"
+    return 0
+  fi
+  rm -rf "$dst"
+  cp -r "$src" "$dst"
+  # Rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
+  while IFS= read -r -d '' mdfile; do
+    transform_internal_refs "$mdfile"
+  done < <(find "$dst" -name '*.md' -print0)
+  echo "  ✓ .claude/skills/$slug/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 }
 
 # ─── 1. Skills ──────────────────────────────────────────
@@ -268,26 +329,31 @@ else
   cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
-# meta-orchestrator: shipped from authoring location .claude/skills/pipeline/
-# as single source of truth (no separate mirror under skills/). Repo-internal cross-refs
-# in .md files get rewritten to GitHub blob URLs via transform_internal_refs().
-if [ -e "$PROJECT_ROOT/.claude/skills/pipeline" ] && [ "$FORCE" != "--force" ]; then
-  SKIPPED+=("$PROJECT_ROOT/.claude/skills/pipeline")
-  if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would skip: .claude/skills/pipeline (exists)"
-  else
-    echo "  ⊝ .claude/skills/pipeline (exists — skipping)"
-  fi
-elif [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "  [dry-run] would copy: $PKG_ROOT/.claude/skills/pipeline → $PROJECT_ROOT/.claude/skills/pipeline (+ transform internal refs)"
-else
-  rm -rf "$PROJECT_ROOT/.claude/skills/pipeline"
-  cp -r "$PKG_ROOT/.claude/skills/pipeline" "$PROJECT_ROOT/.claude/skills/pipeline"
-  # Rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
-  while IFS= read -r -d '' mdfile; do
-    transform_internal_refs "$mdfile"
-  done < <(find "$PROJECT_ROOT/.claude/skills/pipeline" -name '*.md' -print0)
-  echo "  ✓ .claude/skills/pipeline/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+# meta-orchestrator + its orchestration companions: shipped from authoring location
+# .claude/skills/ as single source of truth (no separate mirror under skills/). Repo-internal
+# cross-refs in .md files get rewritten to GitHub blob URLs via transform_internal_refs().
+#   - pipeline      — the planner (/pipeline): umbrella triage, priority ranking, plan/state.md.
+#   - dispatcher    — pipeline's execution companion: dispatches a chosen umbrella's stages
+#                     through the aif-control loop the ./setup runtime-bridge step installs.
+#   - aif-doctor    — diagnoses that same aif-handoff runtime when a task stalls / runtime breaks.
+#   - template-audit — local advisory audit of the rendered templates this installer ships.
+# self-reflection + ai-doc are intentionally NOT shipped: they are repo-internal (reference
+# THIS repo's rules / docs paths a consumer does not have) — see the build-vs-reuse shipped-axis
+# default in .claude/rules/build-first-reuse-default.md §1.1 + dual-implementation-discipline.md §3.
+for _skill in pipeline dispatcher aif-doctor template-audit; do
+  copy_skill_with_transform "$_skill"
+done
+
+# aif-doctor ships portable base-refresh ("heal") helpers under helpers/ — a consumer runs
+# aif-handoff too, so their container base can go stale and false-`done` off-scope diffs
+# (aif-doctor SKILL §3.4). The recursive `cp -r` in copy_skill_with_transform already lands
+# helpers/*.sh; here we just keep them executable and surface the OPT-IN auto-heal seam. Keep
+# it opt-in + degrading — making a companion mandatory is a goal change (build-first-reuse-default.md §1.1).
+_AIF_HELPERS="$PROJECT_ROOT/.claude/skills/aif-doctor/helpers"
+if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$_AIF_HELPERS" ]; then
+  chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" 2>/dev/null || true
+  echo "  ✓ aif-doctor heal helpers → .claude/skills/aif-doctor/helpers/ (executable)"
+  echo "    ↳ opt-in: export RUNTIME_BRIDGE_PREFLIGHT='bash .claude/skills/aif-doctor/helpers/heal.sh' to auto-heal the aif base before each dispatch"
 fi
 
 # ─── 1b. Hooks ──────────────────────────────────────────
@@ -611,6 +677,80 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
   fi
 fi
 
+# ─── 8. dev-dependency install — one-button completeness (#483, DN-B=A) ──────
+# The scripts-merge above only DECLARES the toolchain; the Next-steps block historically handed
+# back a manual `npm install`. So the wired hooks (core.hooksPath=.husky → .husky/pre-commit runs
+# `npx lint-staged`) fired with their tools ABSENT → ENOENT on the consumer's first commit (#478
+# root, #483). Close it: detect the consumer's PM (detect_pm SSOT) and actually RUN the dev-dep
+# install so the declared tools land before that first commit. Mutating + opinionated → OPT-IN:
+# interactive [y/N] default-No, or --full to skip the prompt (non-interactive without --full → No).
+# Shells out to the consumer's own PM — adds NO dependency to the framework (per §3 scope fence /
+# BFR). DEVDEPS is the single source for both the install command and the Next-steps fallback echo
+# (so "what we install" and "what we tell you to install" can't drift — #two-prompts-drift).
+CORE_DEVDEPS=(
+  eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils
+  prettier eslint-config-prettier @vitest/eslint-plugin
+  vitest@^4.1.5 @vitest/coverage-v8@^4.1.5
+  @stryker-mutator/core @stryker-mutator/vitest-runner @stryker-mutator/typescript-checker
+  dependency-cruiser fast-check glob tsx
+  husky lint-staged sort-package-json
+  npm-run-all2
+)
+REACT_DEVDEPS=(
+  @vitejs/plugin-react jsdom @testing-library/react
+  @testing-library/jest-dom @next/eslint-plugin-next
+  eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
+  eslint-plugin-testing-library @playwright/test
+)
+DEVDEPS=( "${CORE_DEVDEPS[@]}" )
+[ "$STACK" = "react-next" ] && DEVDEPS+=( "${REACT_DEVDEPS[@]}" )
+
+DEPS_INSTALLED=""
+_do_dep_install=""
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "▶ dev-deps → [dry-run] would offer to install ${#DEVDEPS[@]} dev-deps with $(detect_pm)"
+elif [ ! -f "$PROJECT_ROOT/package.json" ]; then
+  :   # no package.json to install into — nothing to do
+elif [ -n "$FULL" ]; then
+  _do_dep_install="yes"
+elif [ -t 0 ]; then
+  printf "▶ Install %s dev-dependencies now with %s? [y/N] " "${#DEVDEPS[@]}" "$(detect_pm)"
+  read -r _ans || _ans=""
+  case "$_ans" in [yY]|[yY][eE][sS]) _do_dep_install="yes" ;; esac
+else
+  :   # non-interactive (no tty) without --full → default No; the manual command prints in Next steps
+fi
+
+if [ "$_do_dep_install" = "yes" ]; then
+  _pm=$(detect_pm)
+  if ! command -v "$_pm" >/dev/null 2>&1; then
+    echo "  ⚠  $_pm not found on PATH — skipped dev-dep install (install manually, see Next steps)."
+  else
+    echo "▶ Installing ${#DEVDEPS[@]} dev-dependencies with $_pm (this may take a minute) …"
+    _ok=""
+    case "$_pm" in
+      pnpm)
+        # pnpm refuses to add to a workspace root without -w; pass it only when a workspace exists.
+        # Explicit branch (not an empty-array expansion) for bash 3.2 + `set -u` safety.
+        if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then
+          if ( cd "$PROJECT_ROOT" && pnpm add -D -w "${DEVDEPS[@]}" ); then _ok="yes"; fi
+        else
+          if ( cd "$PROJECT_ROOT" && pnpm add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi
+        fi ;;
+      yarn)
+        if ( cd "$PROJECT_ROOT" && yarn add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
+      *)
+        if ( cd "$PROJECT_ROOT" && npm install --save-dev "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
+    esac
+    if [ -n "$_ok" ]; then
+      DEPS_INSTALLED="1"
+      echo "  ✓ dev-dependencies installed → node_modules/ (wired hooks now have their tools)"
+    else
+      echo "  ⚠  dev-dep install failed — run it manually (see Next steps)."
+    fi
+  fi
+fi
+
 # ─── cih-s3 V2: runtime-discipline arming WARN (consumer-side, deps-free) ───
 # R7/R8 (no-direct-time-randomness / require-otel-span) ship DEFERRED behind AIF_STRICT_RUNTIME=1
 # in the eslint config templates. If the consumer already depends on @opentelemetry/* yet has not
@@ -650,28 +790,23 @@ echo "Next steps:"
 echo "  1. Edit .ai-factory/DESCRIPTION.template.md → save as .ai-factory/DESCRIPTION.md"
 echo "  2. Edit .ai-factory/ARCHITECTURE.ts-server.md (or ARCHITECTURE.react-next.md) → save as .ai-factory/ARCHITECTURE.md"
 echo "  3. Edit AGENTS.md placeholders to match your project"
-echo "  4. Install required npm dev-deps:"
-echo ""
-echo "     npm install --save-dev \\"
-echo "       eslint@^10 typescript-eslint@^8.59 @eslint/js \\"
-echo "       prettier eslint-config-prettier eslint-plugin-vitest \\"
-echo "       vitest@^4.1.5 @vitest/coverage-v8@^4.1.5 \\"
-echo "       @stryker-mutator/core @stryker-mutator/vitest-runner \\"
-echo "       dependency-cruiser fast-check glob \\"
-echo "       husky lint-staged sort-package-json \\"
-echo "       npm-run-all2 prettier"
-if [ "$STACK" = "react-next" ]; then
-echo "     # Plus React/Next deps:"
-echo "     npm install --save-dev \\"
-echo "       @vitejs/plugin-react jsdom @testing-library/react \\"
-echo "       @testing-library/jest-dom @next/eslint-plugin-next \\"
-echo "       eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y \\"
-echo "       eslint-plugin-testing-library @playwright/test"
+if [ "${DEPS_INSTALLED:-}" = "1" ]; then
+  echo "  4. ✓ Dev-dependencies installed into node_modules/ — nothing to do."
+else
+  # step 4 fallback: the manual dep-install (run only when --full/[y/N] consent was not given).
+  # Built from the same DEVDEPS array the installer uses → list cannot drift from what we install.
+  case "$(detect_pm)" in
+    pnpm) _add="pnpm add -D" ;;
+    yarn) _add="yarn add -D" ;;
+    *)    _add="npm install --save-dev" ;;
+  esac
+  echo "  4. Install dev-dependencies (or re-run: ./install.sh ${STACK:-ts-server} --full):"
+  echo ""
+  echo "     $_add \\"
+  printf '       %s\n' "${DEVDEPS[*]}"
 fi
-echo ""
-echo "  5. Add scripts to package.json (see INSTALL.md §3)"
-echo "  6. Verify git hooks: 'git config core.hooksPath' should print .husky (install activated it; do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push)"
-echo "  7. Run: ./scripts/audit-ai-docs.sh — should PASS"
-echo "  8. Run: npm run validate"
+echo "  5. Verify git hooks: 'git config core.hooksPath' should print .husky (install activated it; do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push)"
+echo "  6. Run: ./scripts/audit-ai-docs.sh — should PASS"
+echo "  7. Run: npm run validate"
 echo ""
 echo "For full guide: see INSTALL.md"
