@@ -29,6 +29,11 @@ jobs:
       - run: npm ci --prefer-offline
       - run: npm run lint
       - run: npm run format:check
+      # Custom ESLint rules only fire on files their globs match; a layout (flat / inline-router /
+      # monorepo) leaving a rule matching ZERO files is SILENTLY INERT. This gate FAILS loudly so
+      # the gap can never ship unnoticed. Dependency-free (pure bash).
+      - name: Rule-glob liveness (custom ESLint rules must not be silently inert)
+        run: bash scripts/check-rule-globs.sh
 
   typecheck:
     name: TypeScript

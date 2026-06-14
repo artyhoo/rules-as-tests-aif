@@ -2,7 +2,13 @@
  * Dependency-cruiser configuration.
  * Enforces architectural rules at the module-graph level.
  *
- * Run: `npx depcruise --config .dependency-cruiser.cjs --validate src`
+ * Run: `npx depcruise --config .dependency-cruiser.cjs <source-root(s)>`
+ *   flat / layered -> `src`; pnpm monorepo -> `apps packages` (the installed `arch:check`
+ *   script auto-targets the roots that exist; a hardcoded `src` hard-fails on a monorepo).
+ *
+ * Layer-path prefixes use `(?:^|/)src/<layer>` (a slash-or-start anchor, not a bare
+ * start-anchor) so the hexagonal / feature-slice rules match BOTH a root `src` dir AND
+ * nested package source dirs (apps and packages workspaces), not only the root-src layout.
  *
  * Test naming: .unit.ts, .integration.ts, .audit.ts (co-located with source).
  */
@@ -61,7 +67,7 @@ module.exports = {
       severity: 'error',
       comment: 'Production code must not import test files.',
       from: {
-        path: '^src',
+        path: '(?:^|/)src',
         pathNot: '\\.(unit|integration|audit|e2e|spec|test)\\.[tj]sx?$',
       },
       to: { path: '\\.(unit|integration|audit|e2e|spec|test)\\.[tj]sx?$' },
@@ -81,8 +87,8 @@ module.exports = {
       severity: 'error',
       comment: 'Production code must not import devDependencies.',
       from: {
-        path: '^src',
-        pathNot: '\\.(unit|integration|audit|e2e|spec|test|stories)\\.[tj]sx?$|^src/__fixtures__/',
+        path: '(?:^|/)src',
+        pathNot: '\\.(unit|integration|audit|e2e|spec|test|stories)\\.[tj]sx?$|(?:^|/)src/__fixtures__/',
       },
       to: { dependencyTypes: ['npm-dev'] },
     },
@@ -92,30 +98,30 @@ module.exports = {
       name: 'domain-no-infra',
       severity: 'error',
       comment: 'Domain must remain framework-agnostic.',
-      from: { path: '^src/domain' },
-      to: { path: '^src/(infrastructure|web|application)' },
+      from: { path: '(?:^|/)src/domain' },
+      to: { path: '(?:^|/)src/(infrastructure|web|application)' },
     },
     {
       name: 'domain-no-application',
       severity: 'error',
-      from: { path: '^src/domain' },
-      to: { path: '^src/application' },
+      from: { path: '(?:^|/)src/domain' },
+      to: { path: '(?:^|/)src/application' },
     },
     {
       name: 'application-no-direct-infra',
       severity: 'error',
       comment: 'Application talks to infrastructure only through ports.',
-      from: { path: '^src/application' },
+      from: { path: '(?:^|/)src/application' },
       to: {
-        path: '^src/infrastructure',
-        pathNot: '^src/infrastructure/ports',
+        path: '(?:^|/)src/infrastructure',
+        pathNot: '(?:^|/)src/infrastructure/ports',
       },
     },
     {
       name: 'application-no-web',
       severity: 'error',
-      from: { path: '^src/application' },
-      to: { path: '^src/web' },
+      from: { path: '(?:^|/)src/application' },
+      to: { path: '(?:^|/)src/web' },
     },
 
     // ─── Feature-Sliced Design boundaries ────────────────
@@ -123,10 +129,10 @@ module.exports = {
       name: 'no-cross-feature-imports',
       severity: 'error',
       comment: 'Features communicate only through their public index.ts.',
-      from: { path: '^src/features/([^/]+)/(?!index\\.ts)' },
+      from: { path: '(?:^|/)src/features/([^/]+)/(?!index\\.ts)' },
       to: {
-        path: '^src/features/([^/]+)/(?!index\\.ts)',
-        pathNot: '^src/features/$1/',
+        path: '(?:^|/)src/features/([^/]+)/(?!index\\.ts)',
+        pathNot: '(?:^|/)src/features/$1/',
       },
     },
 
@@ -135,7 +141,7 @@ module.exports = {
       name: 'no-lodash-moment-axios',
       severity: 'error',
       comment: 'Use native fetch / date-fns / Zod instead.',
-      from: { path: '^src' },
+      from: { path: '(?:^|/)src' },
       to: { path: '^(lodash|moment|axios|request|node-fetch)($|/)' },
     },
 
@@ -144,7 +150,7 @@ module.exports = {
       name: 'no-css-in-js',
       severity: 'error',
       comment: 'CSS-in-JS breaks React Server Components. Use Tailwind/CSS Modules.',
-      from: { path: '^src' },
+      from: { path: '(?:^|/)src' },
       to: { path: '^(styled-components|@emotion)($|/)' },
     },
   ],
