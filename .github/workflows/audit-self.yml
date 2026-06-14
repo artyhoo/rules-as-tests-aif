@@ -290,6 +290,8 @@ jobs:
         run: bash tests/install-sh/arch-target-monorepo.test.sh
       - name: Run install-sh .nvmrc↔CI node-version drift WARN test (GH #509)
         run: bash tests/install-sh/nvmrc-ci-drift.test.sh
+      - name: Run install-sh R2 glob-reach test — CI-orphan WARN + per-package shadow + globals (GH #507 reopen)
+        run: bash tests/install-sh/r2-glob-reach.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type

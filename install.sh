@@ -642,6 +642,30 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/.nvmrc" ] && [ -d "$PROJ
   fi
 fi
 
+# ─── 6c. #507 (reopen): glob-liveness gate CI-orphan WARN ────────────────
+# The check-rule-globs.sh gate is wired into BOTH the validate script AND the shipped ci.yml.
+# But copy_safe does NOT overwrite a pre-existing ci.yml (brownfield consumer), so the gate then
+# runs in NO CI job — only on a local `npm run validate` a dev must remember. R2/R7/R8 can go
+# silently inert on the consumer's layout with CI still green. Surface it: if the gate script is
+# installed but NO workflow under .github/workflows references it, WARN. Non-destructive (the
+# consumer owns their CI) — exit stays 0. When install freshly wrote ci.yml (greenfield), that
+# workflow DOES reference the gate → no warn. (GH #507 reopen #1.)
+if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/check-rule-globs.sh" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; then
+  _gate_wired=""
+  for _wf in "$PROJECT_ROOT/.github/workflows/"*.yml "$PROJECT_ROOT/.github/workflows/"*.yaml; do
+    [ -f "$_wf" ] || continue
+    if grep -qE 'check-rule-globs\.sh|check:globs' "$_wf" 2>/dev/null; then _gate_wired="yes"; break; fi
+  done
+  if [ -z "$_gate_wired" ]; then
+    echo ""
+    echo "⚠ The rule-glob liveness gate (scripts/check-rule-globs.sh) is wired into 'npm run validate' but NOT into any workflow under .github/workflows/."
+    echo "   A pre-existing CI workflow was kept (install never overwrites it), so the gate only fires on a local 'npm run validate'."
+    echo "   R2/R7/R8 can go silently inert on your layout with CI still green. Add a step to your lint job:"
+    echo "       - run: bash scripts/check-rule-globs.sh"
+    echo "   (or re-run install with --force to adopt the shipped ci.yml that already wires it)."
+  fi
+fi
+
 # ─── 7. package.json scripts (FQA S1-A W4) ──────────────
 # install.sh historically left scripts as a manual INSTALL.md §3 step, so consumers landed
 # `scripts: {}` while AGENTS.md + the shipped ci.yml call `npm run lint/typecheck/arch:check/
@@ -734,7 +758,7 @@ fi
 # BFR). DEVDEPS is the single source for both the install command and the Next-steps fallback echo
 # (so "what we install" and "what we tell you to install" can't drift — #two-prompts-drift).
 CORE_DEVDEPS=(
-  eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils
+  eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils globals
   prettier eslint-config-prettier @vitest/eslint-plugin
   vitest@^4.1.5 @vitest/coverage-v8@^4.1.5
   @stryker-mutator/core @stryker-mutator/vitest-runner @stryker-mutator/typescript-checker
