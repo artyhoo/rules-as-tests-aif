@@ -675,6 +675,17 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
     for _m in "${_aif_missing[@]}"; do echo "     • $_m"; done
     echo "   Add the missing step(s) to your lint/test job's \`steps:\` (only these):"
     for _s in "${_aif_steps[@]}"; do echo "       $_s"; done
+    # check:globs is the ONLY shield for R2/R7/R8 on shadowed packages — a present `lint` step does
+    # not cover it (per-package eslint configs win under nearest-config resolution). Surface that.
+    for _m in "${_aif_missing[@]}"; do
+      case "$_m" in
+        check:globs*)
+          echo "   Note: a 'npm run lint' step does NOT enforce R2/R7/R8 on packages with their own eslint config —"
+          echo "   nearest-config resolution shadows the root AIF rules, so they go silently inert there; check:globs"
+          echo "   is the only gate that catches it (e.g. \`eslint --print-config <shadowed-file> | grep -c rules-as-tests\` = 0)."
+          break ;;
+      esac
+    done
     echo "   (or re-run install with --force to adopt the shipped ci.yml that wires them — but --force overwrites"
     echo "    ALL kept files, e.g. vitest.config.ts / .prettierignore, not just the workflow)."
   fi

@@ -106,6 +106,11 @@ done
 grep -q "run: bash scripts/check-lintstaged-resolves.sh" "$LOG" \
   && ok "#1 POS-all: paste-block includes the check:lintstaged step" \
   || bad "#1 POS-all: paste-block missing the check:lintstaged step"
+# #521 follow-up: when check:globs is missing, the WARN must explain that a present `lint` step
+# does NOT enforce R2/R7/R8 on packages with their own eslint config (nearest-config shadow).
+grep -q "nearest-config resolution shadows the root AIF rules" "$LOG" \
+  && ok "#1 POS-all: WARN explains lint≠R2/R7/R8 on shadowed packages (check:globs shadowing note)" \
+  || bad "#1 POS-all: WARN missing the check:globs shadowing note (lint≠enforcement insight)"
 grep -q "turbo run lint" "$P/.github/workflows/ci.yml" \
   && ok "#1 POS-all: pre-existing ci.yml left intact (warn is non-destructive)" \
   || bad "#1 POS-all: install mutated the consumer's ci.yml (must be advisory only)"
@@ -123,6 +128,10 @@ done
 grep -q "check:globs" "$LOGPP" \
   && bad "#1 POS-partial: WARN names the already-wired check:globs (false positive — not per-gate)" \
   || ok "#1 POS-partial: WARN omits the already-wired check:globs (per-gate accuracy)"
+# The shadowing note is conditional on check:globs being MISSING — here it is wired, so no note.
+grep -q "nearest-config resolution shadows the root AIF rules" "$LOGPP" \
+  && bad "#1 POS-partial: shadowing note printed though check:globs is already wired (should be conditional)" \
+  || ok "#1 POS-partial: no shadowing note when check:globs is already wired (note is conditional)"
 
 # ── NEG (load-bearing): greenfield → shipped ci.yml wires ALL 4 → no warn.
 N=$(mktemp -d); LOGN=$(mktemp); seed_install "$N" "" "$LOGN"; RCN=$?
