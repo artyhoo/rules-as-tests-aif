@@ -719,7 +719,8 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "arch:check": "depcruise --config .dependency-cruiser.cjs " + (process.env.AIF_ARCH_TARGET || "src"),
         "audit:docs": "./scripts/audit-ai-docs.sh",
         "check:globs": "bash scripts/check-rule-globs.sh",
-        "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs test",
+        "check:lintstaged": "bash scripts/check-lintstaged-resolves.sh",
+        "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs check:lintstaged test",
         "prepare": "husky"
       };
       let added = 0;

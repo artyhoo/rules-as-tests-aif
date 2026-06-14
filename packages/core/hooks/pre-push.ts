@@ -488,6 +488,29 @@ async function main(): Promise<void> {
     emit(r);
   }
 
+  // ── 3c. Rule-glob liveness (universalization-fix-s2) ──────────────────────────
+  // Shipped consumer gate (install.sh → scripts/): FAILS if an ACTIVE custom ESLint
+  // rule's globs match zero source files (silently-inert rule — the worst failure
+  // for a "no check → no rule" framework). The script lives at scripts/ only in a
+  // consumer repo; in the maintainer repo it is at packages/core/audit-self/, so
+  // existsSync is false here and this section is skipped (never blocks our own push).
+  if (existsSync(resolve(REPO_ROOT, 'scripts/check-rule-globs.sh'))) {
+    const r = run('bash', ['scripts/check-rule-globs.sh']);
+    if (r.exitCode !== 0) die('❌ rule-glob liveness check failed', r);
+    emit(r);
+  }
+
+  // ── 3d. lint-staged binary resolution (universalization-fix-s2) ───────────────
+  // Shipped consumer gate (install.sh → scripts/): FAILS if a lint-staged command's
+  // binary cannot resolve in the consumer's layout (e.g. a pnpm monorepo where the
+  // per-package eslint is not on the root .bin) before the first blocked commit.
+  // Absent in the maintainer repo → existsSync skips (same guard as 3c).
+  if (existsSync(resolve(REPO_ROOT, 'scripts/check-lintstaged-resolves.sh'))) {
+    const r = run('bash', ['scripts/check-lintstaged-resolves.sh']);
+    if (r.exitCode !== 0) die('❌ lint-staged resolution check failed', r);
+    emit(r);
+  }
+
   // ── 4. Manifest render drift ──────────────────────────────────────────────────
   {
     const r = run('npx', ['tsx', 'packages/core/render/render-rules.ts', '--check']);

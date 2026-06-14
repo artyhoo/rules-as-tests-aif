@@ -46,6 +46,18 @@ describe('CHECK_REGISTRY — bash-expressible invariant (§4.8.X.2)', () => {
     expect(entry!.runner).toBe('bash');
   });
 
+  it('rule-globs-liveness check is present and non-critical (TS-core arm — universalization-fix-s2)', () => {
+    const entry = CHECK_REGISTRY.find((c) => c.id === 'rule-globs-liveness');
+    expect(entry, 'rule-globs-liveness must be in the registry (wired into pre-push.ts §3c)').toBeDefined();
+    expect(entry!.criticalForFallback).toBe(false);
+  });
+
+  it('lintstaged-resolves check is present and non-critical (TS-core arm — universalization-fix-s2)', () => {
+    const entry = CHECK_REGISTRY.find((c) => c.id === 'lintstaged-resolves');
+    expect(entry, 'lintstaged-resolves must be in the registry (wired into pre-push.ts §3d)').toBeDefined();
+    expect(entry!.criticalForFallback).toBe(false);
+  });
+
   it('non-critical checks are NOT required to have runner: bash (TS-core checks allowed)', () => {
     const nonCritical = CHECK_REGISTRY.filter((c) => !c.criticalForFallback);
     // Some non-critical checks should be ts — confirms the registry captures both kinds.
