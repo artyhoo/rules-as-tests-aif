@@ -707,8 +707,13 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
       # _cmd is one of the 4 hard-coded gate commands (no quotes/special chars) — keep it that way:
       # it is interpolated raw into the yq double-quoted YAML string below.
       for _cmd in ${_aif_cmds[@]+"${_aif_cmds[@]}"}; do
-        # idempotent append-if-absent: add then de-dup on .run, so re-running install adds nothing.
-        if yq -i ".jobs.${_wire_job}.steps += [{\"run\": \"${_cmd}\"}] | .jobs.${_wire_job}.steps |= unique_by(.run)" "$_wire_wf" 2>/dev/null; then
+        # idempotent append-if-absent: add then de-dup. Key on `.run // .uses // .name // .` — NOT
+        # `.run` alone. Every `uses:` action step (checkout, pnpm/action-setup, setup-node …) has no
+        # `.run` key, so `unique_by(.run)` groups them ALL under the same `null` key and keeps only the
+        # first — silently deleting every other `uses:` step and breaking the workflow it was asked to
+        # wire (GH #528). The fallback chain gives each `uses:`/`name:` step a distinct dedup key, while
+        # repeated gate `run`s still collapse — so re-running install remains a no-op.
+        if yq -i ".jobs.${_wire_job}.steps += [{\"run\": \"${_cmd}\"}] | .jobs.${_wire_job}.steps |= unique_by(.run // .uses // .name // .)" "$_wire_wf" 2>/dev/null; then
           _wired=$((_wired+1))
         fi
       done

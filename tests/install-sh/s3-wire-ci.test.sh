@@ -39,10 +39,24 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 # Brownfield consumer: a kept ci.yml wiring NONE of the 4 gates, carrying a planted trailing comment.
 BROWNFIELD_CI=$'name: CI\njobs:\n  build:\n    steps:\n      - run: pnpm turbo run lint typecheck test  # AIF-PLANTED-COMMENT'
 
+# Issue #528 fixture: the UNIVERSAL real-world workflow shape — ≥2 `uses:`-only steps (checkout +
+# pnpm/action-setup + setup-node) ahead of the `run:` steps. The single-`run:`-step BROWNFIELD_CI
+# above can NEVER exercise the #528 collapse (it has zero `uses:` steps), which is exactly why the
+# bug slipped CI. Here the old `unique_by(.run)` grouped all three `uses:` steps under `.run==null`
+# and kept only checkout, deleting the pnpm + node setup → `pnpm install` then failed with no toolchain.
+BROWNFIELD_CI_USES=$'name: CI\njobs:\n  ci:\n    steps:\n      - uses: actions/checkout@v6\n      - uses: pnpm/action-setup@v6\n      - uses: actions/setup-node@v6\n        with:\n          node-version: 22\n          cache: pnpm\n      - run: pnpm install --frozen-lockfile\n      - run: pnpm turbo run lint typecheck test'
+
 seed() { # $1 dir → brownfield consumer (git repo, package.json, kept ci.yml)
   printf '{"name":"wirep","version":"0.0.0"}\n' > "$1/package.json"
   mkdir -p "$1/.github/workflows"
   printf '%s\n' "$BROWNFIELD_CI" > "$1/.github/workflows/ci.yml"
+  ( cd "$1" && git init -q )
+}
+
+seed_uses() { # $1 dir → brownfield consumer whose kept ci.yml has ≥2 `uses:` steps (issue #528 shape)
+  printf '{"name":"wirep","version":"0.0.0"}\n' > "$1/package.json"
+  mkdir -p "$1/.github/workflows"
+  printf '%s\n' "$BROWNFIELD_CI_USES" > "$1/.github/workflows/ci.yml"
   ( cd "$1" && git init -q )
 }
 
@@ -83,7 +97,7 @@ if command -v yq >/dev/null 2>&1; then
     || bad "POS: result is not valid YAML or steps landed at the wrong job path"
 
   # Idempotence: a 2nd --wire-ci adds nothing — the re-detect sees the gates already wired (install
-  # level) and yq's unique_by(.run) dedups (yq level). Step count must be unchanged.
+  # level) and yq's unique_by(.run // .uses // .name // .) dedups (yq level). Step count unchanged.
   _before=$(yq '.jobs.build.steps | length' "$P/.github/workflows/ci.yml" 2>/dev/null || echo "x")
   ( cd "$P" && bash "$REPO_ROOT/install.sh" ts-server --wire-ci </dev/null ) > /dev/null 2>&1
   _after=$(yq '.jobs.build.steps | length' "$P/.github/workflows/ci.yml" 2>/dev/null || echo "y")
@@ -99,6 +113,39 @@ if command -v yq >/dev/null 2>&1; then
   fi
 else
   echo "  ⊝ SKIP: 'yq' not on PATH — the --wire-ci POS arm runs on CI (GitHub runners ship yq), not in this local env"
+fi
+
+# ── #528 REGRESSION (yq arm): wiring must NOT delete existing `uses:` steps ──
+# The original `unique_by(.run)` collapsed every `.run==null` (i.e. every `uses:`) step into one group
+# and kept only the first (checkout), silently dropping pnpm/action-setup + setup-node. This arm wires
+# into the universal real-world shape (BROWNFIELD_CI_USES, 3 `uses:` steps) and asserts ALL of them
+# survive AND the 4 gates are still appended. Fails loudly on the pre-fix code; passes on the fix.
+if command -v yq >/dev/null 2>&1; then
+  U=$(mktemp -d); seed_uses "$U"
+  ( cd "$U" && bash "$REPO_ROOT/install.sh" ts-server --wire-ci </dev/null ) > "$U/log" 2>&1
+  URC=$?
+  [ "$URC" = 0 ] && ok "#528: --wire-ci on a uses-heavy workflow exited 0" || bad "#528: --wire-ci exited $URC"
+
+  _uses_kept=1
+  for u in 'actions/checkout@v6' 'pnpm/action-setup@v6' 'actions/setup-node@v6'; do
+    grep -qF "$u" "$U/.github/workflows/ci.yml" \
+      || { _uses_kept=0; bad "#528: --wire-ci DELETED existing step 'uses: $u' (unique_by(.run) collapse regressed)"; }
+  done
+  [ "$_uses_kept" = 1 ] \
+    && ok "#528: all 3 existing 'uses:' steps survived the wire (no null-run collapse)" \
+    || true
+
+  _gates_added=1
+  for p in 'check-rule-globs\.sh' 'arch:check' 'audit-ai-docs\.sh' 'check-lintstaged-resolves\.sh'; do
+    grep -qE "$p" "$U/.github/workflows/ci.yml" || { _gates_added=0; bad "#528: gate $p not appended into the uses-heavy workflow"; }
+  done
+  [ "$_gates_added" = 1 ] && ok "#528: all 4 gates appended alongside the preserved uses: steps" || true
+
+  yq -e '.jobs.ci.steps' "$U/.github/workflows/ci.yml" >/dev/null 2>&1 \
+    && ok "#528: result is valid YAML under .jobs.ci.steps" \
+    || bad "#528: wired result is not valid YAML / wrong job path"
+else
+  echo "  ⊝ SKIP #528 regression: 'yq' not on PATH — runs on CI (GitHub runners ship yq)"
 fi
 
 # ── OPT-B DECLINE (load-bearing, runs everywhere; requires NO real yq install) ──
