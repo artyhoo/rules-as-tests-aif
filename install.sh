@@ -940,7 +940,13 @@ if [ "$_do_dep_install" = "yes" ]; then
         # pnpm refuses to add to a workspace root without -w; pass it only when a workspace exists.
         # Explicit branch (not an empty-array expansion) for bash 3.2 + `set -u` safety.
         if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then
-          if ( cd "$PROJECT_ROOT" && pnpm add -D -w "${DEVDEPS[@]}" ); then _ok="yes"; fi
+          # GH #533: `pnpm add -D -w` adds the dev-deps to the workspace ROOT, but on a COLD clone
+          # (zero node_modules) it can leave sibling workspace packages unlinked — no node_modules,
+          # missing `workspace:` symlinks — so typecheck/lint/test falsely fail while Next-steps
+          # claims "nothing to do". Follow with a full `pnpm install` to materialise the whole
+          # workspace link graph; idempotent + cheap when the tree is already warm. The `&&` keeps
+          # honesty: if linking fails, _ok stays empty → the "install failed, run manually" path.
+          if ( cd "$PROJECT_ROOT" && pnpm add -D -w "${DEVDEPS[@]}" && pnpm install ); then _ok="yes"; fi
         else
           if ( cd "$PROJECT_ROOT" && pnpm add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi
         fi ;;
