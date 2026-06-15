@@ -42,25 +42,28 @@ sub_wave_state: (fresh — no sub-wave dispatched yet)
 # docs-lint-sweep — umbrella kickoff
 
 ## §0 Meta
+
 - Type: I-phase-large
 - Goal: introduce a markdown-lint gate + fix all existing violations across docs/ and .claude/rules/.
 - Base: staging
 
 ## §2 Sub-wave decomposition
 
-| Sub-wave | Nature | Est. LOC | Files | Stage | Parallel-with | Scope |
-|---|---|---|---|---|---|---|
-| A | R-phase: pick markdownlint config + rule set | ~0 (research doc) | research-patch | 1 | — | decides ruleset |
-| B | execution-build: fix violations in docs/meta-factory/** | ~300 | ~25 docs | 2 | C | disjoint from C |
-| C | execution-build: fix violations in .claude/rules/** | ~200 | ~12 rules | 2 | B | disjoint from B |
-| D | wiring: add markdownlint CI step + pre-commit hook | ~40 | 2 config | 3 | — | depends on A ruleset |
+| Sub-wave | Nature                                                    | Est. LOC          | Files          | Stage | Parallel-with | Scope                |
+| -------- | --------------------------------------------------------- | ----------------- | -------------- | ----- | ------------- | -------------------- |
+| A        | R-phase: pick markdownlint config + rule set              | ~0 (research doc) | research-patch | 1     | —             | decides ruleset      |
+| B        | execution-build: fix violations in docs/meta-factory/\*\* | ~300              | ~25 docs       | 2     | C             | disjoint from C      |
+| C        | execution-build: fix violations in .claude/rules/\*\*     | ~200              | ~12 rules      | 2     | B             | disjoint from B      |
+| D        | wiring: add markdownlint CI step + pre-commit hook        | ~40               | 2 config       | 3     | —             | depends on A ruleset |
 
 ## §3 Dependencies
+
 - B, C depend on A (ruleset decided first).
 - D depends on B + C merged (gate only goes green once violations fixed).
 - B and C edit disjoint file trees → safe to run parallel in Stage 2.
 
 ## §4 Acceptance
+
 - Stage 1: research-patch committed naming the chosen ruleset + rationale.
 - Stage 2: zero markdownlint violations under docs/meta-factory/** and .claude/rules/**.
 - Stage 3: CI step fails a PR that introduces a new violation (paired-negative proven).

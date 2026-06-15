@@ -48,7 +48,15 @@ export function loadSsotIds(ssotContent: string): Set<number> {
   return ids;
 }
 
-const PLACEHOLDERS = new Set(['todo', 'later', 'na', 'tbd', 'fixme', 'placeholder', '']);
+const PLACEHOLDERS = new Set([
+  'todo',
+  'later',
+  'na',
+  'tbd',
+  'fixme',
+  'placeholder',
+  '',
+]);
 
 /** `wc -l` semantics: number of newline characters in the content. */
 export function loc(content: string): number {
@@ -57,9 +65,7 @@ export function loc(content: string): number {
 
 /** Lowercase + strip ASCII punctuation only (matches bash `tr -d '[:punct:]'` on bytes). */
 function stripPunctLower(word: string): string {
-  return word
-    .toLowerCase()
-    .replace(/[!-/:-@[-`{-~]/g, '');
+  return word.toLowerCase().replace(/[!-/:-@[-`{-~]/g, '');
 }
 
 /**
@@ -106,9 +112,14 @@ function isNewPackages80Loc(sha: string, g: GitProvider): boolean {
 }
 
 /** Why this commit is a capability commit, or null if it is not one. */
-export function detectCapabilityReason(sha: string, g: GitProvider): string | null {
-  if (isNewDepAdded(g.packageJsonDiff(sha))) return 'new explicit dep in package.json';
-  if (isNewCoreSubdir50Loc(sha, g)) return 'new file ≥50 LOC under new packages/core/<dir>/';
+export function detectCapabilityReason(
+  sha: string,
+  g: GitProvider,
+): string | null {
+  if (isNewDepAdded(g.packageJsonDiff(sha)))
+    return 'new explicit dep in package.json';
+  if (isNewCoreSubdir50Loc(sha, g))
+    return 'new file ≥50 LOC under new packages/core/<dir>/';
   if (isNewPackages80Loc(sha, g)) return 'new file ≥80 LOC under packages/';
   return null;
 }
@@ -152,7 +163,9 @@ export function checkTrailerBody(
       rationale = rationale.replace(/^[—–\-:]/, '').replace(/^ +/, '');
       if (rationale.length < 20) continue;
       const words = rationale.split(/\s+/).filter(Boolean);
-      const allPlaceholder = words.every((w) => PLACEHOLDERS.has(stripPunctLower(w)));
+      const allPlaceholder = words.every((w) =>
+        PLACEHOLDERS.has(stripPunctLower(w)),
+      );
       if (allPlaceholder) continue;
       // Escape-hatch on a capability commit is contradictory by construction.
       return {
@@ -165,7 +178,9 @@ export function checkTrailerBody(
     // cited prior-art-evaluations.md#N must resolve to a real entry. A trailer
     // with no #N citation (free-form prose) has nothing to resolve → passes.
     if (ssotIds) {
-      const missing = extractCitedSsotIds(line).filter((id) => !ssotIds.has(id));
+      const missing = extractCitedSsotIds(line).filter(
+        (id) => !ssotIds.has(id),
+      );
       if (missing.length > 0) {
         return {
           code: 3,
@@ -215,10 +230,17 @@ export function runPriorArtCheck(
   for (const sha of commits) {
     const reason = detectCapabilityReason(sha, g);
     if (reason === null) continue; // not a capability commit
-    const { code, message } = checkTrailerBody(g.commitBody(sha), g.authorDate(sha), cutoff, ssotIds);
+    const { code, message } = checkTrailerBody(
+      g.commitBody(sha),
+      g.authorDate(sha),
+      cutoff,
+      ssotIds,
+    );
     if (code === 1) failures.push({ sha: sha.slice(0, 10), reason, message });
-    else if (code === 2) substanceFailures.push({ sha: sha.slice(0, 10), reason, message });
-    else if (code === 3) brokenCitations.push({ sha: sha.slice(0, 10), reason, message });
+    else if (code === 2)
+      substanceFailures.push({ sha: sha.slice(0, 10), reason, message });
+    else if (code === 3)
+      brokenCitations.push({ sha: sha.slice(0, 10), reason, message });
   }
   return { failures, substanceFailures, brokenCitations };
 }

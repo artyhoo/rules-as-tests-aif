@@ -9,13 +9,13 @@ Generic per-turn end-of-turn substance is enforced by [`.claude/hooks/end-of-tur
 
 ## What this section adds — orchestrator-CHECKPOINT-specific substance
 
-The meta-orchestrator runs in *long sessions with sub-wave boundaries*. At each of these three moments, the inline session report MUST end with a `## 🟢 In plain words` block whose **content** follows the orchestrator-checkpoint shape below — distinct from the hook's per-turn generic substance:
+The meta-orchestrator runs in _long sessions with sub-wave boundaries_. At each of these three moments, the inline session report MUST end with a `## 🟢 In plain words` block whose **content** follows the orchestrator-checkpoint shape below — distinct from the hook's per-turn generic substance:
 
-| Checkpoint moment | Block content required (in this order) |
-|---|---|
-| **Sub-wave boundary** (after any Worker REPORT or Reviewer GO/REVISE) | (a) what the just-finished sub-wave produced (1 line, name file/PR/finding); (b) which AC item it satisfied; (c) what the next sub-wave needs from this output; (d) any DECISION-NEEDED surfaced |
-| **Mid-session quota checkpoint** (cumulative Opus ≥ soft 200k OR Phase -1 cold-review pass complete) | (a) cumulative Opus + zone (green/yellow/red); (b) sub-waves done vs remaining; (c) defer/continue recommendation with rationale; (d) any escalation surface |
-| **Final umbrella report** (before `gh pr create`) | (a) AC items 1-7 with `[x]`/`[ ]`; (b) Worker/Reviewer REPORT-trace per item (CI/grep/REPORT-quote); (c) known residuals carried forward; (d) follow-up PRs queued |
+| Checkpoint moment                                                                                    | Block content required (in this order)                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Sub-wave boundary** (after any Worker REPORT or Reviewer GO/REVISE)                                | (a) what the just-finished sub-wave produced (1 line, name file/PR/finding); (b) which AC item it satisfied; (c) what the next sub-wave needs from this output; (d) any DECISION-NEEDED surfaced |
+| **Mid-session quota checkpoint** (cumulative Opus ≥ soft 200k OR Phase -1 cold-review pass complete) | (a) cumulative Opus + zone (green/yellow/red); (b) sub-waves done vs remaining; (c) defer/continue recommendation with rationale; (d) any escalation surface                                     |
+| **Final umbrella report** (before `gh pr create`)                                                    | (a) AC items 1-7 with `[x]`/`[ ]`; (b) Worker/Reviewer REPORT-trace per item (CI/grep/REPORT-quote); (c) known residuals carried forward; (d) follow-up PRs queued                               |
 
 ## What NOT to put here (hook owns it)
 

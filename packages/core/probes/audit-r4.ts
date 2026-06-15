@@ -48,7 +48,9 @@ for (const sf of sourceFiles) {
   const unitText = readFileSync(unitPath, 'utf8');
   for (const name of names) {
     // Word-boundary check: name must appear as identifier in the unit-test text.
-    const re = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+    const re = new RegExp(
+      `\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
+    );
     if (!re.test(unitText)) {
       violations.push(
         `${filePath} → ${unitPath} exists but does not reference exported "${name}"`,
@@ -63,5 +65,7 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log(`R4: ${sourceFiles.length} domain file(s) checked, all exports have matching .unit.ts with name reference.`);
+console.log(
+  `R4: ${sourceFiles.length} domain file(s) checked, all exports have matching .unit.ts with name reference.`,
+);
 process.exit(0);

@@ -11,16 +11,16 @@ aif-version: <e.g. 2.1.0>
 
 ## Accepted
 
-| Tool | Type | Accepted | Rationale |
-|---|---|---|---|
-| context7 | MCP | recommended | strongly recommended for doc lookup (rule 2); NOT auto-installed — install if absent, loop degrades to WebSearch/DeepWiki without it |
-| github-mcp | MCP | YYYY-MM-DD | Replace with actual rationale: which project workflow requires this tool |
+| Tool       | Type | Accepted    | Rationale                                                                                                                            |
+| ---------- | ---- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| context7   | MCP  | recommended | strongly recommended for doc lookup (rule 2); NOT auto-installed — install if absent, loop degrades to WebSearch/DeepWiki without it |
+| github-mcp | MCP  | YYYY-MM-DD  | Replace with actual rationale: which project workflow requires this tool                                                             |
 
 ## Rejected
 
-| Tool | Type | Rejected | Reason | Re-eval trigger |
-|---|---|---|---|---|
-| _none yet_ | — | — | — | — |
+| Tool       | Type | Rejected | Reason | Re-eval trigger |
+| ---------- | ---- | -------- | ------ | --------------- |
+| _none yet_ | —    | —        | —      | —               |
 
 ## Pending review
 

@@ -6,12 +6,7 @@ const createRule = ESLintUtils.RuleCreator(
     `https://github.com/Yhooi2/rules-as-tests-aif/blob/main/packages/preset-next-15-canonical/RULES.react-next.md#r12--server-vs-client-components`,
 );
 
-const FORBIDDEN_EXACT = new Set([
-  'fs',
-  'node:fs',
-  'node:crypto',
-  'node:path',
-]);
+const FORBIDDEN_EXACT = new Set(['fs', 'node:fs', 'node:crypto', 'node:path']);
 
 function isServerOnlyImport(spec: string): boolean {
   if (FORBIDDEN_EXACT.has(spec)) return true;

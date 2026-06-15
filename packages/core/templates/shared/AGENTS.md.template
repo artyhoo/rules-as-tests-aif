@@ -59,7 +59,7 @@ These are unconditional — they ship with the project and need no extra install
 - **`/aif-explore <task>`** — when scope is unclear. Saves research to `.ai-factory/RESEARCH.md`.
 - **`/aif-plan <task>`** — for any non-trivial change. Creates branch, writes plan to `.ai-factory/plans/`.
 - **`/aif-implement`** — execute plan step by step with checkpoints.
-- **`/aif-verify`** — *if you use aif*, runs `review-sidecar`, `living-docs-auditor` over RULES.md and the audit-ai-docs probes. A convenience wrapper around the unconditional gate above — not a substitute for it.
+- **`/aif-verify`** — _if you use aif_, runs `review-sidecar`, `living-docs-auditor` over RULES.md and the audit-ai-docs probes. A convenience wrapper around the unconditional gate above — not a substitute for it.
 - **`/aif-fix <error>`** — targeted bug fix. Reads the plan, knows exactly what was intended.
 - **`/aif-commit`** — final commit, groups checkpoint commits, pushes.
 

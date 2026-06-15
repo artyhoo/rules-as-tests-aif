@@ -84,7 +84,9 @@ export const requireOtelSpan = createRule({
     ): void {
       if (!node.async) return;
       const body =
-        node.body.type === AST_NODE_TYPES.BlockStatement ? node.body : undefined;
+        node.body.type === AST_NODE_TYPES.BlockStatement
+          ? node.body
+          : undefined;
       if (functionHasSpan(body)) return;
       context.report({
         node,
@@ -105,11 +107,7 @@ export const requireOtelSpan = createRule({
       'ExportNamedDeclaration > VariableDeclaration > VariableDeclarator'(
         node: TSESTree.VariableDeclarator,
       ) {
-        if (
-          node.id.type !== AST_NODE_TYPES.Identifier ||
-          !node.init
-        )
-          return;
+        if (node.id.type !== AST_NODE_TYPES.Identifier || !node.init) return;
         if (
           node.init.type === AST_NODE_TYPES.ArrowFunctionExpression ||
           node.init.type === AST_NODE_TYPES.FunctionExpression

@@ -36,30 +36,30 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 
 ## Таблица всех уровней
 
-| # | Уровень | Длительность | Где работает | Что делает | Что НЕ делает | Источник истины |
-|---|---|---|---|---|---|---|
-| 1 | **Edit-time** | мгновенно | Редактор / IDE | TypeScript LSP, ESLint LSP подсвечивают ошибки в коде по мере набора | Не запускают тесты, не делают агрегатных проверок | TS-сервер, eslint daemon |
-| 2 | **Pre-commit** (lint-staged через Husky) | <5 сек | Локально, перед `git commit` | `prettier --write` и `eslint --fix --max-warnings=0` **только** на staged-файлах | Не запускает тесты, не делает typecheck всего проекта | `.husky/pre-commit` + `.lintstagedrc.json` |
-| 3 | **Pre-push** (Husky) | 10–60 сек | Локально, перед `git push` | `tsc --noEmit` всего проекта, `vitest related` на изменённых файлах, `dependency-cruiser` | Не запускает Stryker, не делает полный сьют тестов | `.husky/pre-push` |
-| 4 | **Pre-PR** (`audit-ai-docs.sh` + review-sidecar) | 1–3 мин | Локально, в Claude Code | `./scripts/audit-ai-docs.sh` + sub-agents (`review-sidecar`, `living-docs-auditor`) проверяют `.ai-factory/RULES.md`, two-AI review (+ `/aif-verify` обёртка, если используете AI-Factory) | Не заменяет CI — только дополняет | `audit-ai-docs.sh`, `review-sidecar` |
-| 5 | **CI on PR** | 3–10 мин | GitHub Actions / GitLab CI | Полный сьют unit + integration + Storybook + Playwright (для UI). **Stryker incremental** на diff. Coverage threshold. | Не делает full mutation на всём репо, не делает chaos engineering | `.github/workflows/ci.yml` |
-| 6 | **CI on merge** | 10+ мин | GitHub Actions, после merge в main | Full mutation sweep, bundle size, security audit (npm audit, gitleaks), build artifacts | Не разворачивает в прод сразу — артефакт ждёт deploy gate | `.github/workflows/post-merge.yml` |
-| 7 | **Pre-deploy** | секунды | CI / Pact Broker | `can-i-deploy --to production` (для микросервисов), error budget burn rate check, snapshot signing | Не запускает тесты — это уже сделано | `pact-broker can-i-deploy`, SLO-сервер |
-| 8 | **Production** | непрерывно | Live-окружение | SLO + error budget tracking, synthetic monitoring каждые 5 мин, canary auto-rollback, chaos engineering | Не валидирует структуру кода — это работа левой стороны | Datadog/Honeycomb, Argo Rollouts, Gremlin |
+| #   | Уровень                                          | Длительность | Где работает                       | Что делает                                                                                                                                                                                 | Что НЕ делает                                                     | Источник истины                            |
+| --- | ------------------------------------------------ | ------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------------------ |
+| 1   | **Edit-time**                                    | мгновенно    | Редактор / IDE                     | TypeScript LSP, ESLint LSP подсвечивают ошибки в коде по мере набора                                                                                                                       | Не запускают тесты, не делают агрегатных проверок                 | TS-сервер, eslint daemon                   |
+| 2   | **Pre-commit** (lint-staged через Husky)         | <5 сек       | Локально, перед `git commit`       | `prettier --write` и `eslint --fix --max-warnings=0` **только** на staged-файлах                                                                                                           | Не запускает тесты, не делает typecheck всего проекта             | `.husky/pre-commit` + `.lintstagedrc.json` |
+| 3   | **Pre-push** (Husky)                             | 10–60 сек    | Локально, перед `git push`         | `tsc --noEmit` всего проекта, `vitest related` на изменённых файлах, `dependency-cruiser`                                                                                                  | Не запускает Stryker, не делает полный сьют тестов                | `.husky/pre-push`                          |
+| 4   | **Pre-PR** (`audit-ai-docs.sh` + review-sidecar) | 1–3 мин      | Локально, в Claude Code            | `./scripts/audit-ai-docs.sh` + sub-agents (`review-sidecar`, `living-docs-auditor`) проверяют `.ai-factory/RULES.md`, two-AI review (+ `/aif-verify` обёртка, если используете AI-Factory) | Не заменяет CI — только дополняет                                 | `audit-ai-docs.sh`, `review-sidecar`       |
+| 5   | **CI on PR**                                     | 3–10 мин     | GitHub Actions / GitLab CI         | Полный сьют unit + integration + Storybook + Playwright (для UI). **Stryker incremental** на diff. Coverage threshold.                                                                     | Не делает full mutation на всём репо, не делает chaos engineering | `.github/workflows/ci.yml`                 |
+| 6   | **CI on merge**                                  | 10+ мин      | GitHub Actions, после merge в main | Full mutation sweep, bundle size, security audit (npm audit, gitleaks), build artifacts                                                                                                    | Не разворачивает в прод сразу — артефакт ждёт deploy gate         | `.github/workflows/post-merge.yml`         |
+| 7   | **Pre-deploy**                                   | секунды      | CI / Pact Broker                   | `can-i-deploy --to production` (для микросервисов), error budget burn rate check, snapshot signing                                                                                         | Не запускает тесты — это уже сделано                              | `pact-broker can-i-deploy`, SLO-сервер     |
+| 8   | **Production**                                   | непрерывно   | Live-окружение                     | SLO + error budget tracking, synthetic monitoring каждые 5 мин, canary auto-rollback, chaos engineering                                                                                    | Не валидирует структуру кода — это работа левой стороны           | Datadog/Honeycomb, Argo Rollouts, Gremlin  |
 
 ---
 
 ## Что где запускается, по слоям «Правил как тестов»
 
-| Слой Rules as Tests | Уровень 1 (IDE) | 2 (pre-commit) | 3 (pre-push) | 4 (pre-PR) | 5 (CI PR) | 6 (CI merge) | 7 (pre-deploy) | 8 (prod) |
-|---|---|---|---|---|---|---|---|---|
-| **L1 Architecture** | ESLint | ESLint --fix | depcruise | sub-agent | full ESLint + depcruise | bundle size | — | service mesh, network policies |
-| **L2 Meta-tests** | — | — | vitest related (мета-тесты на изменённых) | sub-agent | полный мета-тест запуск | — | — | — |
-| **L3 Spec by Example** | — | — | vitest related | sub-agent | полный сьют it.each + property tests | — | — | synthetic e2e |
-| **L4 Mutation** | — | — | — | — | Stryker incremental | Stryker full | — | chaos engineering |
-| **L5 Living Docs** | TS LSP подсвечивает несоответствия | — | — | sub-agent на стиль JSDoc | docs CI build | OpenAPI publish | — | runbooks обновляются |
-| **Contracts (Pact)** | — | — | — | — | publish pact contracts | — | **`can-i-deploy`** | (Pact Broker отслеживает) |
-| **Shift-right** | — | — | — | — | — | — | error budget gate | SLO + canary + synthetic + chaos |
+| Слой Rules as Tests    | Уровень 1 (IDE)                    | 2 (pre-commit) | 3 (pre-push)                              | 4 (pre-PR)               | 5 (CI PR)                            | 6 (CI merge)    | 7 (pre-deploy)     | 8 (prod)                         |
+| ---------------------- | ---------------------------------- | -------------- | ----------------------------------------- | ------------------------ | ------------------------------------ | --------------- | ------------------ | -------------------------------- |
+| **L1 Architecture**    | ESLint                             | ESLint --fix   | depcruise                                 | sub-agent                | full ESLint + depcruise              | bundle size     | —                  | service mesh, network policies   |
+| **L2 Meta-tests**      | —                                  | —              | vitest related (мета-тесты на изменённых) | sub-agent                | полный мета-тест запуск              | —               | —                  | —                                |
+| **L3 Spec by Example** | —                                  | —              | vitest related                            | sub-agent                | полный сьют it.each + property tests | —               | —                  | synthetic e2e                    |
+| **L4 Mutation**        | —                                  | —              | —                                         | —                        | Stryker incremental                  | Stryker full    | —                  | chaos engineering                |
+| **L5 Living Docs**     | TS LSP подсвечивает несоответствия | —              | —                                         | sub-agent на стиль JSDoc | docs CI build                        | OpenAPI publish | —                  | runbooks обновляются             |
+| **Contracts (Pact)**   | —                                  | —              | —                                         | —                        | publish pact contracts               | —               | **`can-i-deploy`** | (Pact Broker отслеживает)        |
+| **Shift-right**        | —                                  | —              | —                                         | —                        | —                                    | —               | error budget gate  | SLO + canary + synthetic + chaos |
 
 ---
 
@@ -68,6 +68,7 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 Один из самых частых антипаттернов — кладут тесты в pre-commit, и через неделю команда массово бьёт `--no-verify`. Вот явные запреты:
 
 ### Pre-commit — НЕЛЬЗЯ
+
 - Юнит-тесты (даже на одном файле — это уже >5 секунд).
 - `tsc --noEmit` всего проекта (медленно).
 - Полный `eslint .` (только staged).
@@ -76,6 +77,7 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 - npm audit (медленно, требует сети).
 
 ### Pre-push — НЕЛЬЗЯ
+
 - Stryker mutation testing (медленно).
 - Storybook test runner (нужен build).
 - Playwright e2e (нужен running server).
@@ -83,6 +85,7 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 - Полный coverage sweep.
 
 ### CI on PR — НУЖНО что не нужно локально
+
 - `npm audit --audit-level=high` (security).
 - `gitleaks` или `trufflehog` (поиск секретов в коммитах).
 - Codecov upload (нужен токен).
@@ -90,6 +93,7 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 - Stryker incremental на diff'е (требует actions/cache).
 
 ### Production — НЕ дублирует что в CI
+
 - SLO/error budget — **не валидация кода**, а валидация поведения.
 - Synthetic — не «прошли ли тесты», а «работает ли user journey прямо сейчас».
 - Chaos — не unit-тесты, а проверка живой системы.
@@ -98,16 +102,16 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 
 ## Какой документ корпуса описывает какой уровень
 
-| Уровень | Подробное описание в |
-|---|---|
-| 1 — IDE | Не выделено отдельно — это feature редактора |
-| 2 — Pre-commit | `templates/shared/.lintstagedrc.json` + `husky-pre-commit.sh` |
-| 3 — Pre-push | `templates/shared/husky-pre-push.sh` (с fallback на новые ветки) |
+| Уровень                                                                | Подробное описание в                                                                                                                                                         |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 — IDE                                                                | Не выделено отдельно — это feature редактора                                                                                                                                 |
+| 2 — Pre-commit                                                         | `templates/shared/.lintstagedrc.json` + `husky-pre-commit.sh`                                                                                                                |
+| 3 — Pre-push                                                           | `templates/shared/husky-pre-push.sh` (с fallback на новые ветки)                                                                                                             |
 | 4 — Pre-PR (`audit-ai-docs.sh` + review-sidecar / living-docs-auditor) | `./scripts/audit-ai-docs.sh` + our `agents/review-sidecar.md` + `agents/living-docs-auditor.md` (+ AIF `rules-sidecar` / `/aif-verify` wrapper, если используете AI-Factory) |
-| 5 — CI on PR | `templates/ts-server/github-actions-ci.yml` или `templates/react-next/github-actions-ci-ui.yml` |
-| 6 — CI on merge | Расширение `github-actions-ci.yml` для full mutation sweep (см. комментарии в файле) |
-| 7 — Pre-deploy / can-i-deploy | `factory/rules/integration-rules.md` (IR2 — Pact + can-i-deploy) |
-| 8 — Production | `factory/rules/integration-rules.md` (IR5 — observability) — расширения требуют отдельной инфраструктуры (Prometheus, Honeycomb, Argo Rollouts) |
+| 5 — CI on PR                                                           | `templates/ts-server/github-actions-ci.yml` или `templates/react-next/github-actions-ci-ui.yml`                                                                              |
+| 6 — CI on merge                                                        | Расширение `github-actions-ci.yml` для full mutation sweep (см. комментарии в файле)                                                                                         |
+| 7 — Pre-deploy / can-i-deploy                                          | `factory/rules/integration-rules.md` (IR2 — Pact + can-i-deploy)                                                                                                             |
+| 8 — Production                                                         | `factory/rules/integration-rules.md` (IR5 — observability) — расширения требуют отдельной инфраструктуры (Prometheus, Honeycomb, Argo Rollouts)                              |
 
 ---
 
@@ -133,13 +137,13 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 
 Если стартуете с нуля, вот минимум, который покрывает 80% проблем:
 
-| Уровень | Конкретно |
-|---|---|
-| 2 — pre-commit | `prettier --write` + `eslint --fix` через lint-staged |
-| 3 — pre-push | `npm run typecheck` + `vitest related $CHANGED` + `npm run arch:check` |
-| 5 — CI on PR | lint, typecheck, arch, tests с coverage threshold, build |
-| 7 — pre-deploy | (если микросервисы) `can-i-deploy --to production` |
-| 8 — production | один SLO на критичный flow + один synthetic test |
+| Уровень        | Конкретно                                                              |
+| -------------- | ---------------------------------------------------------------------- |
+| 2 — pre-commit | `prettier --write` + `eslint --fix` через lint-staged                  |
+| 3 — pre-push   | `npm run typecheck` + `vitest related $CHANGED` + `npm run arch:check` |
+| 5 — CI on PR   | lint, typecheck, arch, tests с coverage threshold, build               |
+| 7 — pre-deploy | (если микросервисы) `can-i-deploy --to production`                     |
+| 8 — production | один SLO на критичный flow + один synthetic test                       |
 
 Это всё. Без этого — вы летите вслепую. Сверх этого — постепенное добавление по мере роста проекта.
 
@@ -149,15 +153,15 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 
 Все 8 уровней включены и взаимно дополнены:
 
-| Уровень | Что добавляется к минимуму |
-|---|---|
-| 2 | + commitlint + sort-package-json |
-| 3 | + dependency-cruiser strict + meta-tests на критических каталогах |
-| 4 | + AIF `/aif-verify` (rules-sidecar) + review-sidecar |
-| 5 | + Stryker incremental + Storybook test-runner + Playwright + bundle size + Codecov |
-| 6 | + Stryker full nightly + npm audit + gitleaks + OpenAPI publish |
-| 7 | + Pact `can-i-deploy` + error budget burn rate check |
-| 8 | + полный SLO-стек (Pyrra/Sloth) + Argo Rollouts canary + Datadog Synthetic + chaos engineering quarterly |
+| Уровень | Что добавляется к минимуму                                                                               |
+| ------- | -------------------------------------------------------------------------------------------------------- |
+| 2       | + commitlint + sort-package-json                                                                         |
+| 3       | + dependency-cruiser strict + meta-tests на критических каталогах                                        |
+| 4       | + AIF `/aif-verify` (rules-sidecar) + review-sidecar                                                     |
+| 5       | + Stryker incremental + Storybook test-runner + Playwright + bundle size + Codecov                       |
+| 6       | + Stryker full nightly + npm audit + gitleaks + OpenAPI publish                                          |
+| 7       | + Pact `can-i-deploy` + error budget burn rate check                                                     |
+| 8       | + полный SLO-стек (Pyrra/Sloth) + Argo Rollouts canary + Datadog Synthetic + chaos engineering quarterly |
 
 Это путь. Не пытайтесь поднять всё за неделю. Каждый уровень — отдельная инвестиция, которая окупается на масштабе.
 
@@ -165,35 +169,35 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 
 ## Шпаргалка: какой инструмент на каком уровне
 
-| Инструмент | Уровень |
-|---|---|
-| TypeScript LSP | 1 |
-| Prettier | 2 |
-| ESLint (--fix) | 2 |
-| ESLint (--max-warnings=0) | 5 |
-| `tsc --noEmit` | 3, 5 |
-| `vitest related` | 3 |
-| `vitest run --coverage` | 5 |
-| Vitest property-based (fast-check) | 5 |
-| Storybook test-runner | 5 |
-| Playwright | 5 (e2e в CI) + 8 (synthetic в проде) |
-| Stryker `--incremental` | 5 |
-| Stryker full | 6 |
-| dependency-cruiser | 3, 5 |
-| AIF `/aif-verify` | 4 |
-| AIF sub-agents | 4 |
-| commitlint | 2 |
-| Husky | 2, 3 |
-| lint-staged | 2 |
-| npm audit | 5, 6 |
-| gitleaks / trufflehog | 5, 6 |
-| Codecov | 5 |
-| Pact `can-i-deploy` | 7 |
-| OpenSLO + Pyrra/Sloth | 8 |
-| Datadog Synthetic / Checkly | 8 |
-| Argo Rollouts / Flagger | 7→8 (gate + execution) |
-| Gremlin / LitmusChaos | 8 |
-| OpenTelemetry SDK | 8 |
+| Инструмент                         | Уровень                              |
+| ---------------------------------- | ------------------------------------ |
+| TypeScript LSP                     | 1                                    |
+| Prettier                           | 2                                    |
+| ESLint (--fix)                     | 2                                    |
+| ESLint (--max-warnings=0)          | 5                                    |
+| `tsc --noEmit`                     | 3, 5                                 |
+| `vitest related`                   | 3                                    |
+| `vitest run --coverage`            | 5                                    |
+| Vitest property-based (fast-check) | 5                                    |
+| Storybook test-runner              | 5                                    |
+| Playwright                         | 5 (e2e в CI) + 8 (synthetic в проде) |
+| Stryker `--incremental`            | 5                                    |
+| Stryker full                       | 6                                    |
+| dependency-cruiser                 | 3, 5                                 |
+| AIF `/aif-verify`                  | 4                                    |
+| AIF sub-agents                     | 4                                    |
+| commitlint                         | 2                                    |
+| Husky                              | 2, 3                                 |
+| lint-staged                        | 2                                    |
+| npm audit                          | 5, 6                                 |
+| gitleaks / trufflehog              | 5, 6                                 |
+| Codecov                            | 5                                    |
+| Pact `can-i-deploy`                | 7                                    |
+| OpenSLO + Pyrra/Sloth              | 8                                    |
+| Datadog Synthetic / Checkly        | 8                                    |
+| Argo Rollouts / Flagger            | 7→8 (gate + execution)               |
+| Gremlin / LitmusChaos              | 8                                    |
+| OpenTelemetry SDK                  | 8                                    |
 
 ---
 

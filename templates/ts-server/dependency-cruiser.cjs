@@ -46,7 +46,9 @@ module.exports = {
       from: {},
       to: {
         dependencyTypes: ['core'],
-        path: ['^(punycode|domain|constants|sys|querystring|_linklist|_stream_wrap)$'],
+        path: [
+          '^(punycode|domain|constants|sys|querystring|_linklist|_stream_wrap)$',
+        ],
       },
     },
     {
@@ -75,7 +77,8 @@ module.exports = {
     {
       name: 'not-to-spec',
       severity: 'error',
-      comment: 'Test files must not import other test files (except shared fixtures).',
+      comment:
+        'Test files must not import other test files (except shared fixtures).',
       from: { path: '\\.(unit|integration|audit)\\.[tj]sx?$' },
       to: {
         path: '\\.(unit|integration|audit)\\.[tj]sx?$',
@@ -88,7 +91,8 @@ module.exports = {
       comment: 'Production code must not import devDependencies.',
       from: {
         path: '(?:^|/)src',
-        pathNot: '\\.(unit|integration|audit|e2e|spec|test|stories)\\.[tj]sx?$|(?:^|/)src/__fixtures__/',
+        pathNot:
+          '\\.(unit|integration|audit|e2e|spec|test|stories)\\.[tj]sx?$|(?:^|/)src/__fixtures__/',
       },
       to: { dependencyTypes: ['npm-dev'] },
     },
@@ -174,7 +178,8 @@ module.exports = {
     {
       name: 'no-css-in-js',
       severity: 'error',
-      comment: 'CSS-in-JS breaks React Server Components. Use Tailwind/CSS Modules.',
+      comment:
+        'CSS-in-JS breaks React Server Components. Use Tailwind/CSS Modules.',
       from: { path: '(?:^|/)src' },
       to: { path: '^(styled-components|@emotion)($|/)' },
     },

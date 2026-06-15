@@ -1,12 +1,12 @@
 ---
 description: Integration rules across microservices — API contracts, CDC, event schemas, mTLS, observability, resilience
 paths:
-  - "src/web/**/*.ts"
-  - "src/app/api/**/*.ts"
-  - "src/infrastructure/messaging/**/*.ts"
-  - "src/features/*/api/**/*.ts"
-  - "openapi/**/*.yaml"
-  - "pact/**/*"
+  - 'src/web/**/*.ts'
+  - 'src/app/api/**/*.ts'
+  - 'src/infrastructure/messaging/**/*.ts'
+  - 'src/features/*/api/**/*.ts'
+  - 'openapi/**/*.yaml'
+  - 'pact/**/*'
 ---
 
 # Integration Rules — apply to ALL services in microservice systems
@@ -19,6 +19,7 @@ These rules govern communication between services. They live in a shared file
 every service has the same integration contract.
 
 ## IR1 — API contracts
+
 - All HTTP endpoints described by an OpenAPI 3.1 spec.
 - OpenAPI auto-generated from Zod schemas via `zod-to-openapi` — Zod is the source of truth.
 - Spec stored at `openapi/<service-name>.yaml` and committed to repo.
@@ -27,6 +28,7 @@ every service has the same integration contract.
 **Check:** CI job validates the published OpenAPI matches the Zod schemas (no drift).
 
 ## IR2 — Consumer-driven contracts (Pact)
+
 - For every external service this service consumes, write a Pact consumer test in `pact/consumer/`.
 - Pact contracts published to the Pact Broker on merge to main.
 - For every consumer that depends on this service, the provider verification runs in CI.
@@ -36,6 +38,7 @@ every service has the same integration contract.
 **Check:** CI required jobs `pact-publish` (consumer) and `pact-verify` (provider) + `can-i-deploy` gate.
 
 ## IR3 — Event schemas (async messaging)
+
 - All events on the message bus described by Zod schema.
 - Event schemas stored in shared package `@org/event-schemas` (or git submodule).
 - Producers validate before publish (`Schema.parse(payload)` then send).
@@ -45,6 +48,7 @@ every service has the same integration contract.
 **Check:** project-specific probe in `audit-ai-docs.sh` checking that all `publish()` calls reference an `@org/event-schemas` schema.
 
 ## IR4 — Service-to-service auth
+
 - All inter-service calls use mTLS or signed JWT (OIDC).
 - No long-lived service credentials in env (use IAM / workload identity).
 - Auth header propagated via OpenTelemetry baggage for traceable auth chains.
@@ -52,6 +56,7 @@ every service has the same integration contract.
 **Check:** dependency-cruiser blocks bare `fetch()` to internal service URLs without going through the auth-injecting client.
 
 ## IR5 — Observability propagation
+
 - All inbound requests carry W3C `traceparent` header (handled by OpenTelemetry SDK auto-instrumentation).
 - All outbound calls propagate trace context.
 - Span attributes: `service.name`, `service.version`, `peer.service`, `http.route`, `db.statement` (sanitized).
@@ -60,6 +65,7 @@ every service has the same integration contract.
 **Check:** AST grep for direct fetch/HTTP calls without going through the instrumented client.
 
 ## IR6 — Resilience
+
 - All HTTP clients have `timeout` (no infinite waits). Default: 5s for sync, 30s for async.
 - Retries with exponential backoff for transient errors only (5xx, network). Max 3 retries.
 - No retries on 4xx — they are not transient.
@@ -75,6 +81,7 @@ every service has the same integration contract.
 This file is shared across all services. Recommended setup:
 
 ### Option A: Symlink
+
 ```bash
 # In each service repo
 mkdir -p .ai-factory/rules
@@ -83,12 +90,14 @@ ln -s ../../shared-rules/integration-rules.md \
 ```
 
 ### Option B: Git submodule
+
 ```bash
 git submodule add <shared-rules-repo> .ai-factory/shared
 ln -s shared/integration-rules.md .ai-factory/rules/integration-rules.md
 ```
 
 ### Option C: Direct copy + sync check
+
 ```bash
 # In each service: copy shared rules
 cp shared-rules/integration-rules.md .ai-factory/rules/

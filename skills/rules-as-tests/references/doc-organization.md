@@ -26,12 +26,12 @@
 ├── CLAUDE.md, settings.json, rules/, skills/
 ```
 
-| Слой | Когда грузится | Tokens |
-|---|---|---|
-| `~/.claude/CLAUDE.md` + global rules без `paths:` | Всегда | ~250-1500 каждый |
-| `AGENTS.md` (project) | Всегда | ~30 tokens на строку |
-| `.claude/rules/*.md` с `paths:` | При matching файле | 0 если неактивен |
-| `.claude/skills/*/SKILL.md` | При срабатывании trigger | 0 если неактивен |
+| Слой                                              | Когда грузится           | Tokens               |
+| ------------------------------------------------- | ------------------------ | -------------------- |
+| `~/.claude/CLAUDE.md` + global rules без `paths:` | Всегда                   | ~250-1500 каждый     |
+| `AGENTS.md` (project)                             | Всегда                   | ~30 tokens на строку |
+| `.claude/rules/*.md` с `paths:`                   | При matching файле       | 0 если неактивен     |
+| `.claude/skills/*/SKILL.md`                       | При срабатывании trigger | 0 если неактивен     |
 
 **Базовая стоимость сессии:** 4000-7000 токенов до того, как пользователь напишет первое сообщение.
 
@@ -40,6 +40,7 @@
 ## Hot/cold split — что куда
 
 **Hot (в AGENTS.md):**
+
 - Одна строка на правило (не примеры).
 - Ссылки на skill/rule с конкретными именами.
 - Контекст проекта (stack, key constraints).
@@ -47,6 +48,7 @@
 - Source-of-truth указатели («БД схема в `prisma/schema.prisma`, API контракт в `openapi/`»).
 
 **Cold (в skills/rules):**
+
 - Примеры кода.
 - Антипаттерны с объяснениями.
 - Edge cases.
@@ -73,12 +75,12 @@
 
 ## Когда skill, когда rule
 
-| | Skill | Rule |
-|---|---|---|
-| **Активация** | Trigger keywords из запроса пользователя | Автоматически, при работе с файлом из `paths:` glob |
-| **Длина** | ≤300 строк (>300 — split) | ≤80 строк (исключение — узко-scoped, `src/proxy.ts`) |
+|                     | Skill                                                          | Rule                                                    |
+| ------------------- | -------------------------------------------------------------- | ------------------------------------------------------- |
+| **Активация**       | Trigger keywords из запроса пользователя                       | Автоматически, при работе с файлом из `paths:` glob     |
+| **Длина**           | ≤300 строк (>300 — split)                                      | ≤80 строк (исключение — узко-scoped, `src/proxy.ts`)    |
 | **Когда применять** | Паттерн в ≥2 сценариях, ≥30 строк, не нужен в каждом сообщении | Применяется к конкретным файлам, грузится автоматически |
-| **Frontmatter** | `triggers: kw1, kw2, ...` (5-8 RU+EN) | `paths: [...]` |
+| **Frontmatter**     | `triggers: kw1, kw2, ...` (5-8 RU+EN)                          | `paths: [...]`                                          |
 
 ### Skill template
 
@@ -92,23 +94,30 @@ triggers: keyword1, keyword2, ключевое слово, ...
 # <Название>
 
 ## 1. Главное правило / quick reference
+
 <что агент должен знать в 90% случаев — первым>
 
 ## 2. Паттерны
+
 ### 2.1 <Паттерн>
+
 <код + объяснение>
 
 ## 3. Антипаттерны
+
 - ❌ <что нельзя>
 
 ## 4. Примеры из проекта
+
 <src/lib/..., src/app/actions/...>
 
 ## Связанные
+
 - skill `<другой>` / rule `.claude/rules/<name>.md`
 ```
 
 **Правила оформления skill:**
+
 - `description:` начинается с **«Use when»** (harness ключевая фраза для активации).
 - `triggers:` — ≥5 ключевых слов, RU+EN, покрывают вариативность запроса (не только техжаргон).
 - ≤300 строк (если больше → split по use case или layer).
@@ -126,21 +135,26 @@ paths:
 # <Название>
 
 ## Обязательно
+
 1. <правило>
 
 ## Запрещено
+
 - ❌ <что нельзя>
 
 ## Паттерн
+
 \`\`\`typescript
 // Правильно vs неправильно
 \`\`\`
 
 ## Связанные
+
 - skill `<name>`
 ```
 
 **Правила оформления rule:**
+
 - `paths:` формат — **block sequence YAML** (как выше). НЕ inline `paths: ['...']` — для consistency и читаемости в diff.
 - Глоб не пустой: `find . -path "<paths-glob>" | head -5` — ожидаем ≥1 матч.
 - ≤80 строк (исключение — узко-scoped rule, например только `src/proxy.ts`).
@@ -242,22 +256,24 @@ find .claude/orchestrator-prompts -maxdepth 2 -mtime +14 \
 
 ### Метрики здоровой инфраструктуры
 
-| Метрика | Target | Alarm |
-|---|---|---|
-| AGENTS.md строк | ≤150 | >300 |
-| Drift (skills задекл./существ.) | 0% | >20% |
-| Auto-loaded tokens | <5000 | >8000 |
-| Rules без `paths:` (global) | 0 (или universal) | >2 |
-| Trigger overlaps | 0 | >3 |
-| Dead-end permissions | 0 | >5 |
-| Orchestrator-prompts (вне archive/) | ≤5 | >15 |
+| Метрика                             | Target            | Alarm |
+| ----------------------------------- | ----------------- | ----- |
+| AGENTS.md строк                     | ≤150              | >300  |
+| Drift (skills задекл./существ.)     | 0%                | >20%  |
+| Auto-loaded tokens                  | <5000             | >8000 |
+| Rules без `paths:` (global)         | 0 (или universal) | >2    |
+| Trigger overlaps                    | 0                 | >3    |
+| Dead-end permissions                | 0                 | >5    |
+| Orchestrator-prompts (вне archive/) | ≤5                | >15   |
 
 ---
 
 ## .mcp.json — MCP servers
 
 ```json
-{ "mcpServers": { "<name>": { "command": "npx", "args": ["-y", "<package>"] } } }
+{
+  "mcpServers": { "<name>": { "command": "npx", "args": ["-y", "<package>"] } }
+}
 ```
 
 - Только активно используемые (каждый ≈6k токенов системного промпта).
@@ -278,12 +294,19 @@ grep -rn "mcp__<name>" .claude/orchestrator-prompts/ | grep -v archive | wc -l
 {
   "permissions": {
     "allow": [
-      "Bash(npm run *)", "Bash(git status)", "Bash(git diff*)", "Bash(git log*)",
-      "Bash(gh pr create*)", "mcp__context7__*", "mcp__shadcn__*"
+      "Bash(npm run *)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(gh pr create*)",
+      "mcp__context7__*",
+      "mcp__shadcn__*"
     ],
     "deny": [
-      "Bash(git push --force*)", "Bash(git push -f *)",
-      "Bash(git commit --no-verify*)", "Bash(git push *main*)"
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(git commit --no-verify*)",
+      "Bash(git push *main*)"
     ]
   }
 }
@@ -291,12 +314,12 @@ grep -rn "mcp__<name>" .claude/orchestrator-prompts/ | grep -v archive | wc -l
 
 **Project-specific deny** (NDA, prod deploy, prod БД) — в **оба места** (global + project), defense in depth.
 
-| Тип | Где |
-|---|---|
-| `npm run`, `git`, `gh` — generic | Global |
-| Project-specific scripts | Project |
-| Critical-deny | Оба |
-| MCP servers | Project (только из `.mcp.json`) |
+| Тип                              | Где                             |
+| -------------------------------- | ------------------------------- |
+| `npm run`, `git`, `gh` — generic | Global                          |
+| Project-specific scripts         | Project                         |
+| Critical-deny                    | Оба                             |
+| MCP servers                      | Project (только из `.mcp.json`) |
 
 ---
 

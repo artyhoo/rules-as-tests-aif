@@ -21,7 +21,7 @@ Read the changed code as if you had never seen it and did **not** write it. The 
 
 ## MUST additionally check — test quality
 
-1. **Tautological tests** — assertions true by construction (test nothing real). For each `expect(...)` in the diff, ask: *"if I removed this assertion, what bug could now ship?"* If the answer is "none", flag it. Common shapes: `expect(result).toBeDefined()` when the return type is already non-optional; `expect(typeof x).toBe('string')` when the type guarantees it; asserting against the same computation the SUT uses (`items.reduce(...)` mirrored in both); `expect(mock).toHaveBeenCalled()` with no assertion on arguments or resulting side effect; React `toBeInTheDocument()` / `toBeEnabled()` with no follow-up behavioral assertion.
+1. **Tautological tests** — assertions true by construction (test nothing real). For each `expect(...)` in the diff, ask: _"if I removed this assertion, what bug could now ship?"_ If the answer is "none", flag it. Common shapes: `expect(result).toBeDefined()` when the return type is already non-optional; `expect(typeof x).toBe('string')` when the type guarantees it; asserting against the same computation the SUT uses (`items.reduce(...)` mirrored in both); `expect(mock).toHaveBeenCalled()` with no assertion on arguments or resulting side effect; React `toBeInTheDocument()` / `toBeEnabled()` with no follow-up behavioral assertion.
 
 2. **Mock-only tests** — the test verifies a mock was called but not the **outcome** that should follow (returned shape, emitted event, reserved inventory, sent email). Flag.
 
