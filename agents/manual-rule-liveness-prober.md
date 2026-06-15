@@ -15,7 +15,7 @@ tools: read_file, list_files
 
 You are reading this prompt in your **active AI session** (Claude Code, Cursor, Codex, Aider, or any other IDE-integrated assistant). This file is **NOT** a GitHub Action; it makes no LLM API call; it bills no tokens beyond your existing subscription (per [.claude/rules/no-paid-llm-in-ci.md](../.claude/rules/no-paid-llm-in-ci.md)).
 
-The point of this role: principle 02's mechanical gate proves a manual rule *has* a well-formed pressure-scenario (structural liveness — it fails CI when the field is missing or malformed). It does **not** prove the rule *changes agent behaviour*. That is the gap you close: an empirical RED→GREEN demonstration that, under the declared pressure, a fresh agent **fails** the rule without it loaded and **complies** with it loaded. Structure is the floor; behaviour is the proof.
+The point of this role: principle 02's mechanical gate proves a manual rule _has_ a well-formed pressure-scenario (structural liveness — it fails CI when the field is missing or malformed). It does **not** prove the rule _changes agent behaviour_. That is the gap you close: an empirical RED→GREEN demonstration that, under the declared pressure, a fresh agent **fails** the rule without it loaded and **complies** with it loaded. Structure is the floor; behaviour is the proof.
 
 You **report**. You do **not** edit the manifest, the rule policy text, or any source file; you do **not** commit. The only artefact you produce is a probe report.
 
@@ -23,7 +23,7 @@ You **report**. You do **not** edit the manifest, the rule policy text, or any s
 
 ## Why this cannot be a CI gate (the constraint that shapes this agent)
 
-Running a fresh subagent per pass is an LLM dispatch on the operator's own subscription. Per [.claude/rules/no-paid-llm-in-ci.md §1](../.claude/rules/no-paid-llm-in-ci.md), no paid LLM call may run in CI. So this probe is **session-bound** and **operator-initiated** — never wired into `audit-self.yml`, a pre-push hook, or any GitHub Action. CI's contribution to manual-rule liveness is the *structural* gate (principle 02); the *behavioural* gate is this prober, run by hand.
+Running a fresh subagent per pass is an LLM dispatch on the operator's own subscription. Per [.claude/rules/no-paid-llm-in-ci.md §1](../.claude/rules/no-paid-llm-in-ci.md), no paid LLM call may run in CI. So this probe is **session-bound** and **operator-initiated** — never wired into `audit-self.yml`, a pre-push hook, or any GitHub Action. CI's contribution to manual-rule liveness is the _structural_ gate (principle 02); the _behavioural_ gate is this prober, run by hand.
 
 ## Input
 
@@ -34,12 +34,12 @@ One of:
 
 The manual rules at time of writing (keyed by id in `packages/core/manifest/rules-manifest.json`):
 
-| id | title | shape |
-|---|---|---|
-| `R10` | Naming | code-grep-shaped (demoable) |
-| `R13` | Data fetching | code-grep-shaped (demoable) |
-| `R18` | TanStack Query / SWR | code-grep-shaped (demoable) |
-| `IR5` | Observability propagation | runtime-shaped (behavioural demo DEFERRED) |
+| id    | title                        | shape                                      |
+| ----- | ---------------------------- | ------------------------------------------ |
+| `R10` | Naming                       | code-grep-shaped (demoable)                |
+| `R13` | Data fetching                | code-grep-shaped (demoable)                |
+| `R18` | TanStack Query / SWR         | code-grep-shaped (demoable)                |
+| `IR5` | Observability propagation    | runtime-shaped (behavioural demo DEFERRED) |
 | `IR6` | Resilience (circuit breaker) | runtime-shaped (behavioural demo DEFERRED) |
 
 ## Step 1 — Load the rule's pressure-scenario + policy text
@@ -56,8 +56,8 @@ The manual rules at time of writing (keyed by id in `packages/core/manifest/rule
 
 ## Step 2 — Classify demoability (do this BEFORE dispatching)
 
-- **code-grep-shaped** (`R10`, `R13`, `R18`): the `observable-failure` is visible in the code or text the subagent writes — a misplaced `*Service` in the domain layer, a hand-rolled `fetch` inside `useEffect`, a `queryFn` returning unvalidated JSON. A text-only subagent *can* exhibit the failure (it just writes the offending code). → **behaviorally demoable**: run the full RED→GREEN dispatch (Steps 3–4).
-- **runtime-shaped** (`IR5`, `IR6`): the manifest `observable-failure` is written as a **code-marker proxy** (a bare `fetch('http://service-b/...')` not routed through the instrumented client for `IR5`; an `await fetch(url)` with no timeout/retry/breaker for `IR6`). A text-only subagent **can** write that RED code and the GREEN code — the proxy *is* textually inspectable, so do not pretend no textual signal exists. **But the rule itself is a runtime property** the proxy only stands in for: that the trace context actually propagates end-to-end (`IR5`) / the breaker actually trips and the timeout actually fires under load (`IR6`). The code-marker is **necessary but not sufficient** — a subagent emitting `opossum` + `timeout` syntax proves the syntax is present, *not* that the breaker trips correctly. → **report structural-validation-only**: principle 02 confirms the scenario is well-formed and the code-marker is present, but the **behavioural RED→GREEN is DEFERRED** to a runtime-probe sub-wave that can observe the runtime consequence (a Jaeger/Tempo child span; a chaos-test breaker trip). **Do NOT run a text RED→GREEN on the code-marker and present it as proof of runtime liveness** — demoing the proxy-flip as though it proved the runtime rule is exactly the discipline-theatre this sub-wave exists to prevent. (Contrast: for `R10`/`R13`/`R18` the code shape *is* the whole rule — file location/layer, `useQuery` vs hand-rolled `fetch`, `.parse()` in the `queryFn` — so a text RED→GREEN fully proves liveness.)
+- **code-grep-shaped** (`R10`, `R13`, `R18`): the `observable-failure` is visible in the code or text the subagent writes — a misplaced `*Service` in the domain layer, a hand-rolled `fetch` inside `useEffect`, a `queryFn` returning unvalidated JSON. A text-only subagent _can_ exhibit the failure (it just writes the offending code). → **behaviorally demoable**: run the full RED→GREEN dispatch (Steps 3–4).
+- **runtime-shaped** (`IR5`, `IR6`): the manifest `observable-failure` is written as a **code-marker proxy** (a bare `fetch('http://service-b/...')` not routed through the instrumented client for `IR5`; an `await fetch(url)` with no timeout/retry/breaker for `IR6`). A text-only subagent **can** write that RED code and the GREEN code — the proxy _is_ textually inspectable, so do not pretend no textual signal exists. **But the rule itself is a runtime property** the proxy only stands in for: that the trace context actually propagates end-to-end (`IR5`) / the breaker actually trips and the timeout actually fires under load (`IR6`). The code-marker is **necessary but not sufficient** — a subagent emitting `opossum` + `timeout` syntax proves the syntax is present, _not_ that the breaker trips correctly. → **report structural-validation-only**: principle 02 confirms the scenario is well-formed and the code-marker is present, but the **behavioural RED→GREEN is DEFERRED** to a runtime-probe sub-wave that can observe the runtime consequence (a Jaeger/Tempo child span; a chaos-test breaker trip). **Do NOT run a text RED→GREEN on the code-marker and present it as proof of runtime liveness** — demoing the proxy-flip as though it proved the runtime rule is exactly the discipline-theatre this sub-wave exists to prevent. (Contrast: for `R10`/`R13`/`R18` the code shape _is_ the whole rule — file location/layer, `useQuery` vs hand-rolled `fetch`, `.parse()` in the `queryFn` — so a text RED→GREEN fully proves liveness.)
 
 If input is `all`, run Steps 3–6 for the code-grep-shaped rules and emit the RUNTIME-SHAPED report row for IR5/IR6.
 
@@ -80,8 +80,8 @@ Dispatch a **second FRESH subagent** (fresh context again — do not reuse the P
 
 Reporting-only — you do not edit or fix anything. Classify the rule into exactly one verdict:
 
-- **LIVE (PASS):** Pass 1 exhibited the `observable-failure` **AND** Pass 2 exhibited the `observable-compliance`. The rule demonstrably changes behaviour under the declared pressure. This is the only verdict that *proves* liveness.
-- **BASELINE-DIDN'T-FAIL (FLAG — T-V3-B):** Pass 1 *complied* even without the rule loaded. The scenario is not pressuring hard enough — a single non-failing baseline does **NOT** mean the rule is unnecessary. Strengthen the `baseline-prompt` (lean harder on the declared `pressure` vectors — sharpen the deadline, the authority assurance, the "we control it" framing) and **re-run**. Never conclude a rule is redundant from one non-failing baseline.
+- **LIVE (PASS):** Pass 1 exhibited the `observable-failure` **AND** Pass 2 exhibited the `observable-compliance`. The rule demonstrably changes behaviour under the declared pressure. This is the only verdict that _proves_ liveness.
+- **BASELINE-DIDN'T-FAIL (FLAG — T-V3-B):** Pass 1 _complied_ even without the rule loaded. The scenario is not pressuring hard enough — a single non-failing baseline does **NOT** mean the rule is unnecessary. Strengthen the `baseline-prompt` (lean harder on the declared `pressure` vectors — sharpen the deadline, the authority assurance, the "we control it" framing) and **re-run**. Never conclude a rule is redundant from one non-failing baseline.
 - **WITH-RULE-DIDN'T-COMPLY (FLAG):** Pass 2 still exhibited the failure with the rule loaded. The rule text is insufficient or the scenario is mismatched. Surface for rule-text revision or scenario revision (do not pick which — that is a maintainer call per [reviewer-discipline.md](../.claude/rules/reviewer-discipline.md)).
 - **RUNTIME-SHAPED (DEFERRED):** behavioural demo not possible for this rule's shape → "structurally validated by principle 02; behavioural RED→GREEN deferred to a runtime-probe sub-wave."
 
@@ -125,10 +125,10 @@ State the problem-class match explicitly:
 
 ## §Self-application (T15)
 
-This prober is itself a manual-rule-shaped convention: *"every manifest manual rule must carry a live pressure-scenario."* Its OWN liveness is enforced two ways, the same RED→GREEN split it applies to other rules:
+This prober is itself a manual-rule-shaped convention: _"every manifest manual rule must carry a live pressure-scenario."_ Its OWN liveness is enforced two ways, the same RED→GREEN split it applies to other rules:
 
-- **(a) Structural — principle 02's mechanical gate (the RED):** a `check.type==='manual'` rule that lacks a well-formed pressure-scenario fails CI. That is the always-reachable floor — the structural liveness check this prober *cannot* be, because it is text-only and CI-bound. Remove a rule's pressure-scenario and CI goes red; that is the RED proof that the convention bites.
-- **(b) Behavioural — the RED→GREEN demo on `R10`/`R13`/`R18`:** running this very prober against the three code-grep-shaped rules is the behavioural proof that the *pressure-scenarios themselves* are live (they actually flip a fresh agent from violation to compliance). If a scenario yields BASELINE-DIDN'T-FAIL, the convention is structurally present but behaviourally hollow — exactly the discipline-theatre gap (`structure ≠ substance`) this prober surfaces.
+- **(a) Structural — principle 02's mechanical gate (the RED):** a `check.type==='manual'` rule that lacks a well-formed pressure-scenario fails CI. That is the always-reachable floor — the structural liveness check this prober _cannot_ be, because it is text-only and CI-bound. Remove a rule's pressure-scenario and CI goes red; that is the RED proof that the convention bites.
+- **(b) Behavioural — the RED→GREEN demo on `R10`/`R13`/`R18`:** running this very prober against the three code-grep-shaped rules is the behavioural proof that the _pressure-scenarios themselves_ are live (they actually flip a fresh agent from violation to compliance). If a scenario yields BASELINE-DIDN'T-FAIL, the convention is structurally present but behaviourally hollow — exactly the discipline-theatre gap (`structure ≠ substance`) this prober surfaces.
 
 So the artifact self-applies: it is governed by the same two-channel liveness (structural-gate + behavioural-demo) it imposes on the rules it probes. The runtime-shaped pair (`IR5`/`IR6`) sits at channel (a) only until the runtime-probe sub-wave lands channel (b) for them — and the report says so honestly rather than faking it.
 

@@ -262,12 +262,17 @@ patch_stryker_package_manager() {
   # in a monorepo); else npm. A flat pnpm consumer with neither marker nor field still defaults
   # npm — re-run install after the lockfile lands, or set package.json "packageManager".
   _pm=$(detect_pm)   # SSOT detector (lockfile/workspace/corepack signals; see detect_pm above)
+  # GH #531: rewrite ONLY the packageManager VALUE in place (string-substitution), NOT a full
+  # JSON.stringify re-serialize. The template ships prettier-clean (short arrays collapsed to one
+  # line); JSON.stringify(,,2) would re-expand those arrays and break `prettier --check` on the
+  # consumer. A targeted value swap preserves the template's prettier formatting byte-for-byte.
   AIF_STRYKER_CFG="$_cfg" AIF_STRYKER_PM="$_pm" node -e '
     const fs = require("fs");
     const p = process.env.AIF_STRYKER_CFG;
-    const cfg = JSON.parse(fs.readFileSync(p, "utf8"));
-    cfg.packageManager = process.env.AIF_STRYKER_PM;
-    fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n");
+    const pm = process.env.AIF_STRYKER_PM;
+    const src = fs.readFileSync(p, "utf8");
+    const out = src.replace(/("packageManager"\s*:\s*")[^"]*(")/, `$1${pm}$2`);
+    if (out !== src) fs.writeFileSync(p, out);
   '
   echo "  ✓ stryker packageManager → $_pm"
 }
@@ -513,6 +518,11 @@ fi
 # cih-s3 F15: keep prettier off the generated RULES.md table region (rendered SSOT, not
 # format-stable) so a `*.md → prettier --write` lint-staged step can't reflow it.
 copy_safe "$PKG_ROOT/packages/core/templates/shared/.prettierignore" "$PROJECT_ROOT/.prettierignore"
+# GH #531: ship the Prettier config so the consumer's `format:check` (prettier --check .) uses the
+# same style the shipped artefacts are formatted in (singleQuote — the framework's existing TS/JS
+# style). Without it, prettier defaults (double-quote) would flag every shipped .ts/.mjs/.cjs.
+# copy_safe (skip-if-exists) never clobbers a consumer's own prettier config.
+copy_safe "$PKG_ROOT/.prettierrc.json" "$PROJECT_ROOT/.prettierrc.json"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/tsconfig.json" "$PROJECT_ROOT/tsconfig.json"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
 mkdir_safe "$PROJECT_ROOT/.husky"

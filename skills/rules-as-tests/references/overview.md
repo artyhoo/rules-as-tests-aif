@@ -12,6 +12,7 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 **Enforces:** structural rules — no cycles, layer dependency direction, banned imports, naming-by-location, complexity ceilings, public API surface.
 
 **Top patterns:**
+
 - `slices().beFreeOfCycles()` (ArchUnit) / `no-circular` (dependency-cruiser) — single biggest catch.
 - Layered architecture: domain ← application ← infrastructure / web. One canonical arrow direction.
 - Forbidden imports per location: no `infrastructure/*` from `domain/`.
@@ -20,6 +21,7 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 - Cyclomatic complexity ceiling per method.
 
 **Anti-patterns:**
+
 - Style rules disguised as architecture (push to formatter).
 - Rules without `because(...)` rationale → first to be deleted.
 - Letting `FreezingArchRule` violations file become a graveyard nobody burns down.
@@ -28,13 +30,14 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 
 ---
 
-## Layer 2 — Meta-tests (tests *about* the test suite)
+## Layer 2 — Meta-tests (tests _about_ the test suite)
 
-> **Vocabulary alignment (Phase 8.8 T5 ADOPT VOCABULARY, [prior-art-evaluations.md#3](../../../docs/meta-factory/prior-art-evaluations.md)):** the L2 meta-test pattern shipped in this framework's Phase 2 (`packages/core/principles/01-08*.test.ts`) corresponds to **fitness functions** in evolutionary architecture vocabulary (Ford / Parsons / Kua, *Building Evolutionary Architectures*, 2017 / 2nd ed. 2023). A fitness function is an automated test for an architectural property (here: invariants on the rule manifest itself); the «principles-as-tests» framing in this repo is a domain-specific instance of that pattern. Both terms describe the same artifact — readers familiar with evolutionary architecture map to our principles directly.
+> **Vocabulary alignment (Phase 8.8 T5 ADOPT VOCABULARY, [prior-art-evaluations.md#3](../../../docs/meta-factory/prior-art-evaluations.md)):** the L2 meta-test pattern shipped in this framework's Phase 2 (`packages/core/principles/01-08*.test.ts`) corresponds to **fitness functions** in evolutionary architecture vocabulary (Ford / Parsons / Kua, _Building Evolutionary Architectures_, 2017 / 2nd ed. 2023). A fitness function is an automated test for an architectural property (here: invariants on the rule manifest itself); the «principles-as-tests» framing in this repo is a domain-specific instance of that pattern. Both terms describe the same artifact — readers familiar with evolutionary architecture map to our principles directly.
 
 **Enforces:** test-suite structural quality — every test asserts, no conditionals in tests, public methods have tests, no real I/O in unit tests.
 
 **Top patterns:**
+
 - AST scan: every `test_*` / `it()` body reaches at least one real assertion call.
 - AST scan: no `if`/`for`/`while` in test bodies (use `it.each` / parameterization).
 - AST scan: every public production export referenced in at least one test.
@@ -43,10 +46,11 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 - Paired negative tests: every positive case ships with a paired negative that proves the assertion fails on the bad input. Without the paired negative, a green test is mute about whether it would catch a regression.
 
 **Anti-patterns:**
-- Counting assertion *lines* (parameterized tests, helpers break naive counts) — count *transitive reachability*.
+
+- Counting assertion _lines_ (parameterized tests, helpers break naive counts) — count _transitive reachability_.
 - Banning `sleep` without offering Awaitility/`vi.useFakeTimers()` alternative.
 - Forcing `// Arrange / // Act / // Assert` comments — comments lie.
-- One-test-per-method dogma — should be "*at least* one".
+- One-test-per-method dogma — should be "_at least_ one".
 
 **Why this matters most for AI:** AI loves `expect(x).toBeDefined()` for typed values, `try/except: pass` swallowing errors, mocks asserted on without behavioral assertions. AST checks catch what eyes don't.
 
@@ -57,13 +61,15 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 **Enforces:** behavior is documented as concrete input/output pairs in parameterized tests, not in prose.
 
 **Top patterns:**
+
 - Tables of `(input, expected)` rows, each with named ID — `it.each([...])` (Vitest), `@ParameterizedTest` (JUnit).
 - Boundary cases first-class: empty, null, single, max, min, ±1 from threshold.
 - Properties (fast-check, Hypothesis, jqwik) for general invariants alongside named examples.
-- Expected values are *literals* or *computed independently*, not by re-running the SUT.
+- Expected values are _literals_ or _computed independently_, not by re-running the SUT.
 - One spec test = one observable behavior.
 
 **Anti-patterns:**
+
 - Gherkin/Cucumber for dev-only teams — drop the natural-language layer.
 - One mega-test with 200 heterogeneous rows — split by behavior.
 - Random examples chosen "because the writer was tired" — pick deliberately from equivalence classes.
@@ -78,6 +84,7 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 **Enforces:** the test suite actually catches bugs, not just covers lines.
 
 **Top patterns:**
+
 - Run **incrementally on diff** (`stryker --incremental`, PIT `+GIT(from[main])`). Full sweep only nightly.
 - Trigger at **PR review time**, not nightly cron — surviving mutants most actionable when shown to author.
 - Filter unproductive mutants aggressively (Google's "arid nodes" heuristic: skip logging strings, exception messages, debug-only code).
@@ -85,6 +92,7 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 - Show **few high-quality mutants per PR**, not all — alert fatigue kills adoption.
 
 **Anti-patterns:**
+
 - Running on every commit on whole repo → hours of wall time → abandonment.
 - Treating mutation score as vanity metric — equivalent mutants asymptote, 100% is impossible.
 - Mutating generated code, schema files, DTOs → noise.
@@ -101,6 +109,7 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 **Enforces:** the documentation IS the executable artifact (tests, schemas, ArchUnit rationale clauses, OpenAPI generated from Zod). Nothing prose-based that can drift.
 
 **Top patterns:**
+
 - Test names are full English sentences. Test report = behavior catalog.
 - ArchUnit `because(...)` clauses become ADR snippets, searchable by ADR ID.
 - Architecture diagrams generated from code (e.g., `dependency-cruiser` → SVG, ArchUnit → PlantUML check).
@@ -108,9 +117,10 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 - One spec test = one named behavior.
 
 **Anti-patterns:**
+
 - `docs/architecture.md` describing an architecture the code doesn't have — replace with ArchUnit/dependency-cruiser tests.
 - Comments explaining what tests do — fix the test name.
-- Tests documenting *current* implementation rather than *intended* contract.
+- Tests documenting _current_ implementation rather than _intended_ contract.
 - README-driven dev without enforcement test — README is wishful thinking; test is fact.
 
 ---
@@ -118,9 +128,11 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 ## Cross-cutting extensions
 
 ### Pre-PR layer (AI Factory `/aif-verify`)
+
 Sub-agents in separate contexts validate against `.ai-factory/RULES.md` before commit. `review-sidecar` is the **two-AI tautology check** — different model reviews tests without seeing how they were written.
 
 ### Production extension (shift-right)
+
 - **SLO-as-code** (OpenSLO + Pyrra/Sloth): production fitness functions stored in Git, compiled to Prometheus rules.
 - **Error budgets**: SLO 99.95% → 0.05% allowed unreliability. Budget burn rate gates deploys.
 - **Feature flags + observability 2.0**: controlled experiments with wide events, high-cardinality attributes (`feature.*`, `experiment.*`, `canary.*`).
@@ -128,22 +140,23 @@ Sub-agents in separate contexts validate against `.ai-factory/RULES.md` before c
 - **Chaos engineering**: production-mutation-testing — break infrastructure to verify monitoring detects it.
 
 ### Contract testing (Pact, between layers)
+
 Pact-tests live in CI by form (fast, deterministic) but solve a shift-right problem: production compatibility. **Pact Broker holds runtime state of which versions are in production**; `can-i-deploy --to production` uses this knowledge in build-time. Bi-directional contract testing via `zod-to-openapi` lowers the entry barrier.
 
 ---
 
 ## When to use which layer
 
-| Problem | Solve with |
-|---|---|
-| "AI keeps importing lodash even though we don't use it" | Layer 1 — `no-restricted-imports` rule |
-| "Our domain code now imports from web layer" | Layer 1 — dependency-cruiser layer rule |
-| "Tests pass but the bug shipped" | Layer 4 — mutation testing on the affected module |
-| "AI wrote a test that just calls the function" | Layer 2 + Layer 4 (meta-test on assertion structure + Stryker) |
-| "Engineers don't read CONTRIBUTING.md" | All layers — make rules executable |
-| "We have 3 services and breaking changes ship to prod" | Contract testing (Pact) — `can-i-deploy` gate |
-| "We don't notice prod issues until users complain" | Shift-right — SLO + synthetic monitoring + error budget |
-| "We need to coordinate multiple AI agents writing code" | AI Factory (aif) + RULES.md + sub-agents |
+| Problem                                                 | Solve with                                                     |
+| ------------------------------------------------------- | -------------------------------------------------------------- |
+| "AI keeps importing lodash even though we don't use it" | Layer 1 — `no-restricted-imports` rule                         |
+| "Our domain code now imports from web layer"            | Layer 1 — dependency-cruiser layer rule                        |
+| "Tests pass but the bug shipped"                        | Layer 4 — mutation testing on the affected module              |
+| "AI wrote a test that just calls the function"          | Layer 2 + Layer 4 (meta-test on assertion structure + Stryker) |
+| "Engineers don't read CONTRIBUTING.md"                  | All layers — make rules executable                             |
+| "We have 3 services and breaking changes ship to prod"  | Contract testing (Pact) — `can-i-deploy` gate                  |
+| "We don't notice prod issues until users complain"      | Shift-right — SLO + synthetic monitoring + error budget        |
+| "We need to coordinate multiple AI agents writing code" | AI Factory (aif) + RULES.md + sub-agents                       |
 
 ## Minimal starter set (10 rules)
 

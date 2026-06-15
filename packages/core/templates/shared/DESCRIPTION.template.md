@@ -56,14 +56,16 @@ These are non-negotiable. Enforced by lint/test/CI.
 ## Workflow
 
 Before every commit / PR, run the gate this installer ships (unconditional — needs no extra install):
+
 - `./scripts/audit-ai-docs.sh` — drift + code-vs-docs probes.
 - the pre-push hook (`.husky/pre-push`) fires on `git push` (typecheck, `vitest related`, dependency-cruiser).
 - CI gates the PR (`ci-success` required check) — the last-resort authority, independent of local tooling.
 
 **If you use AI Factory (aif)** (not bundled by this installer) for non-trivial changes:
+
 - `/aif-plan <task>` — create plan + branch
 - `/aif-implement` — execute plan step-by-step with checkpoints
-- `/aif-verify` — *if you use aif*, runs sub-agents over RULES.md + the audit-ai-docs probes. A convenience wrapper around the gate above, not a substitute for it.
+- `/aif-verify` — _if you use aif_, runs sub-agents over RULES.md + the audit-ai-docs probes. A convenience wrapper around the gate above, not a substitute for it.
 - `/aif-fix <error>` — targeted fix
 - `/aif-commit` — final commit + push
 

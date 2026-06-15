@@ -15,14 +15,24 @@ import type { GitProvider } from '../utils/git.ts';
 export const S17_HISTORICAL_CUTOFF = '2026-05-12';
 
 // D3 allow-list: doc-only / already-disciplined commit-subject prefixes bypass §1.7.
-const ALLOWLIST_RE = /^(docs\(research-patches\)|chore\(snapshot-regen\)|chore\(prior-art-update\)):/;
+const ALLOWLIST_RE =
+  /^(docs\(research-patches\)|chore\(snapshot-regen\)|chore\(prior-art-update\)):/;
 // Discipline files (direct children only) whose introduction requires the trailer.
 const DISCIPLINE_FILE_RE =
   /^(\.claude\/rules\/[^/]+\.md|packages\/core\/principles\/[^/]+\.test\.ts|\.claude\/skills\/[^/]+\/SKILL\.md)$/;
-const DISCIPLINE_DIR_RE = /^(\.claude\/rules\/|packages\/core\/principles\/|\.claude\/skills\/)/;
+const DISCIPLINE_DIR_RE =
+  /^(\.claude\/rules\/|packages\/core\/principles\/|\.claude\/skills\/)/;
 // New section heading or top-level export const on an added diff line.
 const SECTION_MARKER_RE = /^\+(## §|export const [A-Z_]+: )/;
-const PLACEHOLDERS = new Set(['todo', 'later', 'na', 'tbd', 'fixme', 'placeholder', '']);
+const PLACEHOLDERS = new Set([
+  'todo',
+  'later',
+  'na',
+  'tbd',
+  'fixme',
+  'placeholder',
+  '',
+]);
 // file:line citation — non-space chars, dot, lowercase ext, colon, digits.
 const FILE_LINE_RE = /[^\s]+\.[a-z]+:[0-9]+/;
 // §1.7 in discourse (not embedded in a URL/path): line start, or a non-slash char before.
@@ -73,7 +83,8 @@ export function checkS17TrailerBody(
   const bsLine = lines.find((l) => l.startsWith('§1.7 Bootstrap:'));
   if (bsLine) {
     const bs = bsLine.slice('§1.7 Bootstrap:'.length).replace(/^[ \t]+/, '');
-    if (bs.length >= 20 && !isAllPlaceholder(bs)) return { code: 0, message: '' };
+    if (bs.length >= 20 && !isAllPlaceholder(bs))
+      return { code: 0, message: '' };
   }
 
   // Standard `§1.7:` trailer.
@@ -85,7 +96,8 @@ export function checkS17TrailerBody(
       if (FILE_LINE_RE.test(payload)) return { code: 0, message: '' };
       return {
         code: 2,
-        message: '§1.7: trailer present but lacks file:line citation (substance check — Wave 8.3)',
+        message:
+          '§1.7: trailer present but lacks file:line citation (substance check — Wave 8.3)',
       };
     }
     // all-placeholder → fall through; the prose check below catches it
@@ -121,9 +133,14 @@ export function runS17Check(
   const substanceFailures: S17Finding[] = [];
   for (const sha of commits) {
     if (!isDisciplineIntroducing(sha, g)) continue;
-    const { code, message } = checkS17TrailerBody(g.commitBody(sha), g.authorDate(sha), cutoff);
+    const { code, message } = checkS17TrailerBody(
+      g.commitBody(sha),
+      g.authorDate(sha),
+      cutoff,
+    );
     if (code === 1) failures.push({ sha: sha.slice(0, 10), message });
-    else if (code === 2) substanceFailures.push({ sha: sha.slice(0, 10), message });
+    else if (code === 2)
+      substanceFailures.push({ sha: sha.slice(0, 10), message });
   }
   return { failures, substanceFailures };
 }

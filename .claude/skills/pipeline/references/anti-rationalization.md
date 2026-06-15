@@ -5,7 +5,7 @@
 
 A genuine answer to a §2 Step 4 DECISION-NEEDED is a **content-based tiebreaker** from the maintainer — they name a reason rooted in project priority («pick n7 because the trial output unblocks n8's R3» / «pick n8, deadline is real» / «pick n7, n8 needs an SSOT entry first»). The reason has to be about the umbrellas, not about the maintainer.
 
-The following are **NOT** answers — they are *deferred* DECISION-NEEDED (the maintainer declined to decide, not decided):
+The following are **NOT** answers — they are _deferred_ DECISION-NEEDED (the maintainer declined to decide, not decided):
 
 - «выбирай сам» / "you decide" / "I trust you" — delegation, not decision
 - «оба норм» / "both fine" / "either works" — confirmation that the tie is real, not a tiebreaker

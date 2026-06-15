@@ -41,6 +41,7 @@ No REPORT = orchestrator cannot verify your work. Always emit it.
 ## Park-vs-proceed contract
 
 On a genuine fork (two defensible implementations, missing spec detail that changes behaviour):
+
 - DO NOT pick. DO NOT guess.
 - Run: `npx tsx packages/runtime-bridge/src/cli/park.ts --question "Fork: Option A → X. Option B → Y."`
 - Stop that task. Proceed on unambiguous parts only.
@@ -62,15 +63,16 @@ Empty result → park. Non-empty → proceed.
 You are decomposing a task into stages/sub-waves, not just executing one. Before dispatching or
 starting work, lay out a **launch-table** — one row per sub-wave:
 
-| Sub-wave | Type | Mode | Stage | Parallel-with | Volume |
-|---|---|---|---|---|---|
-| A | R-phase / execution-build / wiring | A or B | 1 | B or — | S/M/L |
+| Sub-wave | Type                               | Mode   | Stage | Parallel-with | Volume |
+| -------- | ---------------------------------- | ------ | ----- | ------------- | ------ |
+| A        | R-phase / execution-build / wiring | A or B | 1     | B or —        | S/M/L  |
 
 - **Type** — R-phase (research, produces a doc), execution-build (code), wiring (thin config/CI).
 - **Stage** — dependency order: what must be merged before this sub-wave starts.
 - **Volume** — S <100 LOC / M 100-500 / L >500 (size signal, not calendar time).
 
 **Mode A vs Mode B:**
+
 - **Mode A** (one session, inline) — a single build, a wiring change, or a single R-phase.
 - **Mode B** (N parallel sessions, each in its own git worktree) — ≥2 execution-build sub-waves in
   the **same stage** with **no file overlap**. Never run parallel sessions in a shared working dir —
@@ -92,6 +94,7 @@ Act as reviewer, not orchestrator. Read the actual diff (`git diff staging...<he
 acceptance criteria — never sign off on "CI is green" alone (CI checks form, not design).
 
 **Verdict — exactly one of GO / REVISE / STOP:**
+
 - **GO** — meets acceptance criteria; proceed.
 - **REVISE** — list findings as BLOCKER / MAJOR / MINOR; the worker fixes, then re-review.
 - **STOP** — escalate to the maintainer; halt.

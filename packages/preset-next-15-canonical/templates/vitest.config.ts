@@ -58,8 +58,8 @@ export default defineConfig({
         'src/**/*.stories.tsx',
         'src/**/*.d.ts',
         'src/**/index.ts',
-        'src/app/**/layout.tsx',  // declarative-only Next layouts
-        'src/app/**/page.tsx',    // tested via Playwright
+        'src/app/**/layout.tsx', // declarative-only Next layouts
+        'src/app/**/page.tsx', // tested via Playwright
         'src/app/**/loading.tsx',
         'src/app/**/error.tsx',
         'src/app/**/not-found.tsx',

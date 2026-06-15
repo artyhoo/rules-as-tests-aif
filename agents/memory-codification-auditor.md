@@ -13,7 +13,7 @@ tools: read_file, list_files
 
 You are reading this prompt in your **active AI session** (Claude Code, Cursor, Codex, Aider, or any other IDE-integrated assistant). This file is **NOT** a GitHub Action; it makes no LLM API call; it bills no tokens beyond your existing subscription (per [.claude/rules/no-paid-llm-in-ci.md](../.claude/rules/no-paid-llm-in-ci.md)).
 
-The point of this role: a deterministic grep (memory-codification rule §4(a)) can flag memory entries lacking a codification pointer, but it cannot tell a **durable convention** (must be codified) from **ephemeral state / identity / a reference fact** (legitimately memory-resident). That triage is the judgment you provide. One layer catches the absence of a pointer; you catch whether a pointer is actually *owed*.
+The point of this role: a deterministic grep (memory-codification rule §4(a)) can flag memory entries lacking a codification pointer, but it cannot tell a **durable convention** (must be codified) from **ephemeral state / identity / a reference fact** (legitimately memory-resident). That triage is the judgment you provide. One layer catches the absence of a pointer; you catch whether a pointer is actually _owed_.
 
 You report. You do **not** fix, edit, or commit.
 
@@ -37,11 +37,11 @@ Read every `feedback_*.md` and `project_*.md` entry (these are the convention-sh
 
 For each entry, ask: **would a fresh session on a different machine — with no access to this memory store — need this to behave correctly?**
 
-| Verdict | Shape | Action you recommend |
-|---|---|---|
-| **CODIFY** | Durable behavioural rule: "always/never X", "when Y do Z", a policy or discipline applicable to any future session. Often carries a "How to apply:" line. | Codify into the repo (`CLAUDE.md` / `.claude/rules/*` / relevant `docs/`), reduce the memory entry to a one-line pointer `See <repo-path> — codified at <SHA>`. |
-| **LEAVE** | Ephemeral state, project status/progress, identity, or a reference fact/pointer. | None — legitimately memory-resident. |
-| **ALREADY-CODIFIED** | Entry already contains a pointer (`codified at`, `See .claude/rules`, `See CLAUDE.md`) or a `TODO-codify:` marker. | None (TODO-codify = tracked debt, not a violation). |
+| Verdict              | Shape                                                                                                                                                     | Action you recommend                                                                                                                                            |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CODIFY**           | Durable behavioural rule: "always/never X", "when Y do Z", a policy or discipline applicable to any future session. Often carries a "How to apply:" line. | Codify into the repo (`CLAUDE.md` / `.claude/rules/*` / relevant `docs/`), reduce the memory entry to a one-line pointer `See <repo-path> — codified at <SHA>`. |
+| **LEAVE**            | Ephemeral state, project status/progress, identity, or a reference fact/pointer.                                                                          | None — legitimately memory-resident.                                                                                                                            |
+| **ALREADY-CODIFIED** | Entry already contains a pointer (`codified at`, `See .claude/rules`, `See CLAUDE.md`) or a `TODO-codify:` marker.                                        | None (TODO-codify = tracked debt, not a violation).                                                                                                             |
 
 ## Method (no prose-only findings — per ai-laziness-traps.md T3)
 

@@ -36,6 +36,7 @@ Report P2/P3/P5 as **advisory** (not blocking). Open follow-up issue if drift de
 ## Promotion trigger
 
 Promote P2/P3/P5 → CI gate when:
+
 - Deterministic CI PASS rate <80% over 30 days, OR
 - Consumer reports goal-phrase miss not caught by P1/P4/P6.
 

@@ -12,6 +12,7 @@ Read this file when the user mentions AI-generated code drift, Claude Code, Curs
 AI agents (Claude, Cursor, Copilot, Aider, Devin) write code that **looks plausible but reliably violates undocumented conventions**. They cannot be socialized into team norms by code review alone — they don't remember between sessions, they confidently produce tautological tests, and when they break a rule they break it consistently across hundreds of files at once.
 
 Without enforced rules:
+
 - `CLAUDE.md` instructions are forgotten within 3 commits.
 - Code review by humans does not scale to AI's commit velocity.
 - Tests pass, types pass, lints pass — and the code is still wrong (because the tests were also written by the same AI with the same blind spots).
@@ -23,26 +24,32 @@ The defense is **executable rules at every layer**, plus a **second AI reviewing
 ## What AI violates most often, by frequency
 
 ### 1. Bypassing the type system
+
 **Pattern:** `as any`, `as unknown as T`, `value!` (non-null assertion), `// @ts-ignore`, `// @ts-expect-error`.
 
 **Why:** AI sees a type error and the path of least resistance is to suppress it.
 
 **Caught by:**
+
 - `@typescript-eslint/no-explicit-any: 'error'`
 - `@typescript-eslint/no-non-null-assertion: 'error'`
 - `@typescript-eslint/ban-ts-comment` (require explanatory comment)
 
 ### 2. Importing convenience libraries
+
 **Pattern:** `import _ from 'lodash'`, `import moment`, `import axios` when the project has standardized on native fetch / date-fns / Zod.
 
 **Why:** AI reaches for the first library it knows, not the one your project uses.
 
 **Caught by:**
+
 - `no-restricted-imports` with banlist
 - dependency-cruiser rule blocking new top-level dependencies
 
 ### 3. Tautological tests
+
 **Pattern:**
+
 ```ts
 expect(result).toBeDefined();              // for typed function returning T (not T|undefined)
 expect(typeof result).toBe('string');      // when return type IS string
@@ -54,24 +61,34 @@ expect(total).toBe(items.reduce(...));     // expected computed by same logic as
 **Why:** AI generates tests that "look like tests" but assert what's already true by construction.
 
 **Caught by:**
+
 - **Mutation testing (Layer 4)** — the canonical defense. Tautological test never kills a mutant.
 - AI Factory `review-sidecar` — second AI without code context reads the test and flags suspicious patterns.
 - AST meta-test: assertion's compared values must transitively depend on a call to the SUT, not just literals/types.
 
 ### 4. Always-passing tests
+
 **Pattern:**
+
 ```ts
-try { someAsync(); } catch { /* ignore */ }       // swallow errors
-expect(value !== undefined).toBe(true);           // always true for required field
+try {
+  someAsync();
+} catch {
+  /* ignore */
+} // swallow errors
+expect(value !== undefined).toBe(true); // always true for required field
 ```
 
 **Caught by:**
+
 - `eslint-plugin-vitest/expect-expect`
 - AST scan: `try` blocks in tests must have `expect.toThrow` or matching `.rejects`
 - Mutation testing again
 
 ### 5. Layer / dependency violations
+
 **Pattern:**
+
 - Domain code importing from infrastructure
 - Controllers reaching into domain repositories directly
 - Cross-feature imports without going through `index.ts`
@@ -80,21 +97,26 @@ expect(value !== undefined).toBe(true);           // always true for required fi
 **Why:** AI doesn't internalize layer boundaries — it sees that the symbol resolves and assumes that's enough.
 
 **Caught by:**
+
 - dependency-cruiser layered rules
 - `import 'server-only'` / `import 'client-only'` packages (Next.js)
 - ESLint `no-restricted-imports` with patterns
 
 ### 6. Floating promises
+
 **Pattern:** `someAsync()` without await/return, `.then()` chains without final `.catch`.
 
 **Why:** AI mixes async paradigms freely.
 
 **Caught by:**
+
 - `@typescript-eslint/no-floating-promises: 'error'`
 - `@typescript-eslint/no-misused-promises: 'error'`
 
 ### 7. Forbidden runtime patterns
+
 **Pattern:**
+
 - `Date.now()`, `new Date()`, `performance.now()` directly in production code
 - `Math.random()` directly in production code
 - `Thread.sleep()` / `setTimeout` for synchronization in tests
@@ -103,39 +125,47 @@ expect(value !== undefined).toBe(true);           // always true for required fi
 **Why:** AI reaches for the simplest API it knows.
 
 **Caught by:**
+
 - `no-restricted-syntax` with custom selectors
 - ESLint `no-console`
 - AST meta-test for tests
 
 ### 8. Public API inflation
+
 **Pattern:** marking helper functions `export`, default exports, exposing internal types.
 
 **Why:** AI defaults to "make it accessible" without thinking about API surface.
 
 **Caught by:**
+
 - ESLint `import/no-default-export` (use named only)
 - API surface snapshot test (track public types/methods, fail on growth without explicit allow-list edit)
 
 ### 9. Re-introducing fixed bugs
+
 **Pattern:** AI touches old code, doesn't read regression tests carefully, reverts a previous fix.
 
 **Why:** AI optimizes for the change at hand, doesn't survey existing tests.
 
 **Caught by:**
+
 - Regression test density: each closed bug → permanent spec test with bug ID in name
 - Tests named `regression: <description> (#INC-1234)` are unmistakable
 
 ### 10. Tautological tests (positive without paired negative)
+
 **Pattern:** AI writes a test that asserts a condition the SUT cannot violate — `expect(x).toBeDefined()` on a non-null typed value, mocks asserted on without behavioral implications, identity comparisons that hold trivially.
 
 **Why:** AI optimizes for green output, not for fault detection. A test that cannot fail is decoration.
 
 **Caught by:**
+
 - Paired negative tests: every positive case has an explicit paired negative that proves the assertion fails on the bad input. If both pass, the assertion is mute about regressions.
 - Mutation testing on the SUT (Stryker / PIT) — surviving mutants reveal which positive tests don't actually constrain the code.
 - AST meta-test: assertion's compared value must transitively depend on a SUT call, not just literals/types.
 
 ### 10. React/Next-specific violations
+
 - `<div onClick>` instead of `<button>` → `jsx-a11y/no-static-element-interactions: 'error'`
 - `<a href="/internal">` instead of `<Link>` → `@next/next/no-html-link-for-pages: 'error'`
 - `<img>` instead of `<Image>` → `@next/next/no-img-element: 'error'`
@@ -145,12 +175,14 @@ expect(value !== undefined).toBe(true);           // always true for required fi
 - `{count && <X/>}` (renders "0" if count=0) → `react/jsx-no-leaked-render: 'error'`
 
 ### 11. Tautological tests in React
+
 - `expect(component).toBeInTheDocument()` after render with no other check
 - `expect(button).toBeEnabled()` for a static button
 - `fireEvent.click(...)` instead of `userEvent.click(...)` (different semantics)
 - `screen.getByTestId(...)` when `getByRole(...)` works (testIds become AI shortcuts)
 
 **Caught by:**
+
 - `eslint-plugin-testing-library` strict rules
 - `review-sidecar` two-AI review
 
@@ -158,18 +190,18 @@ expect(value !== undefined).toBe(true);           // always true for required fi
 
 ## Defense matrix: layer × AI violation
 
-| Violation | Layer 1 (Arch) | Layer 2 (Meta) | Layer 3 (Spec) | Layer 4 (Mutation) | Layer 5 (Docs) | AIF Sub-agent |
-|---|---|---|---|---|---|---|
-| `as any` | ESLint | — | — | — | — | best-practices |
-| Lodash import | ESLint | — | — | — | — | best-practices |
-| Tautological test | — | AST scan | — | **Stryker** | — | **review-sidecar** |
-| Layer violation | dep-cruiser | — | — | — | — | best-practices |
-| Floating promise | ESLint | — | — | — | — | best-practices |
-| Forbidden runtime | ESLint | — | — | — | — | best-practices |
-| Public API inflation | dep-cruiser | — | — | — | API snapshot | best-practices |
-| Bug reintroduced | — | — | regression test density | Stryker | test name discipline | review-sidecar |
-| React hooks deps | ESLint | — | — | — | — | best-practices |
-| `'use client'` mistake | ESLint + server-only pkg | — | — | — | — | review-sidecar |
+| Violation              | Layer 1 (Arch)           | Layer 2 (Meta) | Layer 3 (Spec)          | Layer 4 (Mutation) | Layer 5 (Docs)       | AIF Sub-agent      |
+| ---------------------- | ------------------------ | -------------- | ----------------------- | ------------------ | -------------------- | ------------------ |
+| `as any`               | ESLint                   | —              | —                       | —                  | —                    | best-practices     |
+| Lodash import          | ESLint                   | —              | —                       | —                  | —                    | best-practices     |
+| Tautological test      | —                        | AST scan       | —                       | **Stryker**        | —                    | **review-sidecar** |
+| Layer violation        | dep-cruiser              | —              | —                       | —                  | —                    | best-practices     |
+| Floating promise       | ESLint                   | —              | —                       | —                  | —                    | best-practices     |
+| Forbidden runtime      | ESLint                   | —              | —                       | —                  | —                    | best-practices     |
+| Public API inflation   | dep-cruiser              | —              | —                       | —                  | API snapshot         | best-practices     |
+| Bug reintroduced       | —                        | —              | regression test density | Stryker            | test name discipline | review-sidecar     |
+| React hooks deps       | ESLint                   | —              | —                       | —                  | —                    | best-practices     |
+| `'use client'` mistake | ESLint + server-only pkg | —              | —                       | —                  | —                    | review-sidecar     |
 
 ---
 
@@ -178,21 +210,26 @@ expect(value !== undefined).toBe(true);           // always true for required fi
 If only two things can be added to a project to harden it against AI-driven code:
 
 ### 1. Mutation testing (Layer 4) on PR diff
+
 This catches tautological tests, always-green assertions, and shallow coverage that the AI's implementation and tests share. Setup:
+
 - Stryker incremental mode
 - Threshold: 70% kill rate on changed lines
 - PR-blocking when below
 - Surfaced in PR comment
 
 ### 2. Two-AI review (AIF `review-sidecar`)
-A different AI in a different context reviews the tests *without* seeing how they were written. Catches the tautologies that look natural to the writer.
+
+A different AI in a different context reviews the tests _without_ seeing how they were written. Catches the tautologies that look natural to the writer.
 
 Configure in `.claude/agents/review-sidecar.md`:
+
 ```markdown
 You are reviewing as if you have NEVER seen this code.
 You did NOT write it. Be skeptical.
 
 Check for:
+
 - Tautological tests (assertions always true given types or testing implementation)
 - Mock-only tests (verifying mocks called without behavioral assertion)
 - Missing edge cases (boundary, null, error paths)
@@ -209,10 +246,11 @@ These two together raise the bar from "AI can fool the test suite" to "AI must s
 ## Higher coverage thresholds for AI-modified code
 
 ContextQA (2026 guidance) recommends:
+
 - Human-written code: 70-80% line coverage typical
 - AI-written code: 85-90% line coverage minimum
 
-The reason isn't that AI tests are *worse* per line — it's that AI tests are *shallower* per line, so more lines are needed for equivalent confidence. Stryker mutation kill rate is the better metric, but if you must use coverage, raise the threshold for AI-touched files.
+The reason isn't that AI tests are _worse_ per line — it's that AI tests are _shallower_ per line, so more lines are needed for equivalent confidence. Stryker mutation kill rate is the better metric, but if you must use coverage, raise the threshold for AI-touched files.
 
 ---
 
@@ -244,6 +282,7 @@ The mantra: **`CLAUDE.md` saves AI tokens by stating known-true facts; tests sav
 This project uses AI Factory for spec-driven development.
 
 Before any non-trivial change:
+
 1. Read `.ai-factory/DESCRIPTION.md` — what we're building.
 2. Read `.ai-factory/ARCHITECTURE.md` — layer rules and dependency direction.
 3. Read `.ai-factory/RULES.md` — code rules R1–R20 (enforced).
@@ -251,11 +290,13 @@ Before any non-trivial change:
 Before committing: run `npm run validate` — the pre-push hook + CI enforce the gate.
 
 If you use AI Factory (optional, not bundled):
+
 - `/aif-plan <task>` for new features.
 - `/aif-fix <error>` for bugs.
 - `/aif-verify` wraps the gate above (sub-agents over RULES.md).
 
 Stack constraints (enforced by lint/test/CI):
+
 - TypeScript strict + noUncheckedIndexedAccess.
 - All external inputs through Zod (HTTP body, env, queues, DB).
 - Domain layer imports stdlib + Zod only.
@@ -309,6 +350,7 @@ git show develop:.claude/skills/<name>/SKILL.md > .claude/skills/<name>/SKILL.md
 **Lesson:** **TODO never goes into JSON.** Use issue tracker, ADR, or markdown. JSON is for executable config, not memos.
 
 **Rule that came from it:** drift-detection grep step:
+
 ```bash
 grep -E '_comment|TODO|FIXME' .mcp.json .claude/settings.json && exit 1 || echo "OK"
 ```
@@ -342,12 +384,14 @@ Better pattern: skills are activated by their `description:` triggers in `.claud
 **Symptom:** two skills both have trigger keyword "tests". When user says "write tests", AI loads both, contexts collide, nothing works well.
 
 **Lesson:** **trigger keywords are a name space** — manage them like usernames. Periodic audit:
+
 ```bash
 for f in .claude/skills/*/SKILL.md; do
   name=$(basename $(dirname "$f"))
   grep "^triggers:" "$f" | sed "s/triggers: //; s/, /\n/g" | sed "s/^/$name: /"
 done | sort -k2 -t: | awk -F': ' '{print $2 "\t" $1}' | sort | uniq -c -f0 | awk '$1>1'
 ```
+
 Conflicting trigger → designate one skill as owner, remove from others, replace with more specific keyword.
 
 ### 8. Rules without measurable check decay

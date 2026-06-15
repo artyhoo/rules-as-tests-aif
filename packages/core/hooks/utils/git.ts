@@ -102,8 +102,16 @@ export function getCommits(upstreamRef: string): string[] {
 }
 
 /** Changed files in the push range (aif-handoff scoping, §4.8.X.3). */
-export function getChangedFiles(upstreamRef: string, diffFilter = 'ACMR'): string[] {
-  return gitOut(['diff', '--name-only', `${upstreamRef}..HEAD`, `--diff-filter=${diffFilter}`])
+export function getChangedFiles(
+  upstreamRef: string,
+  diffFilter = 'ACMR',
+): string[] {
+  return gitOut([
+    'diff',
+    '--name-only',
+    `${upstreamRef}..HEAD`,
+    `--diff-filter=${diffFilter}`,
+  ])
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean);
@@ -126,7 +134,9 @@ function parseNameStatus(out: string): { status: string; path: string }[] {
 export const realGit: GitProvider = {
   packageJsonDiff: (sha) => gitOut(['show', sha, '--', 'package.json']),
   changedFiles: (sha) =>
-    parseNameStatus(gitOut(['diff-tree', '--no-commit-id', '--name-status', '-r', sha])),
+    parseNameStatus(
+      gitOut(['diff-tree', '--no-commit-id', '--name-status', '-r', sha]),
+    ),
   fileContent: (sha, path) => {
     const r = runCheck('git', ['show', `${sha}:${path}`]);
     return r.exitCode === 0 ? r.stdout : null;
@@ -134,11 +144,20 @@ export const realGit: GitProvider = {
   subdirExistedAtParent: (sha, subdir) => {
     const parent = `${sha}^`;
     if (!upstreamExists(parent)) return false;
-    const out = gitOut(['ls-tree', '-r', '--name-only', parent, '--', `packages/core/${subdir}/`]);
+    const out = gitOut([
+      'ls-tree',
+      '-r',
+      '--name-only',
+      parent,
+      '--',
+      `packages/core/${subdir}/`,
+    ]);
     return out.trim().length > 0;
   },
   commitBody: (sha) => gitOut(['show', '-s', '--format=%B', sha]),
-  authorDate: (sha) => gitOut(['show', '-s', '--format=%ai', sha]).trim().split(' ')[0] ?? '',
-  commitSubject: (sha) => gitOut(['show', '-s', '--format=%s', sha]).replace(/\n$/, ''),
+  authorDate: (sha) =>
+    gitOut(['show', '-s', '--format=%ai', sha]).trim().split(' ')[0] ?? '',
+  commitSubject: (sha) =>
+    gitOut(['show', '-s', '--format=%s', sha]).replace(/\n$/, ''),
   diffForPaths: (sha, paths) => gitOut(['show', sha, '--', ...paths]),
 };

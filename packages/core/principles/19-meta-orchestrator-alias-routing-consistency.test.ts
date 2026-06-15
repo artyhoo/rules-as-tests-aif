@@ -81,16 +81,22 @@ describe('Principle 19 — meta-orchestrator §2.5 ALIAS-mapping ↔ §5-routing
   it('§2.5 contains the ALIAS mapping table header row', () => {
     const content = readFileSync(SKILL, 'utf8');
     const section = extractSection25(content);
-    expect(section).toContain('| ALIAS | DISPATCH (internal) | Fires when ');
+    // Whitespace-tolerant: Prettier re-aligns markdown table columns (pads cells to the widest in
+    // each column), so assert on the content with intra-line whitespace runs collapsed — column
+    // padding is cosmetic and not part of the invariant (GH #531 Prettier adoption).
+    const flat = section.replace(/[^\S\n]+/g, ' ');
+    expect(flat).toContain('| ALIAS | DISPATCH (internal) | Fires when ');
   });
 
   it('§2.5 mapping table contains all 6 aliases as bare tokens in table rows', () => {
     const content = readFileSync(SKILL, 'utf8');
     const section = extractSection25(content);
+    // Whitespace-tolerant (see header test): Prettier pads `| DIRECT   |` etc. to column width.
+    const flat = section.replace(/[^\S\n]+/g, ' ');
     const missing: string[] = [];
     for (const alias of ALIASES) {
       // Check for bare token in a table row: "| ALIAS |"
-      if (!section.includes(`| ${alias} |`)) {
+      if (!flat.includes(`| ${alias} |`)) {
         missing.push(alias);
       }
     }

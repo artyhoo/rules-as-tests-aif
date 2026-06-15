@@ -44,16 +44,16 @@ aif-version: 2.1.0
 
 ## Accepted
 
-| Tool | Type | Accepted | Rationale |
-|---|---|---|---|
-| context7 | MCP | auto | setup.sh baseline — recursive bootstrap stage 1 |
-| github-mcp | MCP | 2026-05-11 | GitHub Issues + PRs in active use by workflow |
+| Tool       | Type | Accepted   | Rationale                                       |
+| ---------- | ---- | ---------- | ----------------------------------------------- |
+| context7   | MCP  | auto       | setup.sh baseline — recursive bootstrap stage 1 |
+| github-mcp | MCP  | 2026-05-11 | GitHub Issues + PRs in active use by workflow   |
 
 ## Rejected
 
-| Tool | Type | Rejected | Reason | Re-eval trigger |
-|---|---|---|---|---|
-| postgres-mcp | MCP | 2026-05-11 | Project uses SQLite, not Postgres | Stack migrates to Postgres |
+| Tool         | Type | Rejected   | Reason                            | Re-eval trigger            |
+| ------------ | ---- | ---------- | --------------------------------- | -------------------------- |
+| postgres-mcp | MCP  | 2026-05-11 | Project uses SQLite, not Postgres | Stack migrates to Postgres |
 
 ## Pending review
 
