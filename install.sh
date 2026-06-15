@@ -204,6 +204,82 @@ copy_safe() {
   echo "  ✓ $dst"
 }
 
+# GH #531 (reopen): non-destructive .prettierignore merge. copy_safe skips-if-exists, so a
+# BROWNFIELD consumer with a pre-existing .prettierignore never received the AIF exclusions →
+# generated .ai-factory/RULES.md (+ RULES.react-next.md, .claude/settings.json, the eslint-rules-
+# local barrel) stayed un-ignored → `prettier --check .` re-broke on the non-format-stable table.
+# Behaviour:
+#   - no consumer file        → copy the shipped file byte-identical (greenfield path unchanged).
+#   - consumer file exists     → append a marker-delimited block of AIF entries the consumer does
+#                                NOT already have (dedup), wrapped in begin/end markers.
+#   - block already present     → no-op (idempotent on re-install; begin-marker count stays 1).
+#   - --force                   → overwrite wholesale (same as copy_safe under --force).
+# Plain bash — NO yq, NO new dependency, NOT the yq-based _aif_yq_wire workflow-merge routine.
+PRETTIERIGNORE_BEGIN='# >>> rules-as-tests-aif (managed) >>>'
+PRETTIERIGNORE_END='# <<< rules-as-tests-aif (managed) <<<'
+merge_prettierignore() {
+  local src="$1"
+  local dst="$2"
+
+  # --force: behave like copy_safe (overwrite wholesale).
+  if [ "$FORCE" = "--force" ]; then
+    copy_safe "$src" "$dst"
+    return 0
+  fi
+
+  # No consumer file → greenfield: copy byte-identical (defer entirely to copy_safe).
+  if [ ! -e "$dst" ]; then
+    copy_safe "$src" "$dst"
+    return 0
+  fi
+
+  # Consumer file EXISTS → non-destructive merge.
+  # Idempotent: if the managed block is already present, do nothing.
+  if grep -qxF "$PRETTIERIGNORE_BEGIN" "$dst"; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip merge: $dst (AIF block already present)"
+    else
+      echo "  ⊝ $dst (AIF .prettierignore block already present — skipping merge)"
+    fi
+    return 0
+  fi
+
+  # Collect shipped entries not already present verbatim in the consumer file. Ignore blank lines
+  # and comments from the shipped source (only real ignore patterns get merged).
+  local missing=()
+  local line
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      '' | '#'*) continue ;;
+    esac
+    grep -qxF "$line" "$dst" || missing+=("$line")
+  done < "$src"
+
+  # Nothing to add (consumer already has every AIF pattern) → no-op.
+  if [ "${#missing[@]}" -eq 0 ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip merge: $dst (already has every AIF pattern)"
+    else
+      echo "  ⊝ $dst (already has every AIF .prettierignore pattern — nothing to merge)"
+    fi
+    return 0
+  fi
+
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would merge ${#missing[@]} AIF pattern(s) into: $dst"
+    return 0
+  fi
+
+  # Append the marker-delimited block. Ensure a trailing newline before the block.
+  [ -n "$(tail -c1 "$dst")" ] && printf '\n' >> "$dst"
+  {
+    printf '%s\n' "$PRETTIERIGNORE_BEGIN"
+    printf '%s\n' "${missing[@]}"
+    printf '%s\n' "$PRETTIERIGNORE_END"
+  } >> "$dst"
+  echo "  ✓ $dst (merged ${#missing[@]} AIF .prettierignore pattern(s))"
+}
+
 # Idempotent mkdir -p that respects --dry-run.
 mkdir_safe() {
   if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -517,7 +593,10 @@ if [ "$DRY_RUN" != "--dry-run" ] && { [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]
 fi
 # cih-s3 F15: keep prettier off the generated RULES.md table region (rendered SSOT, not
 # format-stable) so a `*.md → prettier --write` lint-staged step can't reflow it.
-copy_safe "$PKG_ROOT/packages/core/templates/shared/.prettierignore" "$PROJECT_ROOT/.prettierignore"
+# GH #531 (reopen): merge (not skip-if-exists) so a BROWNFIELD consumer with its own
+# .prettierignore still gets the AIF exclusions — otherwise the generated RULES.md re-breaks
+# `prettier --check .`. Greenfield path stays byte-identical (delegates to copy_safe).
+merge_prettierignore "$PKG_ROOT/packages/core/templates/shared/.prettierignore" "$PROJECT_ROOT/.prettierignore"
 # GH #531: ship the Prettier config so the consumer's `format:check` (prettier --check .) uses the
 # same style the shipped artefacts are formatted in (singleQuote — the framework's existing TS/JS
 # style). Without it, prettier defaults (double-quote) would flag every shipped .ts/.mjs/.cjs.
@@ -924,7 +1003,7 @@ fi
 # (so "what we install" and "what we tell you to install" can't drift — #two-prompts-drift).
 CORE_DEVDEPS=(
   eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils globals
-  prettier eslint-config-prettier @vitest/eslint-plugin
+  prettier@3.8.3 eslint-config-prettier @vitest/eslint-plugin
   vitest@^4.1.5 @vitest/coverage-v8@^4.1.5
   @stryker-mutator/core @stryker-mutator/vitest-runner @stryker-mutator/typescript-checker
   dependency-cruiser fast-check glob tsx

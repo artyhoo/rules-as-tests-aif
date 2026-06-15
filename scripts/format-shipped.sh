@@ -55,8 +55,8 @@ FLAG="--check"
 [ "$MODE" = "--write" ] && FLAG="--write"
 
 rc=0
-[ "${#FILES[@]}" -gt 0 ]     && { npx --yes prettier "$FLAG" "${FILES[@]}"     || rc=$?; }
-[ "${#TEMPLATES[@]}" -gt 0 ] && { npx --yes prettier "$FLAG" --parser markdown "${TEMPLATES[@]}" || rc=$?; }
+[ "${#FILES[@]}" -gt 0 ]     && { npx --yes prettier@3.8.3 "$FLAG" "${FILES[@]}"     || rc=$?; }
+[ "${#TEMPLATES[@]}" -gt 0 ] && { npx --yes prettier@3.8.3 "$FLAG" --parser markdown "${TEMPLATES[@]}" || rc=$?; }
 
 if [ "$rc" -ne 0 ] && [ "$MODE" = "--check" ]; then
   echo "" >&2
