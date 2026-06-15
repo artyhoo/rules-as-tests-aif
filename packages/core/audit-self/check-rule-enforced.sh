@@ -26,7 +26,7 @@
 set -uo pipefail
 
 CFG="${ESLINT_CONFIG:-eslint.config.mjs}"
-RULE="rules-as-tests/no-unsafe-zod-parse"
+RULE="${AIF_ENFORCED_RULE:-rules-as-tests/no-unsafe-zod-parse}"
 [ -f "$CFG" ] || { echo "check-rule-enforced: $CFG not found (run from the project root)" >&2; exit 2; }
 
 PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git )
@@ -35,7 +35,8 @@ PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp
 # a PATH eslint, then `npx --no-install` (never triggers a network fetch). Absent → SKIP.
 ESLINT="${AIF_ESLINT_CMD:-}"
 if [ -z "$ESLINT" ]; then
-  if [ -x "node_modules/.bin/eslint" ]; then ESLINT="node_modules/.bin/eslint"
+  # Absolute path so it still resolves after we `cd` into a package dir (GH #535 fix below).
+  if [ -x "node_modules/.bin/eslint" ]; then ESLINT="$(pwd)/node_modules/.bin/eslint"
   elif command -v eslint >/dev/null 2>&1; then ESLINT="eslint"
   elif command -v npx >/dev/null 2>&1 && npx --no-install eslint --version >/dev/null 2>&1; then ESLINT="npx --no-install eslint"
   fi
@@ -97,15 +98,39 @@ fi
 FAIL=0; CHECKED=0
 echo "▶ check-rule-enforced: verifying R2 ($RULE) is actually APPLIED to boundary files (via eslint --print-config)"
 
-verify_file() { # $1=file ; $2=scope label
-  local file="$1" label="$2" out
+# The config that GOVERNS a file = the NEAREST eslint.config.* at or above the file's dir. Run
+# --print-config FROM that dir. GH #535 (reopen): the previous version ran from the repo root, but
+# ESLint v9 resolves flat config by CWD — from root it always loaded the ROOT config (which wires R2
+# on **/routes/**), so a shadowed package whose own config does NOT wire R2 still reported "applied"
+# (false-green) while `turbo run lint` (which runs `eslint .` from each package dir) genuinely left
+# R2 inert. Resolving from the governing dir matches turbo on v9 AND v10 (v10 resolves per-file, so
+# cwd=package + file-under-package → same package config).
+governing_dir() { # $1=file → nearest ancestor dir (incl the file's own dir) with an eslint.config.*, else "."
+  local d
+  d=$(dirname "$1")
+  while [ -n "$d" ]; do
+    for c in eslint.config.js eslint.config.mjs eslint.config.cjs eslint.config.ts; do
+      [ -f "$d/$c" ] && { printf '%s\n' "$d"; return 0; }
+    done
+    [ "$d" = "." ] && break
+    d=$(dirname "$d")
+  done
+  printf '.\n'
+}
+
+verify_file() { # $1=file
+  local file="$1" gd rel label out
+  gd=$(governing_dir "$file")
+  if [ "$gd" = "." ]; then rel="$file"; label="root config"; else rel="${file#"$gd"/}"; label="${gd#./}"; fi
   CHECKED=$((CHECKED + 1))
-  out=$($ESLINT --print-config "$file" 2>/dev/null)
+  # Run from the governing dir — the same cwd `turbo run lint` uses for this package, so the resolved
+  # config is what ACTUALLY lints the file (not the root config a root-cwd run would wrongly pick).
+  out=$( cd "$gd" && $ESLINT --print-config "$rel" 2>/dev/null )
   if printf '%s' "$out" | grep -q "$RULE"; then
     echo "  ✓ $label: R2 applied to ${file#./}"
   else
-    echo "  ✗ $label: R2 ($RULE) is NOT in the resolved ESLint config for ${file#./} — the rule is SILENTLY INERT here." >&2
-    echo "     Wire 'rules-as-tests/no-unsafe-zod-parse' into the eslint config governing $label (or re-export the root config that wires it)." >&2
+    echo "  ✗ $label: R2 ($RULE) is NOT in the resolved ESLint config for ${file#./} — SILENTLY INERT here (verified from the package's own cwd, as \`turbo run lint\` resolves it)." >&2
+    echo "     Wire '$RULE' into the eslint config governing $label (or re-export the root config that wires it)." >&2
     FAIL=1
   fi
 }
@@ -119,13 +144,13 @@ done < <(
     find . \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -path "*/$t/*" -print 2>/dev/null
   done
 )
-[ -n "$root_bf" ] && verify_file "$root_bf" "root config"
+[ -n "$root_bf" ] && verify_file "$root_bf"
 
 # Each shadowed package that OWNS boundary files — governed by its own config, not the root one.
 if [ "${#shadows[@]}" -gt 0 ]; then
   for s in "${shadows[@]}"; do
     bf=$(find_boundary_in "$s") || continue
-    verify_file "$bf" "${s#./}"
+    verify_file "$bf"
   done
 fi
 
