@@ -54,6 +54,12 @@ NOTE: the 5 agent files (`compliance-verifier`, `living-docs-auditor`, `memory-c
 Active traps: **T3** (every fix backed by command/file:line, no prose-only), **T15** (self-application — the fix's own validity is test-run), **T19** (own cold-QA of the diff before handoff; CI ≠ design review).
 Domain-specific: **T-551-A** — «fixing the frontmatter `tools:` but leaving the broken names in the prose body» (looks fixed, stays inconsistent). Counter: grep bodies for `read_file|list_files|run_command` after the frontmatter edit.
 
+## §4c aif agent — fork discipline (non-negotiable; added for autonomous dispatch 2026-06-16)
+
+> **aif agent — fork discipline:** On ANY genuine fork or ambiguity (two defensible implementations, an undecided design choice, a missing spec detail that changes behaviour) — **do NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the unambiguous parts.
+
+This fix is mostly pre-decided (GO verdict + exact 3-step plan above), so genuine forks should be rare. The one explicit instruction that is NOT a fork: the throwaway-worktree draft is **untrusted** — reproduce from clean `staging` and verify; do not guess that the draft was correct. Note: do NOT open the PR yourself (egress = host `harvest.ts`); just implement + pass the Acceptance gate.
+
 ## References
 - GH #551, #552, #550. SSOT #115 ([prior-art-evaluations.md:188](../../../docs/meta-factory/prior-art-evaluations.md)).
 - AIF subagents: `/opt/homebrew/lib/node_modules/ai-factory/subagents/*.md`.
