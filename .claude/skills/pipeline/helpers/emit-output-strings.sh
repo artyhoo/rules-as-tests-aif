@@ -20,3 +20,8 @@ for k in AIF_PIPELINE_COL_PASTE AIF_PIPELINE_COL_WHEN AIF_PIPELINE_COL_WAITING \
          AIF_RECAP_MARKER; do
   printf '%s=%s\n' "$k" "${!k}"
 done
+
+# Active human-facing language (basename of the actually-sourced pack — reflects the EN
+# fallback when the requested pack is missing). The SKILL reads this to write report PROSE,
+# not only the localized table tokens above.
+printf 'AIF_OUTPUT_LANG=%s\n' "$(basename "$_lang_file" .sh)"
