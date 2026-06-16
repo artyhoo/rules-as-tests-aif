@@ -32,4 +32,14 @@ describe('emit-output-strings.sh', () => {
     expect(out).toMatch(/AIF_PIPELINE_COL_WHEN=When/);
     expect(out.trim().length).toBeGreaterThan(0);
   });
+
+  it('default emits the English output-language directive', () => {
+    const out = run(undefined);
+    expect(out).toMatch(/AIF_PIPELINE_OUTPUT_DIRECTIVE=Write the entire report in English\./);
+  });
+
+  it('AIF_HOOK_LANG=ru emits the Russian output-language directive', () => {
+    const out = run('ru');
+    expect(out).toMatch(/AIF_PIPELINE_OUTPUT_DIRECTIVE=Сформируй весь отчёт на русском языке\./);
+  });
 });
