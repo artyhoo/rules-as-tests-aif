@@ -4,6 +4,8 @@
 > **NOT authoritative for:** current issue status (GitHub tracker is SSOT) — project goal — see [README.md#why-this-exists](../../README.md#why-this-exists).
 >
 > **Status note (added 2026-06-16 on preservation from a worktree-archive):** most findings were since filed as issues — mapped: F3→#507/#534/#535, F4→#533, F5→**#549 (OPEN)**, F11→#509, F12→#521, F13→#531, F1/F2→#532/#483 (CLOSED unless noted). No dedicated issue located for ≈F6 (audit-r4 probe not copied), F7 (R7/R8 active without infra), F8 (AGENTS living-docs drift), F10 (base-ref `origin/staging`) — verify before re-filing. This file is the durable record; the live items live in the tracker.
+>
+> **Tail-verify update (2026-06-16, re-verified against `origin/staging` @ `4aa836d`):** the 4 unmapped findings resolved — **F6 FIXED-SILENTLY** (`install.sh:599` now copies `audit-r4.ts`→`scripts/`; probe wired into `validate`/CI/pre-push), **F7 FIXED-SILENTLY** (R7/R8 gated behind `AIF_STRICT_RUNTIME=1` at `eslint.config.mjs:46,160` + defer-guide `AGENTS.md.template:53`), **F8 FIXED-SILENTLY** (promised scripts/configs now all shipped `install.sh:780,1083-1084`; storybook/playwright honestly caveated `AGENTS.md.template:122`). **F10 → filed #568** (still reproduces: `pre-push.fallback.sh:48` hardcodes default base-ref `origin/staging`, no-ops on default-`main` consumers without git stdin). Net new: 1 (F10).
 
 > **Что это.** Backlog дефектов фреймворка `rules-as-tests-aif`, найденных при попытке
 > реально поднять «щиты» в проекте-консьюмере **timeliner** (Hono + Expo 56 + Drizzle,
