@@ -12,3 +12,18 @@ Recommendation discipline (H1): before issuing a verdict/recommendation (ADOPT/B
 Full bootstrap + reviewer drift-prevention flowchart: .claude/session-bootstrap.md
 [/session-bootstrap digest]
 DIGEST
+
+# B1 (language-discipline): when the operator pins a non-English human-facing language,
+# tell the model — every turn, all skills. Precisely scoped so repo artifacts stay English.
+# See .claude/rules/language-discipline.md §2.
+case "${AIF_HOOK_LANG:-en}" in
+  en|'') : ;;  # English default — nothing to inject
+  ru)
+    cat <<'LANGRU'
+[output-language] Address the operator in Russian — chat explanations, recaps, narration, questions. Keep ALL repo artifacts and machinery in English: code, comments, commit/PR/issue bodies, kickoffs, specs, tool arguments, file contents. (AIF_HOOK_LANG=ru)
+LANGRU
+    ;;
+  *)
+    printf '[output-language] Address the operator in language "%s"; keep repo artifacts and machinery in English. (AIF_HOOK_LANG=%s)\n' "$AIF_HOOK_LANG" "$AIF_HOOK_LANG"
+    ;;
+esac
