@@ -39,6 +39,13 @@ const SCRIPT = resolve(
   REPO_ROOT_REAL,
   '.claude/skills/pipeline/helpers/priority-score.sh',
 );
+// Stage-4 split (2026-06-03): synthetic-candidate emission moved out of
+// priority-score.sh into this sibling, which priority-score.sh invokes at runtime.
+// The `source=<surface>` labels now live here, not in SCRIPT.
+const SYNTH = resolve(
+  REPO_ROOT_REAL,
+  '.claude/skills/pipeline/helpers/priority-score-synthetic.sh',
+);
 
 // ── Fixture state shared across each test ────────────────────────────────────
 
@@ -502,18 +509,24 @@ describe('priority-score.sh — T15 self-application documentation', () => {
       //
       // The script IS present at SCRIPT path — verify it exists and is executable.
       expect(existsSync(SCRIPT)).toBe(true);
-      // The script must contain the synthetic extension (not kickoff-only)
+      expect(existsSync(SYNTH)).toBe(true);
+      // priority-score.sh must wire in the synthetic extension (not kickoff-only).
+      // Stage-4 split (2026-06-03) moved the synthetic emission to SYNTH, which
+      // SCRIPT invokes at runtime — assert the wiring + SCRIPT-owned seams here.
       const src = readFileSync(SCRIPT, 'utf8');
-      expect(src).toContain('source=cold-review-fixes');
-      expect(src).toContain('source=state.md');
-      expect(src).toContain('source=memory');
-      expect(src).toContain('source=open-pr');
-      expect(src).toContain('source=wave-plan');
-      expect(src).toContain('source=open-questions');
-      expect(src).toContain('source=code-todo');
-      expect(src).toContain('source=research-patch-residual');
+      expect(src).toContain('priority-score-synthetic.sh');
       expect(src).toContain('MO_GH_BIN');
       expect(src).toContain('@cc-only-rationale');
+      // The 8 synthetic `source=<surface>` labels now live in SYNTH.
+      const synthSrc = readFileSync(SYNTH, 'utf8');
+      expect(synthSrc).toContain('source=cold-review-fixes');
+      expect(synthSrc).toContain('source=state.md');
+      expect(synthSrc).toContain('source=memory');
+      expect(synthSrc).toContain('source=open-pr');
+      expect(synthSrc).toContain('source=wave-plan');
+      expect(synthSrc).toContain('source=open-questions');
+      expect(synthSrc).toContain('source=code-todo');
+      expect(synthSrc).toContain('source=research-patch-residual');
     },
   );
 });
