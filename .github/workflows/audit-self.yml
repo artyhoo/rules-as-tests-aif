@@ -276,6 +276,16 @@ jobs:
         run: bash tests/install-sh/r2-glob-reach.test.sh
       - name: Run install-sh --wire-ci opt-in yq auto-wirer test (universalization-fix-s3 Stage P, GH #521)
         run: bash tests/install-sh/s3-wire-ci.test.sh
+      - name: Run install-sh arch-boundaries shipped-config test (GH #534 — was present-but-unwired)
+        run: bash tests/install-sh/gh-534-arch-boundaries.test.sh
+      - name: Run install-sh rule-enforced print-config test (GH #535 — was present-but-unwired)
+        run: bash tests/install-sh/gh-535-rule-enforced.test.sh
+      - name: Run install-sh C1 skill-context wiring test (was present-but-unwired)
+        run: bash tests/install-sh/c1-wiring.test.sh
+      - name: Run install-sh ship-orchestration-skills test (#500 — was present-but-unwired)
+        run: bash tests/install-sh/ship-orchestration-skills.test.sh
+      - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
+        run: bash tests/install-sh/meta-all-wired.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type
