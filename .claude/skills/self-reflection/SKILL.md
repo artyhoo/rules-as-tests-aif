@@ -81,10 +81,10 @@ Full enumeration: [references/backward-checklist.md](references/backward-checkli
 
 Five prompts from [`phase-research-coverage.md §2`](../../rules/phase-research-coverage.md) — apply at retro for any discipline-introducing recommendation:
 
-1. **Когда ошибся — почему?** — moment + cognitive shortcut.
-2. **Мог ли пропускать раньше?** — calibration: one-off vs systemic.
-3. **Как не пропускать?** — map to §1.1-§1.7 or propose new item.
-4. **Какой урок?** — operationalisable form, not «be more careful».
+1. **When you erred — why?** — moment + cognitive shortcut.
+2. **Could you have caught it earlier?** — calibration: one-off vs systemic.
+3. **How to not skip it?** — map to §1.1-§1.7 or propose new item.
+4. **What is the lesson?** — operationalisable form, not "be more careful".
 5. **Did the principle apply to its own design choices?** — recursive-self-application audit.
 
 ## Anti-patterns
@@ -105,7 +105,7 @@ Examples with case studies (PR #16, defer-until-pain, L3 research): [references/
 | Layer | Surface | Mechanism | Status |
 |---|---|---|---|
 | 1 — Rule prose | [`.claude/rules/phase-research-coverage.md §1.7`](../../rules/phase-research-coverage.md) | Documents the forward+backward check requirement; defines scope and output contract | **Active** |
-| 2 — Skill auto-trigger | This SKILL.md (frontmatter `description`) | Claude Code auto-loads skill on keywords `правило`, `principle`, `discipline`, etc.; operationalises the forward+backward check protocol | **Active** |
+| 2 — Skill auto-trigger | This SKILL.md (frontmatter `description`) | Claude Code auto-loads skill on keywords like `principle`, `discipline`, and their Russian equivalents (frontmatter triggers), etc.; operationalises the forward+backward check protocol | **Active** |
 | 3 — CI workflow | [`.github/workflows/discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml) | PR-description gate: checks that PRs introducing discipline-bearing artefacts include `### §1.7 Forward-check applied` + `### §1.7 Backward-check applied` sections (≥40 non-whitespace chars each), or a `### §1.7 Skipped: <reason ≥60 chars>` marker | **Active** |
 | 4 — Pre-push hook | [`.husky/pre-push` section 9](../../../.husky/pre-push) | Push-time trailer check: commits that add a `## §` heading to rule/principles/skills files must carry `§1.7:` trailer (C4 scope predicate + D1 warn-only calibration window through 2026-06-10) | **Active** (shipped Wave 7 7.6.c) |
 | 5 — CI substance arm | [`.github/workflows/discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml) `verify-pr-body-sections` + `sanity-stub-fails-substance` + `sanity-stub-backward-passes-with-citation` jobs | **Both** Forward-check **and** Backward-check sections must each contain ≥1 file:line citation (regex `[^[:space:]]+\.[a-z]+:[0-9]+`); paired sanity jobs assert the Incident-1 stub fails the regex and a cited Backward-check passes | **Active** (Forward shipped Wave 8.1; Backward-check parity arm added later) |
