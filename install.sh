@@ -547,6 +547,10 @@ done
 # ─── 3. AI Factory templates ────────────────────────────
 echo "▶ AI Factory templates → .ai-factory/"
 mkdir_safe "$PROJECT_ROOT/.ai-factory/rules"
+# Consumer backlog home for /pipeline (kickoffs + plan + scratch). Agnostic namespace so the
+# backlog is portable across harnesses (.claude/ is Claude-Code-specific). Empty until the
+# consumer writes their first kickoff; /pipeline treats empty as "nothing queued", not an error.
+mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.template.md"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md"
 copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.md" "$PROJECT_ROOT/.ai-factory/RULES.md"

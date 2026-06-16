@@ -19,11 +19,11 @@ set -euo pipefail
 # REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh
 # (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
-PROMPTS_DIR="${PROMPTS_DIR:-${REPO_ROOT}/.claude/orchestrator-prompts}"
+PROMPTS_DIR="${PROMPTS_DIR:-$(resolve_orch_home)}"
 MO_GH_BIN="${MO_GH_BIN:-gh}"
 _repo_slug="${REPO_ROOT//\//-}"
 MO_MEM_DIR="${MO_MEM_DIR:-${HOME}/.claude/projects/${_repo_slug}/memory}"
-MO_WAVE_PLAN="${MO_WAVE_PLAN:-${REPO_ROOT}/docs/meta-factory/wave-sequencing-plan.md}"
+MO_WAVE_PLAN="$(resolve_plan_path)"
 MO_OPEN_QUESTIONS="${MO_OPEN_QUESTIONS:-${REPO_ROOT}/docs/meta-factory/open-questions.md}"
 MO_PACKAGES_DIR="${MO_PACKAGES_DIR:-${REPO_ROOT}/packages}"
 MO_PATCHES_DIR="${MO_PATCHES_DIR:-${REPO_ROOT}/docs/meta-factory/research-patches}"

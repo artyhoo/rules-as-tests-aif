@@ -290,6 +290,8 @@ jobs:
         run: bash tests/install-sh/r2-na-marker.test.sh
       - name: install-sh — r2-auto-wire (GH #547 C2/C3 fixtures + self-probe)
         run: bash tests/install-sh/r2-auto-wire.test.sh
+      - name: install-sh — consumer-pipeline (GH #482 consumer-usable /pipeline acceptance + T15 dogfood)
+        run: bash tests/install-sh/consumer-pipeline.test.sh
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
 

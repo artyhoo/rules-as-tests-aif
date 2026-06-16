@@ -517,3 +517,20 @@ describe('priority-score.sh — T15 self-application documentation', () => {
     },
   );
 });
+
+// ── CONSUMER-USABLE /pipeline: agnostic .ai-factory discovery (2026-06-16) ────
+
+describe('priority-score.sh — agnostic orch-home discovery (consumer)', () => {
+  it('discovers a kickoff under .ai-factory/orchestrator-prompts when .claude/ is absent (consumer)', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'consumer-disc-'));
+    createdDirs.push(repo);
+    const k = join(repo, '.ai-factory/orchestrator-prompts/demo');
+    mkdirSync(k, { recursive: true });
+    writeFileSync(join(k, 'kickoff.md'), 'Type: fix\n\n## §1 Sub-wave\n| A | do x |\n');
+    const out = execFileSync('bash', [SCRIPT], {
+      env: { ...process.env, REPO_ROOT: repo, GIT_DIR: '' },
+      encoding: 'utf8',
+    });
+    expect(out).toContain('demo');
+  });
+});

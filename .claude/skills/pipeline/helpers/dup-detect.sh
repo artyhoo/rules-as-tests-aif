@@ -31,7 +31,7 @@ set -uo pipefail
 # REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh
 # (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
-PROMPTS_DIR="${REPO_ROOT}/.claude/orchestrator-prompts"
+PROMPTS_DIR="$(resolve_orch_home)"
 MO_GH_BIN="${MO_GH_BIN:-gh}"
 MO_PR_WINDOW_DAYS="${MO_PR_WINDOW_DAYS:-30}"
 MO_JACCARD_THRESHOLD="${MO_JACCARD_THRESHOLD:-30}"

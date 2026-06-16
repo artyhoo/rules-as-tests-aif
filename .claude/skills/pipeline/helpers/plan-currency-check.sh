@@ -34,7 +34,7 @@ if [[ -n "$UMBRELLA" ]]; then
   _SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
   source "${_SCRIPT_DIR}/lib/common.sh"
   echo "--- kickoff existence check ---"
-  KICKOFF_PATH="${REPO_ROOT}/.claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"
+  KICKOFF_PATH="$(resolve_orch_home)/${UMBRELLA}/kickoff.md"
   if [[ -f "$KICKOFF_PATH" ]]; then
     echo "kickoff: EXISTS at .claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"
   else
@@ -50,13 +50,13 @@ fi
 # (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 MO_GH_BIN="${MO_GH_BIN:-gh}"
-MO_WAVE_PLAN="${MO_WAVE_PLAN:-${REPO_ROOT}/docs/meta-factory/wave-sequencing-plan.md}"
+MO_WAVE_PLAN="$(resolve_plan_path)"
 
 # ── No-arg digest mode (pipeline-ux Stage 1A) ────────────────────────────────
 # Full corpus is written to side-file; compact digest + UNTRACKED lines go to stdout.
 # UNTRACKED lines preserved on stdout for backward-compat (existing tests grep stdout).
 # Side-file path: .claude/orchestrator-prompts/_plan-currency-raw.txt (gitignored).
-_PROMPTS_DIR_BASE="${REPO_ROOT}/.claude/orchestrator-prompts"
+_PROMPTS_DIR_BASE="$(resolve_orch_home)"
 _RAW_FILE="${_PROMPTS_DIR_BASE}/_plan-currency-raw.txt"
 mkdir -p "${_PROMPTS_DIR_BASE}"
 
@@ -153,7 +153,7 @@ mkdir -p "${_PROMPTS_DIR_BASE}"
     fi
 
     # (b) Kickoff.md files whose umbrella name is absent from wave-sequencing-plan.md
-    PROMPTS_DIR="${REPO_ROOT}/.claude/orchestrator-prompts"
+    PROMPTS_DIR="$(resolve_orch_home)"
     if [[ -d "${PROMPTS_DIR}" ]]; then
       find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'kickoff.md' 2>/dev/null \
         | while read -r kickoff_path; do

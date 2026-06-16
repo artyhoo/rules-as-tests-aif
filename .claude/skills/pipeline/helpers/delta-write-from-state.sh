@@ -59,7 +59,7 @@ RESOLVED_JSON="$3"
 
 # REPO_ROOT + resolve_target() sourced from lib/common.sh (Stage 4 dedup, BASH_SOURCE-relative).
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
-DELTA_FILE="${MO_DELTA_FILE:-${REPO_ROOT}/.claude/orchestrator-prompts/_master-backlog-delta.json}"
+DELTA_FILE="${MO_DELTA_FILE:-$(resolve_orch_home)/_master-backlog-delta.json}"
 TIMESTAMP="${MO_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 
 # Missing delta file → exit 1 (sibling scope: update-delta.sh bootstraps fresh).

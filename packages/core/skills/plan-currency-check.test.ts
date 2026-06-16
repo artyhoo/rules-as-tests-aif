@@ -286,7 +286,10 @@ describe('plan-currency-check.sh — T15 self-application + structural verificat
     // lib/common.sh sourced at the top (Stage 4 dedup) rather than an inline assignment.
     expect(src).toContain('lib/common.sh');
     expect(src).toContain('MO_GH_BIN="${MO_GH_BIN:-');
-    expect(src).toContain('MO_WAVE_PLAN="${MO_WAVE_PLAN:-');
+    // MO_WAVE_PLAN is now routed through resolve_plan_path() (consumer-usable /pipeline,
+    // 2026-06-16) — the resolver itself honours the MO_WAVE_PLAN env seam, so the override
+    // semantics are preserved while the default falls back to the agnostic .ai-factory plan.
+    expect(src).toContain('MO_WAVE_PLAN="$(resolve_plan_path)"');
 
     // L2 reverse-currency markers
     expect(src).toContain('UNTRACKED-KICKOFF');

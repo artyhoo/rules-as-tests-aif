@@ -70,6 +70,24 @@ These are unconditional — they ship with the project and need no extra install
 - Skipping `./scripts/audit-ai-docs.sh` / the pre-push hook before PR.
 - Adding rules to AGENTS.md / RULES.md without a measurable check.
 
+## Orchestration — backlog & /pipeline
+
+> Where multi-step work is planned and prioritised. The `/pipeline` skill reads these.
+
+- **Kickoffs / handoffs** (one task-brief per work item) live at:
+  `.ai-factory/orchestrator-prompts/<work-item-name>/kickoff.md`
+- **Backlog plan** (priority registry across all work items) lives at:
+  `.ai-factory/orchestrator-prompts/plan.md` — `/pipeline` **creates it on first run** if absent.
+- **`/pipeline`** (Claude Code; manual workflow on other harnesses) reads the kickoffs + plan,
+  ranks them, and emits a launch-table telling you what to start next. An **empty** backlog
+  (no kickoffs yet) is normal — it reports "nothing queued", not an error.
+- **Kickoff format:** a markdown file beginning with a `Type:` line (`fix` / `research` /
+  `feature`), the goal, and — if the work splits into parallel sub-steps — a `## §1 Sub-wave`
+  section with one table row per sub-step. Without sub-steps, a plain task brief is fine.
+
+These paths are harness-agnostic (`.ai-factory/`, not `.claude/`) so the backlog is portable
+across Claude Code / Cursor / Codex / Aider.
+
 ## Skills available
 
 The following skills auto-activate on relevant queries:
