@@ -280,6 +280,56 @@ merge_prettierignore() {
   echo "  ✓ $dst (merged ${#missing[@]} AIF .prettierignore pattern(s))"
 }
 
+# GH #531 (reopen, config-mismatch): conditionally ignore the framework CONFIG files install
+# actually SHIPPED. Unlike the SOURCE patterns in the static .prettierignore template (framework-
+# namespace files a consumer never owns: eslint-rules-local/, packages/core/hooks/, scripts/audit-
+# r4.ts), these configs ship at a consumer-ownable path and MIGHT be consumer-authored — copy_safe
+# keeps the consumer's version when one already exists (and records it in SKIPPED). So we ignore a
+# config ONLY when it is NOT in SKIPPED (we shipped it fresh, formatted to OUR Prettier config —
+# printWidth 80 / singleQuote / no plugins — which a consumer's own .prettierrc would reject). A
+# consumer-authored config (copy_safe-skipped) stays format-checked: never silently hidden.
+PRETTIERIGNORE_CFG_BEGIN='# >>> rules-as-tests-aif shipped-configs (managed) >>>'
+PRETTIERIGNORE_CFG_END='# <<< rules-as-tests-aif shipped-configs (managed) <<<'
+
+_prettierignore_in_skipped() {
+  local needle="$1" s
+  # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${SKIPPED[@]}" with an
+  # empty SKIPPED throws "unbound variable" and aborts install. ${#SKIPPED[@]} (length) is safe.
+  [ "${#SKIPPED[@]}" -gt 0 ] || return 1
+  for s in "${SKIPPED[@]}"; do [ "$s" = "$needle" ] && return 0; done
+  return 1
+}
+
+ignore_shipped_configs() {
+  local ign="$PROJECT_ROOT/.prettierignore"
+  [ -e "$ign" ] || return 0   # no consumer .prettierignore at all → nothing to extend
+  # Framework configs that ship at a consumer-ownable path. Each is ignored ONLY if shipped fresh.
+  local candidates=(
+    "eslint.config.mjs" "vitest.config.ts" "tsconfig.json" "playwright.config.ts"
+    ".dependency-cruiser.cjs" "stryker.config.json" ".lintstagedrc.json"
+    ".github/workflows/ci.yml" ".github/workflows/workflow-integrity.yml"
+  )
+  local fresh=() rel
+  for rel in "${candidates[@]}"; do
+    [ -e "$PROJECT_ROOT/$rel" ] || continue                       # not shipped for this stack/preset
+    _prettierignore_in_skipped "$PROJECT_ROOT/$rel" && continue   # consumer owned it → keep checking
+    grep -qxF "$rel" "$ign" && continue                           # already ignored (idempotent re-install)
+    fresh+=("$rel")
+  done
+  [ "${#fresh[@]}" -eq 0 ] && return 0
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would ignore ${#fresh[@]} freshly-shipped framework config(s) in $ign"
+    return 0
+  fi
+  [ -n "$(tail -c1 "$ign")" ] && printf '\n' >> "$ign"
+  {
+    printf '%s\n' "$PRETTIERIGNORE_CFG_BEGIN"
+    printf '%s\n' "${fresh[@]}"
+    printf '%s\n' "$PRETTIERIGNORE_CFG_END"
+  } >> "$ign"
+  echo "  ✓ $ign (ignored ${#fresh[@]} freshly-shipped framework config(s); consumer-authored configs kept format-checked)"
+}
+
 # Idempotent mkdir -p that respects --dry-run.
 mkdir_safe() {
   if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -1086,6 +1136,10 @@ elif [ -f "$PROJECT_ROOT/package.json" ] && \
   echo "⚠  Detected @opentelemetry/* but AIF_STRICT_RUNTIME is unset — R8 (require-otel-span) will not fire."
   echo "   Set AIF_STRICT_RUNTIME=1 to arm runtime-discipline rules (R7/R8)."
 fi
+
+# GH #531 (reopen): ignore the framework configs we shipped FRESH (consumer-owned ones stay checked).
+# Runs after ALL copy_safe calls so SKIPPED is complete, and after the static .prettierignore merge.
+ignore_shipped_configs
 
 # ─── Done ───────────────────────────────────────────────
 if [ ${#SKIPPED[@]} -gt 0 ]; then
