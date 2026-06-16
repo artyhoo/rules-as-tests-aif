@@ -284,6 +284,8 @@ jobs:
         run: bash tests/install-sh/c1-wiring.test.sh
       - name: Run install-sh ship-orchestration-skills test (#500 — was present-but-unwired)
         run: bash tests/install-sh/ship-orchestration-skills.test.sh
+      - name: install-sh — detect-r2-boundary (GH #547 C1 classifier)
+        run: bash tests/install-sh/detect-r2-boundary.test.sh
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
 
