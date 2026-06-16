@@ -52,7 +52,10 @@ export function extractSection(prBody: string, heading: string): string {
 export function findCitations(section: string): Citation[] {
   const out: Citation[] = [];
   for (const m of section.matchAll(CITATION_RE)) {
-    const raw = m[0];
+    // Greedy `[^\s]+` swallows a leading markdown wrapper (`` ` ``, `(`, `[`) — PR
+    // authors routinely write citations as inline code `path:line`. Strip leading
+    // chars that cannot begin a repo path so the path resolves against the repo.
+    const raw = m[0].replace(/^[^A-Za-z0-9._/~]+/, '');
     const idx = raw.lastIndexOf(':');
     out.push({ raw, path: raw.slice(0, idx), line: Number(raw.slice(idx + 1)) });
   }

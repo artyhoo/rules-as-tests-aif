@@ -44,6 +44,14 @@ describe('findCitations', () => {
   it('returns [] when no citation present', () => {
     expect(findCitations('no citations here')).toEqual([]);
   });
+  it('strips leading markdown wrapper (backtick / paren / bracket) from the path', () => {
+    // PR authors routinely wrap citations in inline-code: `path:line`.
+    expect(findCitations('see `packages/core/foo.ts:42` here')).toEqual([
+      { raw: 'packages/core/foo.ts:42', path: 'packages/core/foo.ts', line: 42 },
+    ]);
+    expect(findCitations('(docs/bar.md:7)').map((c) => c.path)).toEqual(['docs/bar.md']);
+    expect(findCitations('[a/b.ts:3]').map((c) => c.path)).toEqual(['a/b.ts']);
+  });
 });
 
 describe('looksLikeRepoPath', () => {
@@ -99,6 +107,12 @@ describe('checkPrBodyCitations — L2 block', () => {
 
   it('PAIRED-NEGATIVE / mutation arm: a resolving citation must clear the blocker', () => {
     const body = bodyWith('packages/core/foo.ts:2 verified', 'docs/bar.md:1 swept');
+    const { blockers } = checkPrBodyCitations(body, reader(FILES));
+    expect(blockers).toEqual([]);
+  });
+
+  it('backtick-wrapped resolving citation clears the L2 blocker', () => {
+    const body = bodyWith('see `packages/core/foo.ts:2` verified', 'and `docs/bar.md:1` swept');
     const { blockers } = checkPrBodyCitations(body, reader(FILES));
     expect(blockers).toEqual([]);
   });
