@@ -56,7 +56,20 @@ Domain-specific: **T-Agn-A** — "an `@dual-pair`/`@cc-only-rationale` marker, o
 - [ ] **Posture reconciliation (small, was framed as "first wave" — now demoted):** [dual-implementation-discipline.md §3](../../../.claude/rules/dual-implementation-discipline.md) currently *accepts* "orchestration CC-only." Reality exceeds it (orchestration is portable). Update the posture to reflect achieved functional-parity, OR record that the rule is intentionally conservative. **Not a goal-change** — the implementation already meets the higher bar.
 - [ ] **Harness → CI principle test (spec §8):** graduate `tests/agnosticism/run-audit.sh` into `packages/core/principles/<N>-agnosticism-conformance.test.ts` + add the live-e2e §3 probe. This is the first time agnosticism becomes an executable artifact (invariant 4 — multi-channel enforcement) instead of prose markers.
 
-## §6 See also
+## §6 Tasks for aif-handoff dispatch
+
+Independent work units for the planner (each → its own worktree per [parallel-subwave-isolation.md](../../../.claude/rules/parallel-subwave-isolation.md)). Dispatch via `/pipeline` (finds this kickoff) → `/dispatcher` → aif. Each carries its own command-proof from §2 + an acceptance re-run.
+
+| Task | Scope | Files | Re-run to accept |
+|------|-------|-------|------------------|
+| **T-A** | A1–A3 doc-honesty: qualify "auto-activate/auto-trigger" as CC-native + add non-CC fallback note | `packages/core/templates/shared/AGENTS.md.template` (lines 75/77/78) | claim-truth probe → CC-ONLY count = 0 |
+| **T-B** | R1: ship a portable rule index so the 12 `.claude/rules/*.md` are reachable off-CC | new portable digest/pointer (e.g. `AGENTS.md` rules-block or concatenated `RULES.md`) | a non-CC consumer can reach all 12 rules |
+| **T-C** | Harness → CI principle test + **live e2e** probe (the §3 gap: install into a real non-CC project + drive a workflow) | `packages/core/principles/<N>-agnosticism-conformance.test.ts` from `tests/agnosticism/run-audit.sh` | principle test green in CI |
+| **T-D** *(operator-gated, not auto-dispatch)* | O1 decision (accept degradation vs script manual path) + posture reconciliation in `dual-implementation-discipline.md §3` | `.claude/rules/dual-implementation-discipline.md` | maintainer sign-off |
+
+T-A, T-B, T-C are parallelizable. **T-D is a maintainer decision — park to operator, do not auto-resolve** (the autonomous-fork boundary).
+
+## §7 See also
 
 - [docs/superpowers/specs/2026-06-16-agnosticism-conformance-audit-design.md](../../../docs/superpowers/specs/2026-06-16-agnosticism-conformance-audit-design.md) — design + the functional-parity bar.
 - `tests/agnosticism/` — the conformance harness (re-runnable proof engine).
