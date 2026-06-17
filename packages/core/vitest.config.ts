@@ -13,6 +13,7 @@ export default defineConfig({
       'research/**/*.test.ts',
       'synthesizer/**/*.test.ts',
       'validator/**/*.test.ts',
+      'install/**/*.test.ts',
       'installer/**/*.test.ts',
       'diff/**/*.test.ts',
       'tests/**/*.test.ts',

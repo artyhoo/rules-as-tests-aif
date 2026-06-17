@@ -1346,7 +1346,7 @@ CORE_DEVDEPS=(
   prettier@3.8.3 eslint-config-prettier @vitest/eslint-plugin
   vitest@^4.1.5 @vitest/coverage-v8@^4.1.5
   @stryker-mutator/core @stryker-mutator/vitest-runner @stryker-mutator/typescript-checker
-  dependency-cruiser fast-check glob tsx
+  dependency-cruiser fast-check glob ts-morph tsx
   husky lint-staged sort-package-json
   npm-run-all2
 )
@@ -1407,6 +1407,52 @@ if [ "$_do_dep_install" = "yes" ]; then
       echo "  ✓ dev-dependencies installed → node_modules/ (wired hooks now have their tools)"
     else
       echo "  ⚠  dev-dep install failed — run it manually (see Next steps)."
+    fi
+  fi
+fi
+
+# ─── 6b-bis-L2. GH #547 Layer 2: AST-wire R2 into consumer per-package configs ─
+# Runs AFTER §8 dep-install so ts-morph is resolvable when --full is set.
+# Option A (migration-ast Stage 4): gated on --full; ensure-then-use; degrade
+# when engine absent. rc=0 on every branch (lesson GH #531/#544).
+# Layer 1 (§6b-bis above) patches OUR eslint.config.mjs; this Layer 2 patches
+# CONSUMER per-package eslint.config.mjs files that re-export a base lacking R2.
+if [ "${_r2_verdict:-}" = "boundary-present" ] && [ "$DRY_RUN" != "--dry-run" ] \
+   && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+  _l2_degrade() {
+    echo "  · R2 not auto-wired: AST editor unavailable (Node or ts-morph not present)."
+    echo "    Add to <pkg>/eslint.config.mjs:"
+    echo "      export default [...base, { rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];"
+    echo "    (or run ./install.sh ts-server --full to install dev-deps and auto-wire)"
+  }
+  if ! command -v node >/dev/null 2>&1; then
+    _l2_degrade
+  elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
+    _l2_degrade
+  else
+    _wirer="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
+    if [ ! -f "$_wirer" ]; then
+      echo "  · R2 Layer-2 wirer not found at $_wirer — skipped"
+    else
+      # Find per-package eslint.config.mjs files (not the root one, not node_modules)
+      _l2_configs=()
+      while IFS= read -r -d '' _cfg; do
+        _l2_configs+=("$_cfg")
+      done < <(find "$PROJECT_ROOT" \
+        -name 'eslint.config.mjs' \
+        ! -path "$PROJECT_ROOT/eslint.config.mjs" \
+        ! -path '*/node_modules/*' \
+        -print0 2>/dev/null)
+      if [ "${#_l2_configs[@]}" -eq 0 ]; then
+        : # no per-package configs — nothing to wire
+      else
+        echo "▶ R2 Layer-2: wiring ${#_l2_configs[@]} per-package eslint config(s)"
+        for _cfg in "${_l2_configs[@]}"; do
+          # rc=0 forced by || true — never abort install on wirer failure
+          ( cd "$PROJECT_ROOT" && npx --no-install tsx "$_wirer" \
+              --path "$_cfg" ${FULL:+--yes} 2>&1 ) || true
+        done
+      fi
     fi
   fi
 fi
