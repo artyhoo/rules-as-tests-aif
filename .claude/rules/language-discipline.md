@@ -1,4 +1,14 @@
+---
+paths:
+  - ".claude/hooks/**"
+  - ".claude/skills/**"
+  - "scripts/**"
+---
+
 # Language discipline — internal English, human-facing AIF_HOOK_LANG-gated
+
+<!-- globs: .claude/hooks/**, .claude/skills/**, scripts/** -->
+<!-- inject: Internal machinery (hooks/skills/scripts) is English-only; human-facing output follows AIF_HOOK_LANG (ru→Russian, else English); match-data (triggers, detection patterns) stays bilingual. See §1-§2. -->
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/22-internal-english.test.ts](../../packages/core/principles/22-internal-english.test.ts) (2026-06-16).
 > **Authoritative for:** the language-discipline rule — §1 the 3-category model, §2 the human-facing language gate, §3 the keep-list, §4 enforcement channels, §5 anti-patterns, §6 promotion / retirement.
