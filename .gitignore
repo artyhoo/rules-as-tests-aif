@@ -16,6 +16,13 @@ packages/*/node_modules
 .claude/orchestrator-prompts/*/*
 !.claude/orchestrator-prompts/*/done.md
 !.claude/orchestrator-prompts/*/kickoff.md
+# Stage dispatch input for the migration-ast umbrella (Stage 4 — install-time AST
+# config wiring). Same durable-committed-design-doc class as kickoff.md; tracked so
+# it reaches `staging` for aif dispatch (.claude/rules/kickoff-staging-placement.md §1
+# — a dispatch input invisible on staging silently no-ops). Narrow per-file negation
+# keeps this PR atomic — migration-ast Stages 1-3 stay local (surfaced as a separate
+# observation, not bundled drive-by, per CLAUDE.md «PR strategy»).
+!.claude/orchestrator-prompts/migration-ast/stage-4-install-ast-config-wiring.md
 *.log
 .DS_Store
 *.tgz
