@@ -51,3 +51,27 @@ See [.claude/rules/ai-laziness-traps.md §2](../../../.claude/rules/ai-laziness-
 ## Dispatch note
 
 Per [kickoff-staging-placement.md](../../../.claude/rules/kickoff-staging-placement.md): this kickoff must be on `staging` before `/pipeline aif-init-passport-gen` or an aif dispatch is initiated.
+
+## Autonomous aif-handoff dispatch — park-don't-guess contract (LIVE)
+
+> Active when this kickoff is dispatched via `tsx packages/runtime-bridge/src/cli/dispatch.ts` to the aif-handoff runtime. This is a **design-first** task with 4 genuine design-question forks — the park levers below are non-negotiable, else `#autonomous-dispatch-without-park`: aif guesses the forks silently (`coordinator.ts:398-476`; auto-close fires on "no blockers", not "a human is sure it's right").
+
+**Lever 1 — conservative aif config (set on the env BEFORE dispatch):**
+
+```bash
+export AGENT_MAX_REVIEW_ITERATIONS=1
+export AGENT_AUTO_REVIEW_STRATEGY=closure_first
+export AGENT_SKIP_REVIEW=false
+```
+
+**Lever 2 — park-don't-guess instruction (addressed to the aif agent, verbatim):**
+
+> **aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity — the 4 design questions above (delivery channel · run-timing · deterministic-vs-LLM split · review gate), two defensible implementations, or any undecided design choice that changes behaviour — **do NOT pick** — park it as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the unambiguous, deterministic work: the prior-art consult (DeepWiki + WebSearch ≥3 phrasings, own-stack-first CC `/init` + `tool-bootstrapping`) and recording verdicts in `docs/meta-factory/prior-art-evaluations.md`. Do NOT write generator implementation code — this is the design/R-phase (T5). Guessing a design fork to "keep moving" is the exact failure this contract exists to prevent.
+
+**Egress gate (mandatory after `status=done` / `status=verified`):** aif does NOT push or open PRs by design.
+
+```bash
+npx tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
+```
+
+Anti-pattern `#autonomous-done-no-harvest`: skipping leaves the work permanently in the container.
