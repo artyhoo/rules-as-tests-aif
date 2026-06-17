@@ -109,6 +109,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'agents/compliance-verifier.md',
   'agents/memory-codification-auditor.md',
   'agents/orchestrator-worker-discipline.md',
+  'agents/aif-init.md',
 ];
 
 /**

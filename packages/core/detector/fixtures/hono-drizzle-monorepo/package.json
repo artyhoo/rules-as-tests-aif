@@ -1,0 +1,8 @@
+{
+  "name": "timeliner",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

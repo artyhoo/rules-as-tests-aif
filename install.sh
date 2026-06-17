@@ -123,6 +123,7 @@ SHIPPED_DOCS=(
   "agents/compliance-verifier.md"
   "agents/memory-codification-auditor.md"
   "agents/orchestrator-worker-discipline.md"
+  "agents/aif-init.md"
   "skills/tool-bootstrapping/SKILL.md"
   "skills/tool-bootstrapping/references/decision-format.md"
 )
