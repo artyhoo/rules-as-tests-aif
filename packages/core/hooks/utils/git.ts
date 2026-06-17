@@ -81,6 +81,31 @@ export function upstreamExists(ref: string): boolean {
 }
 
 /**
+ * The default base ref to diff against when neither PREPUSH_UPSTREAM_REF nor git
+ * pre-push stdin is available (a manual `node pre-push.ts` run, the bash fallback, or
+ * a CI setup that pipes no stdin). Derives the consumer's REAL default branch instead
+ * of hard-coding `origin/staging` — the former default silently no-op'd on any repo
+ * whose trunk is `main`/`master` (GH #568; dual-pair with pre-push.fallback.sh):
+ *
+ *   1. `origin/HEAD` symbolic-ref → the remote's advertised default branch
+ *      (`origin/main` on a main-default consumer, `origin/staging` in this repo).
+ *   2. first existing of `origin/staging` → `origin/main` → `origin/master`
+ *      (covers a remote whose local `origin/HEAD` symref is unset OR stale —
+ *      the staleness gotcha exercised in worktree-setup.test.ts).
+ *
+ * Returns null when nothing resolves — callers emit a VISIBLE warning and skip,
+ * never a silent pass.
+ */
+export function resolveDefaultBase(): string | null {
+  const head = gitOut(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']).trim();
+  if (head && upstreamExists(head)) return head;
+  for (const ref of ['origin/staging', 'origin/main', 'origin/master']) {
+    if (upstreamExists(ref)) return ref;
+  }
+  return null;
+}
+
+/**
  * Commits reachable from `localSha` but not on any remote-tracking branch — the
  * new commits a first-time branch push (stdin `remote_sha` == {@link Z40})
  * introduces. Trunk-agnostic: no `origin/<trunk>` literal, so it works on any
