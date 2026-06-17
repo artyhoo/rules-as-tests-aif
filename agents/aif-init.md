@@ -16,6 +16,7 @@ You are reading this in your active AI session (Claude Code, Cursor, Codex, Aide
 ## What this does
 
 Reads the consumer repo's `package.json`(s), directory layout, and config files to detect the tech stack, then writes:
+
 - `.ai-factory/DESCRIPTION.md` — project description with detected stack values (zero `<PLACEHOLDER>` fields)
 - `.ai-factory/ARCHITECTURE.md` — architecture pattern appropriate to the detected stack
 
@@ -28,11 +29,13 @@ Both files are written as DRAFT. The human must review, edit, and remove the DRA
 Read the following files in order:
 
 **Root package.json:**
+
 ```text
 Read: package.json
 ```
 
 **Monorepo workspaces (if root package.json has `"workspaces"`):**
+
 ```text
 Glob: apps/*/package.json
 Glob: packages/*/package.json
@@ -41,6 +44,7 @@ Glob: packages/*/package.json
 Read each workspace `package.json` found. Aggregate all `dependencies` and `devDependencies` across root + workspaces into one flat set.
 
 **Config files:**
+
 ```text
 Glob: drizzle.config.*
 Glob: prisma/schema.prisma
@@ -50,6 +54,7 @@ Glob: next.config.*
 ```
 
 **Directory layout clues:**
+
 ```text
 Glob: apps/*/
 Glob: packages/*/
@@ -60,30 +65,31 @@ Glob: src/
 
 Apply this table to the aggregated dep set. First match wins per field.
 
-| Dep present | Field | Value |
-|---|---|---|
-| `hono` | framework | Hono |
-| `next` | framework | Next.js |
-| `fastify` | framework | Fastify |
-| `express` | framework | Express |
-| `react` or `@types/react` (no `next`) | framework | React |
-| `pg` or `@neondatabase/serverless` or `postgres` | database | Postgres |
-| `mysql2` | database | MySQL |
-| `better-sqlite3` or `@libsql/client` | database | SQLite |
-| `drizzle-orm` | orm | Drizzle |
-| `@prisma/client` or `prisma` | orm | Prisma |
-| `kysely` | orm | Kysely |
-| `@honeycombio/opentelemetry-node` or `@honeycombio/opentelemetry-web` | observability | Honeycomb |
-| `dd-trace` or `datadog-lambda-js` | observability | Datadog |
-| `@grafana/faro-web-sdk` | observability | Grafana Cloud |
-| `@opentelemetry/api` | observability | OpenTelemetry |
-| `vitest` | testRunner | Vitest |
-| `jest` or `@jest/core` | testRunner | Jest |
-| `expo` | mobile | Expo |
-| `react-native` | mobile | React Native |
-| `@storybook/nextjs` or `@storybook/react` or `storybook` | ui | Storybook |
+| Dep present                                                           | Field         | Value         |
+| --------------------------------------------------------------------- | ------------- | ------------- |
+| `hono`                                                                | framework     | Hono          |
+| `next`                                                                | framework     | Next.js       |
+| `fastify`                                                             | framework     | Fastify       |
+| `express`                                                             | framework     | Express       |
+| `react` or `@types/react` (no `next`)                                 | framework     | React         |
+| `pg` or `@neondatabase/serverless` or `postgres`                      | database      | Postgres      |
+| `mysql2`                                                              | database      | MySQL         |
+| `better-sqlite3` or `@libsql/client`                                  | database      | SQLite        |
+| `drizzle-orm`                                                         | orm           | Drizzle       |
+| `@prisma/client` or `prisma`                                          | orm           | Prisma        |
+| `kysely`                                                              | orm           | Kysely        |
+| `@honeycombio/opentelemetry-node` or `@honeycombio/opentelemetry-web` | observability | Honeycomb     |
+| `dd-trace` or `datadog-lambda-js`                                     | observability | Datadog       |
+| `@grafana/faro-web-sdk`                                               | observability | Grafana Cloud |
+| `@opentelemetry/api`                                                  | observability | OpenTelemetry |
+| `vitest`                                                              | testRunner    | Vitest        |
+| `jest` or `@jest/core`                                                | testRunner    | Jest          |
+| `expo`                                                                | mobile        | Expo          |
+| `react-native`                                                        | mobile        | React Native  |
+| `@storybook/nextjs` or `@storybook/react` or `storybook`              | ui            | Storybook     |
 
 **DB schema path:** check if any of these files exist:
+
 - `drizzle/schema.ts` → use this path
 - `src/db/schema.ts` → use this path
 - `packages/db/src/schema.ts` → use this path
@@ -191,6 +197,7 @@ The `Write` tool creates the parent directory automatically if `.ai-factory/` do
 Both files are written as DRAFT. The `⚠️ DRAFT — PLEASE REVIEW` banner must remain in the output. The human removes the banner after reviewing and confirming all fields.
 
 Tell the user:
+
 > Both files have been written as DRAFT. Please open `.ai-factory/DESCRIPTION.md` and `.ai-factory/ARCHITECTURE.md`, verify every field (especially `[GUESSED — verify]` annotations), edit where needed, then remove the `> ⚠️ DRAFT` banner. Once verified, these files become the authoritative project passport loaded by every AI agent at session start.
 
 ---
@@ -198,6 +205,7 @@ Tell the user:
 ## Degradation (no AI session)
 
 If this agent is invoked outside an AI session (e.g. from a script), it cannot proceed — the LLM step is required for prose synthesis. In that case, fall back to the template files:
+
 ```text
 .ai-factory/DESCRIPTION.template.md  → copy to DESCRIPTION.md and fill manually
 .ai-factory/ARCHITECTURE.ts-server.md → copy to ARCHITECTURE.md and edit
