@@ -115,16 +115,49 @@ fi
 # Counters T-NoArg-C: does NOT rely on PR-title word overlap (that is Layer C2's job).
 merged_prs_json="$(${MO_GH_BIN} pr list --state merged --json number,headRefName --limit 100 2>/dev/null || echo '[]')"
 
+# ── Skip-closed pre-filter: feed the expensive C2 scan only the OPEN survivors ──────
+# Perf (pipeline-completion-scan-skip-closed, 2026-06-17): the per-umbrella jaccard in
+# dup-detect --all is the dominant cost (measured: ~2.70s/umbrella over the full set vs
+# ~3.0s umbrella-invariant gh+precompute → full=446s, open-only=76s, 83% of the cost is
+# per-umbrella). Umbrellas already provably closed by a CHEAP signal — C3 done.md (file
+# existence) or C1 branch-match (jq over the already-fetched merged_prs_json) — are
+# classified DONE by the loop below via C1/C3 regardless, so they never need the expensive
+# C2 pass. Feed dup-detect ONLY the open survivors. An umbrella closed ONLY by C2 jaccard
+# (no done.md, no branch-match) is NOT cheap-closed → it stays in the subset → C2 still
+# tags it DONE (AC-2 paired-negative invariant: DONE-membership is unchanged).
+# Fix shape (a): the filter lives here (orchestration-side); dup-detect stays
+# closure-agnostic (it scans the names it is handed via MO_UMBRELLA_SUBSET). Zero new gh,
+# zero new dependency. Caller B (SKILL §2.5 standalone dedup) never sets the subset.
+_merged_branch_names=""
+if command -v jq &>/dev/null && [[ -n "${merged_prs_json}" && "${merged_prs_json}" != "[]" ]]; then
+  _merged_branch_names="$(echo "${merged_prs_json}" \
+    | jq -r '.[] | (.headRefName | sub("^(feat|fix|chore|docs|research)/"; ""))' 2>/dev/null || true)"
+fi
+_open_survivors=""
+for _d in "${PROMPTS_DIR}"/*/; do
+  _n="${_d%/}"; _n="${_n##*/}"                        # basename, pure-bash (no subprocess)
+  [[ -f "${_d}kickoff.md" ]] || continue             # no kickoff → not a real candidate
+  [[ -f "${_d}done.md" ]] && continue                # C3 cheap-closed → skip expensive C2
+  if [[ -n "${_merged_branch_names}" ]] \
+      && printf '%s\n' "${_merged_branch_names}" | grep -qxF "${_n}" 2>/dev/null; then
+    continue                                          # C1 cheap-closed → skip expensive C2
+  fi
+  _open_survivors+="${_n}"$'\n'
+done
+
 # ── completion Layer C2: dup-detect.sh jaccard pre-fetch (REUSE, sub-shell) ─────────────────
 # completion-detection Layer C2 (jaccard title overlap, meta-orch-no-arg-overview Stage 2-extend).
 # REUSE: calls dup-detect.sh --all (sub-shell approach — option (a); preserves dup-detect.sh
 # callers unchanged, avoids modifying a Stage-4-owned file per §6 Option B).
 # Parse output: "POTENTIAL_DUPE: <umbrella> may overlap with merged #<num> ..." lines only.
 # Populated once; per-umbrella lookup is a grep against this variable.
+# Restricted to the open survivors via MO_UMBRELLA_SUBSET (skip-closed). If there are no
+# open survivors (all umbrellas cheap-closed) the call is skipped (C2 has nothing to find).
 # If dup-detect.sh unavailable or gh fails, falls back to empty string (C2 skipped; C3 still runs).
 _dup_detect_all_output=""
-if [[ -x "${MO_DUP_DETECT_BIN}" ]]; then
+if [[ -x "${MO_DUP_DETECT_BIN}" && -n "${_open_survivors}" ]]; then
   _dup_detect_all_output="$(REPO_ROOT="${REPO_ROOT}" MO_GH_BIN="${MO_GH_BIN}" \
+    MO_UMBRELLA_SUBSET="${_open_survivors}" \
     "${MO_DUP_DETECT_BIN}" --all 2>/dev/null || true)"
 fi
 

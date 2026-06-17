@@ -430,6 +430,46 @@ describe('dup-detect.sh — Test 10: NEG deliverable-on-staging (paired with Tes
   });
 });
 
+// ── Test 11: MO_UMBRELLA_SUBSET seam (Caller A skip-closed opt-in) ───────────
+//
+// AC-3 of pipeline-completion-scan-skip-closed: dup-detect must scan ONLY the
+// provided subset when MO_UMBRELLA_SUBSET is set (Caller A), and scan ALL umbrellas
+// when it is unset (Caller B / plain --all — behaviour unchanged). dup-detect stays
+// closure-agnostic: it does not decide what is "closed", it scans the names handed in.
+
+describe('dup-detect.sh — Test 11: MO_UMBRELLA_SUBSET seam (paired-negative)', () => {
+  it('POSITIVE: --all with MO_UMBRELLA_SUBSET scans ONLY the named subset', () => {
+    // Three umbrellas with unrelated vocab (all → OK lines). With the subset set to
+    // alpha+gamma, beta must NOT be scanned (its line is absent from output).
+    for (const n of ['subset-alpha', 'subset-beta', 'subset-gamma']) {
+      write(
+        join(promptsDir, n, 'kickoff.md'),
+        `# Kickoff\n\n## § scope\n\n- unrelated topic with distinct vocabulary for ${n}\n`,
+      );
+    }
+    const out = runScript('--all', {
+      MO_UMBRELLA_SUBSET: 'subset-alpha\nsubset-gamma',
+    });
+    expect(out).toContain('subset-alpha');
+    expect(out).toContain('subset-gamma');
+    // beta excluded from the subset → never scanned → absent from output
+    expect(out).not.toContain('subset-beta');
+  });
+
+  it('PAIRED-NEGATIVE: --all WITHOUT MO_UMBRELLA_SUBSET scans ALL umbrellas (Caller B unchanged)', () => {
+    for (const n of ['subset-alpha', 'subset-beta', 'subset-gamma']) {
+      write(
+        join(promptsDir, n, 'kickoff.md'),
+        `# Kickoff\n\n## § scope\n\n- unrelated topic with distinct vocabulary for ${n}\n`,
+      );
+    }
+    const out = runScript('--all'); // no MO_UMBRELLA_SUBSET → full glob
+    expect(out).toContain('subset-alpha');
+    expect(out).toContain('subset-beta');
+    expect(out).toContain('subset-gamma');
+  });
+});
+
 // ── T15 recursive self-application + script structure check ──────────────────
 
 describe('dup-detect.sh — T15 self-application documentation', () => {
@@ -442,6 +482,7 @@ describe('dup-detect.sh — T15 self-application documentation', () => {
     expect(src).toContain('MO_JACCARD_THRESHOLD');
     expect(src).toContain('MO_DELIVERABLE_REF');
     expect(src).toContain('MO_DELIVERABLE_DIRS');
+    expect(src).toContain('MO_UMBRELLA_SUBSET');
     expect(src).toContain('REPO_ROOT');
     // Dual-implementation marker
     expect(src).toContain('@cc-only-rationale');
