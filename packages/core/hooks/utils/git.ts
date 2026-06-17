@@ -97,7 +97,11 @@ export function upstreamExists(ref: string): boolean {
  * never a silent pass.
  */
 export function resolveDefaultBase(): string | null {
-  const head = gitOut(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']).trim();
+  const head = gitOut([
+    'symbolic-ref',
+    '--short',
+    'refs/remotes/origin/HEAD',
+  ]).trim();
   if (head && upstreamExists(head)) return head;
   for (const ref of ['origin/staging', 'origin/main', 'origin/master']) {
     if (upstreamExists(ref)) return ref;
