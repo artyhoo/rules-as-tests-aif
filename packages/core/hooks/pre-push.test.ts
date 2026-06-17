@@ -52,10 +52,11 @@ describe('pre-push.ts orchestrator — delegation folded through runCheck', () =
   });
 
   it('invokes the remaining audit-self self-tests by literal path', () => {
-    // Keeps hook-stub-completeness.test.sh (which greps this file) satisfiable.
-    // pre-push.test.sh was deleted in Wave 10.3 (its §1.7 scenarios moved to
-    // s17.test.ts), so it is no longer in the hard-fail invocation set.
-    for (const s of ['audit-ai-docs.test.sh', 'hook-stub-completeness.test.sh']) {
+    // Wave 10.4: audit-ai-docs.test.sh → audit-ai-docs.test.ts (run via vitest/npx).
+    // hook-stub-completeness.test.sh was migrated to principles/16-hook-stub-completeness.test.ts.
+    // pre-push.test.sh was deleted in Wave 10.3 (its §1.7 scenarios moved to s17.test.ts).
+    // The literal-path self-tests pre-push.ts still hard-invokes:
+    for (const s of ['audit-ai-docs.test.ts', 'check-kickoff-portability.sh']) {
       expect(ORCHESTRATOR).toContain(`packages/core/audit-self/${s}`);
     }
   });

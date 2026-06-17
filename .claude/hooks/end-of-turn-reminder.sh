@@ -75,7 +75,12 @@ marker="${ORCHESTRATION_MODE_MARKER:-${CLAUDE_PROJECT_DIR:-.}/.claude/orchestrat
 ttl="${ORCHESTRATION_MODE_TTL_SECONDS:-21600}"
 if [ -f "$marker" ]; then
   marker_now=$(date +%s)
-  marker_mtime=$(stat -f %m "$marker" 2>/dev/null || stat -c %Y "$marker" 2>/dev/null || echo 0)
+  # GNU-first, BSD-fallback: try `stat -c %Y` (GNU/Linux) before `stat -f %m` (BSD/macOS).
+  # The reverse order silently breaks on Linux — GNU `stat -f` is --file-system, so
+  # `stat -f %m` EXITS 0 with a garbage value (not mtime), the `||` fallback never fires,
+  # and the marker reads as expired → orchestration mode never activates on Linux/CI.
+  # BSD `stat -c` fails cleanly (illegal option), so GNU-first degrades correctly on macOS.
+  marker_mtime=$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null || echo 0)
   if [ "$(( marker_now - marker_mtime ))" -lt "$ttl" ]; then
     orch_mode=true
   fi

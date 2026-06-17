@@ -45,12 +45,17 @@ find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'cold-review-fixes.md' 2>/de
   done
 
 # (b) state.md with PENDING/TODO/AWAITING/REVIEW-PENDING — umbrella with unresolved state
-find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'state.md' 2>/dev/null \
-  | xargs grep -l -iE 'PENDING|TODO|AWAITING|REVIEW-PENDING' 2>/dev/null \
-  | while read -r s; do
+# Per-file grep -q via process substitution (same shape as surface (c)) — NOT find|xargs|grep.
+# Under `set -euo pipefail` the old pipeline aborted the whole script (exit 123): on GNU/Linux
+# an empty find makes xargs run grep on empty stdin, and a no-match `grep -l` exits 1 — either
+# makes xargs exit 123, which pipefail propagates and set -e turns fatal. BSD/macOS xargs hid
+# this (it skips the command on empty input), so the bug was invisible locally + ungated in CI.
+while IFS= read -r s; do
+  if grep -qiE 'PENDING|TODO|AWAITING|REVIEW-PENDING' "${s}" 2>/dev/null; then
     umbrella="$(basename "$(dirname "${s}")")"
     echo "${umbrella}-state-pending type=state-followup kickoff=synthetic source=state.md"
-  done
+  fi
+done < <(find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'state.md' 2>/dev/null)
 
 # (c) Memory files with TODO-codify: — durable conventions stranded in memory (memory-codification.md §5)
 # Avoid pipefail issues: iterate via process substitution + explicit grep test per file.

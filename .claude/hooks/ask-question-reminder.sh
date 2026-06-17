@@ -46,7 +46,9 @@ window=45
 # closely-following question) — let it through to avoid the deny→retry loop.
 if [ -f "$flag" ]; then
   now=$(date +%s)
-  mtime=$(stat -f %m "$flag" 2>/dev/null || stat -c %Y "$flag" 2>/dev/null || echo 0)
+  # GNU-first, BSD-fallback (see end-of-turn-reminder.sh): GNU `stat -f %m` exits 0 with a
+  # garbage value on Linux, so BSD-first silently breaks the freshness check there.
+  mtime=$(stat -c %Y "$flag" 2>/dev/null || stat -f %m "$flag" 2>/dev/null || echo 0)
   if [ "$(( now - mtime ))" -lt "$window" ]; then
     exit 0
   fi

@@ -206,6 +206,17 @@ jobs:
         run: npm install --prefix packages/core --silent
       - name: Run principles meta-tests
         run: npm --prefix packages/core run test:principles
+      # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
+      # never gated — only principles/ was — which is how a real cross-platform regression
+      # (priority-score-synthetic.sh xargs) accumulated 15 failures unnoticed. Gate it here.
+      # Root `npm install` hoists tsx to the repo-root node_modules/.bin so the
+      # check-doc-authority hook (which spawns $REPO_ROOT/node_modules/.bin/tsx) actually
+      # runs rather than graceful-skipping. jq is preinstalled on ubuntu runners; eslint
+      # (guard-liveness) comes from the packages/core install above.
+      - name: Install workspace deps (hoists tsx to root for the hooks-suite gate)
+        run: npm install --silent
+      - name: Run packages/core/hooks/ suite (CI-gap option C — gate the hooks suite)
+        run: npm --prefix packages/core run test:hooks
       - name: Run prior-art trailer hook anti-tautology test (Phase 8.8 T9)
         run: bash tests/hooks/prior-art-trailer-hook.test.sh
       - name: Run §1.7 discipline trailer hook anti-tautology test (Wave 10.3)
