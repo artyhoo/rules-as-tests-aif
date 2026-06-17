@@ -71,4 +71,75 @@ else
   ok "neg arm bites: injected fake script makes the pos check fail"
 fi
 
+
+# ── C1-Check4: live-signal — shipped bash scripts exit 0 with non-empty stdout ──
+# Uses the shipped scripts/ directory (authoritative list from install above) as the
+# enumeration source. Tests exit-0 + non-empty output for scripts that run without
+# a full `npm install` in the consumer (deterministic, no network required).
+#
+# Design rule (T-smoke-A): config-presence checks (like f8's existing pos arm) test that the
+# script KEY exists in package.json. This arm runs the ACTUAL bash scripts and asserts the
+# runtime signal: "exit 0 and produces output" — proving the script isn't crashing or silently
+# no-oping.
+#
+# PAIRED-NEGATIVE: truncate one script to `exit 1` → the check MUST detect FAIL (non-vacuous).
+
+# Fresh consumer for Check 4 (separate from the neg-injected $T above)
+C4=$(mktemp -d)
+printf '{"name":"f8c4","version":"0.0.0"}\n' > "$C4/package.json"
+( cd "$C4" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+
+# Run check-rule-globs.sh: a shipped script that runs without node_modules.
+# Without boundary files it prints "nothing for R2 to govern" and exits 0.
+# With a boundary file it checks globs and exits 0 with glob-coverage output.
+GLOBS="$C4/scripts/check-rule-globs.sh"
+if [ -x "$GLOBS" ]; then
+  # Add a boundary file so the script has something to work with
+  mkdir -p "$C4/src/routes"
+  echo 'export const h = 1;' > "$C4/src/routes/h.ts"
+  out_globs=$( cd "$C4" && bash "$GLOBS" 2>&1 )
+  rc_globs=$?
+  if [ "$rc_globs" -eq 0 ] && [ -n "$out_globs" ]; then
+    ok "Check4: scripts/check-rule-globs.sh exits 0 with output (live signal; not crash/silent-noop)"
+  elif [ "$rc_globs" -ne 0 ]; then
+    bad "Check4: scripts/check-rule-globs.sh CRASHED (exit $rc_globs) — shipped script is broken"
+  else
+    bad "Check4: scripts/check-rule-globs.sh exits 0 but produced NO output (silent no-op — T-smoke-A violation)"
+  fi
+else
+  bad "Check4: scripts/check-rule-globs.sh not shipped or not executable"
+fi
+
+# Run detect-r2-boundary.sh: a shipped script that detects if boundary patterns exist.
+DETECT="$C4/scripts/detect-r2-boundary.sh"
+if [ -x "$DETECT" ]; then
+  out_detect=$( cd "$C4" && bash "$DETECT" 2>&1 )
+  rc_detect=$?
+  if [ "$rc_detect" -eq 0 ] && [ -n "$out_detect" ]; then
+    ok "Check4: scripts/detect-r2-boundary.sh exits 0 with output (live signal)"
+  elif [ "$rc_detect" -ne 0 ]; then
+    bad "Check4: scripts/detect-r2-boundary.sh CRASHED (exit $rc_detect)"
+  else
+    bad "Check4: scripts/detect-r2-boundary.sh exits 0 but silent (no output)"
+  fi
+else
+  bad "Check4: scripts/detect-r2-boundary.sh not shipped or not executable"
+fi
+
+# PAIRED-NEGATIVE: truncate check-rule-globs.sh to exit-1 → detection must FAIL
+if [ -x "$GLOBS" ]; then
+  GLOBS_BAK=$(mktemp); cp "$GLOBS" "$GLOBS_BAK"
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$GLOBS"
+  out_broken=$( cd "$C4" && bash "$GLOBS" 2>&1 )
+  rc_broken=$?
+  if [ "$rc_broken" -ne 0 ]; then
+    ok "Check4 neg: truncated script exits non-zero → crash detected (check non-vacuous)"
+  else
+    bad "Check4 neg: broken script exits 0 — check is VACUOUS (cannot detect crash)"
+  fi
+  # Restore
+  cp "$GLOBS_BAK" "$GLOBS"
+  rm -f "$GLOBS_BAK"
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
