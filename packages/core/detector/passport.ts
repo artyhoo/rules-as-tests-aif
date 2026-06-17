@@ -3,8 +3,8 @@
 // monorepo workspaces (apps/*, packages/*). No LLM — the agent in
 // agents/aif-init.md synthesises the prose, grounded in these field values.
 //
-// Prior-art: SSOT #124 (CC /init ADAPT — mechanism reuse),
-//            #126 (Repomix/StackSync DEFER — own-stack reuse over new dep).
+// Prior-art: SSOT #126 (CC /init ADAPT — mechanism reuse),
+//            #128 (Repomix/StackSync DEFER — own-stack reuse over new dep).
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';

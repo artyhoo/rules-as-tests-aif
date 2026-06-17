@@ -1,6 +1,6 @@
 # consumer-upgrade-path — refresh shipped artefacts on already-installed consumers (GH #551 follow-up)
 
-- **Type:** feature, design-first (brainstorm before code). Medium, clobber-risk surface.
+- **Type:** feature. Design R-phase DONE (2026-06-17, merged #607); now **ready for implementation** — see Decided design below. Medium, clobber-risk surface.
 - **Opened:** 2026-06-17.
 - **Base:** staging.
 - **Tracks:** GH #551 (residual) + the systemic gap surfaced in its re-verify comment. Child of the #550 umbrella.
@@ -24,14 +24,20 @@ A consumer can refresh **framework-owned** shipped artefacts to the current vers
 2. Consumer-owned / consumer-customisable files (per the three-layer authority model + `<file>.override.md` escape hatch, see [INSTALL-FOR-AI.md](../../../INSTALL-FOR-AI.md)) are **preserved** — proven by a test that customises a file, runs refresh, asserts the customisation survives AND the framework-owned artefact updated.
 3. Paired-negative: a stale framework-owned artefact (e.g. an `agents/*.md` with old tool names) is actually refreshed by the path → its new content present after.
 
-## Design questions (resolve via `superpowers:brainstorming` at session start — do NOT pre-decide)
+## Decided design (maintainer, 2026-06-17 — design forks resolved)
 
-1. **Refresh mechanism:** new `install.sh --upgrade` mode? a separate `refresh-framework.sh` helper? extend `copy_safe` with a per-file "framework-owned ⇒ overwrite, consumer-owned ⇒ keep" classifier? (BFR-default: prefer reusing the existing `copy_safe` + SHIPPED_DOCS machinery over building a new installer.)
-2. **The framework-owned vs consumer-owned boundary** — where is the authoritative list? Can it be derived from existing signals (`SHIPPED_DOCS`, the three-layer authority model, `.override.md` presence) rather than a hand-maintained allowlist that will drift?
-3. **Version awareness** — does refresh need a shipped-version stamp to know what changed, or is "re-copy framework-owned set, leave the rest" sufficient?
-4. **Interaction with `.override.md`** — a consumer who overrode a framework file must not have the override clobbered; how does refresh detect and respect it?
+The design R-phase ([research-patch `2026-06-17-consumer-upgrade-path.md`](../../../docs/meta-factory/research-patches/2026-06-17-consumer-upgrade-path.md), merged #607) surfaced two forks; the maintainer resolved both, **both matching the R-phase recommendation**:
+
+1. **Refresh mechanism → ADAPT, no new dependency.** Reuse `copy_safe` + the `merge_prettierignore` marker-block pattern (`install.sh:207-249`); add a per-file "framework-owned ⇒ overwrite, consumer-owned / `.override.md` ⇒ keep" classifier. Do **NOT** adopt `copier`/`cruft` (Python dep, rejected per SSOT #22/#124/#125 + agnostic-core); do **NOT** build a bespoke 3-way merger (`#parallel-evolution-creep`).
+2. **Version awareness → stateless v1.** "Re-copy the framework-owned set, skip any file with a sibling `.override.md`, leave everything else." No shipped-hash stamp / state file. Mitigate Layer-2-edit loss via opt-in + `--dry-run`-first and the "diverge via `.override.md`, not in-place edit" doc rule.
+
+**The active implementation plan is [research-patch §5](../../../docs/meta-factory/research-patches/2026-06-17-consumer-upgrade-path.md) (T1 refresh entrypoint · T2 boundary classifier · T3 paired acceptance tests · T4 docs · T15 dogfood)** — conditioned on exactly this Option-A / Option-A choice, so it stands as-is. The next `/pipeline consumer-upgrade-path` decomposes T1-T4 into sub-waves (SDD applies — ≥3 tasks).
+
+The framework-owned-vs-consumer-owned **boundary** is derived from existing signals (`SHIPPED_DOCS` + three-layer authority model + `.override.md` presence), never a hand-maintained allowlist — see [research-patch §4](../../../docs/meta-factory/research-patches/2026-06-17-consumer-upgrade-path.md).
 
 ## Prior-art consult (mandatory before any "I propose…", per build-first-reuse-default §3)
+
+> **✓ DONE by the R-phase** — sweep recorded in [research-patch §2](../../../docs/meta-factory/research-patches/2026-06-17-consumer-upgrade-path.md), SSOT #124/#125 landed (#607). DeepWiki was unreachable in the aif container → WebSearch ×3 + SSOT #22 substituted (verdict provisional on that channel; a maintainer DeepWiki re-run is optional, not blocking). The note below is retained for history.
 
 - DeepWiki `ask_question` ≥3 phrasings + WebSearch ≥3 phrasings on the problem class: "idempotent scaffold upgrade / re-sync vendored files without clobbering user edits" (e.g. `create-react-app eject`/`npx … upgrade`, `cookiecutter`/`cruft` drift-update, `yeoman` conflict resolver, `copier update`). Record verdicts in [prior-art-evaluations.md](../../../docs/meta-factory/prior-art-evaluations.md). `copier update` (3-way merge of templated projects) is a strong candidate to evaluate (ADOPT/ADAPT/REFERENCE).
 - Consult SSOT for existing install/refresh entries before adding.

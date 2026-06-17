@@ -10,7 +10,7 @@
  * T-Passport-A (domain-specific trap) counter: the two-fixture assertion proves
  * detection derives from arbitrary repo signals, not a hardcoded reference stack.
  *
- * Prior-art: SSOT #124 (CC /init ADAPT), #126 (own-stack detector reuse).
+ * Prior-art: SSOT #126 (CC /init ADAPT), #128 (own-stack detector reuse).
  */
 import { describe, it, expect } from 'vitest';
 import { resolve, dirname } from 'node:path';
