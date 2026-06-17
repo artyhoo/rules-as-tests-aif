@@ -4,7 +4,8 @@
 # fallback note is present. CC-ONLY otherwise.
 # Per .claude/rules/no-paid-llm-in-ci.md: pure bash, zero API calls.
 set -uo pipefail
-REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+# Resolve by path, not `git rev-parse` — GIT_DIR-immune for worktree-push hook env (see ../run-audit.sh).
+REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh"
 
 TARGET="${DOC_CLAIMS_TARGET:-$REPO_ROOT/packages/core/templates/shared/AGENTS.md.template}"
