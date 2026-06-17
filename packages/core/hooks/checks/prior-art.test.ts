@@ -583,6 +583,65 @@ describe('runPriorArtCheck() — C1 paired-negative end-to-end', () => {
   });
 });
 
+// ─── C1 per-commit-tree id source (2026-06-17 tree-source fix) ────────────────
+// The running hook supplies a `(sha) => ids` resolver so each citation is checked
+// against the SSOT in THAT commit's own tree, not a single working-tree snapshot.
+describe('runPriorArtCheck() — per-commit ssotIds resolver', () => {
+  it('PAIRED-POSITIVE: resolver yields the cited id for that commit → passes', () => {
+    const g = fakeGit({
+      packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
+      commitBody: () => 'feat: dep\n\nPrior-art: prior-art-evaluations.md#42 (verdict ADAPT — rationale here).',
+      authorDate: () => FUTURE,
+    });
+    // resolver: #42 exists in this commit's tree
+    const report = runPriorArtCheck(['sha1'], g, undefined, () => new Set([42]));
+    expect(report.brokenCitations).toHaveLength(0);
+    expect(report.failures).toHaveLength(0);
+  });
+
+  it('PAIRED-NEGATIVE: resolver lacks the cited id for that commit → broken citation', () => {
+    const g = fakeGit({
+      packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
+      commitBody: () => 'feat: dep\n\nPrior-art: prior-art-evaluations.md#42 (verdict ADAPT — rationale here).',
+      authorDate: () => FUTURE,
+    });
+    const report = runPriorArtCheck(['sha1'], g, undefined, () => new Set([1, 2]));
+    expect(report.brokenCitations).toHaveLength(1);
+    expect(report.brokenCitations[0].message).toMatch(/#42.*no such entry/);
+  });
+
+  // The load-bearing property: the resolver is invoked PER sha, so a commit whose
+  // OWN tree contains the cited entry passes even though another commit's tree (and
+  // a single working-tree snapshot) does not. This is precisely the incident shape.
+  it('resolves the id-set per commit (commit A tree has #5; commit B tree does not)', () => {
+    const g = fakeGit({
+      packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
+      commitBody: (sha) =>
+        sha === 'A'
+          ? 'feat: A\n\nPrior-art: prior-art-evaluations.md#5 (verdict — rationale long enough).'
+          : 'feat: B\n\nPrior-art: prior-art-evaluations.md#5 (verdict — rationale long enough).',
+      authorDate: () => FUTURE,
+    });
+    // Commit A's tree has #5; commit B's tree (e.g. an older base) does NOT.
+    const perCommit = (sha: string) => (sha === 'A' ? new Set([5]) : new Set<number>());
+    const report = runPriorArtCheck(['A', 'B'], g, undefined, perCommit);
+    expect(report.brokenCitations).toHaveLength(1);
+    expect(report.brokenCitations[0].sha).toBe('B'); // only B's tree lacked #5
+  });
+
+  it('resolver returning undefined for a sha → existence arm is a graceful no-op', () => {
+    const g = fakeGit({
+      packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
+      commitBody: () => 'feat: dep\n\nPrior-art: prior-art-evaluations.md#999 (verdict — rationale here).',
+      authorDate: () => FUTURE,
+    });
+    // SSOT unreadable at this commit → undefined → no existence check, no broken citation.
+    const report = runPriorArtCheck(['sha1'], g, undefined, () => undefined);
+    expect(report.brokenCitations).toHaveLength(0);
+    expect(report.failures).toHaveLength(0);
+  });
+});
+
 // ─── Wave 2 mutation-killing tests ────────────────────────────────────────────
 // These tests were added to kill surviving Stryker mutants identified in the Wave 2 baseline run.
 

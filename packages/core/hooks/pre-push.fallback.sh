@@ -37,7 +37,11 @@ resolve_commits() {
     local l_ref l_sha r_ref r_sha
     if read -r l_ref l_sha r_ref r_sha && [ -n "${r_sha:-}" ]; then
       if [ "${r_sha}" != "${Z40}" ] && git rev-parse --verify "${r_sha}^{commit}" >/dev/null 2>&1; then
-        COMMITS=$(git rev-list "${r_sha}..HEAD" 2>/dev/null || true)
+        # Range terminus is the PUSHED ref's local_sha, NOT HEAD: pushing `feat`
+        # from a checkout on a different branch must validate feat's commits, not
+        # the checked-out branch's (the 2026-06-17 cross-checkout incident; parity
+        # with pre-push.ts resolveBase's head=local_sha).
+        COMMITS=$(git rev-list "${r_sha}..${l_sha}" 2>/dev/null || true)
       else
         # new branch (Z40) or unknown remote sha → commits not on any remote.
         COMMITS=$(git rev-list "${l_sha:-HEAD}" --not --remotes 2>/dev/null || true)

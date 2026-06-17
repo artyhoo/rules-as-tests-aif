@@ -122,23 +122,39 @@ export function commitsNotOnRemotes(localSha: string): string[] {
     .filter(Boolean);
 }
 
-/** Commit SHAs in `<upstreamRef>..HEAD`, newest first (git rev-list order). */
-export function getCommits(upstreamRef: string): string[] {
-  return gitOut(['rev-list', `${upstreamRef}..HEAD`])
+/**
+ * Commit SHAs in `<upstreamRef>..<head>`, newest first (git rev-list order).
+ *
+ * `head` defaults to `HEAD` (manual run / CI backstop — the checkout IS what is
+ * being checked). On a `git push`, the caller passes the pushed ref's
+ * **local_sha** instead: when a feature branch is pushed from a checkout sitting
+ * on a *different* branch, `HEAD` is the other branch's tip — NOT the pushed
+ * branch's — so `..HEAD` would validate unrelated commits (the 2026-06-17
+ * cross-checkout incident). The range must follow the ref actually being pushed.
+ */
+export function getCommits(upstreamRef: string, head = 'HEAD'): string[] {
+  return gitOut(['rev-list', `${upstreamRef}..${head}`])
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean);
 }
 
-/** Changed files in the push range (aif-handoff scoping, §4.8.X.3). */
+/**
+ * Changed files in the push range (aif-handoff scoping, §4.8.X.3).
+ *
+ * `head` defaults to `HEAD`; on a push the caller passes the pushed ref's
+ * local_sha so the diff endpoint follows the pushed branch, not the checkout's
+ * HEAD (see {@link getCommits}).
+ */
 export function getChangedFiles(
   upstreamRef: string,
   diffFilter = 'ACMR',
+  head = 'HEAD',
 ): string[] {
   return gitOut([
     'diff',
     '--name-only',
-    `${upstreamRef}..HEAD`,
+    `${upstreamRef}..${head}`,
     `--diff-filter=${diffFilter}`,
   ])
     .split('\n')

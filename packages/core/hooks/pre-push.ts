@@ -93,41 +93,65 @@ function readPushStdin(): string {
  * VISIBLE warning and skip, never a silent pass (research-patch finding F2).
  */
 interface ResolvedBase {
-  /** Tree-ish for `<base>..HEAD` changed-file diffs; null when unresolvable. */
+  /** Tree-ish for `<base>..<head>` changed-file diffs; null when unresolvable. */
   base: string | null;
-  /** Explicit commit list (new-branch Z40 case); null = derive from `base..HEAD`. */
+  /**
+   * The diff/range endpoint — what the push range runs *to*. The pushed ref's
+   * `local_sha` on a real `git push` (so the range follows the branch being
+   * pushed, even when the checkout's HEAD is on a different branch — the
+   * 2026-06-17 cross-checkout incident); `HEAD` for a manual run / CI backstop
+   * where the checkout IS the thing being checked.
+   */
+  head: string;
+  /** Explicit commit list (new-branch Z40 case); null = derive from `base..head`. */
   commits: string[] | null;
   source: 'env' | 'stdin' | 'stdin-new-branch' | 'default' | 'unresolved';
 }
 
 function resolveBase(): ResolvedBase {
   const env = process.env['PREPUSH_UPSTREAM_REF'];
-  if (env) return { base: env, commits: null, source: 'env' };
+  // CI backstop / manual override: HEAD is the thing being checked against the
+  // override base (the CI job checks out the PR head), so the endpoint is HEAD.
+  if (env) return { base: env, commits: null, head: 'HEAD', source: 'env' };
 
   const refs = parsePushRefs(readPushStdin());
   if (refs.length > 0) {
     const r = refs[0];
     // `^{commit}` peels to a commit object — parity with the fallback's check,
-    // and rejects a tag sha (which would not be a valid `..HEAD` diff base).
+    // and rejects a tag sha (which would not be a valid `..head` diff base).
     if (r.remoteSha !== Z40 && upstreamExists(`${r.remoteSha}^{commit}`)) {
-      return { base: r.remoteSha, commits: null, source: 'stdin' };
+      // Range endpoint is the PUSHED ref's local_sha, NOT HEAD: pushing `feat`
+      // from a checkout on `staging` must validate feat's commits, not staging's.
+      return {
+        base: r.remoteSha,
+        commits: null,
+        head: r.localSha,
+        source: 'stdin',
+      };
     }
     // New branch (Z40) or an unknown remote sha → the commits this push adds.
     const newCommits = commitsNotOnRemotes(r.localSha);
     const oldest = newCommits[newCommits.length - 1];
     const base =
       oldest && upstreamExists(`${oldest}^`) ? `${oldest}^` : EMPTY_TREE;
-    return { base, commits: newCommits, source: 'stdin-new-branch' };
+    // `commits` is explicit here; `head` still set to local_sha so the §6/§8
+    // changed-file diffs (which derive from `base..head`) follow the pushed ref.
+    return {
+      base,
+      commits: newCommits,
+      head: r.localSha,
+      source: 'stdin-new-branch',
+    };
   }
 
   // No env, no stdin (a manual `node pre-push.ts` run): derive the consumer's REAL
   // default branch instead of hard-coding origin/staging (GH #568) — announce via
-  // source:'default', never silently skip.
+  // source:'default', never silently skip. Endpoint is HEAD (no pushed ref to follow).
   const def = resolveDefaultBase();
   if (def) {
-    return { base: def, commits: null, source: 'default' };
+    return { base: def, commits: null, head: 'HEAD', source: 'default' };
   }
-  return { base: null, commits: null, source: 'unresolved' };
+  return { base: null, commits: null, head: 'HEAD', source: 'unresolved' };
 }
 
 /** Emit a visible (non-silent) warning that a section is being skipped. */
@@ -153,7 +177,7 @@ function commitsToCheck(rb: ResolvedBase, label: string): string[] | null {
     warnSkip(label, `base ref '${rb.base}' not found`);
     return null;
   }
-  return getCommits(rb.base);
+  return getCommits(rb.base, rb.head);
 }
 
 /** Re-emit a captured result's output to the operator. */
@@ -194,22 +218,21 @@ function requireTool(
  * — the anti-tautology end-to-end test exercises only this section and must not
  * depend on the other sections' tools/deps.
  */
+/** Path (repo-relative) of the Prior-art SSOT register, read per-commit below. */
+const SSOT_REL = 'docs/meta-factory/prior-art-evaluations.md';
+
 /**
- * The SSOT register's entry id-set, for the C1 broken-citation arm. Unreadable
- * register → undefined → existence check is a graceful no-op (never blocks a
- * push because the file moved).
+ * The SSOT register's entry id-set **as it existed in `sha`'s tree**, for the C1
+ * broken-citation arm. Reads `git show <sha>:<SSOT_REL>` (via the GitProvider) so
+ * a citation is checked against the same commit it lives in — not the working
+ * tree of whatever branch is checked out, which may be dirty or a different
+ * branch entirely (the 2026-06-17 incident: a commit citing #124 was flagged
+ * broken because the working-tree SSOT had #124 removed). SSOT absent/unreadable
+ * at that commit → undefined → existence check is a graceful no-op for it.
  */
-function ssotIds(): ReadonlySet<number> | undefined {
-  try {
-    return loadSsotIds(
-      readFileSync(
-        resolve(REPO_ROOT, 'docs/meta-factory/prior-art-evaluations.md'),
-        'utf8',
-      ),
-    );
-  } catch {
-    return undefined;
-  }
+function ssotIdsAt(sha: string): ReadonlySet<number> | undefined {
+  const content = realGit.fileContent(sha, SSOT_REL);
+  return content === null ? undefined : loadSsotIds(content);
 }
 
 function priorArtSection(rb: ResolvedBase): void {
@@ -217,7 +240,7 @@ function priorArtSection(rb: ResolvedBase): void {
   if (commits === null) return;
   const substanceWarnOnly =
     (process.env['PA_SUBSTANCE_WARN_ONLY'] ?? 'true') !== 'false';
-  const report = runPriorArtCheck(commits, realGit, undefined, ssotIds());
+  const report = runPriorArtCheck(commits, realGit, undefined, ssotIdsAt);
 
   if (report.failures.length > 0) {
     process.stdout.write(
@@ -621,7 +644,7 @@ async function main(): Promise<void> {
   // was a stranded hard-coded `origin/main...HEAD` (3-dot) that bypassed the
   // resolver and diverged from git.ts's 2-dot range — reconciled to 2-dot here.
   if (rb.base !== null) {
-    const specFiles = getChangedFiles(rb.base, 'ACM').filter((f) =>
+    const specFiles = getChangedFiles(rb.base, 'ACM', rb.head).filter((f) =>
       /^\.claude\/orchestrator-prompts\/.*\.md$/.test(f),
     );
     if (specFiles.length > 0) {
@@ -664,7 +687,9 @@ async function main(): Promise<void> {
 
   // ── 8. lychee offline link check on changed *.md ─────────────────────────────
   if (rb.base !== null) {
-    const changedMd = getChangedFiles(rb.base).filter((f) => f.endsWith('.md'));
+    const changedMd = getChangedFiles(rb.base, 'ACMR', rb.head).filter((f) =>
+      f.endsWith('.md'),
+    );
     if (changedMd.length > 0) {
       const r = run('lychee', ['--offline', '--no-progress', ...changedMd]);
       if (r.notFound) {

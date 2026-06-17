@@ -212,17 +212,33 @@ export interface PriorArtReport {
 }
 
 /**
+ * The C1 existence arm's id-source. Either a fixed id-set, or a per-commit
+ * resolver `(sha) => ids`. The resolver form is what the running hook supplies so
+ * each capability commit's citation is checked against **that commit's own tree**
+ * (`git show <sha>:prior-art-evaluations.md`) — not the working tree of whatever
+ * branch happens to be checked out. Reading a fixed working-tree snapshot was the
+ * second half of the 2026-06-17 incident: a commit citing an entry that existed
+ * in its own tree was flagged broken because the (dirty / cross-checkout) working
+ * tree lacked it. A resolver returning `undefined` for a sha (SSOT unreadable at
+ * that commit) makes the existence check a graceful no-op for it.
+ */
+export type SsotIdsSource =
+  | ReadonlySet<number>
+  | ((sha: string) => ReadonlySet<number> | undefined);
+
+/**
  * Run the §7 check over the given commits. Returns findings; the caller decides
  * how to print and whether the substance arm is warn-only.
  *
- * `ssotIds` (the register's id-set) enables the C1 broken-citation arm; when
- * omitted the existence check is skipped and `brokenCitations` stays empty.
+ * `ssotIds` (a register id-set, or a per-commit `(sha) => ids` resolver) enables
+ * the C1 broken-citation arm; when omitted the existence check is skipped and
+ * `brokenCitations` stays empty.
  */
 export function runPriorArtCheck(
   commits: readonly string[],
   g: GitProvider,
   cutoff: string = PA_HISTORICAL_CUTOFF,
-  ssotIds?: ReadonlySet<number>,
+  ssotIds?: SsotIdsSource,
 ): PriorArtReport {
   const failures: PriorArtFinding[] = [];
   const substanceFailures: PriorArtFinding[] = [];
@@ -230,11 +246,12 @@ export function runPriorArtCheck(
   for (const sha of commits) {
     const reason = detectCapabilityReason(sha, g);
     if (reason === null) continue; // not a capability commit
+    const ids = typeof ssotIds === 'function' ? ssotIds(sha) : ssotIds;
     const { code, message } = checkTrailerBody(
       g.commitBody(sha),
       g.authorDate(sha),
       cutoff,
-      ssotIds,
+      ids,
     );
     if (code === 1) failures.push({ sha: sha.slice(0, 10), reason, message });
     else if (code === 2)

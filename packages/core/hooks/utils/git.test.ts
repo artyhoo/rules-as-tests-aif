@@ -152,6 +152,37 @@ describe('getCommits', () => {
     expect(cmd).toBe('git');
     expect(args).toEqual(['rev-list', 'upstream/main..HEAD']);
   });
+
+  // head endpoint (2026-06-17 cross-checkout fix): a push validates
+  // <base>..<local_sha>, not <base>..HEAD, so a feature branch pushed from a
+  // checkout on a different branch is scoped to its own commits.
+  it('uses the given head endpoint as the range terminus (base..head)', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    getCommits('origin/feat', 'localsha123');
+    const [cmd, args] = runCheckMock.mock.calls[0];
+    expect(cmd).toBe('git');
+    expect(args).toEqual(['rev-list', 'origin/feat..localsha123']);
+  });
+
+  // PAIRED-NEGATIVE: with an explicit head, the range must NOT terminate at HEAD
+  // (the bug). Guards the StringLiteral mutant that hard-codes `..HEAD`.
+  it('does NOT fall back to ..HEAD when an explicit head is supplied', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    getCommits('origin/feat', 'localsha123');
+    const [, args] = runCheckMock.mock.calls[0];
+    expect(args[1]).toBe('origin/feat..localsha123');
+    expect(args[1]).not.toContain('HEAD');
+  });
+
+  // Guards the default-parameter mutant: head defaults to 'HEAD', not '' (which
+  // would produce the invalid range `base..`).
+  it('defaults head to HEAD (not empty string) when omitted', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    getCommits('origin/main');
+    const [, args] = runCheckMock.mock.calls[0];
+    expect(args[1]).toBe('origin/main..HEAD');
+    expect(args[1]).not.toBe('origin/main..');
+  });
 });
 
 // ── getChangedFiles ───────────────────────────────────────────────────────────
@@ -218,6 +249,26 @@ describe('getChangedFiles', () => {
     expect(args[2]).toBe('origin/main..HEAD');
     expect(args[3]).toBe('--diff-filter=ACMR');
     expect(args.every((a: string) => a !== '')).toBe(true);
+  });
+
+  // head endpoint (2026-06-17 cross-checkout fix): the diff terminus follows the
+  // pushed local_sha, mirroring getCommits, so §6/§8 changed-file scoping does not
+  // leak the checkout's HEAD into a feature-branch push.
+  it('uses the given head endpoint as the diff terminus (base..head)', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    getChangedFiles('origin/feat', 'ACMR', 'localsha123');
+    const [, args] = runCheckMock.mock.calls[0];
+    expect(args[2]).toBe('origin/feat..localsha123');
+    expect(args[2]).not.toContain('HEAD');
+  });
+
+  // Guards the head default-parameter mutant alongside the existing diffFilter one.
+  it('defaults head to HEAD when only base (and filter) are given', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    getChangedFiles('origin/main', 'D');
+    const [, args] = runCheckMock.mock.calls[0];
+    expect(args[2]).toBe('origin/main..HEAD');
+    expect(args[3]).toBe('--diff-filter=D');
   });
 });
 
