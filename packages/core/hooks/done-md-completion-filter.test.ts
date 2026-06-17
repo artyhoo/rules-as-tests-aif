@@ -46,6 +46,7 @@ import { spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
   writeFileSync,
+  readFileSync,
   mkdirSync,
   rmSync,
   chmodSync,
@@ -63,7 +64,8 @@ const HELPER = resolve(
 
 const sandboxes: string[] = [];
 afterEach(() => {
-  for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
+  for (const d of sandboxes.splice(0))
+    rmSync(d, { recursive: true, force: true });
 });
 
 function makeSandbox(): string {
@@ -99,7 +101,12 @@ function writeDoneMd(
   date = '2026-05-29',
   summary = 'Completed all stages',
 ): void {
-  const dir = join(sandboxRoot, '.claude', 'orchestrator-prompts', umbrellaName);
+  const dir = join(
+    sandboxRoot,
+    '.claude',
+    'orchestrator-prompts',
+    umbrellaName,
+  );
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, 'done.md'),
@@ -114,11 +121,7 @@ function writeDoneMd(
  */
 function makeFakeGhEmpty(sandboxRoot: string): string {
   const fakeGh = join(sandboxRoot, 'fake-gh-empty.sh');
-  writeFileSync(
-    fakeGh,
-    `#!/usr/bin/env bash\necho "[]"\nexit 0\n`,
-    'utf8',
-  );
+  writeFileSync(fakeGh, `#!/usr/bin/env bash\necho "[]"\nexit 0\n`, 'utf8');
   chmodSync(fakeGh, 0o755);
   return fakeGh;
 }
@@ -126,7 +129,11 @@ function makeFakeGhEmpty(sandboxRoot: string): string {
 /**
  * Creates a fake `gh` binary returning specified merged PRs JSON (for C1/C2 tests).
  */
-function makeFakeGh(sandboxRoot: string, mergedPrsJson: string, suffix = ''): string {
+function makeFakeGh(
+  sandboxRoot: string,
+  mergedPrsJson: string,
+  suffix = '',
+): string {
   const fakeGh = join(sandboxRoot, `fake-gh${suffix}.sh`);
   const script = `#!/usr/bin/env bash
 for a in "$@"; do
@@ -186,7 +193,10 @@ if [[ "\${1:-}" == "--all" || -z "\${1:-}" ]]; then
     done
     if [[ "\$found" -eq 1 ]]; then
       # emit POTENTIAL_DUPE for this umbrella using the configured values
-${caseEntries.split('\n').map((l) => '      ' + l).join('\n')}
+${caseEntries
+  .split('\n')
+  .map((l) => '      ' + l)
+  .join('\n')}
     else
       echo "OK: \${name} no dup-detect signal vs merged-PRs-30d"
     fi
@@ -196,10 +206,65 @@ else
   found=0
   for m in \${matched[@]:-}; do [[ "\$m" == "\$name" ]] && found=1 && break; done
   if [[ "\$found" -eq 1 ]]; then
-${caseEntries.split('\n').map((l) => '    ' + l).join('\n')}
+${caseEntries
+  .split('\n')
+  .map((l) => '    ' + l)
+  .join('\n')}
   else
     echo "OK: \${name} no dup-detect signal vs merged-PRs-30d"
   fi
+fi
+exit 0
+`;
+  writeFileSync(fakeDup, script, 'utf8');
+  chmodSync(fakeDup, 0o755);
+  return fakeDup;
+}
+
+/**
+ * Creates a fake dup-detect.sh that (a) RECORDS the MO_ONLY_UMBRELLAS allow-list it was
+ * handed to `recvFile`, and (b) HONOURS it — scanning only the listed umbrellas, exactly like
+ * the real dup-detect's opt-in. This makes the AC-2 skip-closed test a true end-to-end proof:
+ * if priority-score's pre-filter wrongly dropped a C2-only umbrella, this fake would not emit
+ * its POTENTIAL_DUPE → the umbrella would NOT be DONE → the test fails. `matches` maps the
+ * umbrellas that should produce a jaccard POTENTIAL_DUPE; all others get an OK line.
+ */
+function makeRecordingFakeDupDetect(
+  sandboxRoot: string,
+  recvFile: string,
+  matches: Record<string, { prNum: number; score: number }>,
+  suffix = '',
+): string {
+  const fakeDup = join(sandboxRoot, `fake-dup-detect-rec${suffix}.sh`);
+  const caseEntries = Object.entries(matches)
+    .map(
+      ([name, { prNum, score }]) =>
+        `    "${name}") echo "POTENTIAL_DUPE: ${name} may overlap with merged #${prNum} \\"t\\" (basis=jaccard score=${score}%)" ;;`,
+    )
+    .join('\n');
+  const script = `#!/usr/bin/env bash
+# Recording + allow-list-honouring fake dup-detect (AC-2 skip-closed proof).
+REPO_ROOT="\${REPO_ROOT:-}"
+PROMPTS_DIR="\${REPO_ROOT}/.claude/orchestrator-prompts"
+emit() {
+  case "\$1" in
+${caseEntries}
+    *) echo "OK: \$1 no dup-detect signal vs merged-PRs-30d" ;;
+  esac
+}
+if [[ "\${1:-}" == "--all" || -z "\${1:-}" ]]; then
+  if [[ -n "\${MO_ONLY_UMBRELLAS:-}" ]]; then
+    printf '%s' "\${MO_ONLY_UMBRELLAS}" > "${recvFile}"
+    while IFS= read -r only; do
+      [[ -z "\$only" ]] && continue
+      emit "\$only"
+    done < <(printf '%s\\n' "\${MO_ONLY_UMBRELLAS}")
+  else
+    : > "${recvFile}"
+    for d in "\${PROMPTS_DIR}"/*/; do emit "\$(basename "\$d")"; done
+  fi
+else
+  emit "\$1"
 fi
 exit 0
 `;
@@ -246,7 +311,9 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     expect(r.stdout).toMatch(/jaccard-hit-umbrella .* status=DONE done_pr=500/);
     expect(r.stdout).toMatch(/jaccard-hit-umbrella .* basis=jaccard/);
     // jaccard-miss-umbrella has no match → no DONE tag
-    const missLine = r.stdout.split('\n').find((l) => l.startsWith('jaccard-miss-umbrella '));
+    const missLine = r.stdout
+      .split('\n')
+      .find((l) => l.startsWith('jaccard-miss-umbrella '));
     expect(missLine).toBeDefined();
     expect(missLine).not.toMatch(/status=DONE/);
   });
@@ -262,7 +329,9 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
 
     const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     expect(r.status).toBe(0);
-    const line = r.stdout.split('\n').find((l) => l.startsWith('no-match-umbrella '));
+    const line = r.stdout
+      .split('\n')
+      .find((l) => l.startsWith('no-match-umbrella '));
     expect(line).toBeDefined();
     expect(line).not.toMatch(/status=DONE/);
     expect(line).not.toMatch(/done_pr=/);
@@ -286,7 +355,9 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     expect(r.stdout).toMatch(/done-md-umbrella .* status=DONE done_pr=777/);
     expect(r.stdout).toMatch(/done-md-umbrella .* basis=done-md/);
     // active-umbrella has no done.md → still candidate
-    const activeLine = r.stdout.split('\n').find((l) => l.startsWith('active-umbrella '));
+    const activeLine = r.stdout
+      .split('\n')
+      .find((l) => l.startsWith('active-umbrella '));
     expect(activeLine).toBeDefined();
     expect(activeLine).not.toMatch(/status=DONE/);
   });
@@ -302,7 +373,9 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
 
     const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     expect(r.status).toBe(0);
-    const line = r.stdout.split('\n').find((l) => l.startsWith('no-done-md-umbrella '));
+    const line = r.stdout
+      .split('\n')
+      .find((l) => l.startsWith('no-done-md-umbrella '));
     expect(line).toBeDefined();
     expect(line).not.toMatch(/status=DONE/);
     expect(line).not.toMatch(/done_pr=/);
@@ -316,7 +389,12 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     // false-open because the layer only tagged DONE when it parsed a numeric PR.
     const sandbox = makeSandbox();
     setupRepo(sandbox, ['na-done-umbrella', 'active-umbrella']);
-    const dir = join(sandbox, '.claude', 'orchestrator-prompts', 'na-done-umbrella');
+    const dir = join(
+      sandbox,
+      '.claude',
+      'orchestrator-prompts',
+      'na-done-umbrella',
+    );
     mkdirSync(dir, { recursive: true });
     writeFileSync(
       join(dir, 'done.md'),
@@ -329,9 +407,13 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     expect(r.status).toBe(0);
     // na-done-umbrella has done.md (n/a PR) → still DONE via Layer C3
-    expect(r.stdout).toMatch(/na-done-umbrella .* status=DONE done_pr=n\/a basis=done-md/);
+    expect(r.stdout).toMatch(
+      /na-done-umbrella .* status=DONE done_pr=n\/a basis=done-md/,
+    );
     // active-umbrella has no done.md → still candidate (paired-negative)
-    const activeLine = r.stdout.split('\n').find((l) => l.startsWith('active-umbrella '));
+    const activeLine = r.stdout
+      .split('\n')
+      .find((l) => l.startsWith('active-umbrella '));
     expect(activeLine).not.toMatch(/status=DONE/);
   });
 
@@ -339,7 +421,11 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     // Verifies first-match-wins ordering: when C1 misses but C2 or C3 matches, DONE is emitted.
     // Also verifies that C3 still fires when both C1 and C2 miss.
     const sandbox = makeSandbox();
-    setupRepo(sandbox, ['c2-only-umbrella', 'c3-only-umbrella', 'all-miss-umbrella']);
+    setupRepo(sandbox, [
+      'c2-only-umbrella',
+      'c3-only-umbrella',
+      'all-miss-umbrella',
+    ]);
     // done.md for 'c3-only-umbrella'
     writeDoneMd(sandbox, 'c3-only-umbrella', 888);
     const fakeGh = makeFakeGhEmpty(sandbox); // C1 misses for all
@@ -357,7 +443,9 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     expect(r.stdout).toMatch(/c3-only-umbrella .* status=DONE done_pr=888/);
     expect(r.stdout).toMatch(/c3-only-umbrella .* basis=done-md/);
     // all-miss-umbrella: all 3 layers miss → still candidate
-    const allMissLine = r.stdout.split('\n').find((l) => l.startsWith('all-miss-umbrella '));
+    const allMissLine = r.stdout
+      .split('\n')
+      .find((l) => l.startsWith('all-miss-umbrella '));
     expect(allMissLine).toBeDefined();
     expect(allMissLine).not.toMatch(/status=DONE/);
   });
@@ -375,7 +463,9 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     // C3: no done.md (none written)
     expect(r.status).toBe(0);
-    const line = r.stdout.split('\n').find((l) => l.startsWith('genuinely-open-umbrella '));
+    const line = r.stdout
+      .split('\n')
+      .find((l) => l.startsWith('genuinely-open-umbrella '));
     expect(line).toBeDefined();
     // MUST be a pure candidate line — no DONE, no done_pr, no basis
     expect(line).not.toMatch(/status=DONE/);
@@ -385,5 +475,51 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     expect(line).toMatch(/type=/);
     expect(line).toMatch(/kickoff=exists/);
     expect(line).toMatch(/open_prs=/);
+  });
+
+  it('AC-2 skip-closed: C2-only umbrella STAYS DONE while a done.md-closed umbrella is excluded from the expensive scan input (paired-negative for the optimisation)', () => {
+    // Targets the skip-closed pre-filter in priority-score.sh (pipeline-completion-scan-skip-closed):
+    // the cheap closed-set (C3 done.md + C1 branch) gates the expensive C2/dup-detect scan, which
+    // now receives ONLY the open survivors via MO_ONLY_UMBRELLAS. The recording fake honours that
+    // allow-list, so this is an end-to-end proof, not a structural one.
+    //
+    // Correctness invariant (the whole point of AC-2): an umbrella closed ONLY by C2 jaccard has
+    // no done.md and no branch-match, so the pre-filter MUST keep it among the open survivors →
+    // it is still scanned → still classified DONE. The fix changes WHICH umbrellas the expensive
+    // layer sees, never which end up DONE.
+    const sandbox = makeSandbox();
+    setupRepo(sandbox, ['c2-only', 'done-closed', 'genuinely-open']);
+    writeDoneMd(sandbox, 'done-closed', 999); // C3-closed → must be excluded from the scan input
+    const fakeGh = makeFakeGhEmpty(sandbox); // C1 empty → no branch closure for any umbrella
+    const recvFile = join(sandbox, 'mo-only-received.txt');
+    const fakeDup = makeRecordingFakeDupDetect(sandbox, recvFile, {
+      'c2-only': { prNum: 321, score: 55 },
+    });
+
+    const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
+    expect(r.status).toBe(0);
+
+    // (1) AC-2 invariant: the C2-only umbrella (no done.md, no branch) is STILL DONE basis=jaccard
+    //     after the fix — proving the open-set pre-filter does NOT drop a jaccard-only closure.
+    expect(r.stdout).toMatch(
+      /c2-only .* status=DONE done_pr=321 basis=jaccard/,
+    );
+    // (2) the done.md-closed umbrella is classified DONE by the cheap C3 layer (basis=done-md)…
+    expect(r.stdout).toMatch(
+      /done-closed .* status=DONE done_pr=999 basis=done-md/,
+    );
+    // (3) genuinely-open stays an open candidate (no DONE tag).
+    const openLine = r.stdout
+      .split('\n')
+      .find((l) => l.startsWith('genuinely-open '));
+    expect(openLine).toBeDefined();
+    expect(openLine).not.toMatch(/status=DONE/);
+
+    // (4) THE OPTIMISATION ITSELF: the expensive dup-detect scan received exactly the open
+    //     survivors — c2-only + genuinely-open IN, done-closed OUT (paired-negative).
+    const received = readFileSync(recvFile, 'utf8').split('\n').filter(Boolean);
+    expect(received).toContain('c2-only'); // open survivor → scanned
+    expect(received).toContain('genuinely-open'); // open survivor → scanned
+    expect(received).not.toContain('done-closed'); // closed-for-free → NOT scanned (the win)
   });
 });

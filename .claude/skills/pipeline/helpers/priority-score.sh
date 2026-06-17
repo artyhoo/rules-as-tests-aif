@@ -115,16 +115,55 @@ fi
 # Counters T-NoArg-C: does NOT rely on PR-title word overlap (that is Layer C2's job).
 merged_prs_json="$(${MO_GH_BIN} pr list --state merged --json number,headRefName --limit 100 2>/dev/null || echo '[]')"
 
+# ── Skip-closed pre-filter: gate the expensive C2 scan by the cheap closure signals ─────────
+# The per-umbrella dup-detect scan below is ~O(umbrellas); ~84% of this repo's backlog is
+# already provably closed by a FREE signal (C3 done.md file-presence; partly C1 branch-match),
+# yet pre-fix every closed umbrella still paid the full per-umbrella scan (measured 2026-06-17:
+# full 164 vs open-only 27 ≈ 83% wasted CPU). Compute the cheap closed-set HERE and feed
+# dup-detect ONLY the open survivors via its MO_ONLY_UMBRELLAS opt-in (Caller-A only — the
+# standalone §2.5 dedup caller never sets it, so its full sweep is unchanged).
+#
+# CORRECTNESS INVARIANT (paired-negative, done-md-completion-filter.test.ts AC-2): an umbrella
+# closed ONLY by C2 jaccard (no done.md, no branch-match) is NOT in this closed-set, so it
+# stays among the open survivors → still scanned → still classified DONE. This filter changes
+# WHICH umbrellas the expensive layer sees, never which end up DONE. It MUST mirror the C1
+# branch-match (main-loop ~:200) and C3 done.md (main-loop ~:222) membership tests; if those
+# change, this pre-filter must change in lockstep.
+#
+# C1 branch-closed name-set, built ONCE (single jq pass over the pre-fetched merged JSON —
+# same prefix-strip as the main-loop C1). Skipped silently if jq absent / merged list empty.
+_branch_closed_set=""
+if command -v jq &>/dev/null && [[ -n "${merged_prs_json}" && "${merged_prs_json}" != "[]" ]]; then
+  _branch_closed_set="$(printf '%s' "${merged_prs_json}" \
+    | jq -r '.[] | (.headRefName | sub("^(feat|fix|chore|docs|research)/"; ""))' 2>/dev/null || true)"
+fi
+_open_umbrellas=""
+for _skipf_dir in "${PROMPTS_DIR}"/*/; do
+  _skipf_name="$(basename "${_skipf_dir}")"
+  [[ -f "${_skipf_dir}kickoff.md" ]] || continue       # dup-detect only scans real kickoffs
+  [[ -f "${_skipf_dir}done.md" ]] && continue          # C3 done.md → closed for free, skip C2
+  # C1 branch-match → closed for free, skip C2 (exact-match after conventional prefix strip)
+  if [[ -n "${_branch_closed_set}" ]] \
+      && printf '%s\n' "${_branch_closed_set}" | grep -qxF "${_skipf_name}"; then
+    continue
+  fi
+  _open_umbrellas+="${_skipf_name}"$'\n'
+done
+
 # ── completion Layer C2: dup-detect.sh jaccard pre-fetch (REUSE, sub-shell) ─────────────────
 # completion-detection Layer C2 (jaccard title overlap, meta-orch-no-arg-overview Stage 2-extend).
 # REUSE: calls dup-detect.sh --all (sub-shell approach — option (a); preserves dup-detect.sh
 # callers unchanged, avoids modifying a Stage-4-owned file per §6 Option B).
 # Parse output: "POTENTIAL_DUPE: <umbrella> may overlap with merged #<num> ..." lines only.
 # Populated once; per-umbrella lookup is a grep against this variable.
+# Restricted to the open survivors via MO_ONLY_UMBRELLAS (skip-closed perf — see above). If no
+# open survivors (all umbrellas closed by C1/C3), the scan is skipped entirely — C2 is needed
+# only for not-yet-closed umbrellas, so the closed ones are still classified DONE by C1/C3 below.
 # If dup-detect.sh unavailable or gh fails, falls back to empty string (C2 skipped; C3 still runs).
 _dup_detect_all_output=""
-if [[ -x "${MO_DUP_DETECT_BIN}" ]]; then
+if [[ -n "${_open_umbrellas}" && -x "${MO_DUP_DETECT_BIN}" ]]; then
   _dup_detect_all_output="$(REPO_ROOT="${REPO_ROOT}" MO_GH_BIN="${MO_GH_BIN}" \
+    MO_ONLY_UMBRELLAS="${_open_umbrellas}" \
     "${MO_DUP_DETECT_BIN}" --all 2>/dev/null || true)"
 fi
 

@@ -135,7 +135,23 @@ ARG="${1:-}"
 # rule matches. Stage 4 P4-b, meta-orch-no-arg-overview umbrella 2026-05-28.
 if [[ -z "${ARG}" || "${ARG}" == "--all" ]]; then
   if [[ ! -d "${PROMPTS_DIR}" ]]; then echo "(no orchestrator-prompts dir)"; exit 0; fi
-  for d in "${PROMPTS_DIR}"/*/; do check_umbrella "$(basename "${d}")"; done
+  # Caller-A opt-in (completion-detection, priority-score.sh): MO_ONLY_UMBRELLAS is a
+  # newline-separated allow-list of umbrellas to scan instead of every dir. priority-score
+  # pre-filters out umbrellas already provably closed by a cheap signal (done.md / branch-
+  # match) before calling here, so the expensive per-umbrella scan runs ~O(open) not ~O(all)
+  # (~84% of this repo's backlog carries done.md — measured 2026-06-17). Closure-awareness
+  # stays in the caller; dup-detect only gains a generic "scan this subset" capability.
+  # Caller B (standalone dedup, SKILL.md §2.5) never sets this → unchanged full --all sweep
+  # (the empty/unset env falls through to the for-loop below). The single-name path (else
+  # branch) is never gated by this env — a standalone dedup of one candidate stays scoped.
+  if [[ -n "${MO_ONLY_UMBRELLAS:-}" ]]; then
+    while IFS= read -r _only; do
+      [[ -z "${_only}" ]] && continue
+      check_umbrella "${_only}"
+    done < <(printf '%s\n' "${MO_ONLY_UMBRELLAS}")
+  else
+    for d in "${PROMPTS_DIR}"/*/; do check_umbrella "$(basename "${d}")"; done
+  fi
 else
   check_umbrella "${ARG}"
 fi

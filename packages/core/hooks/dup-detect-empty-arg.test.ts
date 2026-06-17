@@ -47,7 +47,8 @@ const HELPER = resolve(
 
 const sandboxes: string[] = [];
 afterEach(() => {
-  for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
+  for (const d of sandboxes.splice(0))
+    rmSync(d, { recursive: true, force: true });
 });
 
 function makeSandbox(): string {
@@ -84,6 +85,7 @@ function runHelper(
   sandboxRoot: string,
   fakeGh: string,
   args: string[],
+  extraEnv: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
   const r = spawnSync('bash', [HELPER, ...args], {
     encoding: 'utf8',
@@ -91,6 +93,7 @@ function runHelper(
       ...process.env,
       REPO_ROOT: sandboxRoot,
       MO_GH_BIN: fakeGh,
+      ...extraEnv,
     },
   });
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
@@ -122,7 +125,11 @@ describe('dup-detect.sh — empty arg = --all (paired-negative contract)', () =>
     // Targets dup-detect.sh:73 — `for d in "${PROMPTS_DIR}"/*/; do check_umbrella ...`
     // The --all branch must continue to work after the empty-arg collapse.
     const sandbox = makeSandbox();
-    const fakeGh = setupRepo(sandbox, ['one-umbrella', 'two-umbrella', 'three-umbrella']);
+    const fakeGh = setupRepo(sandbox, [
+      'one-umbrella',
+      'two-umbrella',
+      'three-umbrella',
+    ]);
 
     const r = runHelper(sandbox, fakeGh, ['--all']);
     expect(r.status).toBe(0);
@@ -154,7 +161,9 @@ describe('dup-detect.sh — empty arg = --all (paired-negative contract)', () =>
 
     const r = runHelper(sandbox, fakeGh, ['nonexistent-umbrella']);
     expect(r.status).toBe(0);
-    expect(r.stdout).toMatch(/MISSING: nonexistent-umbrella no kickoff\.md found/);
+    expect(r.stdout).toMatch(
+      /MISSING: nonexistent-umbrella no kickoff\.md found/,
+    );
     expect(r.stdout).not.toMatch(/Usage:/);
   });
 
@@ -172,5 +181,58 @@ describe('dup-detect.sh — empty arg = --all (paired-negative contract)', () =>
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/\(no orchestrator-prompts dir\)/);
     expect(r.stdout).not.toMatch(/Usage:/);
+  });
+
+  // ── MO_ONLY_UMBRELLAS opt-in (Caller-A skip-closed surface, pipeline-completion-scan-skip-closed) ──
+  // The completion-detection caller (priority-score.sh) pre-filters out already-closed umbrellas
+  // and feeds dup-detect ONLY the open survivors via this allow-list env. The standalone §2.5
+  // dedup caller (Caller B) never sets it → its full sweep is unchanged.
+
+  it('OPT-IN: `--all` with MO_ONLY_UMBRELLAS scans ONLY the allow-listed umbrellas (skip-closed)', () => {
+    // Targets the new opt-in in the --all branch: when MO_ONLY_UMBRELLAS is a newline-separated
+    // allow-list, iterate ONLY those names instead of every dir under PROMPTS_DIR.
+    const sandbox = makeSandbox();
+    const fakeGh = setupRepo(sandbox, ['keep-a', 'keep-b', 'skip-c']);
+
+    const r = runHelper(sandbox, fakeGh, ['--all'], {
+      MO_ONLY_UMBRELLAS: 'keep-a\nkeep-b\n',
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/OK: keep-a no dup-detect signal/);
+    expect(r.stdout).toMatch(/OK: keep-b no dup-detect signal/);
+    // PAIRED-NEGATIVE: skip-c omitted from the allow-list → never scanned/emitted.
+    expect(r.stdout).not.toMatch(/skip-c/);
+  });
+
+  it('AC-3 default: `--all` with MO_ONLY_UMBRELLAS UNSET scans every umbrella (Caller B unchanged)', () => {
+    // Caller B (standalone §2.5 dedup) never sets MO_ONLY_UMBRELLAS; its full sweep over ALL
+    // umbrellas — including closed ones, needed to detect overlap with merged work — is unchanged.
+    const sandbox = makeSandbox();
+    const fakeGh = setupRepo(sandbox, [
+      'caller-b-one',
+      'caller-b-two',
+      'caller-b-three',
+    ]);
+
+    const r = runHelper(sandbox, fakeGh, ['--all']); // no extraEnv → MO_ONLY_UMBRELLAS unset
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/OK: caller-b-one/);
+    expect(r.stdout).toMatch(/OK: caller-b-two/);
+    expect(r.stdout).toMatch(/OK: caller-b-three/);
+  });
+
+  it('AC-3 single-name path ignores MO_ONLY_UMBRELLAS: `dup-detect.sh <name>` checks only <name> even when the env is set', () => {
+    // The opt-in gates ONLY the --all loop. A standalone dedup of one candidate (Caller B
+    // single-name form) stays scoped to that candidate regardless of the env.
+    const sandbox = makeSandbox();
+    const fakeGh = setupRepo(sandbox, ['target-um', 'other-um']);
+
+    const r = runHelper(sandbox, fakeGh, ['target-um'], {
+      MO_ONLY_UMBRELLAS: 'other-um\n',
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/OK: target-um/);
+    // other-um is in the env but the single-name path must ignore it → never scanned.
+    expect(r.stdout).not.toMatch(/other-um/);
   });
 });
