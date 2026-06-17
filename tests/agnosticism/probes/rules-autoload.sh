@@ -3,7 +3,8 @@
 # (portable rule index) exists AND names every .claude/rules/*.md file; DEGRADED otherwise.
 # Pure bash, deterministic, zero API calls (per .claude/rules/no-paid-llm-in-ci.md).
 set -uo pipefail
-REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+# Resolve by path, not `git rev-parse` — GIT_DIR-immune for worktree-push hook env (see ../run-audit.sh).
+REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh"
 
 n=$(find "$REPO_ROOT/.claude/rules" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')

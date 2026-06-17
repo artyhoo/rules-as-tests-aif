@@ -3,7 +3,8 @@
 # green in GitHub Actions CI, a CC-absent env (no CLAUDE_*, no `claude` binary). This probe adds:
 # no CLAUDE_/ANTHROPIC coupling in the shipped substrate configs, and the portable pre-push fallback.
 set -uo pipefail
-REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+# Resolve by path, not `git rev-parse` — GIT_DIR-immune for worktree-push hook env (see ../run-audit.sh).
+REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh"
 
 configs=$(git -C "$REPO_ROOT" ls-files | grep -E 'eslint\.config|vitest\.config|dependency-cruiser|stryker\.config|tsconfig|\.lintstagedrc' || true)

@@ -5,7 +5,8 @@
 #  - a workflow COMMENT documenting the *absence* of ANTHROPIC_API_KEY must NOT count as usage →
 #    strip whole-line comments and require a real `secrets.`/`KEY:`/`KEY=` usage shape.
 set -uo pipefail
-REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+# Resolve by path, not `git rev-parse` — GIT_DIR-immune for worktree-push hook env (see ../run-audit.sh).
+REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh"
 
 rb="$REPO_ROOT/packages/runtime-bridge/scripts/setup-runtime-bridge.sh"

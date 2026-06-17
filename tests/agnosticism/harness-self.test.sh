@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
-REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+# Resolve by path, not `git rev-parse` — GIT_DIR-immune for worktree-push hook env (see run-audit.sh).
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }

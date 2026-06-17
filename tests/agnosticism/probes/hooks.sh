@@ -2,7 +2,8 @@
 # Surface 4 — shipped git hooks must fire via git (core.hooksPath=.husky), not a CC event,
 # and must carry no CLAUDE_*/claude coupling in their bodies.
 set -uo pipefail
-REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+# Resolve by path, not `git rev-parse` — GIT_DIR-immune for worktree-push hook env (see ../run-audit.sh).
+REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh"
 
 for h in .husky/pre-commit .husky/pre-push; do
