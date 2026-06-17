@@ -123,14 +123,28 @@ test_fb3_env_beats_stdin() {
   rm -rf "$r"
 }
 
-# FB4 (VISIBLE skip): no env, no stdin, no staging → visible warning + exit 0
-# (never a silent skip). Old fallback DID print on staging-absent; this guards parity.
+# FB4 (VISIBLE skip): no env, no stdin, and NO resolvable default branch — origin/staging
+# AND origin/main absent, no origin/master, no origin/HEAD symref. GH #568 widened the
+# fallback default from a bare origin/staging to a chain (origin/HEAD → staging|main|
+# master), so genuine unresolvability now requires dropping origin/main too → visible
+# warning + exit 0 (never a silent skip).
 test_fb4_unresolvable_warns() {
   local r; r=$(build_repo); drop_staging "$r"
+  git -C "$r" update-ref -d refs/remotes/origin/main   # GH #568: also drop the fallback target
   local out; out=$(fb_capture "$r")
   if printf '%s' "$out" | grep -qiE 'could not determine|not found|skipping'; then
     record pass "FB4 — unresolvable base → visible warning (not silent)"
   else record fail "FB4 — unresolvable base produced no warning: [${out}]"; fi
+  rm -rf "$r"
+}
+
+# FB5 (GH #568 default fallback): no env, no stdin, origin/staging absent but origin/main
+# PRESENT at C1 → the widened fallback chain resolves origin/main → range C2..C3 incl. BAD
+# C2 → exit 1. Old hard-coded origin/staging fallback silently skipped here.
+test_fb5_default_fallback_to_main_includes_bad() {
+  local r; r=$(build_repo); drop_staging "$r"   # origin/main remains at C1
+  if fb "$r"; then record fail "FB5 — no staging but origin/main present should flag C2 via fallback but exited 0"
+  else record pass "FB5 — no env/stdin, fallback resolves origin/main → flags C2 → exit 1 (GH #568)"; fi
   rm -rf "$r"
 }
 
@@ -139,6 +153,7 @@ test_fb1_stdin_excludes_bad
 test_fb2_z40_no_staging_includes_bad
 test_fb3_env_beats_stdin
 test_fb4_unresolvable_warns
+test_fb5_default_fallback_to_main_includes_bad
 
 printf '\n── Summary ──\n%d pass / %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

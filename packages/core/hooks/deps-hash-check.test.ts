@@ -103,10 +103,13 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
     // Hook line 40-42: if CURRENT_HASH != STORED_HASH → printf warning.
     // Hook line 44: always exit 0.
     const pkg = { dependencies: { react: '^18.0.0' }, devDependencies: { vitest: '^4.0.0' } };
-    const depsJson = buildDepsJson(pkg);
-    const correctHash = computeHash(depsJson);
-    // Deliberately store a wrong hash so the hook sees a mismatch.
-    const staleHash = correctHash.replace(/[a-f]/, '0');
+    // Deliberately store a wrong but well-formed `sha256-` baseline so the hook sees a real
+    // drift (a stored sha256 that no longer matches) — distinct from the unbaselined
+    // `<pending>` placeholder case below (GH #548). A real sha256 of these deps is never
+    // all-zeros, so this is guaranteed-different yet keeps the `sha256-` prefix that the
+    // fix keys on. (The former `correctHash.replace(/[a-f]/, '0')` accidentally corrupted
+    // the `a` in "sha256", producing an unbaselined-looking value, not a drift.)
+    const staleHash = `sha256-${'0'.repeat(64)}`;
 
     const cwd = makeFixtureDir({
       packageJson: pkg,
@@ -121,6 +124,30 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
     expect(stdout).toContain('⚠');
     expect(stdout).toContain('package.json deps changed since last tool-bootstrap');
     expect(stdout).toContain('/tool-bootstrapping');
+  });
+
+  it('UNBASELINED: <pending> placeholder (not a sha256- baseline) → honest "not yet baselined" warning, NOT "deps changed" (GH #548)', () => {
+    // Fresh-install state: install.sh seeds `deps-hash: <pending …>` (Option B, per
+    // install.sh:566). The placeholder is non-empty, so the hook STILL warns every prompt
+    // (the deliberate onboarding nudge) — but it must NOT claim deps "changed": nothing
+    // changed and there was never a prior baseline.
+    const pkg = { dependencies: { react: '^18.0.0' }, devDependencies: { vitest: '^4.0.0' } };
+
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash: <pending — populated on first tool-bootstrap run>\n---\n`,
+    });
+
+    const { status, stdout } = runHook(cwd);
+
+    expect(status).toBe(0);
+    // Still warns (Option B keeps the per-prompt nudge until baselined).
+    expect(stdout).toContain('⚠');
+    expect(stdout).toContain('/tool-bootstrapping');
+    // Honest wording for the unbaselined state.
+    expect(stdout).toContain('not yet baselined');
+    // The misleading "deps changed" claim must NOT appear when there is no baseline.
+    expect(stdout).not.toContain('deps changed');
   });
 
   // ---------------------------------------------------------------------------

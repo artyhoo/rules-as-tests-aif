@@ -218,16 +218,34 @@ test_7_stdin_remote_no_staging_includes_bad() {
   rm -rf "$repo"
 }
 
-# Test 8 (§F2 — VISIBLE warning, never a silent skip): no env, no stdin, no staging
-# → base unresolvable. Must exit 0 (does not hard-block a push) AND emit a visible
-# warning. Old code returned silently with no output at all.
+# Test 8 (§F2 — VISIBLE warning, never a silent skip): no env, no stdin, and NO
+# resolvable default branch at all — origin/staging AND origin/main absent, no
+# origin/master, no origin/HEAD symref. GH #568 widened the default from a bare
+# origin/staging to a fallback chain (origin/HEAD → origin/staging|main|master), so
+# genuine unresolvability now requires dropping origin/main too. Must exit 0 (does
+# not hard-block a push) AND emit a visible warning. Old code returned silently.
 test_8_unresolvable_warns_visibly() {
   local repo; repo=$(build_repo); drop_staging "$repo"
+  git -C "$repo" update-ref -d refs/remotes/origin/main   # GH #568: also drop the fallback target
   local out; out=$(run_capture "$repo")
   if printf '%s' "$out" | grep -qiE 'could not determine|base ref|skipping'; then
     record pass "8 — unresolvable base → visible warning emitted (not a silent skip)"
   else
     record fail "8 — unresolvable base produced no warning output (silent skip not fixed): [${out}]"
+  fi
+  rm -rf "$repo"
+}
+
+# Test 9 (GH #568 — default fallback to origin/main): no env, no stdin, origin/staging
+# absent but origin/main PRESENT at C1. The widened resolver derives origin/main from
+# the fallback chain → range C2..C3 includes the trailer-less capability C2 → exit 1.
+# Old hard-coded-origin/staging code silently skipped here (the #568 consumer no-op).
+test_9_default_fallback_to_main_includes_bad() {
+  local repo; repo=$(build_repo); drop_staging "$repo"   # origin/main remains at C1
+  if run "$repo"; then
+    record fail "9 — no staging but origin/main present should flag C2 via fallback but exited 0"
+  else
+    record pass "9 — no env/stdin, fallback resolves origin/main → flags C2 → exit 1 (GH #568)"
   fi
   rm -rf "$repo"
 }
@@ -240,6 +258,7 @@ test_5_stdin_z40_newbranch_includes_bad
 test_6_env_beats_stdin
 test_7_stdin_remote_no_staging_includes_bad
 test_8_unresolvable_warns_visibly
+test_9_default_fallback_to_main_includes_bad
 
 printf '\n── Summary ──\n%d pass / %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

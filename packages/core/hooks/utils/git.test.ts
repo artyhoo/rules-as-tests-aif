@@ -15,6 +15,7 @@ vi.mock('./run-check.ts', () => ({
 
 const {
   upstreamExists,
+  resolveDefaultBase,
   getCommits,
   getChangedFiles,
   realGit,
@@ -57,6 +58,53 @@ describe('upstreamExists', () => {
   it('returns false for exit code 128, not true', () => {
     runCheckMock.mockReturnValue({ ...ok(), exitCode: 128 });
     expect(upstreamExists('origin/main')).toBe(false);
+  });
+});
+
+// ── resolveDefaultBase (GH #568) ────────────────────────────────────────────────
+// Sequenced via mockReturnValueOnce in resolveDefaultBase's call order:
+//   1. symbolic-ref --short refs/remotes/origin/HEAD   (gitOut → .stdout)
+//   2. rev-parse --verify <head>                       (only when symref is non-empty)
+//   3. rev-parse --verify origin/staging|main|master   (fallback chain, until one exits 0)
+describe('resolveDefaultBase', () => {
+  beforeEach(() => runCheckMock.mockReset());
+
+  it('returns origin/HEAD when the symref is set and the ref exists', () => {
+    runCheckMock
+      .mockReturnValueOnce(ok('origin/main\n')) // symbolic-ref → origin/main
+      .mockReturnValueOnce(ok()); // rev-parse --verify origin/main → exists
+    expect(resolveDefaultBase()).toBe('origin/main');
+  });
+
+  it('falls back to origin/staging when the origin/HEAD symref is unset', () => {
+    runCheckMock
+      .mockReturnValueOnce(ok('')) // symbolic-ref → unset (empty stdout)
+      .mockReturnValueOnce(ok()); // rev-parse --verify origin/staging → exists
+    expect(resolveDefaultBase()).toBe('origin/staging');
+  });
+
+  it('falls through to origin/main on a main-default consumer (no symref, no staging) — the GH #568 case', () => {
+    runCheckMock
+      .mockReturnValueOnce(ok('')) // symbolic-ref → unset
+      .mockReturnValueOnce(fail()) // origin/staging → absent
+      .mockReturnValueOnce(ok()); // origin/main → exists
+    expect(resolveDefaultBase()).toBe('origin/main');
+  });
+
+  it('ignores a STALE origin/HEAD pointing at a missing ref and uses the fallback chain', () => {
+    runCheckMock
+      .mockReturnValueOnce(ok('origin/main\n')) // symref claims origin/main…
+      .mockReturnValueOnce(fail()) // …but rev-parse --verify origin/main → missing (stale)
+      .mockReturnValueOnce(fail()) // origin/staging → absent
+      .mockReturnValueOnce(fail()) // origin/main → absent
+      .mockReturnValueOnce(ok()); // origin/master → exists
+    expect(resolveDefaultBase()).toBe('origin/master');
+  });
+
+  it('returns null when nothing resolves (caller warns + skips, never a silent pass)', () => {
+    // Every call fails: symbolic-ref → '' stdout, every rev-parse → non-zero.
+    runCheckMock.mockReturnValue(fail());
+    expect(resolveDefaultBase()).toBeNull();
   });
 });
 

@@ -38,6 +38,7 @@ import {
   getCommits,
   getChangedFiles,
   upstreamExists,
+  resolveDefaultBase,
   realGit,
   parsePushRefs,
   commitsNotOnRemotes,
@@ -84,7 +85,9 @@ function readPushStdin(): string {
  *      signal (what HEAD is actually being pushed against). For a new branch
  *      (`remote_sha` == {@link Z40}) the checked set is "commits not on any
  *      remote" (ADAPT of pre-commit's stdin handling).
- *   3. legacy `origin/staging`, *only if it exists*, with a visible warning.
+ *   3. the derived default branch (origin/HEAD → origin/staging|main|master),
+ *      *only if one exists* (GH #568, via {@link resolveDefaultBase}); else a
+ *      visible warning + skip.
  *
  * Returns `{ base: null, commits: null }` when nothing resolves — callers emit a
  * VISIBLE warning and skip, never a silent pass (research-patch finding F2).
@@ -117,10 +120,12 @@ function resolveBase(): ResolvedBase {
     return { base, commits: newCommits, source: 'stdin-new-branch' };
   }
 
-  // No env, no stdin (a manual `node pre-push.ts` run): keep the legacy default
-  // only when it actually exists, and announce it — never silently skip.
-  if (upstreamExists('origin/staging')) {
-    return { base: 'origin/staging', commits: null, source: 'default' };
+  // No env, no stdin (a manual `node pre-push.ts` run): derive the consumer's REAL
+  // default branch instead of hard-coding origin/staging (GH #568) — announce via
+  // source:'default', never silently skip.
+  const def = resolveDefaultBase();
+  if (def) {
+    return { base: def, commits: null, source: 'default' };
   }
   return { base: null, commits: null, source: 'unresolved' };
 }
@@ -141,7 +146,7 @@ function warnSkip(label: string, why: string): void {
 function commitsToCheck(rb: ResolvedBase, label: string): string[] | null {
   if (rb.commits !== null) return rb.commits;
   if (rb.base === null) {
-    warnSkip(label, 'no PREPUSH_UPSTREAM_REF, no git stdin, no origin/staging');
+    warnSkip(label, 'no PREPUSH_UPSTREAM_REF, no git stdin, no default branch');
     return null;
   }
   if (!upstreamExists(rb.base)) {
