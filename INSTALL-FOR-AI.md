@@ -271,6 +271,61 @@ The three-layer model maps onto these patterns: Layer 1 ≈ the shareable preset
 
 ---
 
+## Refreshing framework artefacts after an upgrade
+
+When the framework ships a fix (e.g. a corrected `agents/*.md`, an updated hook, or a revised skill), consumers who installed before the fix need a safe way to pull in the change without losing their own customisations.
+
+**Use `install.sh --refresh`** — an opt-in, stateless re-sync that overwrites the framework-owned set and respects the three-layer authority model:
+
+```bash
+# Preview what would change (writes nothing)
+bash /path/to/rules-as-tests-aif/install.sh --refresh --dry-run
+
+# Apply (overwrites framework-owned files; consumer files untouched)
+bash /path/to/rules-as-tests-aif/install.sh --refresh
+```
+
+### What `--refresh` updates
+
+Framework-owned artefacts the consumer is **not** expected to edit in place:
+
+- `.claude/agents/*.md` — sub-agent prompts
+- `.claude/skills/` — pipeline, dispatcher, aif-doctor, template-audit, rules-as-tests, tool-bootstrapping
+- `.claude/hooks/deps-hash-check.sh` — session hook
+- `scripts/*.sh`, `scripts/audit-r4.ts` — audit gate scripts
+- `packages/core/hooks/` — TS pre-push pipeline
+- `.ai-factory/skill-context/*/SKILL.md` — AIF skill-context overrides
+
+### What `--refresh` never touches
+
+Consumer-authored files are **never** in the refresh set — they are not framework-owned:
+
+- `AGENTS.md`, `.ai-factory/RULES.md`, `.ai-factory/ARCHITECTURE.*.md` (filled in by you)
+- `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `.prettierrc.json`
+- `.github/workflows/ci.yml`, `.prettierignore`
+- Any file with a sibling `.override.md` (Layer 3 — you have taken ownership)
+
+### How the three-layer model and `--refresh` interact
+
+| Layer | File state | `--refresh` behaviour |
+|---|---|---|
+| **1. Framework default** | File was never edited by the consumer | Overwrites to latest framework version |
+| **2. Consumer in-place edit** | Consumer edited the file directly (no `.override.md`) | **Also overwrites** — Layer-2 in-place edits are not preserved. See note below. |
+| **3. `.override.md` escape hatch** | Consumer created `<file>.override.md` sibling | **Skips** — the base file is left untouched |
+
+> **Note on Layer-2 edits:** `--refresh` is stateless (no hash stamp) and cannot distinguish a consumer-edited Layer-2 file from an unedited one. If you have edited a framework-owned file in place **without** using `.override.md`, run `--dry-run` first and rescue any customisations before applying. The recommended divergence path is to move your edits into `<file>.override.md` before refreshing — then `--refresh` is always safe to run.
+
+### Refresh-safe divergence workflow
+
+To diverge from a framework file AND keep `--refresh` safe:
+
+1. Create `<file>.override.md` next to the file (e.g. `agents/review-sidecar.override.md`).
+2. Put your custom content in that file.
+3. Instruct AI agents to read `<file>.override.md` instead of `<file>` (Layer-3 resolution rule).
+4. Run `--refresh` freely — the base file will be updated to the latest version; your override is untouched.
+
+---
+
 ## Harness-hook layer and AI-assisted workflow requirements
 
 ### Editor coupling (Claude Code only)

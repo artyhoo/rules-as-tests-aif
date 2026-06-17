@@ -70,12 +70,14 @@ FORCE=""
 DRY_RUN=""
 FULL=""
 WIRE_CI=""
+REFRESH=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run)              DRY_RUN="--dry-run" ;;
     --force)                FORCE="--force" ;;
     --full)                 FULL="--full" ;;
     --wire-ci)              WIRE_CI="--wire-ci" ;;
+    --refresh)              REFRESH="--refresh" ;;
     ts-server|react-next)   STACK="$arg" ;;
     *)                      ;;
   esac
@@ -160,6 +162,17 @@ if [ ! -f "$PROJECT_ROOT/package.json" ]; then
   fi
 fi
 
+# For --refresh: auto-detect the stack from the consumer's existing files so the
+# interactive prompt is skipped (refresh is non-interactive by design — opt-in flag).
+if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
+  if [ -f "$PROJECT_ROOT/.ai-factory/RULES.react-next.md" ] || \
+     [ -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-next.md" ]; then
+    STACK="react-next"
+  else
+    STACK="ts-server"
+  fi
+fi
+
 # Pick stack interactively if not provided
 if [ -z "$STACK" ]; then
   echo "What stack does this project use?"
@@ -178,7 +191,11 @@ if [ "$STACK" != "ts-server" ] && [ "$STACK" != "react-next" ]; then
   exit 1
 fi
 
-echo "▶ Installing rules-as-tests-aif into $PROJECT_ROOT (stack: $STACK)"
+if [ -n "$REFRESH" ]; then
+  echo "▶ Refreshing rules-as-tests-aif framework artefacts in $PROJECT_ROOT (stack: $STACK)"
+else
+  echo "▶ Installing rules-as-tests-aif into $PROJECT_ROOT (stack: $STACK)"
+fi
 
 # ─── Helpers ─────────────────────────────────────────────
 copy_safe() {
@@ -203,6 +220,34 @@ copy_safe() {
   mkdir -p "$(dirname "$dst")"
   cp -r "$src" "$dst"
   echo "  ✓ $dst"
+}
+
+# refresh_safe <src> <dst>
+# Inverted copy_safe: OVERWRITES unless the consumer has signalled Layer-3 ownership
+# via a sibling <base>.override.md (INSTALL-FOR-AI.md §Three-layer + §override).
+# Naming: for foo.md the override is foo.override.md; for foo.sh it is foo.sh.override.md
+# (the %.md strip is a no-op on non-.md files, so the pattern is uniform — ${dst%.md}.override.md).
+# T-Upgrade-A: default-to-SKIP on any ownership signal — a wrong overwrite is irreversible.
+refresh_safe() {
+  local src="$1"
+  local dst="$2"
+  local override="${dst%.md}.override.md"
+  [ -e "$src" ] || return 0  # source gone — leave consumer copy alone
+  if [ -e "$override" ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: $dst (.override.md present — consumer-owned Layer 3)"
+    else
+      echo "  ⊝ $dst (.override.md — consumer-owned, keeping)"
+    fi
+    return 0
+  fi
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would refresh: $src → $dst"
+    return 0
+  fi
+  mkdir -p "$(dirname "$dst")"
+  cp -r "$src" "$dst"
+  echo "  ✓ $dst (refreshed)"
 }
 
 # GH #531 (reopen): non-destructive .prettierignore merge. copy_safe skips-if-exists, so a
@@ -435,6 +480,173 @@ copy_skill_with_transform() {
   done < <(find "$dst" -name '*.md' -print0)
   echo "  ✓ .claude/skills/$slug/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 }
+
+# refresh_skill_with_transform <slug>
+# Like copy_skill_with_transform but with refresh_safe semantics for directories.
+# The override signal for a skill directory is <dst_dir>.override.md (e.g.
+# .claude/skills/pipeline.override.md signals consumer-owned pipeline skill).
+refresh_skill_with_transform() {
+  local slug="$1"
+  local src="$PKG_ROOT/.claude/skills/$slug"
+  local dst="$PROJECT_ROOT/.claude/skills/$slug"
+  local override="${dst}.override.md"
+  [ -d "$src" ] || return 0
+  if [ -e "$override" ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: .claude/skills/$slug (.override.md — consumer-owned)"
+    else
+      echo "  ⊝ .claude/skills/$slug (.override.md — consumer-owned, keeping)"
+    fi
+    return 0
+  fi
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would refresh: $src → $dst (+ transform internal refs)"
+    return 0
+  fi
+  rm -rf "$dst"
+  cp -r "$src" "$dst"
+  while IFS= read -r -d '' mdfile; do
+    transform_internal_refs "$mdfile"
+  done < <(find "$dst" -name '*.md' -print0)
+  echo "  ✓ .claude/skills/$slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+}
+
+# do_refresh — re-copy all framework-owned artefacts (agents, skills, hooks, scripts,
+# skill-context overrides) to the consumer. Called only when --refresh is passed.
+# Framework-owned = artefacts the framework authors, header-verifies, and ships with no
+# consumer-specific data. Consumer-authored files (AGENTS.md, RULES.md, ci.yml,
+# eslint.config.mjs, tsconfig.json, .prettierrc, etc.) are NEVER in this set.
+# Boundary derivation: SHIPPED_DOCS ∪ copy_safe'd framework artefacts; override signal =
+# sibling .override.md (Layer 3 per INSTALL-FOR-AI.md §Three-layer).
+do_refresh() {
+  echo "▶ Mode: --refresh (framework-owned artefacts; consumer files preserved)"
+  echo "  Skips any file with a sibling .override.md (Layer-3 consumer ownership)"
+
+  # ── Sub-agents ──────────────────────────────────────────
+  echo "▶ Sub-agents → .claude/agents/"
+  for f in "$PKG_ROOT"/agents/*.md; do
+    case "$(basename "$f")" in
+      manual-rule-liveness-prober.md) continue ;;
+      shipped-agent-liveness-prober.md) continue ;;
+    esac
+    refresh_safe "$f" "$PROJECT_ROOT/.claude/agents/$(basename "$f")"
+  done
+
+  # ── Skills (plain copy, no internal-ref transform) ──────
+  echo "▶ Skills (rules-as-tests, tool-bootstrapping) → .claude/skills/"
+  for _slug in rules-as-tests tool-bootstrapping; do
+    _src="$PKG_ROOT/skills/$_slug"
+    _dst="$PROJECT_ROOT/.claude/skills/$_slug"
+    _override="${_dst}.override.md"
+    [ -d "$_src" ] || continue
+    if [ -e "$_override" ]; then
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would skip: .claude/skills/$_slug (.override.md — consumer-owned)"
+      else
+        echo "  ⊝ .claude/skills/$_slug (.override.md — consumer-owned, keeping)"
+      fi
+      continue
+    fi
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would refresh: $_src → $_dst"
+      continue
+    fi
+    rm -rf "$_dst"
+    cp -r "$_src" "$_dst"
+    echo "  ✓ .claude/skills/$_slug/ (refreshed)"
+  done
+
+  # ── Orchestration skills (with internal-ref transform) ──
+  echo "▶ Orchestration skills → .claude/skills/"
+  for _skill in pipeline dispatcher aif-doctor template-audit; do
+    refresh_skill_with_transform "$_skill"
+  done
+  _AIF_HELPERS="$PROJECT_ROOT/.claude/skills/aif-doctor/helpers"
+  if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$_AIF_HELPERS" ]; then
+    chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" 2>/dev/null || true
+  fi
+
+  # ── Claude hooks ────────────────────────────────────────
+  echo "▶ Claude hooks → .claude/hooks/"
+  _HOOK_SRC="$PKG_ROOT/packages/core/hooks/deps-hash-check.sh"
+  _HOOK_DST="$PROJECT_ROOT/.claude/hooks/deps-hash-check.sh"
+  if [ -f "$_HOOK_SRC" ]; then
+    refresh_safe "$_HOOK_SRC" "$_HOOK_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_HOOK_DST" ]; then
+      chmod_safe +x "$_HOOK_DST" 2>/dev/null || true
+    fi
+  fi
+
+  # ── Scripts ─────────────────────────────────────────────
+  echo "▶ Scripts → scripts/"
+  for _pair in \
+    "packages/core/audit-self/audit-ai-docs.sh:scripts/audit-ai-docs.sh" \
+    "packages/core/probes/audit-r4.ts:scripts/audit-r4.ts" \
+    "packages/core/audit-self/check-rule-globs.sh:scripts/check-rule-globs.sh" \
+    "packages/core/audit-self/check-rule-enforced.sh:scripts/check-rule-enforced.sh" \
+    "packages/core/audit-self/detect-r2-boundary.sh:scripts/detect-r2-boundary.sh" \
+    "packages/core/audit-self/r2-na-marker.sh:scripts/r2-na-marker.sh" \
+    "packages/core/audit-self/check-arch-boundaries.sh:scripts/check-arch-boundaries.sh" \
+    "packages/core/audit-self/check-lintstaged-resolves.sh:scripts/check-lintstaged-resolves.sh"; do
+    _s="${_pair%%:*}"; _d="${_pair##*:}"
+    refresh_safe "$PKG_ROOT/$_s" "$PROJECT_ROOT/$_d"
+    case "$_d" in
+      *.sh) if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/$_d" ]; then
+              chmod_safe +x "$PROJECT_ROOT/$_d" 2>/dev/null || true; fi ;;
+    esac
+  done
+  if [ "$STACK" = "react-next" ]; then
+    _rn_src="$PKG_ROOT/packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh"
+    _rn_dst="$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh"
+    refresh_safe "$_rn_src" "$_rn_dst"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_rn_dst" ]; then
+      chmod_safe +x "$_rn_dst" 2>/dev/null || true
+    fi
+  fi
+
+  # ── Core hooks (TS pre-push pipeline) ───────────────────
+  echo "▶ Core hooks (TS) → packages/core/hooks/"
+  for _ts in \
+    pre-push.ts \
+    utils/run-check.ts \
+    utils/git.ts \
+    checks/prior-art.ts \
+    checks/s17.ts; do
+    refresh_safe "$PKG_ROOT/packages/core/hooks/$_ts" "$PROJECT_ROOT/packages/core/hooks/$_ts"
+  done
+  _fb_src="$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh"
+  _fb_dst="$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh"
+  refresh_safe "$_fb_src" "$_fb_dst"
+  if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_fb_dst" ]; then
+    chmod_safe +x "$_fb_dst" 2>/dev/null || true
+  fi
+
+  # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
+  echo "▶ Skill-context → .ai-factory/skill-context/"
+  for _doc in "${SHIPPED_DOCS[@]}"; do
+    case "$_doc" in
+      packages/core/templates/shared/skill-context/*/SKILL.md)
+        _sc="${_doc#packages/core/templates/shared/skill-context/}"; _sc="${_sc%/SKILL.md}"
+        refresh_safe "$PKG_ROOT/$_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ;;
+    esac
+  done
+
+  echo ""
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "✅ Dry-run complete (--refresh preview). Nothing was written."
+    echo "   Re-run without --dry-run to apply, or add --force to also overwrite consumer files."
+  else
+    echo "✅ Framework artefacts refreshed."
+    echo "   Consumer-owned files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs, etc.) were not touched."
+    echo "   Files with a sibling .override.md were also preserved."
+  fi
+}
+
+# ─── --refresh early-exit: run refresh then stop (skip the full install flow) ──
+if [ -n "$REFRESH" ]; then
+  do_refresh
+  exit 0
+fi
 
 # ─── 1. Skills ──────────────────────────────────────────
 echo "▶ Skills → .claude/skills/"

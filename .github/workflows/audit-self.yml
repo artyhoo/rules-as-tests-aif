@@ -303,6 +303,8 @@ jobs:
         run: bash tests/install-sh/r2-auto-wire.test.sh
       - name: install-sh — consumer-pipeline (GH #482 consumer-usable /pipeline acceptance + T15 dogfood)
         run: bash tests/install-sh/consumer-pipeline.test.sh
+      - name: install-sh — consumer-upgrade-path (--refresh acceptance gate — stale-refreshed + customise-survives)
+        run: bash tests/install-sh/consumer-upgrade-path.test.sh
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
       - name: Run agnosticism harness self-test (Umbrella-1 anti-theatre gate — harness must fail on a seeded CC-break)
