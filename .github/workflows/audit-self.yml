@@ -734,7 +734,9 @@ jobs:
       - name: Run zizmor
         # Plain console output. zizmor exits non-zero on findings; that's the gate.
         # Avoiding SARIF upload keeps this runnable without GitHub Advanced Security.
-        run: zizmor --format plain .github/workflows/
+        # Also scan the SHIPPED CI templates (#637) so they can't drift past the
+        # gate — they live OUTSIDE .github/workflows/, so these are extra path args.
+        run: zizmor --format plain .github/workflows/ templates/ts-server/github-actions-ci.yml templates/ts-server/github-actions-workflow-integrity.yml packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml
 
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
