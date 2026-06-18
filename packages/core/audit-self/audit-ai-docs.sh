@@ -75,7 +75,7 @@ skip_unless() {
 if skip_unless R4; then : ; else
   RULE="R4: Every public export in src/domain has matching .unit.ts (ts-morph)"
   if [ ! -d src/domain ]; then
-    pass "$RULE (skipped: no src/domain)"
+    warn "$RULE (skipped: no src/domain — probe could not run)"
   elif ! command -v npx >/dev/null 2>&1; then
     warn "$RULE (skipped: npx not found)"
   elif [ ! -f tsconfig.json ] && [ ! -f node_modules/ts-morph/package.json ]; then

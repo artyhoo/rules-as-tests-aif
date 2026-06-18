@@ -52,6 +52,7 @@ ${CLAUDE_SKILL_DIR}/helpers/bundle-curate.sh "<path-to-backlog-file>"
 ## Dispatch order
 
 Recommended dispatch order (dependency + file-touch-risk graded):
+
 1. <item-N> — <reason>
 2. …
 

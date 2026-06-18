@@ -1,0 +1,14 @@
+{
+  "name": "my-nextapp",
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "@prisma/client": "^6.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.0.0",
+    "vitest": "^4.1.0",
+    "typescript": "^5.7.0"
+  }
+}

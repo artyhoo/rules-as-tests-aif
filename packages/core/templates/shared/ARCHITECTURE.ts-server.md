@@ -10,7 +10,7 @@
 
 ## Layer structure (hexagonal / clean)
 
-```
+```text
 src/
 ├── domain/             # Pure business logic. Stdlib + Zod ONLY.
 │   ├── entities/
@@ -47,11 +47,11 @@ src/
 
 Tests live next to source files (no `__tests__/` folder). Suffix indicates kind:
 
-| Kind | Suffix | Example | Run by |
-|---|---|---|---|
-| Unit | `.unit.ts` | `src/domain/order.unit.ts` | `vitest run` |
-| Integration | `.integration.ts` | `src/infrastructure/order-repo.integration.ts` | `vitest run --config vitest.integration.config.ts` |
-| Audit (rule check) | `.audit.ts` | `tests/audit/agents-md.audit.ts` | `vitest run` |
+| Kind               | Suffix            | Example                                        | Run by                                             |
+| ------------------ | ----------------- | ---------------------------------------------- | -------------------------------------------------- |
+| Unit               | `.unit.ts`        | `src/domain/order.unit.ts`                     | `vitest run`                                       |
+| Integration        | `.integration.ts` | `src/infrastructure/order-repo.integration.ts` | `vitest run --config vitest.integration.config.ts` |
+| Audit (rule check) | `.audit.ts`       | `tests/audit/agents-md.audit.ts`               | `vitest run`                                       |
 
 Files without these suffixes are not considered tests — meta-tests will flag any that look like tests but aren't named correctly.
 
@@ -81,14 +81,14 @@ Files without these suffixes are not considered tests — meta-tests will flag a
 
 ## Where rules are enforced
 
-| Rule | Enforced by |
-|---|---|
-| No cycles | dependency-cruiser |
-| Layer direction | dependency-cruiser |
-| No `as any` | ESLint `@typescript-eslint/no-explicit-any` + `audit-ai-docs.sh` probe `R1` |
-| No `Date.now()` outside infra | ESLint `no-restricted-syntax` + `audit-ai-docs.sh` probe `R7` |
-| No forbidden imports | ESLint `no-restricted-imports` + `audit-ai-docs.sh` probe `R9` |
-| OTel span on application functions | `audit-ai-docs.sh` probe `R8` |
-| Tests for new public exports | `audit-ai-docs.sh` probe `R4` |
+| Rule                               | Enforced by                                                                 |
+| ---------------------------------- | --------------------------------------------------------------------------- |
+| No cycles                          | dependency-cruiser                                                          |
+| Layer direction                    | dependency-cruiser                                                          |
+| No `as any`                        | ESLint `@typescript-eslint/no-explicit-any` + `audit-ai-docs.sh` probe `R1` |
+| No `Date.now()` outside infra      | ESLint `no-restricted-syntax` + `audit-ai-docs.sh` probe `R7`               |
+| No forbidden imports               | ESLint `no-restricted-imports` + `audit-ai-docs.sh` probe `R9`              |
+| OTel span on application functions | `audit-ai-docs.sh` probe `R8`                                               |
+| Tests for new public exports       | `audit-ai-docs.sh` probe `R4`                                               |
 
 See `.ai-factory/RULES.md` for full list R1–R11 and `references/checks-map.md` for the full enforcement layer map.

@@ -93,7 +93,10 @@ export const requireFormSafeParse = createRule({
       if (lineExempt(formDataParam.loc.start.line)) return;
       if (!fn.body) return;
       if (bodyHasSafeParseCall(fn.body)) return;
-      context.report({ node: formDataParam, messageId: 'missingFormSafeParse' });
+      context.report({
+        node: formDataParam,
+        messageId: 'missingFormSafeParse',
+      });
     }
 
     return {

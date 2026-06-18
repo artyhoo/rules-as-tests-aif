@@ -42,54 +42,11 @@ jobs:
           exit "$fail"
 
       - name: No file > 500 lines (markdown)
-        run: |
-          fail=0
-          # Exempt list: declared-transient artifacts per their own disclaimer.
-          # Each entry MUST include rationale comment.
-          # Guard: each exempt file must contain "transient artifact" in first 20 lines
-          # — prevents agents from adding entries to EXEMPT without in-file justification.
-          EXEMPT=(
-            "./docs/meta-factory/EXECUTION-PLAN.md"  # transient pre-1.0 plan, see line 8
-          )
-          # Exempt directories: audit-trail accumulators where length is proportional
-          # to investigation depth, not freedom-of-prose. Each entry MUST include
-          # rationale comment. The 500-line limit was designed for freedom-of-prose
-          # docs (README, retros, canonical docs) where brevity is discipline.
-          # Audit-trail accumulators have a different shape: evidence-per-claim
-          # (T3), adversarial counter-prompt (T7), §1.7 self-review — collectively
-          # incompressible without losing the substance the discipline mandates.
-          # Recursive self-application gap discovered 2026-05-16 (CI fail on
-          # 785-line research-patch honestly applying all discipline):
-          # .claude/rules/phase-research-coverage.md §4 #recursive-self-application-gap
-          EXEMPT_DIRS=(
-            "./docs/meta-factory/research-patches/"  # research-patches: evidence accumulator, length ∝ investigation depth
-          )
-          while IFS= read -r f; do
-            # Directory-level exemption first (cheaper than per-file marker check)
-            for ex_dir in "${EXEMPT_DIRS[@]}"; do
-              case "$f" in
-                "$ex_dir"*) continue 2 ;;
-              esac
-            done
-            for ex in "${EXEMPT[@]}"; do
-              if [ "$f" = "$ex" ]; then
-                if head -20 "$f" | grep -qi "transient artifact"; then
-                  echo "::notice file=$f::skipped overweight check (declared transient)"
-                  continue 2
-                else
-                  echo "::error file=$f::listed in EXEMPT but no 'transient artifact' marker in first 20 lines"
-                  fail=1
-                  continue 2
-                fi
-              fi
-            done
-            n=$(wc -l < "$f")
-            if [ "$n" -gt 600 ]; then
-              echo "::error file=$f::overweight ($n lines, max 600)"
-              fail=1
-            fi
-          done < <(find . -name "*.md" -not -path "./.git/*")
-          exit "$fail"
+        # Gate logic extracted to a unit-testable script (single source) so the
+        # exemptions — EXECUTION-PLAN.md, research-patches/, and committed durable
+        # kickoff.md design docs (cross-session kickoff portability, SSOT #116) —
+        # ship with a paired positive+negative test. See md-line-gate.test.ts.
+        run: bash packages/core/audit-self/md-line-gate.sh .
 
       - name: Dead-link check (.md → .md)
         run: |
@@ -125,16 +82,39 @@ jobs:
       - name: Stale path references
         run: |
           fail=0
-          if grep -rn "ai-factory-RULES\.md" --include="*.md" --include="*.sh" .; then
+          # Excludes orchestrator-prompts/: kickoffs are committed historical design
+          # docs (cross-session kickoff portability, SSOT #116) that legitimately quote
+          # now-removed artifacts as audit subjects (e.g. an audit kickoff whose job is
+          # to remove the stale ref). The guard targets canonical/shipped docs.
+          if grep -rn "ai-factory-RULES\.md" --include="*.md" --include="*.sh" --exclude-dir=orchestrator-prompts .; then
             echo "::error::stale 'ai-factory-RULES.md' reference (renamed to factory/RULES.md)"
             fail=1
           fi
-          if grep -rn "best-practices-sidecar\.react\.md" --include="*.md" .; then
+          if grep -rn "best-practices-sidecar\.react\.md" --include="*.md" --exclude-dir=orchestrator-prompts .; then
             echo "::error::stale 'best-practices-sidecar.react.md' reference (was inlined)"
             fail=1
           fi
           exit "$fail"
 
+  shipped-prettier:
+    name: Shipped artifacts are Prettier-clean (GH #531 dogfood)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+      # The framework never ran its own authored shipped artifacts (skill docs, agent prompts,
+      # ESLint-rule sources, config templates) through Prettier, so install delivered ~50 files
+      # that fail a consumer's first `prettier --check .` (#531). This gate fails when any shipped
+      # source drifts from Prettier — keeping "one button → green validate" true out-of-box.
+      # Deterministic (Prettier, not an LLM) — complies with no-paid-llm-in-ci.
+      - name: npm run format:check (shipped surface only)
+        run: npm run format:check
   rule-to-probe:
     name: Rule-to-probe mapping
     runs-on: ubuntu-latest
@@ -226,6 +206,17 @@ jobs:
         run: npm install --prefix packages/core --silent
       - name: Run principles meta-tests
         run: npm --prefix packages/core run test:principles
+      # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
+      # never gated — only principles/ was — which is how a real cross-platform regression
+      # (priority-score-synthetic.sh xargs) accumulated 15 failures unnoticed. Gate it here.
+      # Root `npm install` hoists tsx to the repo-root node_modules/.bin so the
+      # check-doc-authority hook (which spawns $REPO_ROOT/node_modules/.bin/tsx) actually
+      # runs rather than graceful-skipping. jq is preinstalled on ubuntu runners; eslint
+      # (guard-liveness) comes from the packages/core install above.
+      - name: Install workspace deps (hoists tsx to root for the hooks-suite gate)
+        run: npm install --silent
+      - name: Run packages/core/hooks/ suite (CI-gap option C — gate the hooks suite)
+        run: npm --prefix packages/core run test:hooks
       - name: Run prior-art trailer hook anti-tautology test (Phase 8.8 T9)
         run: bash tests/hooks/prior-art-trailer-hook.test.sh
       - name: Run §1.7 discipline trailer hook anti-tautology test (Wave 10.3)
@@ -280,12 +271,50 @@ jobs:
         run: bash tests/install-sh/f5-stryker-globs.test.sh
       - name: Run install-sh prettierignore-generated-docs test (consumer-install-hardening F15)
         run: bash tests/install-sh/f15-prettierignore.test.sh
+      - name: Run install-sh gh-531 shipped-prettier test (GH #531 reopen — prettier pin + .prettierignore merge)
+        run: bash tests/install-sh/gh-531-shipped-prettier.test.sh
       - name: Run install-sh lint-staged binary-resolution test (consumer-install-hardening F14)
         run: bash tests/install-sh/f14-lintstaged-resolves.test.sh
       - name: Run install-sh runtime-arming WARN test (consumer-install-hardening S3 V2)
         run: bash tests/install-sh/v2-strict-runtime-armed.test.sh
       - name: Run install-sh dev-dep install test (consumer-install-completeness S3 one-button #483)
         run: bash tests/install-sh/cic-s3-dep-install.test.sh
+      - name: Run install-sh arch:check monorepo-target test (GH #508)
+        run: bash tests/install-sh/arch-target-monorepo.test.sh
+      - name: Run install-sh .nvmrc↔CI node-version drift WARN test (GH #509)
+        run: bash tests/install-sh/nvmrc-ci-drift.test.sh
+      - name: Run install-sh R2 glob-reach test — CI-orphan WARN + per-package shadow + globals (GH #507 reopen)
+        run: bash tests/install-sh/r2-glob-reach.test.sh
+      - name: Run install-sh --wire-ci opt-in yq auto-wirer test (universalization-fix-s3 Stage P, GH #521)
+        run: bash tests/install-sh/s3-wire-ci.test.sh
+      - name: Run install-sh arch-boundaries shipped-config test (GH #534 — was present-but-unwired)
+        run: bash tests/install-sh/gh-534-arch-boundaries.test.sh
+      - name: Run install-sh rule-enforced print-config test (GH #535 — was present-but-unwired)
+        run: bash tests/install-sh/gh-535-rule-enforced.test.sh
+      - name: Run install-sh C1 skill-context wiring test (was present-but-unwired)
+        run: bash tests/install-sh/c1-wiring.test.sh
+      - name: Run install-sh ship-orchestration-skills test (#500 — was present-but-unwired)
+        run: bash tests/install-sh/ship-orchestration-skills.test.sh
+      - name: install-sh — detect-r2-boundary (GH #547 C1 classifier)
+        run: bash tests/install-sh/detect-r2-boundary.test.sh
+      - name: install-sh — r2-na-marker (GH #547 C4 two-gates-one-marker)
+        run: bash tests/install-sh/r2-na-marker.test.sh
+      - name: install-sh — r2-auto-wire (GH #547 C2/C3 fixtures + self-probe)
+        run: bash tests/install-sh/r2-auto-wire.test.sh
+      - name: install-sh — consumer-pipeline (GH #482 consumer-usable /pipeline acceptance + T15 dogfood)
+        run: bash tests/install-sh/consumer-pipeline.test.sh
+      - name: install-sh — consumer-upgrade-path (--refresh acceptance gate — stale-refreshed + customise-survives)
+        run: bash tests/install-sh/consumer-upgrade-path.test.sh
+      - name: install-sh — wire-eslint-r2 (GH #547 Layer 2 AST wirer degrade fixtures D+F)
+        run: bash tests/install-sh/wire-eslint-r2.test.sh
+      - name: install-sh — f16 stryker live-mutants (post-install liveness smoke #549 class)
+        run: bash tests/install-sh/f16-stryker-live-mutants.test.sh
+      - name: install-sh — f17 lint rules planted-violation (post-install liveness smoke Check3 Arm ii)
+        run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
+      - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
+        run: bash tests/install-sh/meta-all-wired.test.sh
+      - name: Run agnosticism harness self-test (Umbrella-1 anti-theatre gate — harness must fail on a seeded CC-break)
+        run: bash tests/agnosticism/harness-self.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type

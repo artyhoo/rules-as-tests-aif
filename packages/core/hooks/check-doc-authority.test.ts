@@ -61,6 +61,13 @@ function hasJq(): boolean {
 }
 const JQ = hasJq();
 
+// The hook spawns $REPO_ROOT/node_modules/.bin/tsx; when it is absent the hook
+// graceful-skips (exit 0) rather than running the bin, so the exit-1 assertions
+// below would false-fail. Skip when tsx is not resolvable at the repo root (e.g. a
+// worktree whose node_modules was never symlinked). CI installs it (root npm install),
+// so the gate still runs there. (CI-gap option C — env-dependent marking.)
+const TSX = existsSync(resolve(REPO_ROOT, 'node_modules/.bin/tsx'));
+
 /**
  * Restoration record: absolute path → original content (or null if file did not exist).
  * Populated by writeFixtureOverRepoFile(); restored in afterEach.
@@ -163,7 +170,7 @@ const MISSING_HEADER = `# Test fixture
 Some body text with no authority header.
 `;
 
-describe.skipIf(!JQ)('check-doc-authority.sh — PostToolUse authority header gate', () => {
+describe.skipIf(!JQ || !TSX)('check-doc-authority.sh — PostToolUse authority header gate', () => {
   // ──────────────────────────────────────────────────────────────────────────
   // PAIRED-NEGATIVE: the core contract
   // ──────────────────────────────────────────────────────────────────────────

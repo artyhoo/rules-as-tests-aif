@@ -7,6 +7,8 @@
   ],
   "scripts": {
     "check:skill-drift": "bash scripts/check-skill-drift.sh",
+    "format": "bash scripts/format-shipped.sh --write",
+    "format:check": "bash scripts/format-shipped.sh --check",
     "test": "npm test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },

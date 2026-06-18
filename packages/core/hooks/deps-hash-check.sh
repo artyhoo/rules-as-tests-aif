@@ -42,7 +42,19 @@ else
 fi
 
 if [ "$CURRENT_HASH" != "$STORED_HASH" ]; then
-  printf '⚠ package.json deps changed since last tool-bootstrap — run /tool-bootstrapping to re-evaluate\n'
+  # Distinguish a real drift (a stored sha256- baseline that no longer matches) from an
+  # UNBASELINED state (the install-time `<pending …>` placeholder). On a fresh install
+  # nothing has "changed" and there was no prior baseline — saying so honestly avoids the
+  # misleading "deps changed" message (GH #548, Option B: keep the per-prompt onboarding
+  # nudge, fix only the wording).
+  case "$STORED_HASH" in
+    sha256-*)
+      printf '⚠ package.json deps changed since last tool-bootstrap — run /tool-bootstrapping to re-evaluate\n'
+      ;;
+    *)
+      printf '⚠ tool decisions not yet baselined — run /tool-bootstrapping to record current package.json deps\n'
+      ;;
+  esac
 fi
 
 exit 0

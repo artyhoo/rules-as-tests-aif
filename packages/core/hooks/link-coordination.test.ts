@@ -159,12 +159,14 @@ describe('link-coordination.sh', () => {
 
   // ── (a) SYMLINK ────────────────────────────────────────────────────────────
 
-  it('(a) SYMLINK: kickoff.md is a symlink pointing into $CANON after helper runs', () => {
-    // Pre-populate $CANON with the umbrella + kickoff
+  it('(a) SYMLINK: state.md is a symlink pointing into $CANON after helper runs', () => {
+    // SSOT #116: kickoff.md became a tracked durable doc (helper skips */kickoff.md);
+    // state.md is the per-umbrella gitignored regenerable runtime the helper manages.
+    // Pre-populate $CANON with the umbrella + state
     mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
     writeFileSync(
-      resolve(canon, 'my-umbrella/kickoff.md'),
-      '# my-umbrella kickoff\nCanonical content.\n',
+      resolve(canon, 'my-umbrella/state.md'),
+      '# my-umbrella state\nCanonical content.\n',
     );
 
     const wt = setupWorktreeDir(primaryRepo, 'lnk-a');
@@ -172,13 +174,13 @@ describe('link-coordination.sh', () => {
     const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
-    const kickoffPath = resolve(wt, '.claude/orchestrator-prompts/my-umbrella/kickoff.md');
-    expect(existsSync(kickoffPath), 'kickoff.md must exist').toBe(true);
+    const statePath = resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md');
+    expect(existsSync(statePath), 'state.md must exist').toBe(true);
 
-    const stat = lstatSync(kickoffPath);
-    expect(stat.isSymbolicLink(), 'kickoff.md must be a symlink').toBe(true);
+    const stat = lstatSync(statePath);
+    expect(stat.isSymbolicLink(), 'state.md must be a symlink').toBe(true);
 
-    const content = readFileSync(kickoffPath, 'utf8');
+    const content = readFileSync(statePath, 'utf8');
     expect(content).toContain('Canonical content');
   });
 
@@ -215,17 +217,18 @@ describe('link-coordination.sh', () => {
   // ── (c) CONFLICT ──────────────────────────────────────────────────────────
 
   it('(c) CONFLICT: real file in both worktree and CANON → exit 1, content unchanged', () => {
+    // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
     // Pre-populate $CANON with its version
     mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
     writeFileSync(
-      resolve(canon, 'my-umbrella/kickoff.md'),
+      resolve(canon, 'my-umbrella/state.md'),
       '# canon version\n',
     );
 
     const wt = setupWorktreeDir(primaryRepo, 'lnk-c');
-    // Also plant a REAL kickoff.md in the worktree (not a symlink)
+    // Also plant a REAL state.md in the worktree (not a symlink)
     writeFileSync(
-      resolve(wt, '.claude/orchestrator-prompts/my-umbrella/kickoff.md'),
+      resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md'),
       '# worktree version\n',
     );
 
@@ -234,11 +237,11 @@ describe('link-coordination.sh', () => {
     expect(r.stderr).toContain('CONFLICT');
 
     // Neither file changed
-    const canonContent = readFileSync(resolve(canon, 'my-umbrella/kickoff.md'), 'utf8');
+    const canonContent = readFileSync(resolve(canon, 'my-umbrella/state.md'), 'utf8');
     expect(canonContent).toBe('# canon version\n');
 
     const wtContent = readFileSync(
-      resolve(wt, '.claude/orchestrator-prompts/my-umbrella/kickoff.md'),
+      resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md'),
       'utf8',
     );
     expect(wtContent).toBe('# worktree version\n');
@@ -247,10 +250,11 @@ describe('link-coordination.sh', () => {
   // ── (d) WRITE-BACK ────────────────────────────────────────────────────────
 
   it('(d) WRITE-BACK: edit via symlink is visible in $CANON and a second linked worktree', () => {
+    // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
     // Pre-populate $CANON
     mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
     writeFileSync(
-      resolve(canon, 'my-umbrella/kickoff.md'),
+      resolve(canon, 'my-umbrella/state.md'),
       '# original\n',
     );
 
@@ -264,16 +268,16 @@ describe('link-coordination.sh', () => {
     expect(r2.status, `wt2 stderr: ${r2.stderr}`).toBe(0);
 
     // Write new content through wt1's symlink
-    const kickoffViaWt1 = resolve(wt1, '.claude/orchestrator-prompts/my-umbrella/kickoff.md');
-    writeFileSync(kickoffViaWt1, '# updated content\n');
+    const stateViaWt1 = resolve(wt1, '.claude/orchestrator-prompts/my-umbrella/state.md');
+    writeFileSync(stateViaWt1, '# updated content\n');
 
     // Visible in $CANON
-    const canonContent = readFileSync(resolve(canon, 'my-umbrella/kickoff.md'), 'utf8');
+    const canonContent = readFileSync(resolve(canon, 'my-umbrella/state.md'), 'utf8');
     expect(canonContent).toBe('# updated content\n');
 
     // Visible in wt2 (same inode via symlink)
-    const kickoffViaWt2 = resolve(wt2, '.claude/orchestrator-prompts/my-umbrella/kickoff.md');
-    const wt2Content = readFileSync(kickoffViaWt2, 'utf8');
+    const stateViaWt2 = resolve(wt2, '.claude/orchestrator-prompts/my-umbrella/state.md');
+    const wt2Content = readFileSync(stateViaWt2, 'utf8');
     expect(wt2Content).toBe('# updated content\n');
 
     teardown(wt1, wt2);
@@ -281,11 +285,12 @@ describe('link-coordination.sh', () => {
 
   // ── (e) PAIRED-NEGATIVE ──────────────────────────────────────────────────
 
-  it('(e) PAIRED-NEGATIVE: stripped helper (LINK step removed) leaves kickoff NOT a symlink', () => {
+  it('(e) PAIRED-NEGATIVE: stripped helper (LINK step removed) leaves state NOT a symlink', () => {
+    // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
     // Pre-populate $CANON
     mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
     writeFileSync(
-      resolve(canon, 'my-umbrella/kickoff.md'),
+      resolve(canon, 'my-umbrella/state.md'),
       '# canonical\n',
     );
 
@@ -311,11 +316,11 @@ describe('link-coordination.sh', () => {
       // May fail or succeed — we only care about the symlink state
     }
 
-    const kickoffPath = resolve(wt, '.claude/orchestrator-prompts/my-umbrella/kickoff.md');
+    const statePath = resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md');
     // Either absent or a real file — NOT a symlink
-    if (existsSync(kickoffPath)) {
+    if (existsSync(statePath)) {
       expect(
-        lstatSync(kickoffPath).isSymbolicLink(),
+        lstatSync(statePath).isSymbolicLink(),
         'stripped helper must NOT create a symlink',
       ).toBe(false);
     }
@@ -328,11 +333,12 @@ describe('link-coordination.sh', () => {
   // ── (f) ADOPT-THEN-LINK: orphan real file in worktree gets moved to $CANON ──
 
   it('(f) ADOPT: real gitignored file in worktree with no CANON equivalent is adopted (mv to CANON, then linked)', () => {
+    // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
     // $CANON has NO my-umbrella yet
     const wt = setupWorktreeDir(primaryRepo, 'lnk-f');
-    // Place a real kickoff.md in the worktree (not a symlink, not in CANON)
+    // Place a real state.md in the worktree (not a symlink, not in CANON)
     writeFileSync(
-      resolve(wt, '.claude/orchestrator-prompts/my-umbrella/kickoff.md'),
+      resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md'),
       '# adopt-me\n',
     );
 
@@ -340,12 +346,12 @@ describe('link-coordination.sh', () => {
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
     // After adoption: worktree path is now a symlink
-    const kickoffPath = resolve(wt, '.claude/orchestrator-prompts/my-umbrella/kickoff.md');
-    expect(existsSync(kickoffPath)).toBe(true);
-    expect(lstatSync(kickoffPath).isSymbolicLink(), 'kickoff must be symlink after adoption').toBe(true);
+    const statePath = resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md');
+    expect(existsSync(statePath)).toBe(true);
+    expect(lstatSync(statePath).isSymbolicLink(), 'state must be symlink after adoption').toBe(true);
 
     // Content is in $CANON
-    const canonContent = readFileSync(resolve(canon, 'my-umbrella/kickoff.md'), 'utf8');
+    const canonContent = readFileSync(resolve(canon, 'my-umbrella/state.md'), 'utf8');
     expect(canonContent).toBe('# adopt-me\n');
 
     teardown(wt);
@@ -380,13 +386,13 @@ describe('link-coordination.sh', () => {
 
   it('on-conflict=canon: canonical wins, worktree file relinked', () => {
     mkdirSync(resolve(canon, 'u1'), { recursive: true });
-    writeFileSync(resolve(canon, 'u1/kickoff.md'), 'CANON');
+    writeFileSync(resolve(canon, 'u1/state.md'), 'CANON');
     const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-canon');
     mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u1'), { recursive: true });
-    writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/kickoff.md'), 'WORKTREE');
+    writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/state.md'), 'WORKTREE');
     const r = runHelper([wt, '', '--on-conflict=canon'], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
-    const p = resolve(wt, '.claude/orchestrator-prompts/u1/kickoff.md');
+    const p = resolve(wt, '.claude/orchestrator-prompts/u1/state.md');
     expect(lstatSync(p).isSymbolicLink()).toBe(true);
     expect(readFileSync(p, 'utf8')).toBe('CANON');
     teardown(wt);
@@ -394,30 +400,30 @@ describe('link-coordination.sh', () => {
 
   it('on-conflict=worktree: worktree wins, adopted into CANON', () => {
     mkdirSync(resolve(canon, 'u1'), { recursive: true });
-    writeFileSync(resolve(canon, 'u1/kickoff.md'), 'CANON');
+    writeFileSync(resolve(canon, 'u1/state.md'), 'CANON');
     const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-worktree');
     mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u1'), { recursive: true });
-    writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/kickoff.md'), 'WORKTREE');
+    writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/state.md'), 'WORKTREE');
     const r = runHelper([wt, '', '--on-conflict=worktree'], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
-    const p = resolve(wt, '.claude/orchestrator-prompts/u1/kickoff.md');
+    const p = resolve(wt, '.claude/orchestrator-prompts/u1/state.md');
     expect(lstatSync(p).isSymbolicLink()).toBe(true);
-    expect(readFileSync(resolve(canon, 'u1/kickoff.md'), 'utf8')).toBe('WORKTREE');
+    expect(readFileSync(resolve(canon, 'u1/state.md'), 'utf8')).toBe('WORKTREE');
     teardown(wt);
   });
 
   it('on-conflict=skip (default): exits 1, leaves both files intact', () => {
     mkdirSync(resolve(canon, 'u1'), { recursive: true });
-    writeFileSync(resolve(canon, 'u1/kickoff.md'), 'CANON');
+    writeFileSync(resolve(canon, 'u1/state.md'), 'CANON');
     const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-skip');
     mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u1'), { recursive: true });
-    writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/kickoff.md'), 'WORKTREE');
+    writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/state.md'), 'WORKTREE');
     const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status).toBe(1);
     expect(
-      readFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/kickoff.md'), 'utf8'),
+      readFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/state.md'), 'utf8'),
     ).toBe('WORKTREE');
-    expect(readFileSync(resolve(canon, 'u1/kickoff.md'), 'utf8')).toBe('CANON');
+    expect(readFileSync(resolve(canon, 'u1/state.md'), 'utf8')).toBe('CANON');
     teardown(wt);
   });
 

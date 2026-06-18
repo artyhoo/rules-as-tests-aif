@@ -1,7 +1,7 @@
 ---
 name: review-sidecar
 description: Reviews diff as an external reviewer with no memory of how the code was written. Catches tautological tests, mock-only assertions, missing edge cases, React/Next anti-patterns. Reports; does not fix.
-tools: read_file, list_files
+tools: Read, Glob, Grep
 ---
 
 # review-sidecar
@@ -36,10 +36,10 @@ Tests whose assertion is true by construction — they test nothing real.
 
 ```ts
 // FLAG: type already guarantees `result` is defined
-expect(result).toBeDefined();           // function returns T, not T | undefined
+expect(result).toBeDefined(); // function returns T, not T | undefined
 
 // FLAG: type already guarantees string
-expect(typeof result).toBe('string');   // return type is string
+expect(typeof result).toBe('string'); // return type is string
 
 // FLAG: testing implementation, not behavior
 expect(result).toEqual(items.reduce((acc, x) => acc + x.price, 0));
@@ -76,6 +76,7 @@ it('saves order', async () => {
 ### 3. Missing edge cases
 
 For each public function in the diff, check that tests cover:
+
 - Empty input (`[]`, `''`, `{}`, `null`, `undefined`)
 - Boundary values (0, max int, just-above/below threshold)
 - Error paths (input that should throw / return error)
@@ -104,6 +105,7 @@ it('emits OrderPlaced event after successful payment', ...)
 Do tests share state? Can they run in any order? If `test_2` depends on `test_1`'s side effects, that's a bug — tests must be independent.
 
 Check for:
+
 - Module-level mutable state without reset in `beforeEach`
 - File system / DB writes without cleanup
 - Mocks not cleared between tests (`vi.clearAllMocks()` missing in `beforeEach`)
@@ -114,7 +116,7 @@ When reviewing `.tsx`/`.jsx` diff:
 
 - **`<div onClick>`** instead of `<button>` — accessibility violation, also AI's favorite.
 - **Buttons without accessible name** — `<button>{icon}</button>` without `aria-label`.
-- **Missing aria-* on dynamic content** — `<div role="alert">` without text update detection.
+- **Missing aria-\* on dynamic content** — `<div role="alert">` without text update detection.
 - **Form inputs without `<label>`** — labelled-by missing.
 - **Index as key in dynamic lists** — `key={i}` instead of stable id.
 - **`useEffect` with missing deps** — `[]` when reading `props.x` inside.
@@ -144,6 +146,7 @@ For each issue, output:
 
 ```markdown
 ## Severity: BLOCKER | MAJOR | MINOR
+
 - File: src/features/checkout/PriceSummary.unit.ts:34
 - What I saw: `expect(result).toBeDefined()` after `result = calculatePrice(items)`
 - Why it's a problem: `calculatePrice` return type is `number`, not `number | undefined`. The type system already guarantees `result` is defined. This assertion will never fail and tests nothing.
@@ -151,6 +154,7 @@ For each issue, output:
 ```
 
 Severity rules:
+
 - **BLOCKER** — security/correctness/data integrity (allows silent breakage; e.g., tautological test on critical path).
 - **MAJOR** — anti-pattern that will cause maintainability or accessibility issues at scale.
 - **MINOR** — style or minor inefficiency.
@@ -161,20 +165,25 @@ Severity rules:
 
 ```markdown
 ## Two-AI Review Summary
+
 - BLOCKER: 1
 - MAJOR: 3
 - MINOR: 2
 
 ## Recommendation
+
 BLOCK MERGE — fix BLOCKER before proceeding.
 ```
 
 If clean:
+
 ```markdown
 ## Two-AI Review Summary
+
 - 0 issues found.
 
 ## Recommendation
+
 APPROVE — review passed.
 ```
 

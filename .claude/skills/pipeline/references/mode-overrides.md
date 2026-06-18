@@ -18,14 +18,14 @@
 Six mutually-exclusive flags. Each maps 1:1 to an ALIAS value from SKILL.md §2.5 Step 6
 (line 213) and to an internal DISPATCH mode:
 
-| CLI flag | OVERRIDE_MODE emitted | ALIAS (SKILL.md §2.5 Step 6 line 213–221) | DISPATCH (internal) |
-|---|---|---|---|
-| `--mode-direct` | `DIRECT` | DIRECT | direct-Edit |
-| `--mode-solo` | `SOLO` | SOLO | Mode-A |
-| `--mode-bundle` | `BUNDLE` | BUNDLE | Mode-A-bundle |
-| `--mode-pair` | `PAIR` | PAIR | Mode-SDD |
-| `--mode-decompose` | `DECOMPOSE` | DECOMPOSE | Mode-B |
-| `--mode-research` | `RESEARCH` | RESEARCH | R-phase-session / Queue-mode |
+| CLI flag           | OVERRIDE_MODE emitted | ALIAS (SKILL.md §2.5 Step 6 line 213–221) | DISPATCH (internal)          |
+| ------------------ | --------------------- | ----------------------------------------- | ---------------------------- |
+| `--mode-direct`    | `DIRECT`              | DIRECT                                    | direct-Edit                  |
+| `--mode-solo`      | `SOLO`                | SOLO                                      | Mode-A                       |
+| `--mode-bundle`    | `BUNDLE`              | BUNDLE                                    | Mode-A-bundle                |
+| `--mode-pair`      | `PAIR`                | PAIR                                      | Mode-SDD                     |
+| `--mode-decompose` | `DECOMPOSE`           | DECOMPOSE                                 | Mode-B                       |
+| `--mode-research`  | `RESEARCH`            | RESEARCH                                  | R-phase-session / Queue-mode |
 
 The ALIAS→DISPATCH column is verbatim from SKILL.md §2.5 Step 6 (lines 215–221). Principle 19
 (`packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts`) enforces
@@ -50,9 +50,11 @@ was actually passed.
 a smaller value to test short-reason acceptance without padding.
 
 **Full invocation form:**
+
 ```text
 /pipeline "my-umbrella --mode-solo --reason=kickoff is small single-worker"
 ```
+
 User must quote the entire argument as one shell token because `arguments: [umbrella]`
 declares a single argument (SKILL.md line 4); embedded flags + reason are part of that
 single umbrella string. `parse-override-flags.sh` tokenises `$1` internally (see §3).
@@ -73,6 +75,7 @@ on line 2.
 
 **Routing tree short-circuit (SKILL.md §0 Step 0 — deferred to Stage 4 follow-up after
 cap-bump):** when `OVERRIDE_MODE=` line is present in §0 preamble output:
+
 - Skip §2.5 routing tree entirely.
 - Force `Mode = OVERRIDE_MODE` as the Step 5 result.
 - Emit `OVERRIDE=user-flag, reason=<reason>` on its own line before the §10 rendered
@@ -144,8 +147,8 @@ per [memory-codification.md §3](../../../rules/memory-codification.md).
   `plan-cache.md:3-4` format. Class C declared (line 3).
 - [dual-implementation-discipline.md §6](../../../rules/dual-implementation-discipline.md):
   companion `parse-override-flags.sh` carries `@dual-pair: meta-orchestrator-mode-overrides`
-  + `@cc-only-rationale` in header. This ref doc carries the matching
-  `<!-- @dual-pair: meta-orchestrator-mode-overrides -->` anchor (line 27).
+  - `@cc-only-rationale` in header. This ref doc carries the matching
+    `<!-- @dual-pair: meta-orchestrator-mode-overrides -->` anchor (line 27).
 
 **Backward-check:**
 

@@ -19,11 +19,11 @@ set -euo pipefail
 # REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh
 # (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
-PROMPTS_DIR="${PROMPTS_DIR:-${REPO_ROOT}/.claude/orchestrator-prompts}"
+PROMPTS_DIR="${PROMPTS_DIR:-$(resolve_orch_home)}"
 MO_GH_BIN="${MO_GH_BIN:-gh}"
 _repo_slug="${REPO_ROOT//\//-}"
 MO_MEM_DIR="${MO_MEM_DIR:-${HOME}/.claude/projects/${_repo_slug}/memory}"
-MO_WAVE_PLAN="${MO_WAVE_PLAN:-${REPO_ROOT}/docs/meta-factory/wave-sequencing-plan.md}"
+MO_WAVE_PLAN="$(resolve_plan_path)"
 MO_OPEN_QUESTIONS="${MO_OPEN_QUESTIONS:-${REPO_ROOT}/docs/meta-factory/open-questions.md}"
 MO_PACKAGES_DIR="${MO_PACKAGES_DIR:-${REPO_ROOT}/packages}"
 MO_PATCHES_DIR="${MO_PATCHES_DIR:-${REPO_ROOT}/docs/meta-factory/research-patches}"
@@ -45,12 +45,17 @@ find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'cold-review-fixes.md' 2>/de
   done
 
 # (b) state.md with PENDING/TODO/AWAITING/REVIEW-PENDING — umbrella with unresolved state
-find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'state.md' 2>/dev/null \
-  | xargs grep -l -iE 'PENDING|TODO|AWAITING|REVIEW-PENDING' 2>/dev/null \
-  | while read -r s; do
+# Per-file grep -q via process substitution (same shape as surface (c)) — NOT find|xargs|grep.
+# Under `set -euo pipefail` the old pipeline aborted the whole script (exit 123): on GNU/Linux
+# an empty find makes xargs run grep on empty stdin, and a no-match `grep -l` exits 1 — either
+# makes xargs exit 123, which pipefail propagates and set -e turns fatal. BSD/macOS xargs hid
+# this (it skips the command on empty input), so the bug was invisible locally + ungated in CI.
+while IFS= read -r s; do
+  if grep -qiE 'PENDING|TODO|AWAITING|REVIEW-PENDING' "${s}" 2>/dev/null; then
     umbrella="$(basename "$(dirname "${s}")")"
     echo "${umbrella}-state-pending type=state-followup kickoff=synthetic source=state.md"
-  done
+  fi
+done < <(find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'state.md' 2>/dev/null)
 
 # (c) Memory files with TODO-codify: — durable conventions stranded in memory (memory-codification.md §5)
 # Avoid pipefail issues: iterate via process substitution + explicit grep test per file.

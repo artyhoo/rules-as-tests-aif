@@ -103,7 +103,7 @@ Workers whose target file matches ANY of the following paths MUST include in the
 2. **Word «applied» is required.** Headings without «applied» («Forward-check», «Forward-check done») fail the regex.
 3. **≥40 non-whitespace chars in EACH section body** (awk-counted, post-strip).
 4. **≥1 file:line citation per section** matching regex `[^[:space:]]+\.[a-z]+:[0-9]+` (e.g. `.claude/rules/foo.md:42`).
-5. **Mechanical-maintenance escape hatch:** `### §1.7 Skipped: <rationale ≥60 chars>` shortcuts the gate when the PR is purely structural (snapshot regen, typo fix, rename) and no discipline call applies. Rationale must be ≥60 chars and specify *why* this PR has no discipline surface (NOT «TODO», NOT «later»).
+5. **Mechanical-maintenance escape hatch:** `### §1.7 Skipped: <rationale ≥60 chars>` shortcuts the gate when the PR is purely structural (snapshot regen, typo fix, rename) and no discipline call applies. Rationale must be ≥60 chars and specify _why_ this PR has no discipline surface (NOT «TODO», NOT «later»).
 
 **Pre-flight grep — Worker MUST run BEFORE `gh pr create`:**
 
@@ -129,7 +129,7 @@ If any of the four checks fails → fix the body before pushing. CI catches the 
 
 > **When this section is live:** the §10 report offered «autonomous dispatch via aif-handoff» for this umbrella AND the maintainer accepted. If every Worker below runs in a maintainer-pasted CC tab, §4c is inert — skip it. **If any sub-wave is dispatched via `tsx packages/runtime-bridge/src/cli/dispatch.ts <this-kickoff>`, §4c is MANDATORY** (SKILL §5 `#autonomous-dispatch-without-park`).
 
-**Why this exists (design §1 honest limitation, verified `coordinator.ts:398-476` + `reviewGate.ts`):** aif-handoff agents have **no mid-implementation "pause and ask" primitive**. They implement — *guessing* on any ambiguity — then auto-review post-hoc. Auto-close fires when the review finds *no blocking findings* — a bar that means "review found no blockers", NOT "a human is sure it's right". A genuine **design fork is not recognised as a question** — aif just picks and proceeds. So **without the levers below, aif decides forks wrong, silently.**
+**Why this exists (design §1 honest limitation, verified `coordinator.ts:398-476` + `reviewGate.ts`):** aif-handoff agents have **no mid-implementation "pause and ask" primitive**. They implement — _guessing_ on any ambiguity — then auto-review post-hoc. Auto-close fires when the review finds _no blocking findings_ — a bar that means "review found no blockers", NOT "a human is sure it's right". A genuine **design fork is not recognised as a question** — aif just picks and proceeds. So **without the levers below, aif decides forks wrong, silently.**
 
 **Lever 1 — conservative aif config (set on the bridge/env BEFORE dispatch):**
 

@@ -162,7 +162,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
       SHIPPED_DOC_PREFIXES.some((pref) => p.startsWith(pref)),
     );
 
-    expect(installShipped).toHaveLength(18);
+    expect(installShipped).toHaveLength(19);
     expect(new Set(installShipped)).toEqual(new Set(shippedSubset));
   });
 

@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# format-shipped.sh — GH #531. Dogfood Prettier on the SHIPPED surface: the files install.sh copies
+# (verbatim or renamed) into consumer projects. Keeping these prettier-clean is what makes a fresh
+# consumer's `prettier --check .` (part of `npm run validate`) green out-of-box — the framework was
+# never running its own authored skill docs / configs / rule sources through Prettier.
+#
+# SCOPE: the shipped artifacts ONLY — NOT the framework's own README/CLAUDE/.claude/rules/
+# docs/meta-factory (out of the consumer surface and authority-owned; reformatting them would be a
+# huge unrelated diff). GENERATED install artifacts (rendered RULES.md, .claude/settings.json, the
+# eslint-rules-local/index.ts barrel) are excluded — they have no stable authored source and ship
+# under .prettierignore; see packages/core/templates/shared/.prettierignore. Framework-internal
+# *.test.ts under shipped dirs do not ship and are excluded.
+#
+# Implementation: enumerate the ACTUAL tracked files under the shipped paths (git ls-files), filter
+# to Prettier-handled extensions, then run prettier on that explicit list — this avoids the
+# "No files matching the pattern" error that per-extension globs hit when a dir has none of an ext.
+#
+# Usage: format-shipped.sh --check   (default; CI gate — fails if any shipped source is unformatted)
+#        format-shipped.sh --write   (fix in place)
+set -uo pipefail
+MODE="${1:---check}"
+case "$MODE" in --write | --check) ;; *) echo "usage: $0 --write|--check" >&2; exit 2 ;; esac
+cd "$(git rev-parse --show-toplevel)"
+
+# Shipped paths (dirs + the exact pre-push closure — NOT the whole hooks/ dir, which is mostly
+# framework-internal tests + the dynamically-imported guard-liveness.ts that does not ship).
+PATHSPECS=(
+  skills
+  .claude/skills/pipeline .claude/skills/dispatcher .claude/skills/aif-doctor .claude/skills/template-audit
+  agents
+  packages/core/eslint-rules packages/core/probes
+  packages/core/hooks/pre-push.ts packages/core/hooks/utils/run-check.ts packages/core/hooks/utils/git.ts
+  packages/core/hooks/checks/prior-art.ts packages/core/hooks/checks/s17.ts
+  packages/core/templates
+  packages/preset-next-15-canonical/eslint-rules packages/preset-next-15-canonical/templates
+  templates
+)
+
+FILES=()
+while IFS= read -r f; do
+  case "$f" in
+    *RULES.md | *RULES.*.md) continue ;; # rendered SSOT tables (ship under .prettierignore)
+    *.template) continue ;;              # handled below, parsed as markdown
+    *.test.ts | *.test.tsx) continue ;;  # framework-internal tests do not ship
+    *.md | *.mjs | *.cjs | *.json | *.yml | *.yaml | *.ts | *.tsx) FILES+=("$f") ;;
+  esac
+done < <(git ls-files -- "${PATHSPECS[@]}")
+
+# `.template` sources ship renamed to `.md` (AGENTS.md.template → AGENTS.md), so Prettier must
+# format them AS markdown — it cannot infer a parser from the `.template` extension.
+TEMPLATES=()
+while IFS= read -r f; do TEMPLATES+=("$f"); done < <(git ls-files -- '*.template' | grep -E '(^|/)(AGENTS|CLAUDE|tool-decisions)\.md\.template$')
+
+FLAG="--check"
+[ "$MODE" = "--write" ] && FLAG="--write"
+
+rc=0
+[ "${#FILES[@]}" -gt 0 ]     && { npx --yes prettier@3.8.3 "$FLAG" "${FILES[@]}"     || rc=$?; }
+[ "${#TEMPLATES[@]}" -gt 0 ] && { npx --yes prettier@3.8.3 "$FLAG" --parser markdown "${TEMPLATES[@]}" || rc=$?; }
+
+if [ "$rc" -ne 0 ] && [ "$MODE" = "--check" ]; then
+  echo "" >&2
+  echo "format-shipped: shipped artifacts are not Prettier-clean (run: npm run format)." >&2
+  echo "  These files ship to consumers; a dirty source makes their first 'npm run validate' red." >&2
+fi
+exit "$rc"

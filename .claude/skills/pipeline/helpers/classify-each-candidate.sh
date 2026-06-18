@@ -35,6 +35,10 @@
 
 set -euo pipefail
 
+# REPO_ROOT + resolve_orch_home() sourced from lib/common.sh (BASH_SOURCE-relative so it
+# survives the REPO_ROOT test-seam; consumer-usable /pipeline 2026-06-16).
+source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PRIORITY="${HERE}/priority-score.sh"
 CLASSIFY="${HERE}/classify-work.sh"
@@ -54,7 +58,7 @@ eval "${SRC}" \
       name="${line%% *}"
       printf '\n--- candidate: %s ---\n' "${name}"
       if echo "${line}" | grep -q 'kickoff=exists'; then
-        bash "${CLASSIFY}" ".claude/orchestrator-prompts/${name}/kickoff.md" 2>&1 || true
+        bash "${CLASSIFY}" "$(resolve_orch_home)/${name}/kickoff.md" 2>&1 || true
       elif echo "${line}" | grep -q 'kickoff=synthetic'; then
         bash "${CLASSIFY}" "${line}" 2>&1 || true
       else

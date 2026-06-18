@@ -31,10 +31,15 @@
 #   exit 0  : success (symlinks created or already correct)
 #   exit 1  : conflict detected (real file in worktree AND in CANON — never clobbers)
 #
-# Tracked files skipped: README.md (root), */done.md (per umbrella).
+# Lifecycle split (cross-session kickoff portability, SSOT #116): kickoff.md is a
+# committed durable design doc (git owns it); state.md + _plan-cache +
+# _master-backlog-delta are gitignored regenerable runtime (this helper owns them).
+#
+# Tracked files skipped: README.md (root), */done.md + */kickoff.md (per umbrella).
 # These match .gitignore tracked-exception lines:
 #   !.claude/orchestrator-prompts/README.md
 #   !.claude/orchestrator-prompts/*/done.md
+#   !.claude/orchestrator-prompts/*/kickoff.md
 
 set -euo pipefail
 
@@ -112,9 +117,10 @@ if [[ -d "$WT_PROMPTS" ]]; then
       [[ -L "$file_path" ]] && continue        # skip existing symlinks
 
       filename="$(basename "$file_path")"
-      # Skip tracked files
+      # Skip tracked files (git owns them; never symlink-manage)
       [[ "$filename" == "done.md" ]] && continue
       [[ "$filename" == "README.md" ]] && continue
+      [[ "$filename" == "kickoff.md" ]] && continue
 
       canon_target="$CANON/$umbrella/$filename"
 
@@ -181,9 +187,10 @@ if [[ -d "$CANON" ]]; then
     for canon_file in "$canon_umbrella_dir"*; do
       [[ -f "$canon_file" ]] || continue
       filename="$(basename "$canon_file")"
-      # Skip tracked files
+      # Skip tracked files (git owns them; never symlink-manage)
       [[ "$filename" == "done.md" ]] && continue
       [[ "$filename" == "README.md" ]] && continue
+      [[ "$filename" == "kickoff.md" ]] && continue
 
       wt_target="$wt_umbrella_dir/$filename"
 

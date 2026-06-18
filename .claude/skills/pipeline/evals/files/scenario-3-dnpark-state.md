@@ -20,12 +20,12 @@ CANDIDATE: n10-beta   kickoff=exists   stage_hint=1
 
 ## §2 Step 2 — scoring inputs (from each kickoff §0)
 
-| Axis (weight) | n9-alpha | n10-beta |
-|---|---|---|
+| Axis (weight)           | n9-alpha                                 | n10-beta                                 |
+| ----------------------- | ---------------------------------------- | ---------------------------------------- |
 | blocks-other-waves (3×) | YES — unblocks exactly 1 downstream wave | YES — unblocks exactly 1 downstream wave |
-| give-back-value (2×) | YES — closes one N5 give-back gap | YES — closes one N5 give-back gap |
-| size-fit (1×) | M (~250 LOC) | M (~250 LOC) |
-| maintainer-prefs (2×) | none pinned | none pinned |
+| give-back-value (2×)    | YES — closes one N5 give-back gap        | YES — closes one N5 give-back gap        |
+| size-fit (1×)           | M (~250 LOC)                             | M (~250 LOC)                             |
+| maintainer-prefs (2×)   | none pinned                              | none pinned                              |
 
 `wave-sequencing-plan.md §0` "Maintainer direction" field is empty this cycle.
 

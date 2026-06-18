@@ -30,7 +30,7 @@ Report as `R10 naming: PASS|FAIL` with `file:line` and a one-line fix. Treat the
 
 ## R4 / R17 — Test-existence for new code (structural, not an ESLint rule)
 
-ESLint cannot assert that a test *file* exists. On the diff:
+ESLint cannot assert that a test _file_ exists. On the diff:
 
 - **R4:** every newly exported function under `src/` should have a matching test file containing at least one assertion. Flag new exports with no test.
 - **R17 (React/Next):** every new `.tsx` component should have a matching `.unit.ts` (and, where the project requires it, `.stories.tsx`).

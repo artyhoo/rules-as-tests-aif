@@ -98,6 +98,11 @@ grep -Eq 'add .*-D' "$AIF_PM_LOG" \
 grep -q -- '-w' "$AIF_PM_LOG" \
   && ok "C: workspace present → -w (workspace-root) flag passed (avoids pnpm's add-to-root refusal)" \
   || bad "C: -w flag missing on a workspace install"
+# GH #533: a workspace `pnpm add -D -w` is followed by a full `pnpm install` to complete the link
+# graph on a cold clone (where `add -w` can leave sibling packages unlinked, breaking typecheck).
+grep -qx 'install' "$AIF_PM_LOG" \
+  && ok "C: workspace → bare 'pnpm install' follow-up invoked (completes cold-clone link graph)" \
+  || bad "C: no 'pnpm install' after 'add -D -w' — cold-clone workspace stays partially linked (#533)"
 
 # ════ Arm D (paired-negative for -w) — FLAT pnpm → 'pnpm add -D' WITHOUT -w ════
 D=$(mktemp -d); export AIF_PM_LOG="$D.log"; : > "$AIF_PM_LOG"
@@ -113,6 +118,13 @@ if grep -q -- '-w' "$AIF_PM_LOG"; then
   bad "D neg: -w passed on a FLAT pnpm consumer (no workspace) → -w branch is vacuous"
 else
   ok "D neg: flat pnpm → NO -w flag (the -w branch keys on the workspace marker, non-vacuous)"
+fi
+# GH #533 paired-negative: the `pnpm install` link-completion follow-up is WORKSPACE-only — a flat
+# pnpm consumer gets `pnpm add -D` alone (no separate bare install), proving the follow-up is scoped.
+if grep -qx 'install' "$AIF_PM_LOG"; then
+  bad "D neg: bare 'pnpm install' fired on a FLAT pnpm consumer → #533 follow-up not workspace-scoped"
+else
+  ok "D neg: flat pnpm → NO bare 'pnpm install' follow-up (link-completion is workspace-scoped)"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

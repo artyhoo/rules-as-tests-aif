@@ -45,4 +45,45 @@ out_neg=$( cd "$N" && echo '{}' | bash "$HOOK" 2>&1 )
 out_pos=$( cd "$T" && echo '{}' | bash "$HOOK" 2>&1 )
 echo "$out_pos" | grep -qi 'tool-bootstrap' && ok "P1-pos: seed + sentinel hash → WARN (chain is LIVE)" || bad "P1-pos: no WARN with seed present"
 
+
+# ── C1-548: live-signal Check 1 — shipped hook emits NO false-warn on fresh install (#548) ──
+# The #548 gap: on a fresh install the stored deps-hash sentinel (`<pending>`) mismatched any
+# computed hash → hook printed "deps changed since last tool-bootstrap" even though nothing
+# changed. The shipped fix (packages/core/hooks/deps-hash-check.sh) distinguishes sentinel from
+# a real sha256- baseline, printing "not yet baselined" instead. This check asserts the runtime
+# signal: the shipped hook MUST NOT emit "deps changed" on a freshly-installed consumer.
+# Paired-negative proves non-vacuity: a stored sha256 that mismatches current deps MUST emit
+# "deps changed" (a real drift, not a fresh-install false-warn).
+C548=$(mktemp -d)
+printf '{ "name": "c548t", "version": "0.0.0", "dependencies": { "lodash": "4.17.21" } }\n' > "$C548/package.json"
+( cd "$C548" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+HOOK_C548="$C548/.claude/hooks/deps-hash-check.sh"
+
+if [ -x "$HOOK_C548" ]; then
+  # POSITIVE: fresh install → hook MUST NOT emit "deps changed" (that was the #548 false-warn)
+  out_c548=$( cd "$C548" && bash "$HOOK_C548" 2>&1 )
+  if echo "$out_c548" | grep -q 'deps changed'; then
+    bad "C1-548: fresh install → 'deps changed' false-warn (reproduces #548; shipped hook missing the fix)"
+  else
+    ok "C1-548: fresh install → NO 'deps changed' false-warn (#548 fix live; output: '$(echo "$out_c548" | tr '\n' '|')')"
+  fi
+
+  # PAIRED-NEGATIVE: store a sha256 hash that mismatches → hook MUST emit "deps changed"
+  # (proves the check is non-vacuous: real deps drift IS still caught)
+  if [ -f "$C548/.ai-factory/tool-decisions.md" ]; then
+    sed -i 's/^deps-hash:.*/deps-hash: sha256-0000000000000000000000000000000000000000000000000000000000000000/' \
+      "$C548/.ai-factory/tool-decisions.md"
+    out_c548_neg=$( cd "$C548" && bash "$HOOK_C548" 2>&1 )
+    if echo "$out_c548_neg" | grep -q 'deps changed'; then
+      ok "C1-548-neg: mismatched sha256 → 'deps changed' WARN (non-vacuous: real drift IS caught)"
+    else
+      bad "C1-548-neg: mismatched sha256 → no warn (check VACUOUS — cannot detect real deps drift)"
+    fi
+  else
+    bad "C1-548-neg: tool-decisions.md not seeded — cannot run paired-negative"
+  fi
+else
+  bad "C1-548: deps-hash-check.sh not shipped to consumer by install.sh"
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

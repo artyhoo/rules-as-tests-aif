@@ -36,7 +36,11 @@
 #   (no-paid-llm-in-ci.md §1 satisfied).
 set -euo pipefail
 
-dir="${1:-${MO_ORCH_PROMPTS_DIR:-.claude/orchestrator-prompts}}"
+# REPO_ROOT + resolve_orch_home() sourced from lib/common.sh (BASH_SOURCE-relative so it
+# survives the REPO_ROOT test-seam; consumer-usable /pipeline 2026-06-16).
+source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+
+dir="${1:-${MO_ORCH_PROMPTS_DIR:-$(resolve_orch_home)}}"
 
 # No umbrellas dir → nothing to guard.
 [ -d "$dir" ] || exit 0

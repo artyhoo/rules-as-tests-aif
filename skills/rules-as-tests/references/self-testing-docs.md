@@ -28,6 +28,7 @@ exit 0 (PASS) | 1 (FAIL) | 0+WARN (decay-watch)
 ```
 
 Запускается на трёх уровнях:
+
 1. **`/aif-verify`** через `living-docs-auditor` sub-agent — перед PR.
 2. **Pre-push hook** (`.husky/pre-push`) — до того, как код покидает машину.
 3. **CI on PR** — required check, не даёт мерджить, если не PASS.
@@ -214,17 +215,18 @@ test_probe_R1() {
 
 ## Continuous validation — три уровня
 
-| Уровень | Кто запускает | Когда падает | Защищает от |
-|---|---|---|---|
-| **Local** (`npm run audit:docs`) | Разработчик перед PR | Если забыл — drift доходит до review | Пропуск |
-| **Pre-push** (`.husky/pre-push`) | `git push` | Автор знает до создания PR | `--no-verify` обходимо, но в среднем работает |
-| **CI on PR** | GitHub Actions | reviewer видит red CI, не мерджит | Authoritative gate, не обходимо |
+| Уровень                          | Кто запускает        | Когда падает                         | Защищает от                                   |
+| -------------------------------- | -------------------- | ------------------------------------ | --------------------------------------------- |
+| **Local** (`npm run audit:docs`) | Разработчик перед PR | Если забыл — drift доходит до review | Пропуск                                       |
+| **Pre-push** (`.husky/pre-push`) | `git push`           | Автор знает до создания PR           | `--no-verify` обходимо, но в среднем работает |
+| **CI on PR**                     | GitHub Actions       | reviewer видит red CI, не мерджит    | Authoritative gate, не обходимо               |
 
 Для соло-проекта — local достаточно. Для команды → CI обязательно. **Pre-push — компромисс между скоростью и надёжностью** (~10 сек к каждому push).
 
 ### `npm run audit:docs`
 
 В `package.json`:
+
 ```json
 "scripts": {
   "audit:docs": "bash scripts/audit-ai-docs.sh",
@@ -254,6 +256,7 @@ npm run audit:docs || {
 ## Sub-agent: living-docs-auditor
 
 В AIF под `/aif-verify` подключается `living-docs-auditor` sub-agent, который:
+
 1. Прогоняет `audit-ai-docs.sh`
 2. Парсит вывод
 3. Для каждого FAIL формулирует human-readable объяснение со ссылкой на конкретное правило в AGENTS.md

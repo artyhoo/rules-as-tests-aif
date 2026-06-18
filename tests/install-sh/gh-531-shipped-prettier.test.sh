@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+# gh-531-shipped-prettier.test.sh — the shipped surface must be Prettier-clean out-of-box.
+#
+# Deterministic core (no network): (1) the shipped .prettierignore excludes the GENERATED install
+# artifacts (settings.json, the eslint-rules-local barrel) — authored sources are formatted, only
+# generated ones are ignored; (2) the stryker packageManager patch is an in-place VALUE replace, not
+# a JSON.stringify re-serialize (which would re-expand prettier-collapsed arrays and re-break the
+# consumer). Optional end-to-end arm (only when `npx prettier` is reachable): install into a tmp
+# consumer and assert `prettier --check .` is green.
+set -uo pipefail
+REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+PASS=0; FAIL=0
+ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
+bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
+
+IGN="$REPO_ROOT/packages/core/templates/shared/.prettierignore"
+
+# ── Arm 1: generated install artifacts are ignored (so a consumer's prettier --check . skips them) ──
+grep -qx '.claude/settings.json' "$IGN" \
+  && ok "shipped .prettierignore excludes generated .claude/settings.json" \
+  || bad "shipped .prettierignore missing .claude/settings.json (consumer prettier --check would fail on it)"
+grep -qx 'eslint-rules-local/index.ts' "$IGN" \
+  && ok "shipped .prettierignore excludes the generated eslint-rules-local/index.ts barrel" \
+  || bad "shipped .prettierignore missing eslint-rules-local/index.ts (generated barrel would fail prettier)"
+# NEG (load-bearing): authored skill docs must NOT be blanket-ignored (that would be hiding, not fixing)
+grep -qE '^\.claude/skills/?\*?\*?$|^\.claude/\*\*?$' "$IGN" \
+  && bad "neg: .prettierignore blanket-ignores .claude/skills — authored docs hidden, not formatted" \
+  || ok "neg: authored skill docs are NOT blanket-ignored (they are formatted, not hidden)"
+
+# ── Arm 1b (GH #531 reopen — config mismatch): the STATIC template ignores the framework-namespace
+# SOURCE a consumer never authors. install.sh ships these formatted to THIS framework's Prettier
+# config (printWidth 80, singleQuote, no plugins); a consumer with its OWN .prettierrc rejects the
+# same bytes (config mismatch, NOT version skew). Framework CONFIG files are handled CONDITIONALLY
+# (Arm 1c), not here — they might be consumer-authored. ──
+for p in 'eslint-rules-local/*.ts' 'packages/core/hooks/**' 'scripts/audit-r4.ts'; do
+  grep -qxF "$p" "$IGN" \
+    && ok "shipped .prettierignore excludes vendored source '$p'" \
+    || bad "shipped .prettierignore missing vendored source '$p' (consumer prettier --check would fail on it)"
+done
+# NEG (load-bearing): framework CONFIG files must NOT be statically hard-ignored — a consumer may own
+# any of them (copy_safe keeps theirs), and a static line here would hide a consumer-authored config
+# (violates the project's "format authored content, don't hide it" rule). They are conditional (Arm 1c).
+for p in 'eslint.config.mjs' 'vitest.config.ts' 'tsconfig.json' 'playwright.config.ts' '.dependency-cruiser.cjs' 'stryker.config.json' '.lintstagedrc.json' '.github/workflows/ci.yml' '.github/workflows/workflow-integrity.yml'; do
+  grep -qxF "$p" "$IGN" \
+    && bad "neg: static .prettierignore hard-ignores config '$p' — would hide a consumer-authored copy (must be conditional)" \
+    || ok "neg: config '$p' is NOT statically ignored (handled conditionally — consumer-owned copy stays checked)"
+done
+
+# ── Arm 1c (GH #531 reopen): install.sh ignores shipped CONFIGS conditionally — only the ones it
+# actually shipped fresh (NOT in SKIPPED), never a copy_safe-kept consumer-authored one. ──
+grep -q 'ignore_shipped_configs()' "$REPO_ROOT/install.sh" \
+  && ok "install.sh defines ignore_shipped_configs (conditional config ignore)" \
+  || bad "install.sh missing ignore_shipped_configs (shipped configs never ignored → #531 stays open)"
+grep -qF '_prettierignore_in_skipped "$PROJECT_ROOT/$rel" && continue' "$REPO_ROOT/install.sh" \
+  && ok "ignore_shipped_configs skips consumer-owned configs (in SKIPPED → kept format-checked)" \
+  || bad "ignore_shipped_configs does not guard on SKIPPED (would hide consumer-authored configs)"
+grep -qE '^[[:space:]]*ignore_shipped_configs[[:space:]]*$' "$REPO_ROOT/install.sh" \
+  && ok "ignore_shipped_configs is invoked in the install flow (not dead code)" \
+  || bad "ignore_shipped_configs defined but never called (dead code → configs not ignored)"
+
+# ── Arm 1d (GH #531 reopen — candidate-list completeness): EVERY framework config install.sh ships
+# to a consumer-ownable root or .github/workflows path (except the consumer's own .prettierrc.json)
+# MUST appear in ignore_shipped_configs' candidates[]. Otherwise a freshly-shipped config — formatted
+# to OUR Prettier style — escapes the conditional ignore and re-breaks #531 (this is exactly how the
+# react-next-only playwright.config.ts was missed). Structural guard against future drift. ──
+cand_block=$(sed -n '/local candidates=(/,/)/p' "$REPO_ROOT/install.sh")
+shipped_root=$(grep -oE 'copy_safe [^|]*"\$PROJECT_ROOT/[^"/]+\.(ts|tsx|mjs|cjs|js|json|yml|yaml)"' "$REPO_ROOT/install.sh" \
+  | sed -E 's#.*"\$PROJECT_ROOT/([^"]+)".*#\1#' | grep -vx '.prettierrc.json' | sort -u)
+shipped_wf=$(grep -oE 'copy_safe [^|]*"\$PROJECT_ROOT/\.github/workflows/[^"]+\.ya?ml"' "$REPO_ROOT/install.sh" \
+  | sed -E 's#.*"\$PROJECT_ROOT/([^"]+)".*#\1#' | sort -u)
+cand_miss=""
+for c in $shipped_root $shipped_wf; do
+  printf '%s\n' "$cand_block" | grep -qF "\"$c\"" || cand_miss="$cand_miss $c"
+done
+[ -z "$cand_miss" ] \
+  && ok "every shipped consumer-ownable config is in ignore_shipped_configs candidates[] (no drift)" \
+  || bad "shipped config(s) MISSING from candidates[] →$cand_miss (fresh-shipped escapes ignore → #531 reopens)"
+# NEG (non-vacuity): the guard must actually FLIP when a shipped config is dropped from candidates[].
+cand_block_neg=$(printf '%s\n' "$cand_block" | sed 's/"eslint.config.mjs" //')
+neg_caught=0
+for c in $shipped_root $shipped_wf; do
+  printf '%s\n' "$cand_block_neg" | grep -qF "\"$c\"" || neg_caught=1
+done
+[ "$neg_caught" -eq 1 ] \
+  && ok "neg: dropping a config from candidates[] makes the completeness guard fail (non-vacuous)" \
+  || bad "neg: completeness guard stayed green with eslint.config.mjs removed → VACUOUS"
+
+# ── Arm 2: stryker packageManager patch preserves formatting (in-place value replace) ──
+grep -q 'replace(/("packageManager"' "$REPO_ROOT/install.sh" \
+  && ok "stryker patch swaps the packageManager VALUE in place (preserves prettier formatting)" \
+  || bad "stryker patch is not an in-place value replace (#531 regression risk)"
+if grep -A6 'patch_stryker_package_manager' "$REPO_ROOT/install.sh" | grep -q 'JSON.stringify(cfg'; then
+  bad "neg: stryker patch still uses JSON.stringify (re-expands prettier-collapsed arrays → re-breaks consumer)"
+else
+  ok "neg: stryker patch no longer JSON.stringify-re-serializes the whole config"
+fi
+
+# ── Arm 4 (GH #531 reopen — RC#1): prettier is pinned EXACT on BOTH sides ──
+# RC#1: prettier ships formatting changes in minor/patch; a floating version makes a consumer's
+# format:check non-deterministic across re-installs. Both the shipped dev-dep and the framework's
+# own dogfood script must pin the SAME exact version. `prettier@[0-9.]+` extracts the pin and does
+# NOT mis-match `eslint-config-prettier` (no @version on that token).
+# (a) install.sh CORE_DEVDEPS pins prettier@3.8.3 EXACT.
+INSTALL_PIN=$(grep -oE 'prettier@[0-9.]+' "$REPO_ROOT/install.sh" | head -1)
+[ "$INSTALL_PIN" = "prettier@3.8.3" ] \
+  && ok "install.sh CORE_DEVDEPS pins prettier EXACT ($INSTALL_PIN)" \
+  || bad "install.sh CORE_DEVDEPS does not pin prettier@3.8.3 exact (got: '${INSTALL_PIN:-none}')"
+# neg (LOAD-BEARING): a copy where the token is bare `prettier` or caret `prettier@^3` must FLIP
+# the exact-pin grep to miss prettier@3.8.3.
+TMP_NEG=$(mktemp)
+sed 's/prettier@3\.8\.3/prettier/' "$REPO_ROOT/install.sh" > "$TMP_NEG"
+NEG_PIN=$(grep -oE 'prettier@[0-9.]+' "$TMP_NEG" | head -1)
+if [ "$NEG_PIN" = "prettier@3.8.3" ]; then
+  bad "neg: stripping the pin still matched prettier@3.8.3 → VACUOUS"
+else
+  ok "neg: un-pinning install.sh (bare prettier) flips the exact-pin grep to miss (non-vacuous)"
+fi
+rm -f "$TMP_NEG"
+
+# (c) format-shipped.sh uses the PINNED `npx --yes prettier@3.8.3` (positive: the pinned string is
+# PRESENT — asserting mere absence of unpinned `npx --yes prettier` would be vacuous, since deleting
+# the invocation entirely would satisfy absence).
+FMT="$REPO_ROOT/scripts/format-shipped.sh"
+[ "$(grep -cE 'npx --yes prettier@3\.8\.3' "$FMT")" -ge 2 ] \
+  && ok "format-shipped.sh pins BOTH npx invocations to prettier@3.8.3" \
+  || bad "format-shipped.sh does not pin both npx invocations to prettier@3.8.3"
+# neg (LOAD-BEARING): a copy with the pin reverted to bare `npx --yes prettier` must FLIP the
+# pinned-string grep to miss.
+TMP_NEG=$(mktemp)
+sed 's/npx --yes prettier@3\.8\.3/npx --yes prettier/' "$FMT" > "$TMP_NEG"
+if [ "$(grep -cE 'npx --yes prettier@3\.8\.3' "$TMP_NEG")" -ge 2 ]; then
+  bad "neg: un-pinning format-shipped.sh still matched the pinned string → VACUOUS"
+else
+  ok "neg: reverting format-shipped.sh to bare npx prettier flips the pinned-string grep to miss"
+fi
+rm -f "$TMP_NEG"
+
+# ── Arm 5 (PART C drift-guard): the TWO pin sites agree on the EXACT version ──
+# Project invariants 2 + 4: an executable assertion that install.sh and format-shipped.sh can never
+# silently diverge. Extract X from `prettier@X` at both sites; they MUST be equal.
+FMT_PIN=$(grep -oE 'prettier@[0-9.]+' "$FMT" | head -1)
+if [ -n "$INSTALL_PIN" ] && [ "$INSTALL_PIN" = "$FMT_PIN" ]; then
+  ok "drift-guard: install.sh and format-shipped.sh pin the SAME prettier ($INSTALL_PIN == $FMT_PIN)"
+else
+  bad "drift-guard: pin mismatch — install.sh='$INSTALL_PIN' vs format-shipped.sh='$FMT_PIN'"
+fi
+# neg (LOAD-BEARING): mutate ONE site's version → the drift-guard equality MUST flip to fail.
+TMP_NEG=$(mktemp)
+sed 's/npx --yes prettier@3\.8\.3/npx --yes prettier@3.8.0/' "$FMT" > "$TMP_NEG"
+NEG_FMT_PIN=$(grep -oE 'prettier@[0-9.]+' "$TMP_NEG" | head -1)
+if [ "$INSTALL_PIN" = "$NEG_FMT_PIN" ]; then
+  bad "neg: diverging format-shipped.sh to 3.8.0 still matched install.sh → drift-guard VACUOUS"
+else
+  ok "neg: diverging one site's version (3.8.0) flips the drift-guard equality to fail (non-vacuous)"
+fi
+rm -f "$TMP_NEG"
+
+# ── Arm 3 (optional, network): a real install must be prettier-clean end-to-end ──
+# PIN the consumer-side check to prettier@3.8.3 — without the pin this arm fetches latest and would
+# go flaky/false-red the moment npm publishes 3.8.4+ (files are clean under the pinned 3.8.3, the
+# version the shipped surface is formatted in). Pinning faithfully models the pinned consumer.
+if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
+  T=$(mktemp -d); printf '{"name":"g531","version":"0.0.0"}\n' > "$T/package.json"
+  ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1; irc=$?
+  # install MUST exit 0 — this --force greenfield path leaves SKIPPED empty, the exact case where an
+  # unguarded "${SKIPPED[@]}" expansion aborts install under set -u (bash 3.2). Asserting rc closes
+  # the false-green where a crashed install still left files clean under the framework's .prettierrc.
+  [ "$irc" -eq 0 ] \
+    && ok "greenfield --force install exits 0 (empty SKIPPED handled — no set -u abort)" \
+    || bad "greenfield --force install exited $irc (regression — likely empty-array abort under set -u)"
+  n=$( ( cd "$T" && npx --yes prettier@3.8.3 --check . 2>&1 ) | grep -cE '^\[warn\]|^\[error\]' )
+  [ "$n" -eq 0 ] \
+    && ok "end-to-end: fresh ts-server consumer is Prettier-clean (prettier@3.8.3 --check . → 0 issues)" \
+    || bad "end-to-end: consumer has $n prettier failures after install (#531 not fully closed)"
+else
+  echo "  · end-to-end arm skipped (npx prettier@3.8.3 unreachable) — deterministic arms above still hold"
+fi
+
+# ── Arm 6 (GH #531 reopen — config mismatch, the BROWNFIELD case Arm 3 structurally cannot reach):
+# a consumer with its OWN stricter .prettierrc (printWidth 100) KEEPS that config (copy_safe skips
+# it), so the vendored framework files — formatted to the framework's printWidth-80 config — fail
+# `prettier --check .` unless ignored. Arm 3 above uses a GREENFIELD consumer (no competing
+# .prettierrc) and therefore cannot catch this. This arm models the real reopener (timeliner). ──
+if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
+  TB=$(mktemp -d)
+  printf '{"name":"g531b","version":"0.0.0"}\n' > "$TB/package.json"
+  printf '{"singleQuote":true,"printWidth":100,"trailingComma":"es5"}\n' > "$TB/.prettierrc.json"
+  # Pre-existing brownfield .prettierignore (the merge target). Ignore the test scaffolding the
+  # harness minified (root package.json / .prettierrc.json) + *.md so the assertion isolates the
+  # VENDORED framework surface under test, not fixture noise.
+  printf '%s\n' '*.md' '/package.json' '/.prettierrc.json' > "$TB/.prettierignore"
+  ( cd "$TB" && git init -q && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+  nb=$( ( cd "$TB" && npx --yes prettier@3.8.3 --check . 2>&1 ) | grep -cE '^\[warn\]|^\[error\]' )
+  [ "$nb" -eq 0 ] \
+    && ok "brownfield: consumer w/ own printWidth-100 .prettierrc is Prettier-clean ($nb issues — vendored source ignored)" \
+    || bad "brownfield: $nb prettier failures under the consumer's own config (#531 config-mismatch NOT closed)"
+  # NEG (LOAD-BEARING, non-vacuity, environment-INDEPENDENT): plant grossly-dirty content (a long
+  # minified line prettier reformats under ANY config — printWidth 80/100/default) at one path each
+  # AIF block covers: packages/core/hooks/** (static SOURCE block) and vitest.config.ts (shipped-
+  # config block). WITH the blocks both are skipped; after removing the blocks both MUST be flagged.
+  # This avoids depending on the vendored files' subtle printWidth-80↔100 reflow, which a CI runner's
+  # prettier config resolution can mask (observed: CI saw 0 reflow failures where local saw 14).
+  dirt='export const z = {a:1,b:2,c:3,d:4,e:5,f:6,g:7,h:8,i:9,j:10,k:11,l:12,m:13,n:14,o:15,p:16,q:17,r:18,s:19,t:20};'
+  mkdir -p "$TB/packages/core/hooks"
+  printf '%s\n' "$dirt" > "$TB/packages/core/hooks/_neg_probe.ts"
+  printf '%s\n' "$dirt" > "$TB/vitest.config.ts"
+  flagged_with=$( ( cd "$TB" && npx --yes prettier@3.8.3 --check . 2>&1 ) | grep -cE '_neg_probe\.ts|vitest\.config\.ts' )
+  [ "$flagged_with" -eq 0 ] \
+    && ok "with AIF blocks: planted dirt under packages/core/hooks/ + vitest.config.ts is skipped (both blocks ignore)" \
+    || bad "with AIF blocks: planted dirt flagged ($flagged_with) — a managed block is not covering its path"
+  printf '%s\n' '*.md' '/package.json' '/.prettierrc.json' > "$TB/.prettierignore"   # remove ALL AIF blocks
+  flagged_without=$( ( cd "$TB" && npx --yes prettier@3.8.3 --check . 2>&1 ) | grep -cE '_neg_probe\.ts|vitest\.config\.ts' )
+  [ "$flagged_without" -ge 2 ] \
+    && ok "neg: removing the AIF blocks flags both planted-dirty files ($flagged_without — ignore is non-vacuous)" \
+    || bad "neg: planted dirt still not flagged after removing blocks ($flagged_without/2) → ignore VACUOUS"
+else
+  echo "  · brownfield arm skipped (npx prettier@3.8.3 unreachable)"
+fi
+
+# ── Arm 7 (GH #531 reopen — the consumer-OWNED config case the cold-review flagged): a consumer that
+# already has its OWN eslint.config.mjs keeps it (copy_safe skips), so install must NOT ignore it —
+# hiding a consumer-authored config would be over-reach. Proves ignore_shipped_configs is CONDITIONAL
+# (only ignores what it shipped fresh), not a blanket static ignore. ──
+if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
+  TC=$(mktemp -d)
+  printf '{"name":"g531c","version":"0.0.0"}\n' > "$TC/package.json"
+  printf '{"singleQuote":true,"printWidth":100}\n' > "$TC/.prettierrc.json"
+  printf '%s\n' '*.md' '/package.json' '/.prettierrc.json' > "$TC/.prettierignore"
+  # consumer's OWN eslint.config.mjs, deliberately NOT prettier-clean (one long minified line >100c)
+  printf 'export default [{ rules: { "no-a": "error", "no-b": "error", "no-c": "error", "no-d": "error", "no-e": "error", "no-f": "error" } }];\n' > "$TC/eslint.config.mjs"
+  ( cd "$TC" && git init -q && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+  # (1) consumer's own config kept (copy_safe skipped it — non-force)
+  grep -q '"no-a"' "$TC/eslint.config.mjs" \
+    && ok "consumer-owned eslint.config.mjs kept (copy_safe skipped without --force)" \
+    || bad "consumer-owned eslint.config.mjs was overwritten (copy_safe must skip existing without --force)"
+  # (2) it is NOT in .prettierignore → stays format-checked, not hidden
+  grep -qxF 'eslint.config.mjs' "$TC/.prettierignore" \
+    && bad "consumer-owned eslint.config.mjs was ignored — hides the consumer's authored config (over-reach)" \
+    || ok "consumer-owned eslint.config.mjs is NOT ignored (stays format-checked — no over-hide)"
+  # (3) prettier --check still SEES the dirty consumer config (genuinely checked, not vacuously absent).
+  # Capture into a var first: `prettier --check` exits 1 when it finds issues, and piping it straight
+  # into the conditional would trip `set -o pipefail` (the pipeline inherits prettier's exit 1).
+  out7=$( cd "$TC" && npx --yes prettier@3.8.3 --check . 2>&1 )
+  printf '%s\n' "$out7" | grep -q 'eslint.config.mjs' \
+    && ok "prettier --check still flags the consumer's own dirty eslint.config.mjs (kept under check)" \
+    || bad "prettier --check does NOT see the consumer's eslint.config.mjs (it was hidden after all)"
+else
+  echo "  · consumer-owned-config arm skipped (npx prettier@3.8.3 unreachable)"
+fi
+
+echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

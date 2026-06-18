@@ -16,6 +16,8 @@ keys() {
   {
     grep -oE '^aif_msg_[a-z_]+\(\)' "$1" | sed 's/()$//'
     grep -qE '^AIF_RECAP_MARKER=' "$1" && echo 'AIF_RECAP_MARKER'
+    grep -qE '^AIF_STORY_MARKER=' "$1" && echo 'AIF_STORY_MARKER'
+    grep -oE '^AIF_EOT_[A-Z_]+=' "$1" | sed 's/=$//'
   } | sort -u
 }
 

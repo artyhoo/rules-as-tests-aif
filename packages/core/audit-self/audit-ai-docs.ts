@@ -185,7 +185,7 @@ export function probeR4(
   const exec = opts?.execSync ?? execSync;
   const RULE = 'R4: Every public export in src/domain has matching .unit.ts (ts-morph)';
   if (!existsSync(join(cwd, 'src/domain'))) {
-    return { result: 'pass', message: `${RULE} (skipped: no src/domain)` };
+    return { result: 'warn', message: `${RULE} (skipped: no src/domain — probe could not run)` };
   }
   try {
     exec('npx --version', { stdio: 'ignore' });

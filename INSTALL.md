@@ -359,8 +359,20 @@ your-project/
 
 ## Updating the package
 
-Path A (AIF extension): `ai-factory extension update rules-as-tests-aif`
+**Path A — selective refresh (recommended):** re-run `install.sh --refresh` to update only framework-owned artefacts (agents, skills, hooks, scripts) while preserving all consumer-authored files.
 
-Path B (install.sh): re-run `./install.sh <stack> --force` to overwrite. **Will overwrite all configs** — back up your customizations first.
+```bash
+# Preview what would change
+bash /path/to/rules-as-tests-aif/install.sh --refresh --dry-run
 
-Path C (manual): cherry-pick what changed.
+# Apply
+bash /path/to/rules-as-tests-aif/install.sh --refresh
+```
+
+Consumer-owned files (`AGENTS.md`, `RULES.md`, `eslint.config.mjs`, `ci.yml`, etc.) are never touched. Files with a sibling `.override.md` are also skipped. See [INSTALL-FOR-AI.md §Refreshing framework artefacts](INSTALL-FOR-AI.md#refreshing-framework-artefacts-after-an-upgrade) for the full boundary table.
+
+**Path B (AIF extension):** `ai-factory extension update rules-as-tests-aif`
+
+**Path C (force overwrite):** re-run `./install.sh <stack> --force` to overwrite. **Will overwrite ALL configs including your customizations** — back up first.
+
+**Path D (manual):** cherry-pick what changed.

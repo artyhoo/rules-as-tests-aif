@@ -2,7 +2,7 @@
 # harvest-via-api.sh — land a set of files onto a branch via the GitHub Git Data API,
 # bypassing a blocked git transport (github.com:443/:22). Append-merge semantics:
 # the new tree is based on the live base-branch tree, overriding ONLY the given paths —
-# files that advanced on the base since the container forked are preserved (no затирание).
+# files that advanced on the base since the container forked are preserved (no clobbering).
 #
 # Why this exists: when the proxy drops github.com git-transport but api.github.com stays
 # reachable (host-selective flap — see aif-doctor §3.3), `harvest.ts`'s `git push` fails.

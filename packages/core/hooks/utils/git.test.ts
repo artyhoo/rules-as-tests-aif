@@ -15,6 +15,7 @@ vi.mock('./run-check.ts', () => ({
 
 const {
   upstreamExists,
+  resolveDefaultBase,
   getCommits,
   getChangedFiles,
   realGit,
@@ -57,6 +58,53 @@ describe('upstreamExists', () => {
   it('returns false for exit code 128, not true', () => {
     runCheckMock.mockReturnValue({ ...ok(), exitCode: 128 });
     expect(upstreamExists('origin/main')).toBe(false);
+  });
+});
+
+// ── resolveDefaultBase (GH #568) ────────────────────────────────────────────────
+// Sequenced via mockReturnValueOnce in resolveDefaultBase's call order:
+//   1. symbolic-ref --short refs/remotes/origin/HEAD   (gitOut → .stdout)
+//   2. rev-parse --verify <head>                       (only when symref is non-empty)
+//   3. rev-parse --verify origin/staging|main|master   (fallback chain, until one exits 0)
+describe('resolveDefaultBase', () => {
+  beforeEach(() => runCheckMock.mockReset());
+
+  it('returns origin/HEAD when the symref is set and the ref exists', () => {
+    runCheckMock
+      .mockReturnValueOnce(ok('origin/main\n')) // symbolic-ref → origin/main
+      .mockReturnValueOnce(ok()); // rev-parse --verify origin/main → exists
+    expect(resolveDefaultBase()).toBe('origin/main');
+  });
+
+  it('falls back to origin/staging when the origin/HEAD symref is unset', () => {
+    runCheckMock
+      .mockReturnValueOnce(ok('')) // symbolic-ref → unset (empty stdout)
+      .mockReturnValueOnce(ok()); // rev-parse --verify origin/staging → exists
+    expect(resolveDefaultBase()).toBe('origin/staging');
+  });
+
+  it('falls through to origin/main on a main-default consumer (no symref, no staging) — the GH #568 case', () => {
+    runCheckMock
+      .mockReturnValueOnce(ok('')) // symbolic-ref → unset
+      .mockReturnValueOnce(fail()) // origin/staging → absent
+      .mockReturnValueOnce(ok()); // origin/main → exists
+    expect(resolveDefaultBase()).toBe('origin/main');
+  });
+
+  it('ignores a STALE origin/HEAD pointing at a missing ref and uses the fallback chain', () => {
+    runCheckMock
+      .mockReturnValueOnce(ok('origin/main\n')) // symref claims origin/main…
+      .mockReturnValueOnce(fail()) // …but rev-parse --verify origin/main → missing (stale)
+      .mockReturnValueOnce(fail()) // origin/staging → absent
+      .mockReturnValueOnce(fail()) // origin/main → absent
+      .mockReturnValueOnce(ok()); // origin/master → exists
+    expect(resolveDefaultBase()).toBe('origin/master');
+  });
+
+  it('returns null when nothing resolves (caller warns + skips, never a silent pass)', () => {
+    // Every call fails: symbolic-ref → '' stdout, every rev-parse → non-zero.
+    runCheckMock.mockReturnValue(fail());
+    expect(resolveDefaultBase()).toBeNull();
   });
 });
 
@@ -103,6 +151,37 @@ describe('getCommits', () => {
     const [cmd, args] = runCheckMock.mock.calls[0];
     expect(cmd).toBe('git');
     expect(args).toEqual(['rev-list', 'upstream/main..HEAD']);
+  });
+
+  // head endpoint (2026-06-17 cross-checkout fix): a push validates
+  // <base>..<local_sha>, not <base>..HEAD, so a feature branch pushed from a
+  // checkout on a different branch is scoped to its own commits.
+  it('uses the given head endpoint as the range terminus (base..head)', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    getCommits('origin/feat', 'localsha123');
+    const [cmd, args] = runCheckMock.mock.calls[0];
+    expect(cmd).toBe('git');
+    expect(args).toEqual(['rev-list', 'origin/feat..localsha123']);
+  });
+
+  // PAIRED-NEGATIVE: with an explicit head, the range must NOT terminate at HEAD
+  // (the bug). Guards the StringLiteral mutant that hard-codes `..HEAD`.
+  it('does NOT fall back to ..HEAD when an explicit head is supplied', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    getCommits('origin/feat', 'localsha123');
+    const [, args] = runCheckMock.mock.calls[0];
+    expect(args[1]).toBe('origin/feat..localsha123');
+    expect(args[1]).not.toContain('HEAD');
+  });
+
+  // Guards the default-parameter mutant: head defaults to 'HEAD', not '' (which
+  // would produce the invalid range `base..`).
+  it('defaults head to HEAD (not empty string) when omitted', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    getCommits('origin/main');
+    const [, args] = runCheckMock.mock.calls[0];
+    expect(args[1]).toBe('origin/main..HEAD');
+    expect(args[1]).not.toBe('origin/main..');
   });
 });
 
@@ -170,6 +249,26 @@ describe('getChangedFiles', () => {
     expect(args[2]).toBe('origin/main..HEAD');
     expect(args[3]).toBe('--diff-filter=ACMR');
     expect(args.every((a: string) => a !== '')).toBe(true);
+  });
+
+  // head endpoint (2026-06-17 cross-checkout fix): the diff terminus follows the
+  // pushed local_sha, mirroring getCommits, so §6/§8 changed-file scoping does not
+  // leak the checkout's HEAD into a feature-branch push.
+  it('uses the given head endpoint as the diff terminus (base..head)', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    getChangedFiles('origin/feat', 'ACMR', 'localsha123');
+    const [, args] = runCheckMock.mock.calls[0];
+    expect(args[2]).toBe('origin/feat..localsha123');
+    expect(args[2]).not.toContain('HEAD');
+  });
+
+  // Guards the head default-parameter mutant alongside the existing diffFilter one.
+  it('defaults head to HEAD when only base (and filter) are given', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    getChangedFiles('origin/main', 'D');
+    const [, args] = runCheckMock.mock.calls[0];
+    expect(args[2]).toBe('origin/main..HEAD');
+    expect(args[3]).toBe('--diff-filter=D');
   });
 });
 

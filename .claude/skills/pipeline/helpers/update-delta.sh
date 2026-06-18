@@ -50,7 +50,7 @@ OUTCOME="$2"
 
 # REPO_ROOT + resolve_target() sourced from lib/common.sh (Stage 4 dedup, BASH_SOURCE-relative).
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
-DELTA_FILE="${MO_DELTA_FILE:-${REPO_ROOT}/.claude/orchestrator-prompts/_master-backlog-delta.json}"
+DELTA_FILE="${MO_DELTA_FILE:-$(resolve_orch_home)/_master-backlog-delta.json}"
 TIMESTAMP="${MO_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 GIT_HEAD="${MO_GIT_HEAD:-$(git -C "${REPO_ROOT}" rev-parse --short HEAD 2>/dev/null || echo "unknown")}"
 

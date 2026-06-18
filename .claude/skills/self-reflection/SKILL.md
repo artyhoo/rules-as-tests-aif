@@ -40,17 +40,23 @@ Use when:
 
 ## Output contract
 
-Before closing a recommendation under skill scope, the recommendation must contain two non-empty sections:
+Before closing a recommendation under skill scope — and in any PR description that touches discipline-bearing files — the recommendation must contain two non-empty sections **with the exact `### §1.7` heading prefix the CI gate matches**. [`discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml) anchors its `awk` on `^### §1\.7 Forward-check applied` and `^### §1\.7 Backward-check applied`; a heading without the `§1.7` prefix does **not** match and the gate reports the section as missing.
 
 ```markdown
-### Forward-check applied
-<concrete enumeration of which existing disciplines were checked, with results>
+### §1.7 Forward-check applied
+<which existing disciplines were checked, with results — must cite ≥1 `file.ext:line` reference>
 
-### Backward-check applied
-<concrete enumeration of artefacts swept under the new rule's scope, with exemption mechanism + meta-test specification>
+### §1.7 Backward-check applied
+<artefacts swept under the new rule's scope, with exemption mechanism + meta-test specification — must ALSO cite ≥1 `file.ext:line` reference>
 ```
 
-If either section is missing or empty — recommendation is **provisional**, not load-bearing. The assistant must either complete the section or explicitly mark `### §1.7 Skipped: <reason ≥60 chars>` with rationale (e.g. «typo fix in already-shipped rule, no scope change»).
+**Each requirement is independently enforced by `discipline-self-check.yml`:**
+
+- **Heading prefix is mandatory.** Use `### §1.7 Forward-check applied` and `### §1.7 Backward-check applied` verbatim. `### Forward-check applied` / `### Backward-check applied` without the `§1.7` prefix fail as "missing section".
+- **Body ≥40 non-whitespace chars** per section.
+- **≥1 `file.ext:line` citation in BOTH sections** — not just Forward. The substance gate runs the regex `[^[:space:]]+\.[a-z]+:[0-9]+` over each section independently; a Backward-check with prose only (e.g. «all 13 artefacts swept, compliant») fails. Example: `packages/core/principles/02-paired-negative-test.test.ts:82 mutation arm verified`.
+
+If either section is missing, too short, or lacks a `file.ext:line` citation — recommendation is **provisional**, not load-bearing. The assistant must either complete the section or explicitly mark `### §1.7 Skipped: <reason ≥60 chars>` — the rationale must be on the **same line** as the marker and run ≥60 chars after the colon (e.g. «typo fix in already-shipped rule, no scope change, no new convention introduced»).
 
 ## §1.7 forward checklist (summary)
 
@@ -75,10 +81,10 @@ Full enumeration: [references/backward-checklist.md](references/backward-checkli
 
 Five prompts from [`phase-research-coverage.md §2`](../../rules/phase-research-coverage.md) — apply at retro for any discipline-introducing recommendation:
 
-1. **Когда ошибся — почему?** — moment + cognitive shortcut.
-2. **Мог ли пропускать раньше?** — calibration: one-off vs systemic.
-3. **Как не пропускать?** — map to §1.1-§1.7 or propose new item.
-4. **Какой урок?** — operationalisable form, not «be more careful».
+1. **When you erred — why?** — moment + cognitive shortcut.
+2. **Could you have caught it earlier?** — calibration: one-off vs systemic.
+3. **How to not skip it?** — map to §1.1-§1.7 or propose new item.
+4. **What is the lesson?** — operationalisable form, not "be more careful".
 5. **Did the principle apply to its own design choices?** — recursive-self-application audit.
 
 ## Anti-patterns
@@ -99,10 +105,10 @@ Examples with case studies (PR #16, defer-until-pain, L3 research): [references/
 | Layer | Surface | Mechanism | Status |
 |---|---|---|---|
 | 1 — Rule prose | [`.claude/rules/phase-research-coverage.md §1.7`](../../rules/phase-research-coverage.md) | Documents the forward+backward check requirement; defines scope and output contract | **Active** |
-| 2 — Skill auto-trigger | This SKILL.md (frontmatter `description`) | Claude Code auto-loads skill on keywords `правило`, `principle`, `discipline`, etc.; operationalises the forward+backward check protocol | **Active** |
-| 3 — CI workflow | [`.github/workflows/discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml) | PR-description gate: checks that PRs introducing discipline-bearing artefacts include `### Forward-check applied` + `### Backward-check applied` sections | **Active** |
+| 2 — Skill auto-trigger | This SKILL.md (frontmatter `description`) | Claude Code auto-loads skill on keywords like `principle`, `discipline`, and their Russian equivalents (frontmatter triggers), etc.; operationalises the forward+backward check protocol | **Active** |
+| 3 — CI workflow | [`.github/workflows/discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml) | PR-description gate: checks that PRs introducing discipline-bearing artefacts include `### §1.7 Forward-check applied` + `### §1.7 Backward-check applied` sections (≥40 non-whitespace chars each), or a `### §1.7 Skipped: <reason ≥60 chars>` marker | **Active** |
 | 4 — Pre-push hook | [`.husky/pre-push` section 9](../../../.husky/pre-push) | Push-time trailer check: commits that add a `## §` heading to rule/principles/skills files must carry `§1.7:` trailer (C4 scope predicate + D1 warn-only calibration window through 2026-06-10) | **Active** (shipped Wave 7 7.6.c) |
-| 5 — CI substance arm | [`.github/workflows/discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml) `verify-pr-body-sections` + `sanity-stub-fails-substance` jobs | Forward-check section must contain ≥1 file:line citation (regex `[^[:space:]]+\.[a-z]+:[0-9]+`); paired sanity job asserts Incident-1 stub fails the regex | **Active** (shipped Wave 8.1) |
+| 5 — CI substance arm | [`.github/workflows/discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml) `verify-pr-body-sections` + `sanity-stub-fails-substance` + `sanity-stub-backward-passes-with-citation` jobs | **Both** Forward-check **and** Backward-check sections must each contain ≥1 file:line citation (regex `[^[:space:]]+\.[a-z]+:[0-9]+`); paired sanity jobs assert the Incident-1 stub fails the regex and a cited Backward-check passes | **Active** (Forward shipped Wave 8.1; Backward-check parity arm added later) |
 
 See [closed-questions.md §13.23](../../../docs/meta-factory/closed-questions.md) for the layer-4 deferral rationale and closure decision. See [closed-questions.md §13.29](../../../docs/meta-factory/closed-questions.md) + [research-patch 2026-05-11](../../../docs/meta-factory/research-patches/2026-05-11-§13.29-substantive-compliance-research.md) for the Wave 8.1 substance-arm rationale.
 

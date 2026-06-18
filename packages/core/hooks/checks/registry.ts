@@ -111,4 +111,18 @@ export const CHECK_REGISTRY: readonly CheckEntry[] = [
     runner: 'ts',
     description: '§6 Skill-drift detection (changed SKILL.md files vs installed consumers).',
   },
+  {
+    id: 'rule-globs-liveness',
+    criticalForFallback: false,
+    runner: 'ts',
+    description:
+      '§3c Rule-glob liveness (scripts/check-rule-globs.sh) — FAILS if an active custom ESLint rule matches zero source files (silently-inert rule). Consumer-side gate, wired into the TS-core arm; skipped where the shipped script is absent (e.g. the maintainer repo).',
+  },
+  {
+    id: 'lintstaged-resolves',
+    criticalForFallback: false,
+    runner: 'ts',
+    description:
+      "§3d lint-staged binary resolution (scripts/check-lintstaged-resolves.sh) — FAILS if a lint-staged command's binary cannot resolve in the consumer layout (e.g. pnpm monorepo). Consumer-side gate, wired into the TS-core arm; skipped where the shipped script is absent.",
+  },
 ] as const;

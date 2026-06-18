@@ -23,6 +23,14 @@
 #   MO_DELIVERABLE_REF (default origin/staging), MO_DELIVERABLE_DIRS (default
 #     docs/meta-factory/research-patches) — Signal 3 git-ref + dirs, overridable like REPO_ROOT.
 #   PROMPTS_DIR is derived from REPO_ROOT (mirrors priority-score.sh:38).
+#   MO_UMBRELLA_SUBSET (Caller A opt-in, default unset) — when set non-empty on the
+#     --all path, scan ONLY those whitespace/newline-delimited umbrella names instead
+#     of globbing the whole dir. priority-score.sh's completion-detection (Caller A)
+#     passes the open-survivor set so the expensive per-umbrella jaccard never runs
+#     over an already-closed umbrella (skip-closed perf, 2026-06-17). Off by default;
+#     the standalone dedup caller (Caller B, SKILL §2.5 Step 2) never sets it, so its
+#     `--all` / single-name behaviour is unchanged. dup-detect stays closure-agnostic:
+#     it scans the names it is given and does NOT itself decide what is "closed".
 #
 # @cc-only-rationale: meta-orchestrator skill helper — runs in-session via !shell injection;
 #   no portable equivalent fires at the same moment (PostToolUse timing is CC-specific).
@@ -31,7 +39,7 @@ set -uo pipefail
 # REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh
 # (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
-PROMPTS_DIR="${REPO_ROOT}/.claude/orchestrator-prompts"
+PROMPTS_DIR="$(resolve_orch_home)"
 MO_GH_BIN="${MO_GH_BIN:-gh}"
 MO_PR_WINDOW_DAYS="${MO_PR_WINDOW_DAYS:-30}"
 MO_JACCARD_THRESHOLD="${MO_JACCARD_THRESHOLD:-30}"
@@ -134,8 +142,16 @@ ARG="${1:-}"
 # allow-rule pattern instead of a compound `<arg> || --all` chain that no single
 # rule matches. Stage 4 P4-b, meta-orch-no-arg-overview umbrella 2026-05-28.
 if [[ -z "${ARG}" || "${ARG}" == "--all" ]]; then
-  if [[ ! -d "${PROMPTS_DIR}" ]]; then echo "(no orchestrator-prompts dir)"; exit 0; fi
-  for d in "${PROMPTS_DIR}"/*/; do check_umbrella "$(basename "${d}")"; done
+  # Caller A opt-in (skip-closed perf): when MO_UMBRELLA_SUBSET is set non-empty,
+  # scan ONLY those names. Umbrella names are kebab-case (alnum + hyphen, no spaces)
+  # so unquoted word-splitting on whitespace/newlines is safe. Off by default →
+  # Caller B (standalone dedup) and any plain --all are unchanged (full glob below).
+  if [[ -n "${MO_UMBRELLA_SUBSET:-}" ]]; then
+    for name in ${MO_UMBRELLA_SUBSET}; do check_umbrella "${name}"; done
+  else
+    if [[ ! -d "${PROMPTS_DIR}" ]]; then echo "(no orchestrator-prompts dir)"; exit 0; fi
+    for d in "${PROMPTS_DIR}"/*/; do check_umbrella "$(basename "${d}")"; done
+  fi
 else
   check_umbrella "${ARG}"
 fi

@@ -23,7 +23,7 @@ if [[ -z "${UMBRELLA}" ]]; then
   exit 0
 fi
 
-KICKOFF="${REPO_ROOT}/.claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"
+KICKOFF="$(resolve_orch_home)/${UMBRELLA}/kickoff.md"
 
 if [[ ! -f "${KICKOFF}" ]]; then
   echo "MISSING kickoff: .claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"

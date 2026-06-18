@@ -97,6 +97,18 @@ function assistantToolUseOnly(toolName: string) {
   };
 }
 
+function assistantBashToolUse(text: string, command: string) {
+  return {
+    type: 'assistant',
+    message: {
+      content: [
+        { type: 'text', text },
+        { type: 'tool_use', name: 'Bash', input: { command } },
+      ],
+    },
+  };
+}
+
 function runHook(
   stdin: Record<string, unknown>,
   env?: Record<string, string>,
@@ -196,14 +208,18 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(JSON.parse(r.stdout).decision).toBe('block');
     });
 
-    it('NORMAL-MODE — same "я выбрал Option A." STILL fires (byte-for-byte regression guard)', () => {
+    it('NORMAL-MODE — short "я выбрал Option A." is SILENT (claim-scan removed)', () => {
+      // Was a "regex still active" guard from when normal mode fired on bare decision
+      // mentions. The claim-scan has since been removed (see the "claim-scan removed"
+      // cases below): a short decision mention with no question and no long-markdown is
+      // now silent in BOTH modes. This is the normal-mode paired-negative for that removal.
       const tr = writeTranscript([
         aiTitle('Цель'),
         userTurn('задание'),
         assistantText('Ок, я выбрал Option A и поехал дальше.'),
       ]);
       const r = runHook({ transcript_path: tr, stop_hook_active: false }); // no marker
-      expect(r.stdout, 'normal mode must be unchanged — regex still active').not.toBe('');
+      expect(r.stdout, 'normal mode: short decision mention is silent post-claim-scan-removal').toBe('');
     });
   });
 
@@ -573,5 +589,47 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(r.stdout, 'B2 regression guard: AUQ-only turn after recap must still fire').not.toBe('');
     const payload = JSON.parse(r.stdout);
     expect(payload.decision).toBe('block');
+  });
+
+  describe('story branch — PR-create → engaging completion recap (RU default)', () => {
+    it('`gh pr create` tool_use → emits 🎬 story (not the dry recap)', () => {
+      const tdir = mkdtempSync(join(tmpdir(), 'm4-5-story-ghpr-'));
+      tmpDirs.push(tdir);
+      const tr = writeTranscript([
+        aiTitle('Цель сессии'),
+        userTurn('первое задание'),
+        assistantBashToolUse('Открываю PR.', 'gh pr create --base staging --title x --body y'),
+      ]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'story-ghpr' }, { TMPDIR: tdir });
+      expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout, 'gh pr create turn must fire the story branch').not.toBe('');
+      const payload = JSON.parse(r.stdout);
+      expect(payload.decision).toBe('block');
+      expect(payload.reason).toContain('## 🎬 Как это было');
+      // case-insensitive: the RU prose bullet is capitalized ("По актам")
+      expect(payload.reason).toMatch(/по актам/i);
+    });
+
+    it('NO PR signal: long markdown → dry recap (## 🟢), NOT 🎬 (paired-negative)', () => {
+      const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText(longMarkdownText())]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'story-none' });
+      const payload = JSON.parse(r.stdout);
+      expect(payload.reason).toContain('## 🟢 Простыми словами');
+      expect(payload.reason, 'no PR → no story branch').not.toContain('## 🎬');
+    });
+
+    it('debounce: same PR storied twice in one session → second turn silent', () => {
+      const tdir = mkdtempSync(join(tmpdir(), 'm4-5-story-'));
+      tmpDirs.push(tdir);
+      const mkTr = () => writeTranscript([
+        aiTitle('Цель'), userTurn('задание'),
+        assistantText('PR открыт: https://github.com/o/r/pull/777'),
+      ]);
+      const first = runHook({ transcript_path: mkTr(), stop_hook_active: false, session_id: 'story-dbnc' }, { TMPDIR: tdir });
+      expect(first.stdout).not.toBe('');
+      expect(JSON.parse(first.stdout).reason).toContain('## 🎬');
+      const second = runHook({ transcript_path: mkTr(), stop_hook_active: false, session_id: 'story-dbnc' }, { TMPDIR: tdir });
+      expect(second.stdout, 'same PR must not re-fire (debounce)').toBe('');
+    });
   });
 });

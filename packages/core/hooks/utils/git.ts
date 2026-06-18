@@ -81,6 +81,35 @@ export function upstreamExists(ref: string): boolean {
 }
 
 /**
+ * The default base ref to diff against when neither PREPUSH_UPSTREAM_REF nor git
+ * pre-push stdin is available (a manual `node pre-push.ts` run, the bash fallback, or
+ * a CI setup that pipes no stdin). Derives the consumer's REAL default branch instead
+ * of hard-coding `origin/staging` — the former default silently no-op'd on any repo
+ * whose trunk is `main`/`master` (GH #568; dual-pair with pre-push.fallback.sh):
+ *
+ *   1. `origin/HEAD` symbolic-ref → the remote's advertised default branch
+ *      (`origin/main` on a main-default consumer, `origin/staging` in this repo).
+ *   2. first existing of `origin/staging` → `origin/main` → `origin/master`
+ *      (covers a remote whose local `origin/HEAD` symref is unset OR stale —
+ *      the staleness gotcha exercised in worktree-setup.test.ts).
+ *
+ * Returns null when nothing resolves — callers emit a VISIBLE warning and skip,
+ * never a silent pass.
+ */
+export function resolveDefaultBase(): string | null {
+  const head = gitOut([
+    'symbolic-ref',
+    '--short',
+    'refs/remotes/origin/HEAD',
+  ]).trim();
+  if (head && upstreamExists(head)) return head;
+  for (const ref of ['origin/staging', 'origin/main', 'origin/master']) {
+    if (upstreamExists(ref)) return ref;
+  }
+  return null;
+}
+
+/**
  * Commits reachable from `localSha` but not on any remote-tracking branch — the
  * new commits a first-time branch push (stdin `remote_sha` == {@link Z40})
  * introduces. Trunk-agnostic: no `origin/<trunk>` literal, so it works on any
@@ -93,17 +122,41 @@ export function commitsNotOnRemotes(localSha: string): string[] {
     .filter(Boolean);
 }
 
-/** Commit SHAs in `<upstreamRef>..HEAD`, newest first (git rev-list order). */
-export function getCommits(upstreamRef: string): string[] {
-  return gitOut(['rev-list', `${upstreamRef}..HEAD`])
+/**
+ * Commit SHAs in `<upstreamRef>..<head>`, newest first (git rev-list order).
+ *
+ * `head` defaults to `HEAD` (manual run / CI backstop — the checkout IS what is
+ * being checked). On a `git push`, the caller passes the pushed ref's
+ * **local_sha** instead: when a feature branch is pushed from a checkout sitting
+ * on a *different* branch, `HEAD` is the other branch's tip — NOT the pushed
+ * branch's — so `..HEAD` would validate unrelated commits (the 2026-06-17
+ * cross-checkout incident). The range must follow the ref actually being pushed.
+ */
+export function getCommits(upstreamRef: string, head = 'HEAD'): string[] {
+  return gitOut(['rev-list', `${upstreamRef}..${head}`])
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean);
 }
 
-/** Changed files in the push range (aif-handoff scoping, §4.8.X.3). */
-export function getChangedFiles(upstreamRef: string, diffFilter = 'ACMR'): string[] {
-  return gitOut(['diff', '--name-only', `${upstreamRef}..HEAD`, `--diff-filter=${diffFilter}`])
+/**
+ * Changed files in the push range (aif-handoff scoping, §4.8.X.3).
+ *
+ * `head` defaults to `HEAD`; on a push the caller passes the pushed ref's
+ * local_sha so the diff endpoint follows the pushed branch, not the checkout's
+ * HEAD (see {@link getCommits}).
+ */
+export function getChangedFiles(
+  upstreamRef: string,
+  diffFilter = 'ACMR',
+  head = 'HEAD',
+): string[] {
+  return gitOut([
+    'diff',
+    '--name-only',
+    `${upstreamRef}..${head}`,
+    `--diff-filter=${diffFilter}`,
+  ])
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean);
@@ -126,7 +179,9 @@ function parseNameStatus(out: string): { status: string; path: string }[] {
 export const realGit: GitProvider = {
   packageJsonDiff: (sha) => gitOut(['show', sha, '--', 'package.json']),
   changedFiles: (sha) =>
-    parseNameStatus(gitOut(['diff-tree', '--no-commit-id', '--name-status', '-r', sha])),
+    parseNameStatus(
+      gitOut(['diff-tree', '--no-commit-id', '--name-status', '-r', sha]),
+    ),
   fileContent: (sha, path) => {
     const r = runCheck('git', ['show', `${sha}:${path}`]);
     return r.exitCode === 0 ? r.stdout : null;
@@ -134,11 +189,20 @@ export const realGit: GitProvider = {
   subdirExistedAtParent: (sha, subdir) => {
     const parent = `${sha}^`;
     if (!upstreamExists(parent)) return false;
-    const out = gitOut(['ls-tree', '-r', '--name-only', parent, '--', `packages/core/${subdir}/`]);
+    const out = gitOut([
+      'ls-tree',
+      '-r',
+      '--name-only',
+      parent,
+      '--',
+      `packages/core/${subdir}/`,
+    ]);
     return out.trim().length > 0;
   },
   commitBody: (sha) => gitOut(['show', '-s', '--format=%B', sha]),
-  authorDate: (sha) => gitOut(['show', '-s', '--format=%ai', sha]).trim().split(' ')[0] ?? '',
-  commitSubject: (sha) => gitOut(['show', '-s', '--format=%s', sha]).replace(/\n$/, ''),
+  authorDate: (sha) =>
+    gitOut(['show', '-s', '--format=%ai', sha]).trim().split(' ')[0] ?? '',
+  commitSubject: (sha) =>
+    gitOut(['show', '-s', '--format=%s', sha]).replace(/\n$/, ''),
   diffForPaths: (sha, paths) => gitOut(['show', sha, '--', ...paths]),
 };

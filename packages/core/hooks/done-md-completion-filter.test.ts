@@ -309,6 +309,32 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     expect(line).not.toMatch(/basis=/);
   });
 
+  it('Case 3b — C3 n/a: done.md with "Final PR: n/a" → status=DONE done_pr=n/a basis=done-md', () => {
+    // Regression for the 2026-06-16 closure-sweep fix. A stale/superseded closure carries
+    // "- Final PR: n/a" (no numeric PR). done.md existence ALONE proves closure, so C3 MUST
+    // still tag DONE. Pre-fix bug: such n/a closures (e.g. the 2026-06-05 sweep) stayed
+    // false-open because the layer only tagged DONE when it parsed a numeric PR.
+    const sandbox = makeSandbox();
+    setupRepo(sandbox, ['na-done-umbrella', 'active-umbrella']);
+    const dir = join(sandbox, '.claude', 'orchestrator-prompts', 'na-done-umbrella');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'done.md'),
+      `# na-done-umbrella — DONE\n- Final PR: n/a (superseded)\n- Closed: 2026-06-05\n- Summary: scope absorbed elsewhere\n`,
+      'utf8',
+    );
+    const fakeGh = makeFakeGhEmpty(sandbox);
+    const fakeDup = makeFakeDupDetect(sandbox, {});
+
+    const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
+    expect(r.status).toBe(0);
+    // na-done-umbrella has done.md (n/a PR) → still DONE via Layer C3
+    expect(r.stdout).toMatch(/na-done-umbrella .* status=DONE done_pr=n\/a basis=done-md/);
+    // active-umbrella has no done.md → still candidate (paired-negative)
+    const activeLine = r.stdout.split('\n').find((l) => l.startsWith('active-umbrella '));
+    expect(activeLine).not.toMatch(/status=DONE/);
+  });
+
   it('Case 5 — COMBINED: C1 fail + C2 hit → DONE; C1 fail + C2 fail + C3 hit → DONE', () => {
     // Verifies first-match-wins ordering: when C1 misses but C2 or C3 matches, DONE is emitted.
     // Also verifies that C3 still fires when both C1 and C2 miss.

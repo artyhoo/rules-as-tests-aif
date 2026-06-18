@@ -8,9 +8,9 @@
 #
 # Base-ref detection mirrors pre-push.ts's resolver (dual-implementation-discipline
 # §5; hook-base-ref-detection I-phase): env override > git pre-push stdin remote_sha
-# > default origin/staging — never a silent skip. The former hard-coded
-# origin/staging default silently no-op'd on any consumer repo lacking a `staging`
-# branch (the channel install.sh actually ships).
+# > derived default branch (origin/HEAD → origin/staging|main|master) — never a silent
+# skip. The former hard-coded origin/staging default silently no-op'd on any consumer
+# repo whose trunk is `main`/`master` (GH #568).
 # @dual-pair: pre-push-critical-checks
 set -euo pipefail
 
@@ -37,7 +37,11 @@ resolve_commits() {
     local l_ref l_sha r_ref r_sha
     if read -r l_ref l_sha r_ref r_sha && [ -n "${r_sha:-}" ]; then
       if [ "${r_sha}" != "${Z40}" ] && git rev-parse --verify "${r_sha}^{commit}" >/dev/null 2>&1; then
-        COMMITS=$(git rev-list "${r_sha}..HEAD" 2>/dev/null || true)
+        # Range terminus is the PUSHED ref's local_sha, NOT HEAD: pushing `feat`
+        # from a checkout on a different branch must validate feat's commits, not
+        # the checked-out branch's (the 2026-06-17 cross-checkout incident; parity
+        # with pre-push.ts resolveBase's head=local_sha).
+        COMMITS=$(git rev-list "${r_sha}..${l_sha}" 2>/dev/null || true)
       else
         # new branch (Z40) or unknown remote sha → commits not on any remote.
         COMMITS=$(git rev-list "${l_sha:-HEAD}" --not --remotes 2>/dev/null || true)
@@ -45,10 +49,19 @@ resolve_commits() {
       return 0
     fi
   fi
-  if git rev-parse --verify "origin/staging" >/dev/null 2>&1; then
-    COMMITS=$(git rev-list "origin/staging..HEAD" 2>/dev/null || true); return 0
-  fi
-  echo "⚠ fallback: could not determine a base ref (no PREPUSH_UPSTREAM_REF, no git stdin, no origin/staging) — skipping (not a silent pass)."; return 1
+  # No env, no git stdin: derive the consumer's REAL default branch instead of
+  # hard-coding origin/staging (GH #568; dual-pair with pre-push.ts resolveDefaultBase):
+  # origin/HEAD symbolic-ref → first existing of origin/staging|main|master. The fallback
+  # chain also covers an unset OR stale origin/HEAD symref (worktree-setup.test.ts gotcha).
+  local default_ref ref
+  default_ref="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+  for ref in "${default_ref}" origin/staging origin/main origin/master; do
+    [ -z "${ref}" ] && continue
+    if git rev-parse --verify "${ref}" >/dev/null 2>&1; then
+      COMMITS=$(git rev-list "${ref}..HEAD" 2>/dev/null || true); return 0
+    fi
+  done
+  echo "⚠ fallback: could not determine a base ref (no PREPUSH_UPSTREAM_REF, no git stdin, no default branch) — skipping (not a silent pass)."; return 1
 }
 
 resolve_commits || exit 0

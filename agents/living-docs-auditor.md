@@ -1,7 +1,7 @@
 ---
 name: living-docs-auditor
 description: Runs scripts/audit-ai-docs.sh and reports findings. Catches backward Living-Documentation drift — whether AGENTS.md/RULES.md rules still hold in the actual code. Reports; does not fix. Renamed from `docs-auditor` to de-collide with AI Factory's own `docs-auditor` (a different, forward job: gating /aif-docs generation) — see docs/meta-factory/research-patches/2026-05-20-agent-collision-resolution.md §4.3. Consumer-facing context: this agent expects `scripts/audit-ai-docs.sh` to be populated by the AIF installer in consumer projects; in the source project the script is absent and the agent handles this via Step-2 graceful degradation (the `[ -f "$SCRIPT" ]` guard at the Workflow Step-2 block). When auditing this agent in source-project context, expect the path-check to skip — that's by design.
-tools: read_file, list_files, run_command
+tools: Read, Glob, Bash
 ---
 
 # living-docs-auditor
@@ -52,16 +52,19 @@ EXIT=$?
 ### Step 4: Parse output
 
 The audit script outputs lines in the format:
+
 - `PASS: R<N>: <rule name>` — rule satisfied (e.g. `PASS: R7: Time/randomness injected via Clock/Random`)
 - `FAIL: R<N>: <rule name>` followed by indented violation lines (`file:line: details`)
 - `WARN: D<N>: <rule name> — <details>` — soft warning (e.g., decay-watch, drift)
 
 Probe IDs:
+
 - `R1`–`R9` map to rules in `.ai-factory/RULES.md`.
 - `R12`, `R14`, `R15`, `R16a`, `R16b`, `R17`, `R20` map to `.ai-factory/RULES.react-next.md`.
 - `D1`, `D2` are drift checks (skill existence, JSON TODOs).
 
 Group findings by status. For each FAIL, identify:
+
 - Probe ID (`R<N>` or `D<N>`)
 - Affected file:line (from the indented lines following the FAIL header)
 - Brief explanation
@@ -73,6 +76,7 @@ Group findings by status. For each FAIL, identify:
 ## Code-vs-docs audit (scripts/audit-ai-docs.sh)
 
 ### PASS (5)
+
 - R1: TypeScript hygiene
 - R7: Time/randomness injected via Clock/Random
 - R9: No forbidden imports (lodash, moment, axios, ...)
@@ -80,35 +84,41 @@ Group findings by status. For each FAIL, identify:
 - (project probe) Rule X: All Server Actions begin with requireUser()
 
 ### FAIL (2)
+
 - **R2: Validation at HTTP boundaries (Zod safeParse, not parse)**
-    - Location: src/app/api/orders/route.ts:24
-    - Reason: uses `OrderSchema.parse(body)` which throws on invalid input
-    - RULES.md rule: R2 — "Every HTTP handler MUST parse request.body through Zod .safeParse()"
-    - Fix: replace with `const result = OrderSchema.safeParse(body); if (!result.success) return Response.json(result.error.issues, { status: 400 })`
+  - Location: src/app/api/orders/route.ts:24
+  - Reason: uses `OrderSchema.parse(body)` which throws on invalid input
+  - RULES.md rule: R2 — "Every HTTP handler MUST parse request.body through Zod .safeParse()"
+  - Fix: replace with `const result = OrderSchema.safeParse(body); if (!result.success) return Response.json(result.error.issues, { status: 400 })`
 
 - **(project probe) Rule X: webhook handlers must call isHoneypotFilled**
-    - Location: src/app/actions/contact.ts:12
-    - Reason: handler accepts FormData but does not call isHoneypotFilled
-    - AGENTS.md rule: line 47 — "All FormData-receiving actions must validate honeypot before processing"
-    - Fix: add `if (await isHoneypotFilled(formData)) return ...` after FormData destructure
+  - Location: src/app/actions/contact.ts:12
+  - Reason: handler accepts FormData but does not call isHoneypotFilled
+  - AGENTS.md rule: line 47 — "All FormData-receiving actions must validate honeypot before processing"
+  - Fix: add `if (await isHoneypotFilled(formData)) return ...` after FormData destructure
 
 ### WARN (1)
+
 - **D2 (drift): JSON configs accumulate stale comments**
-    - Location: .mcp.json:8
-    - Reason: contains `_comment_TODO_remove_when_X` key
-    - Action: move TODO to issue tracker, remove key from JSON
+  - Location: .mcp.json:8
+  - Reason: contains `_comment_TODO_remove_when_X` key
+  - Action: move TODO to issue tracker, remove key from JSON
 
 ## Verdict
+
 2 FAIL, 1 WARN — `/aif-verify` blocked.
 Fix the failures above. Address or postpone the WARN explicitly.
 ```
 
 If all PASS:
+
 ```markdown
 ## Code-vs-docs audit
+
 All N probes passed (or N PASS, M WARN — non-blocking).
 
 ## Verdict
+
 ALL PROBES PASSED.
 ```
 

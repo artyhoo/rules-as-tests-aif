@@ -7,6 +7,7 @@
 #   ./install.sh react-next --dry-run           # preview without writing
 #   ./install.sh react-next --dry-run --force   # preview overwrite plan
 #   ./install.sh ts-server --full               # also auto-install dev-deps (no prompts)
+#   ./install.sh ts-server --wire-ci            # also auto-wire missing CI gates via yq (opt-in, detect-first)
 #
 # What it does:
 #   1. Copies skills/ + .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit}/ → .claude/skills/
@@ -25,6 +26,9 @@
 # Use --dry-run to preview the plan without touching disk.
 # Use --full to also run the consumer's package manager to install the dev-deps the shipped
 # hooks/scripts need (default is to ask [y/N], default No — a mutating step is opt-in).
+# Use --wire-ci to also auto-wire any CI-orphan rule-enforcement gate (§6c) into your existing
+# workflow via yq (used-if-present, never installed by us; default is the non-destructive WARN +
+# paste-block — wiring edits your kept workflow in place, so it is opt-in). No effect in --dry-run.
 
 set -euo pipefail
 
@@ -65,11 +69,15 @@ STACK=""
 FORCE=""
 DRY_RUN=""
 FULL=""
+WIRE_CI=""
+REFRESH=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run)              DRY_RUN="--dry-run" ;;
     --force)                FORCE="--force" ;;
     --full)                 FULL="--full" ;;
+    --wire-ci)              WIRE_CI="--wire-ci" ;;
+    --refresh)              REFRESH="--refresh" ;;
     ts-server|react-next)   STACK="$arg" ;;
     *)                      ;;
   esac
@@ -88,7 +96,7 @@ fi
 # docs/meta-factory/research-patches/2026-05-09-§13.21-l3-revision.md).
 # Mirrors the canonical list at
 # packages/core/principles/09-doc-authority-hierarchy.test.ts
-# (REQUIRED_HEADER_DOCS Wave 2 + Wave 5.1 + memory-codification-auditor + manual-rule-liveness-prober — 18 shipped surfaces).
+# (REQUIRED_HEADER_DOCS Wave 2 + Wave 5.1 + memory-codification-auditor + orchestrator-worker-discipline — 18 shipped surfaces).
 # Runs in --dry-run too, so preview also catches drift between PR-side
 # (principle 09 CI) and release-time copy. Positioned before package.json
 # check + stack picker so framework-author drift fails fastest, before any
@@ -116,7 +124,8 @@ SHIPPED_DOCS=(
   "agents/living-docs-auditor.md"
   "agents/compliance-verifier.md"
   "agents/memory-codification-auditor.md"
-  "agents/manual-rule-liveness-prober.md"
+  "agents/orchestrator-worker-discipline.md"
+  "agents/aif-init.md"
   "skills/tool-bootstrapping/SKILL.md"
   "skills/tool-bootstrapping/references/decision-format.md"
 )
@@ -153,6 +162,17 @@ if [ ! -f "$PROJECT_ROOT/package.json" ]; then
   fi
 fi
 
+# For --refresh: auto-detect the stack from the consumer's existing files so the
+# interactive prompt is skipped (refresh is non-interactive by design — opt-in flag).
+if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
+  if [ -f "$PROJECT_ROOT/.ai-factory/RULES.react-next.md" ] || \
+     [ -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-next.md" ]; then
+    STACK="react-next"
+  else
+    STACK="ts-server"
+  fi
+fi
+
 # Pick stack interactively if not provided
 if [ -z "$STACK" ]; then
   echo "What stack does this project use?"
@@ -171,7 +191,11 @@ if [ "$STACK" != "ts-server" ] && [ "$STACK" != "react-next" ]; then
   exit 1
 fi
 
-echo "▶ Installing rules-as-tests-aif into $PROJECT_ROOT (stack: $STACK)"
+if [ -n "$REFRESH" ]; then
+  echo "▶ Refreshing rules-as-tests-aif framework artefacts in $PROJECT_ROOT (stack: $STACK)"
+else
+  echo "▶ Installing rules-as-tests-aif into $PROJECT_ROOT (stack: $STACK)"
+fi
 
 # ─── Helpers ─────────────────────────────────────────────
 copy_safe() {
@@ -196,6 +220,160 @@ copy_safe() {
   mkdir -p "$(dirname "$dst")"
   cp -r "$src" "$dst"
   echo "  ✓ $dst"
+}
+
+# refresh_safe <src> <dst>
+# Inverted copy_safe: OVERWRITES unless the consumer has signalled Layer-3 ownership
+# via a sibling <base>.override.md (INSTALL-FOR-AI.md §Three-layer + §override).
+# Naming: for foo.md the override is foo.override.md; for foo.sh it is foo.sh.override.md
+# (the %.md strip is a no-op on non-.md files, so the pattern is uniform — ${dst%.md}.override.md).
+# T-Upgrade-A: default-to-SKIP on any ownership signal — a wrong overwrite is irreversible.
+refresh_safe() {
+  local src="$1"
+  local dst="$2"
+  local override="${dst%.md}.override.md"
+  [ -e "$src" ] || return 0  # source gone — leave consumer copy alone
+  if [ -e "$override" ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: $dst (.override.md present — consumer-owned Layer 3)"
+    else
+      echo "  ⊝ $dst (.override.md — consumer-owned, keeping)"
+    fi
+    return 0
+  fi
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would refresh: $src → $dst"
+    return 0
+  fi
+  mkdir -p "$(dirname "$dst")"
+  cp -r "$src" "$dst"
+  echo "  ✓ $dst (refreshed)"
+}
+
+# GH #531 (reopen): non-destructive .prettierignore merge. copy_safe skips-if-exists, so a
+# BROWNFIELD consumer with a pre-existing .prettierignore never received the AIF exclusions →
+# generated .ai-factory/RULES.md (+ RULES.react-next.md, .claude/settings.json, the eslint-rules-
+# local barrel) stayed un-ignored → `prettier --check .` re-broke on the non-format-stable table.
+# Behaviour:
+#   - no consumer file        → copy the shipped file byte-identical (greenfield path unchanged).
+#   - consumer file exists     → append a marker-delimited block of AIF entries the consumer does
+#                                NOT already have (dedup), wrapped in begin/end markers.
+#   - block already present     → no-op (idempotent on re-install; begin-marker count stays 1).
+#   - --force                   → overwrite wholesale (same as copy_safe under --force).
+# Plain bash — NO yq, NO new dependency, NOT the yq-based _aif_yq_wire workflow-merge routine.
+PRETTIERIGNORE_BEGIN='# >>> rules-as-tests-aif (managed) >>>'
+PRETTIERIGNORE_END='# <<< rules-as-tests-aif (managed) <<<'
+merge_prettierignore() {
+  local src="$1"
+  local dst="$2"
+
+  # --force: behave like copy_safe (overwrite wholesale).
+  if [ "$FORCE" = "--force" ]; then
+    copy_safe "$src" "$dst"
+    return 0
+  fi
+
+  # No consumer file → greenfield: copy byte-identical (defer entirely to copy_safe).
+  if [ ! -e "$dst" ]; then
+    copy_safe "$src" "$dst"
+    return 0
+  fi
+
+  # Consumer file EXISTS → non-destructive merge.
+  # Idempotent: if the managed block is already present, do nothing.
+  if grep -qxF "$PRETTIERIGNORE_BEGIN" "$dst"; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip merge: $dst (AIF block already present)"
+    else
+      echo "  ⊝ $dst (AIF .prettierignore block already present — skipping merge)"
+    fi
+    return 0
+  fi
+
+  # Collect shipped entries not already present verbatim in the consumer file. Ignore blank lines
+  # and comments from the shipped source (only real ignore patterns get merged).
+  local missing=()
+  local line
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      '' | '#'*) continue ;;
+    esac
+    grep -qxF "$line" "$dst" || missing+=("$line")
+  done < "$src"
+
+  # Nothing to add (consumer already has every AIF pattern) → no-op.
+  if [ "${#missing[@]}" -eq 0 ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip merge: $dst (already has every AIF pattern)"
+    else
+      echo "  ⊝ $dst (already has every AIF .prettierignore pattern — nothing to merge)"
+    fi
+    return 0
+  fi
+
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would merge ${#missing[@]} AIF pattern(s) into: $dst"
+    return 0
+  fi
+
+  # Append the marker-delimited block. Ensure a trailing newline before the block.
+  [ -n "$(tail -c1 "$dst")" ] && printf '\n' >> "$dst"
+  {
+    printf '%s\n' "$PRETTIERIGNORE_BEGIN"
+    printf '%s\n' "${missing[@]}"
+    printf '%s\n' "$PRETTIERIGNORE_END"
+  } >> "$dst"
+  echo "  ✓ $dst (merged ${#missing[@]} AIF .prettierignore pattern(s))"
+}
+
+# GH #531 (reopen, config-mismatch): conditionally ignore the framework CONFIG files install
+# actually SHIPPED. Unlike the SOURCE patterns in the static .prettierignore template (framework-
+# namespace files a consumer never owns: eslint-rules-local/, packages/core/hooks/, scripts/audit-
+# r4.ts), these configs ship at a consumer-ownable path and MIGHT be consumer-authored — copy_safe
+# keeps the consumer's version when one already exists (and records it in SKIPPED). So we ignore a
+# config ONLY when it is NOT in SKIPPED (we shipped it fresh, formatted to OUR Prettier config —
+# printWidth 80 / singleQuote / no plugins — which a consumer's own .prettierrc would reject). A
+# consumer-authored config (copy_safe-skipped) stays format-checked: never silently hidden.
+PRETTIERIGNORE_CFG_BEGIN='# >>> rules-as-tests-aif shipped-configs (managed) >>>'
+PRETTIERIGNORE_CFG_END='# <<< rules-as-tests-aif shipped-configs (managed) <<<'
+
+_prettierignore_in_skipped() {
+  local needle="$1" s
+  # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${SKIPPED[@]}" with an
+  # empty SKIPPED throws "unbound variable" and aborts install. ${#SKIPPED[@]} (length) is safe.
+  [ "${#SKIPPED[@]}" -gt 0 ] || return 1
+  for s in "${SKIPPED[@]}"; do [ "$s" = "$needle" ] && return 0; done
+  return 1
+}
+
+ignore_shipped_configs() {
+  local ign="$PROJECT_ROOT/.prettierignore"
+  [ -e "$ign" ] || return 0   # no consumer .prettierignore at all → nothing to extend
+  # Framework configs that ship at a consumer-ownable path. Each is ignored ONLY if shipped fresh.
+  local candidates=(
+    "eslint.config.mjs" "vitest.config.ts" "tsconfig.json" "playwright.config.ts"
+    ".dependency-cruiser.cjs" "stryker.config.json" ".lintstagedrc.json"
+    ".github/workflows/ci.yml" ".github/workflows/workflow-integrity.yml"
+  )
+  local fresh=() rel
+  for rel in "${candidates[@]}"; do
+    [ -e "$PROJECT_ROOT/$rel" ] || continue                       # not shipped for this stack/preset
+    _prettierignore_in_skipped "$PROJECT_ROOT/$rel" && continue   # consumer owned it → keep checking
+    grep -qxF "$rel" "$ign" && continue                           # already ignored (idempotent re-install)
+    fresh+=("$rel")
+  done
+  [ "${#fresh[@]}" -eq 0 ] && return 0
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would ignore ${#fresh[@]} freshly-shipped framework config(s) in $ign"
+    return 0
+  fi
+  [ -n "$(tail -c1 "$ign")" ] && printf '\n' >> "$ign"
+  {
+    printf '%s\n' "$PRETTIERIGNORE_CFG_BEGIN"
+    printf '%s\n' "${fresh[@]}"
+    printf '%s\n' "$PRETTIERIGNORE_CFG_END"
+  } >> "$ign"
+  echo "  ✓ $ign (ignored ${#fresh[@]} freshly-shipped framework config(s); consumer-authored configs kept format-checked)"
 }
 
 # Idempotent mkdir -p that respects --dry-run.
@@ -256,12 +434,17 @@ patch_stryker_package_manager() {
   # in a monorepo); else npm. A flat pnpm consumer with neither marker nor field still defaults
   # npm — re-run install after the lockfile lands, or set package.json "packageManager".
   _pm=$(detect_pm)   # SSOT detector (lockfile/workspace/corepack signals; see detect_pm above)
+  # GH #531: rewrite ONLY the packageManager VALUE in place (string-substitution), NOT a full
+  # JSON.stringify re-serialize. The template ships prettier-clean (short arrays collapsed to one
+  # line); JSON.stringify(,,2) would re-expand those arrays and break `prettier --check` on the
+  # consumer. A targeted value swap preserves the template's prettier formatting byte-for-byte.
   AIF_STRYKER_CFG="$_cfg" AIF_STRYKER_PM="$_pm" node -e '
     const fs = require("fs");
     const p = process.env.AIF_STRYKER_CFG;
-    const cfg = JSON.parse(fs.readFileSync(p, "utf8"));
-    cfg.packageManager = process.env.AIF_STRYKER_PM;
-    fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n");
+    const pm = process.env.AIF_STRYKER_PM;
+    const src = fs.readFileSync(p, "utf8");
+    const out = src.replace(/("packageManager"\s*:\s*")[^"]*(")/, `$1${pm}$2`);
+    if (out !== src) fs.writeFileSync(p, out);
   '
   echo "  ✓ stryker packageManager → $_pm"
 }
@@ -297,6 +480,173 @@ copy_skill_with_transform() {
   done < <(find "$dst" -name '*.md' -print0)
   echo "  ✓ .claude/skills/$slug/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 }
+
+# refresh_skill_with_transform <slug>
+# Like copy_skill_with_transform but with refresh_safe semantics for directories.
+# The override signal for a skill directory is <dst_dir>.override.md (e.g.
+# .claude/skills/pipeline.override.md signals consumer-owned pipeline skill).
+refresh_skill_with_transform() {
+  local slug="$1"
+  local src="$PKG_ROOT/.claude/skills/$slug"
+  local dst="$PROJECT_ROOT/.claude/skills/$slug"
+  local override="${dst}.override.md"
+  [ -d "$src" ] || return 0
+  if [ -e "$override" ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: .claude/skills/$slug (.override.md — consumer-owned)"
+    else
+      echo "  ⊝ .claude/skills/$slug (.override.md — consumer-owned, keeping)"
+    fi
+    return 0
+  fi
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would refresh: $src → $dst (+ transform internal refs)"
+    return 0
+  fi
+  rm -rf "$dst"
+  cp -r "$src" "$dst"
+  while IFS= read -r -d '' mdfile; do
+    transform_internal_refs "$mdfile"
+  done < <(find "$dst" -name '*.md' -print0)
+  echo "  ✓ .claude/skills/$slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+}
+
+# do_refresh — re-copy all framework-owned artefacts (agents, skills, hooks, scripts,
+# skill-context overrides) to the consumer. Called only when --refresh is passed.
+# Framework-owned = artefacts the framework authors, header-verifies, and ships with no
+# consumer-specific data. Consumer-authored files (AGENTS.md, RULES.md, ci.yml,
+# eslint.config.mjs, tsconfig.json, .prettierrc, etc.) are NEVER in this set.
+# Boundary derivation: SHIPPED_DOCS ∪ copy_safe'd framework artefacts; override signal =
+# sibling .override.md (Layer 3 per INSTALL-FOR-AI.md §Three-layer).
+do_refresh() {
+  echo "▶ Mode: --refresh (framework-owned artefacts; consumer files preserved)"
+  echo "  Skips any file with a sibling .override.md (Layer-3 consumer ownership)"
+
+  # ── Sub-agents ──────────────────────────────────────────
+  echo "▶ Sub-agents → .claude/agents/"
+  for f in "$PKG_ROOT"/agents/*.md; do
+    case "$(basename "$f")" in
+      manual-rule-liveness-prober.md) continue ;;
+      shipped-agent-liveness-prober.md) continue ;;
+    esac
+    refresh_safe "$f" "$PROJECT_ROOT/.claude/agents/$(basename "$f")"
+  done
+
+  # ── Skills (plain copy, no internal-ref transform) ──────
+  echo "▶ Skills (rules-as-tests, tool-bootstrapping) → .claude/skills/"
+  for _slug in rules-as-tests tool-bootstrapping; do
+    _src="$PKG_ROOT/skills/$_slug"
+    _dst="$PROJECT_ROOT/.claude/skills/$_slug"
+    _override="${_dst}.override.md"
+    [ -d "$_src" ] || continue
+    if [ -e "$_override" ]; then
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would skip: .claude/skills/$_slug (.override.md — consumer-owned)"
+      else
+        echo "  ⊝ .claude/skills/$_slug (.override.md — consumer-owned, keeping)"
+      fi
+      continue
+    fi
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would refresh: $_src → $_dst"
+      continue
+    fi
+    rm -rf "$_dst"
+    cp -r "$_src" "$_dst"
+    echo "  ✓ .claude/skills/$_slug/ (refreshed)"
+  done
+
+  # ── Orchestration skills (with internal-ref transform) ──
+  echo "▶ Orchestration skills → .claude/skills/"
+  for _skill in pipeline dispatcher aif-doctor template-audit; do
+    refresh_skill_with_transform "$_skill"
+  done
+  _AIF_HELPERS="$PROJECT_ROOT/.claude/skills/aif-doctor/helpers"
+  if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$_AIF_HELPERS" ]; then
+    chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" 2>/dev/null || true
+  fi
+
+  # ── Claude hooks ────────────────────────────────────────
+  echo "▶ Claude hooks → .claude/hooks/"
+  _HOOK_SRC="$PKG_ROOT/packages/core/hooks/deps-hash-check.sh"
+  _HOOK_DST="$PROJECT_ROOT/.claude/hooks/deps-hash-check.sh"
+  if [ -f "$_HOOK_SRC" ]; then
+    refresh_safe "$_HOOK_SRC" "$_HOOK_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_HOOK_DST" ]; then
+      chmod_safe +x "$_HOOK_DST" 2>/dev/null || true
+    fi
+  fi
+
+  # ── Scripts ─────────────────────────────────────────────
+  echo "▶ Scripts → scripts/"
+  for _pair in \
+    "packages/core/audit-self/audit-ai-docs.sh:scripts/audit-ai-docs.sh" \
+    "packages/core/probes/audit-r4.ts:scripts/audit-r4.ts" \
+    "packages/core/audit-self/check-rule-globs.sh:scripts/check-rule-globs.sh" \
+    "packages/core/audit-self/check-rule-enforced.sh:scripts/check-rule-enforced.sh" \
+    "packages/core/audit-self/detect-r2-boundary.sh:scripts/detect-r2-boundary.sh" \
+    "packages/core/audit-self/r2-na-marker.sh:scripts/r2-na-marker.sh" \
+    "packages/core/audit-self/check-arch-boundaries.sh:scripts/check-arch-boundaries.sh" \
+    "packages/core/audit-self/check-lintstaged-resolves.sh:scripts/check-lintstaged-resolves.sh"; do
+    _s="${_pair%%:*}"; _d="${_pair##*:}"
+    refresh_safe "$PKG_ROOT/$_s" "$PROJECT_ROOT/$_d"
+    case "$_d" in
+      *.sh) if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/$_d" ]; then
+              chmod_safe +x "$PROJECT_ROOT/$_d" 2>/dev/null || true; fi ;;
+    esac
+  done
+  if [ "$STACK" = "react-next" ]; then
+    _rn_src="$PKG_ROOT/packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh"
+    _rn_dst="$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh"
+    refresh_safe "$_rn_src" "$_rn_dst"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_rn_dst" ]; then
+      chmod_safe +x "$_rn_dst" 2>/dev/null || true
+    fi
+  fi
+
+  # ── Core hooks (TS pre-push pipeline) ───────────────────
+  echo "▶ Core hooks (TS) → packages/core/hooks/"
+  for _ts in \
+    pre-push.ts \
+    utils/run-check.ts \
+    utils/git.ts \
+    checks/prior-art.ts \
+    checks/s17.ts; do
+    refresh_safe "$PKG_ROOT/packages/core/hooks/$_ts" "$PROJECT_ROOT/packages/core/hooks/$_ts"
+  done
+  _fb_src="$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh"
+  _fb_dst="$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh"
+  refresh_safe "$_fb_src" "$_fb_dst"
+  if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_fb_dst" ]; then
+    chmod_safe +x "$_fb_dst" 2>/dev/null || true
+  fi
+
+  # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
+  echo "▶ Skill-context → .ai-factory/skill-context/"
+  for _doc in "${SHIPPED_DOCS[@]}"; do
+    case "$_doc" in
+      packages/core/templates/shared/skill-context/*/SKILL.md)
+        _sc="${_doc#packages/core/templates/shared/skill-context/}"; _sc="${_sc%/SKILL.md}"
+        refresh_safe "$PKG_ROOT/$_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ;;
+    esac
+  done
+
+  echo ""
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "✅ Dry-run complete (--refresh preview). Nothing was written."
+    echo "   Re-run without --dry-run to apply, or add --force to also overwrite consumer files."
+  else
+    echo "✅ Framework artefacts refreshed."
+    echo "   Consumer-owned files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs, etc.) were not touched."
+    echo "   Files with a sibling .override.md were also preserved."
+  fi
+}
+
+# ─── --refresh early-exit: run refresh then stop (skip the full install flow) ──
+if [ -n "$REFRESH" ]; then
+  do_refresh
+  exit 0
+fi
 
 # ─── 1. Skills ──────────────────────────────────────────
 echo "▶ Skills → .claude/skills/"
@@ -404,12 +754,20 @@ echo "▶ Sub-agents → .claude/agents/"
 #     agents/review-sidecar.md remains the portable SSOT (@dual-pair anchor: review-sidecar).
 mkdir_safe "$PROJECT_ROOT/.claude/agents"
 for f in "$PKG_ROOT"/agents/*.md; do
+  case "$(basename "$f")" in
+    manual-rule-liveness-prober.md) continue ;;  # authoring-only tool (#552)
+    shipped-agent-liveness-prober.md) continue ;;  # authoring-only tool (M2 probe, #552 sibling)
+  esac
   copy_safe "$f" "$PROJECT_ROOT/.claude/agents/$(basename "$f")"
 done
 
 # ─── 3. AI Factory templates ────────────────────────────
 echo "▶ AI Factory templates → .ai-factory/"
 mkdir_safe "$PROJECT_ROOT/.ai-factory/rules"
+# Consumer backlog home for /pipeline (kickoffs + plan + scratch). Agnostic namespace so the
+# backlog is portable across harnesses (.claude/ is Claude-Code-specific). Empty until the
+# consumer writes their first kickoff; /pipeline treats empty as "nothing queued", not an error.
+mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.template.md"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md"
 copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.md" "$PROJECT_ROOT/.ai-factory/RULES.md"
@@ -460,6 +818,28 @@ copy_safe "$PKG_ROOT/packages/core/probes/audit-r4.ts" "$PROJECT_ROOT/scripts/au
 # (silent-inertness alarm). Dependency-free bash; run pre-PR once the layout settles.
 copy_safe "$PKG_ROOT/packages/core/audit-self/check-rule-globs.sh" "$PROJECT_ROOT/scripts/check-rule-globs.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/check-rule-globs.sh" 2>/dev/null || true
+# GH #535 "+E": deep R2-binding gate. check:globs only proves a rule's globs MATCH files; on a
+# monorepo with per-package eslint configs that re-export a base NOT wiring R2, the rule stays
+# silently inert while validate/lint pass. This gate resolves the actually-applied config per
+# boundary file via `eslint --print-config` and FAILS when R2 is absent — catching that false-green
+# without false-failing a correct re-export-of-root. Skips cleanly when eslint isn't installed yet.
+copy_safe "$PKG_ROOT/packages/core/audit-self/check-rule-enforced.sh" "$PROJECT_ROOT/scripts/check-rule-enforced.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/check-rule-enforced.sh" 2>/dev/null || true
+# GH #547 Point 2: R2 boundary probe (C1) + the shared N/A-marker reader (C4). detect-r2-boundary.sh
+# classifies the repo (boundary-present | no-boundary-confident | ambiguous) by READING it; the
+# installer (§6b-bis below) and BOTH inertness gates consume it. r2-na-marker.sh is sourced by
+# check-rule-globs.sh + check-rule-enforced.sh so they never diverge on honoring a recorded R2 N/A.
+copy_safe "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" "$PROJECT_ROOT/scripts/detect-r2-boundary.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/detect-r2-boundary.sh" 2>/dev/null || true
+copy_safe "$PKG_ROOT/packages/core/audit-self/r2-na-marker.sh" "$PROJECT_ROOT/scripts/r2-na-marker.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/r2-na-marker.sh" 2>/dev/null || true
+# GH #534: R3 (arch) inertness alarm — the dependency-cruiser analog of check:globs. The shipped
+# arch config carries layout-agnostic monorepo boundary rules (packages↛apps / apps↔apps), but
+# dependency-cruiser has no built-in "rule matched nothing" report, so on a monorepo whose arch
+# config lacks those rules, arch:check passes green while the boundary is unguarded — silently.
+# This gate FAILS on an apps/+packages/ monorepo when no packages↛apps rule is present.
+copy_safe "$PKG_ROOT/packages/core/audit-self/check-arch-boundaries.sh" "$PROJECT_ROOT/scripts/check-arch-boundaries.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/check-arch-boundaries.sh" 2>/dev/null || true
 # cih-s3 F14: lint-staged binary-resolution gate — fails if a .lintstagedrc command's binary
 # can't resolve from the cwd lint-staged would use (the ENOENT-before-commit alarm on monorepos).
 copy_safe "$PKG_ROOT/packages/core/audit-self/check-lintstaged-resolves.sh" "$PROJECT_ROOT/scripts/check-lintstaged-resolves.sh"
@@ -492,7 +872,15 @@ if [ "$DRY_RUN" != "--dry-run" ] && { [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]
 fi
 # cih-s3 F15: keep prettier off the generated RULES.md table region (rendered SSOT, not
 # format-stable) so a `*.md → prettier --write` lint-staged step can't reflow it.
-copy_safe "$PKG_ROOT/packages/core/templates/shared/.prettierignore" "$PROJECT_ROOT/.prettierignore"
+# GH #531 (reopen): merge (not skip-if-exists) so a BROWNFIELD consumer with its own
+# .prettierignore still gets the AIF exclusions — otherwise the generated RULES.md re-breaks
+# `prettier --check .`. Greenfield path stays byte-identical (delegates to copy_safe).
+merge_prettierignore "$PKG_ROOT/packages/core/templates/shared/.prettierignore" "$PROJECT_ROOT/.prettierignore"
+# GH #531: ship the Prettier config so the consumer's `format:check` (prettier --check .) uses the
+# same style the shipped artefacts are formatted in (singleQuote — the framework's existing TS/JS
+# style). Without it, prettier defaults (double-quote) would flag every shipped .ts/.mjs/.cjs.
+# copy_safe (skip-if-exists) never clobbers a consumer's own prettier config.
+copy_safe "$PKG_ROOT/.prettierrc.json" "$PROJECT_ROOT/.prettierrc.json"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/tsconfig.json" "$PROJECT_ROOT/tsconfig.json"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
 mkdir_safe "$PROJECT_ROOT/.husky"
@@ -516,6 +904,15 @@ for ts_hook in \
   checks/s17.ts; do
   copy_safe "$PKG_ROOT/packages/core/hooks/$ts_hook" "$PROJECT_ROOT/packages/core/hooks/$ts_hook"
 done
+# GH #532: the shipped pre-push.ts is authored as an ES module, but its module-type is decided by
+# the NEAREST package.json. In THIS repo packages/core/package.json declares "type":"module" (so the
+# hook loads as ESM and runs); in a consumer the nearest package.json is usually the project root with
+# no "type" → CJS default → tsx's `require(esm)` bridge hits Node ≥22 cycle detection and the hook dies
+# with ERR_REQUIRE_CYCLE_MODULE *at module load*, before any §7/§1.7 check runs (every git push aborts
+# with a stack trace). Ship a hooks-scoped {"type":"module"} marker so the shipped .ts loads as ESM —
+# exactly as it does in this framework repo. Scoped to packages/core/hooks/ (AIF-owned) so it can't
+# collide with a consumer's own packages/core package or be picked up as a workspace member.
+copy_safe "$PKG_ROOT/packages/core/templates/shared/hooks-package.json" "$PROJECT_ROOT/packages/core/hooks/package.json"
 chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" \
   "$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh" 2>/dev/null || true
 
@@ -617,6 +1014,239 @@ elif [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
 fi
 
+# ─── 6b. #509: .nvmrc ↔ pre-existing CI Node-version drift WARN ──────────
+# Install ships .nvmrc but copy_safe does NOT overwrite an existing CI workflow. A consumer
+# whose own CI hardcodes a different `node-version: NN` then gets local `nvm use` (.nvmrc) ≠ CI.
+# It is the consumer's own CI — nothing is broken — so this is a non-destructive WARN only, never
+# a failure. (A workflow using `node-version-file: '.nvmrc'` reads .nvmrc directly → can't drift.)
+if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/.nvmrc" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; then
+  # `|| true`: parity with the _ci_ver line below — under set -euo pipefail a SIGPIPE from
+  # head closing a multi-line read (rc=141) would otherwise abort the whole install.
+  _nvmrc_major=$(tr -dc '0-9.\n' < "$PROJECT_ROOT/.nvmrc" 2>/dev/null | head -1 | cut -d. -f1 || true)
+  if [ -n "$_nvmrc_major" ]; then
+    for _wf in "$PROJECT_ROOT/.github/workflows/"*.yml "$PROJECT_ROOT/.github/workflows/"*.yaml; do
+      [ -f "$_wf" ] || continue
+      # hardcoded `node-version: NN` only — `node-version-file:` has "-file" before its colon so it
+      # never matches; a `${{ matrix.* }}` value yields no digit → skipped (can't compare).
+      # `|| true`: under the script's `set -euo pipefail`, a no-match grep returns 1 and pipefail
+      # would abort the whole install — the common case (shipped CI uses node-version-file).
+      _ci_ver=$(grep -oE "node-version:[[:space:]]*['\"]?[0-9]+" "$_wf" 2>/dev/null | grep -oE "[0-9]+" | head -1 || true)
+      [ -n "$_ci_ver" ] || continue
+      if [ "$_ci_ver" != "$_nvmrc_major" ]; then
+        echo "⚠ .nvmrc pins Node ${_nvmrc_major}.x but ${_wf#"$PROJECT_ROOT"/} hardcodes node-version: ${_ci_ver} — local 'nvm use' will differ from this CI. Align them, or switch the workflow to: node-version-file: '.nvmrc'."
+      fi
+    done
+  fi
+fi
+
+# ─── 6b-bis. GH #547 Point 2: auto-wire R2 by reading the repo ───────────────
+# Classify the consumer's layout (C1) and configure R2 enforcement so the shipped check:globs gate
+# is green-because-understood, never red-because-unconfigured — WITHOUT mutating consumer-authored
+# per-package eslint configs (deferred Layer 2 / --wire-rules). We only ever patch the ROOT
+# eslint.config.mjs (OUR shipped file, whose own comment invites editing RULE_GLOBS), additively +
+# idempotently. rc=0 on every branch (a crash here must never abort install — lesson GH #531/#544).
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "▶ R2 auto-wire → [dry-run] would classify the repo and patch RULE_GLOBS / record R2 N/A as warranted"
+elif [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+  echo "▶ R2 auto-wire (reading the repo)"
+  _r2_out="$( cd "$PROJECT_ROOT" && bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null )"
+  _r2_verdict="$(printf '%s\n' "$_r2_out" | head -1)"
+  case "$_r2_verdict" in
+    boundary-present)
+      _patched=0
+      while IFS= read -r _line; do
+        case "$_line" in glob:*) ;; *) continue ;; esac
+        _g="${_line#glob:}"
+        grep -qF "$_g" "$PROJECT_ROOT/eslint.config.mjs" && continue   # already covered → idempotent
+        awk -v ins="    '$_g'," '
+          done2!=1 && /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ins; done2=1; next }
+          { print }
+        ' "$PROJECT_ROOT/eslint.config.mjs" > "$PROJECT_ROOT/eslint.config.mjs.tmp" \
+          && mv "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs"
+        _patched=$((_patched + 1))
+      done <<EOF
+$_r2_out
+EOF
+      if [ "$_patched" -gt 0 ]; then
+        echo "  ✓ HTTP boundary detected → added $_patched glob(s) to RULE_GLOBS.boundary in eslint.config.mjs so R2 covers it"
+      else
+        echo "  ✓ HTTP boundary detected → already covered by the default RULE_GLOBS.boundary (no change)"
+      fi ;;
+    no-boundary-confident)
+      _dec="$PROJECT_ROOT/.ai-factory/tool-decisions.md"
+      if [ -f "$_dec" ]; then
+        if grep -qF '<!-- aif:r2-na:begin -->' "$_dec"; then   # replace existing block (idempotent re-install)
+          awk '/<!-- aif:r2-na:begin -->/{skip=1} skip&&/<!-- aif:r2-na:end -->/{skip=0;next} !skip' "$_dec" > "$_dec.tmp" && mv "$_dec.tmp" "$_dec"
+        fi
+        {
+          echo ""
+          echo "<!-- aif:r2-na:begin -->"
+          echo "### R2 (no-unsafe-zod-parse) — N/A for this layout (auto-recorded by install.sh)"
+          echo "**Verdict:** N/A — validation is declarative (allowlisted framework); no manual \`.parse()\` HTTP boundary detected."
+          echo "**Precondition (re-checked by check:globs / check:enforced via scripts/detect-r2-boundary.sh):**"
+          echo "- no file matches RULE_GLOBS.boundary tokens, AND"
+          echo "- no \`.safeParse(\` and no non-stdlib \`.parse(\` in non-test source."
+          echo "**If this precondition breaks** (you add a hand-rolled parse boundary) the gate goes RED again — wire R2 (widen RULE_GLOBS.boundary) or update this decision."
+          echo "<!-- aif:r2-na:end -->"
+        } >> "$_dec"
+        echo "  ✓ declarative validation, no manual-parse boundary → recorded a re-checkable R2 N/A in .ai-factory/tool-decisions.md"
+      else
+        echo "  · declarative validation detected, but .ai-factory/ absent → skipped R2 N/A record (gate behaviour unchanged)"
+      fi ;;
+    *)
+      # NB: say "scripts/check-rule-globs.sh" (hyphen), NOT the colon-form "check:globs" — the colon
+      # form is reserved for the CI-orphan WARN's missing-gate list (r2-glob-reach asserts per-gate accuracy).
+      echo "  · R2 boundary layout ambiguous → leaving scripts/check-rule-globs.sh as the alarm. If R2 applies, widen RULE_GLOBS.boundary in eslint.config.mjs to cover your layout." ;;
+  esac
+fi
+
+# ─── 6c. #507 (reopen) + #521: CI-orphan WARN — completeness across ALL enforcement gates ───
+# A brownfield consumer's pre-existing ci.yml is KEPT (copy_safe skips it), so the shipped CI's
+# enforcement gates run in NO CI job — only on a local `npm run validate`, which a dev must
+# remember. #507 warned about the glob gate only; #521 broadens it: for EACH gate whose artifact
+# is installed, if no kept workflow references it, name it (with what it enforces) and print a
+# ready-to-paste step. Non-destructive (consumer owns their CI) — exit stays 0. Greenfield (install
+# wrote ci.yml wiring all gates) → nothing missing → no warn. "check:globs" etc. colon forms are
+# WARN-exclusive; the grep patterns also match the hyphenated script names used inside workflows.
+if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; then
+  _aif_missing=()
+  _aif_steps=()
+  _aif_cmds=()
+  _aif_gate_check() { # $1 "gate — what it enforces"  $2 wired-grep  $3 installed-artifact  $4 paste-step
+    [ -e "$PROJECT_ROOT/$3" ] || return 0          # gate not installed for this stack → nothing to warn
+    local _wf
+    for _wf in "$PROJECT_ROOT/.github/workflows/"*.yml "$PROJECT_ROOT/.github/workflows/"*.yaml; do
+      [ -f "$_wf" ] || continue
+      # grep inside `if` is set-e-safe (non-zero no-match is consumed by the if-test, not seen by set -e)
+      if grep -qE "$2" "$_wf" 2>/dev/null; then return 0; fi   # referenced by some workflow → wired
+    done
+    _aif_missing+=("$1"); _aif_steps+=("$4"); _aif_cmds+=("${4#- run: }")
+  }
+  _aif_detect_gates() {   # (re)build the missing-set from scratch — idempotent, callable again post-wire
+    _aif_missing=(); _aif_steps=(); _aif_cmds=()
+    _aif_gate_check "check:globs — R2/R7/R8 ESLint-rule liveness"        'check-rule-globs\.sh|check:globs'               "scripts/check-rule-globs.sh"          "- run: bash scripts/check-rule-globs.sh"
+    _aif_gate_check "check:enforced — R2 actually applied (per-pkg cfg)"  'check-rule-enforced\.sh|check:enforced'         "scripts/check-rule-enforced.sh"       "- run: bash scripts/check-rule-enforced.sh"
+    _aif_gate_check "arch:check — R3 architecture boundaries"            'arch:check|depcruise'                           ".dependency-cruiser.cjs"              "- run: npm run arch:check"
+    _aif_gate_check "check:arch-boundaries — R3 monorepo-boundary liveness" 'check-arch-boundaries\.sh|check:arch-boundaries' "scripts/check-arch-boundaries.sh"     "- run: bash scripts/check-arch-boundaries.sh"
+    _aif_gate_check "audit:docs — AI-documentation drift"               'audit:docs|audit-ai-docs\.sh'                   "scripts/audit-ai-docs.sh"             "- run: bash scripts/audit-ai-docs.sh"
+    _aif_gate_check "check:lintstaged — lint-staged binaries resolve"   'check:lintstaged|check-lintstaged-resolves\.sh' "scripts/check-lintstaged-resolves.sh" "- run: bash scripts/check-lintstaged-resolves.sh"
+  }
+  _aif_detect_gates
+
+  # ─── #521 Stage P: opt-in auto-wire (REFERENCE mikefarah/yq, detect-first) ───
+  # The WARN below is the non-destructive default (writes nothing). This OPT-IN path mutates the
+  # consumer's kept workflow in place, so it fires ONLY on explicit consent: --wire-ci, or an
+  # interactive [y/N] (default No), mirroring the §8 dep-install prompt. yq is USED-IF-PRESENT,
+  # never installed/pinned by us (companion-install-principle.md §1; BFR §1.1 shipped-axis —
+  # integrate, never hard-depend). yq's comment preservation is best-effort, which is exactly why
+  # it is DISQUALIFIED as the *silent* default (research-patch 2026-06-14-s3-workflow-merge §4/§6,
+  # SSOT #117) — confining it behind a visible flag makes that risk the consumer's informed choice.
+  # yq absent → OFFER its official installer (detect-first, unpinned, [y/N]/TTY-gated per
+  # companion-install-principle.md §1/§3); declined / unavailable / install-failed → fall through to
+  # the broadened WARN + paste-block unchanged.
+  #
+  # _aif_yq_wire — the wire-into-job logic, extracted so it is called identically whether yq was
+  # present from the start or just installed via the offer below (no duplication). Requires yq on PATH.
+  _aif_yq_wire() {
+    # Locate the first workflow + job that owns a `steps:` sequence (the lint/test job) to append into.
+    _wire_wf=""; _wire_job=""
+    for _wf in "$PROJECT_ROOT/.github/workflows/"*.yml "$PROJECT_ROOT/.github/workflows/"*.yaml; do
+      [ -f "$_wf" ] || continue
+      _job=$(yq -r '.jobs | to_entries | map(select(.value.steps != null)) | (.[0].key // "")' "$_wf" 2>/dev/null || echo "")
+      if [ -n "$_job" ] && [ "$_job" != "null" ]; then _wire_wf="$_wf"; _wire_job="$_job"; break; fi
+    done
+    if [ -n "$_wire_job" ]; then
+      _wired=0
+      # `${arr[@]+"${arr[@]}"}` = bash-3.2-safe empty-array expansion under set -u (macOS ships 3.2).
+      # _cmd is one of the 4 hard-coded gate commands (no quotes/special chars) — keep it that way:
+      # it is interpolated raw into the yq double-quoted YAML string below.
+      for _cmd in ${_aif_cmds[@]+"${_aif_cmds[@]}"}; do
+        # idempotent append-if-absent: add then de-dup. Key on `.run // .uses // .name // .` — NOT
+        # `.run` alone. Every `uses:` action step (checkout, pnpm/action-setup, setup-node …) has no
+        # `.run` key, so `unique_by(.run)` groups them ALL under the same `null` key and keeps only the
+        # first — silently deleting every other `uses:` step and breaking the workflow it was asked to
+        # wire (GH #528). The fallback chain gives each `uses:`/`name:` step a distinct dedup key, while
+        # repeated gate `run`s still collapse — so re-running install remains a no-op.
+        if yq -i ".jobs.${_wire_job}.steps += [{\"run\": \"${_cmd}\"}] | .jobs.${_wire_job}.steps |= unique_by(.run // .uses // .name // .)" "$_wire_wf" 2>/dev/null; then
+          _wired=$((_wired+1))
+        fi
+      done
+      echo "  ✓ auto-wired ${_wired} gate(s) into ${_wire_wf#"$PROJECT_ROOT"/} job '${_wire_job}' via yq (idempotent — re-running install adds nothing)."
+      _aif_detect_gates   # re-check: wired gates are now referenced → drop them from the WARN below
+    else
+      echo "  ⚠ --wire-ci: found no job with a 'steps:' list to wire into — see the paste-block below."
+    fi
+  }
+  if [ "${#_aif_missing[@]}" -gt 0 ]; then
+    _aif_wire="no"
+    if [ -n "$WIRE_CI" ]; then _aif_wire="yes"
+    elif [ -t 0 ]; then
+      printf "▶ Auto-wire %s missing CI gate(s) into your workflow via yq (edits the file in place)? [y/N] " "${#_aif_missing[@]}"
+      read -r _ans || _ans=""
+      case "$_ans" in [yY]|[yY][eE][sS]) _aif_wire="yes" ;; esac
+    fi
+    if [ "$_aif_wire" = "yes" ]; then
+      if command -v yq >/dev/null 2>&1; then
+        _aif_yq_wire
+      else
+        # Option B: yq absent but consumer consented → OFFER its official installer (detect-first,
+        # unpinned, official top-level command only — companion-install-principle.md §1/§3). Never
+        # install a binary silently: gate on an interactive TTY (or a manual command otherwise).
+        _aif_yq_inst=""
+        if command -v brew >/dev/null 2>&1; then _aif_yq_inst="brew install yq"
+        elif command -v snap >/dev/null 2>&1; then _aif_yq_inst="sudo snap install yq"
+        fi
+        if [ -n "$_aif_yq_inst" ]; then
+          if [ -t 0 ]; then
+            printf "▶ 'yq' is not installed. Install it now via '%s'? [y/N] " "$_aif_yq_inst"
+            read -r _yqans || _yqans=""
+            case "$_yqans" in
+              [yY]|[yY][eE][sS])
+                echo "▶ Installing yq via: $_aif_yq_inst"
+                $_aif_yq_inst || true
+                if command -v yq >/dev/null 2>&1; then
+                  _aif_yq_wire
+                else
+                  echo "  ⚠ yq install did not succeed — see the paste-block below."
+                fi ;;
+            esac
+          else
+            # --wire-ci with no TTY: do NOT silently install a binary on a non-interactive run.
+            echo "  ⚠ --wire-ci: 'yq' not installed; non-interactive — run '$_aif_yq_inst' then re-run, or see the paste-block below."
+          fi
+        else
+          echo "  ⚠ 'yq' is not installed and no supported auto-installer (brew/snap) was found — install it manually (https://github.com/mikefarah/yq#install), or see the paste-block below."
+        fi
+      fi
+    fi
+  fi
+
+  if [ "${#_aif_missing[@]}" -gt 0 ]; then
+    echo ""
+    echo "⚠ CI-orphan: some rule-enforcement gates run in 'npm run validate' but are NOT in any kept workflow under .github/workflows/."
+    echo "   A pre-existing CI workflow was kept (install never overwrites it), so these gates fire only on a local"
+    echo "   'npm run validate' — CI can stay green while a rule is violated. Gates missing from your CI:"
+    for _m in "${_aif_missing[@]}"; do echo "     • $_m"; done
+    echo "   Add the missing step(s) to your lint/test job's \`steps:\` (only these):"
+    for _s in "${_aif_steps[@]}"; do echo "       $_s"; done
+    # check:globs is the ONLY shield for R2/R7/R8 on shadowed packages — a present `lint` step does
+    # not cover it (per-package eslint configs win under nearest-config resolution). Surface that.
+    for _m in "${_aif_missing[@]}"; do
+      case "$_m" in
+        check:globs*)
+          echo "   Note: a 'npm run lint' step does NOT enforce R2/R7/R8 on packages with their own eslint config —"
+          echo "   nearest-config resolution shadows the root AIF rules, so they go silently inert there; check:globs"
+          echo "   is the only gate that catches it (e.g. \`eslint --print-config <shadowed-file> | grep -c rules-as-tests\` = 0)."
+          break ;;
+      esac
+    done
+    echo "   (or re-run install with --wire-ci to auto-wire them via yq — edits your workflow in place, opt-in;"
+    echo "    or with --force to adopt the shipped ci.yml that wires them — but --force overwrites ALL kept files,"
+    echo "    e.g. vitest.config.ts / .prettierignore, not just the workflow)."
+  fi
+  unset -f _aif_gate_check _aif_detect_gates _aif_yq_wire
+fi
+
 # ─── 7. package.json scripts (FQA S1-A W4) ──────────────
 # install.sh historically left scripts as a manual INSTALL.md §3 step, so consumers landed
 # `scripts: {}` while AGENTS.md + the shipped ci.yml call `npm run lint/typecheck/arch:check/
@@ -630,7 +1260,27 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     echo "▶ package.json scripts → [dry-run] would merge canonical block (non-destructive)"
   elif command -v node >/dev/null 2>&1; then
     echo "▶ Merging canonical scripts → package.json (non-destructive)"
-    AIF_PKG="$PROJECT_ROOT/package.json" node -e '
+    # #508: arch:check target. A pnpm monorepo has no root src/ (only apps/*/src, packages/*/src),
+    # so a hardcoded `depcruise … src` hard-fails (exit 1, "Can't open 'src'") and breaks the
+    # shipped CI's architecture job. Resolve to source roots that EXIST so arch:check cruises
+    # something on flat, layered, AND monorepo shapes instead of crashing on a missing dir. The
+    # layer rules in .dependency-cruiser.cjs match nested package src via (?:^|/)src/<layer>.
+    # The target must NEVER be a non-existent dir (that is the crash). Resolution order:
+    #   1. workspace + a known package root present → that root (apps/packages/services/libs/modules)
+    #   2. else a root src/ present → src
+    #   3. else → "." (cwd always exists; never "Can't open"). Exotic-named workspace roots fall to
+    #      (2)/(3); a one-line arch:check edit lets the consumer point at their exact roots.
+    AIF_ARCH_TARGET=""
+    if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+      for _d in apps packages services libs modules; do
+        [ -d "$PROJECT_ROOT/$_d" ] && AIF_ARCH_TARGET="$AIF_ARCH_TARGET $_d"
+      done
+      AIF_ARCH_TARGET="${AIF_ARCH_TARGET# }"
+    fi
+    if [ -z "$AIF_ARCH_TARGET" ]; then
+      if [ -d "$PROJECT_ROOT/src" ]; then AIF_ARCH_TARGET="src"; else AIF_ARCH_TARGET="."; fi
+    fi
+    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
@@ -647,9 +1297,13 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "test:integration": "vitest run -- --include 'src/**/*.integration.{ts,tsx}'",
         "test:mutation": "stryker run",
         "test:mutation:incremental": "stryker run --incremental",
-        "arch:check": "depcruise --config .dependency-cruiser.cjs src",
+        "arch:check": "depcruise --config .dependency-cruiser.cjs " + (process.env.AIF_ARCH_TARGET || "src"),
         "audit:docs": "./scripts/audit-ai-docs.sh",
-        "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs test",
+        "check:globs": "bash scripts/check-rule-globs.sh",
+        "check:enforced": "bash scripts/check-rule-enforced.sh",
+        "check:arch-boundaries": "bash scripts/check-arch-boundaries.sh",
+        "check:lintstaged": "bash scripts/check-lintstaged-resolves.sh",
+        "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged test",
         "prepare": "husky"
       };
       let added = 0;
@@ -688,11 +1342,11 @@ fi
 # BFR). DEVDEPS is the single source for both the install command and the Next-steps fallback echo
 # (so "what we install" and "what we tell you to install" can't drift — #two-prompts-drift).
 CORE_DEVDEPS=(
-  eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils
-  prettier eslint-config-prettier @vitest/eslint-plugin
+  eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils globals
+  prettier@3.8.3 eslint-config-prettier @vitest/eslint-plugin
   vitest@^4.1.5 @vitest/coverage-v8@^4.1.5
   @stryker-mutator/core @stryker-mutator/vitest-runner @stryker-mutator/typescript-checker
-  dependency-cruiser fast-check glob tsx
+  dependency-cruiser fast-check glob ts-morph tsx
   husky lint-staged sort-package-json
   npm-run-all2
 )
@@ -733,7 +1387,13 @@ if [ "$_do_dep_install" = "yes" ]; then
         # pnpm refuses to add to a workspace root without -w; pass it only when a workspace exists.
         # Explicit branch (not an empty-array expansion) for bash 3.2 + `set -u` safety.
         if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then
-          if ( cd "$PROJECT_ROOT" && pnpm add -D -w "${DEVDEPS[@]}" ); then _ok="yes"; fi
+          # GH #533: `pnpm add -D -w` adds the dev-deps to the workspace ROOT, but on a COLD clone
+          # (zero node_modules) it can leave sibling workspace packages unlinked — no node_modules,
+          # missing `workspace:` symlinks — so typecheck/lint/test falsely fail while Next-steps
+          # claims "nothing to do". Follow with a full `pnpm install` to materialise the whole
+          # workspace link graph; idempotent + cheap when the tree is already warm. The `&&` keeps
+          # honesty: if linking fails, _ok stays empty → the "install failed, run manually" path.
+          if ( cd "$PROJECT_ROOT" && pnpm add -D -w "${DEVDEPS[@]}" && pnpm install ); then _ok="yes"; fi
         else
           if ( cd "$PROJECT_ROOT" && pnpm add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi
         fi ;;
@@ -747,6 +1407,52 @@ if [ "$_do_dep_install" = "yes" ]; then
       echo "  ✓ dev-dependencies installed → node_modules/ (wired hooks now have their tools)"
     else
       echo "  ⚠  dev-dep install failed — run it manually (see Next steps)."
+    fi
+  fi
+fi
+
+# ─── 6b-bis-L2. GH #547 Layer 2: AST-wire R2 into consumer per-package configs ─
+# Runs AFTER §8 dep-install so ts-morph is resolvable when --full is set.
+# Option A (migration-ast Stage 4): gated on --full; ensure-then-use; degrade
+# when engine absent. rc=0 on every branch (lesson GH #531/#544).
+# Layer 1 (§6b-bis above) patches OUR eslint.config.mjs; this Layer 2 patches
+# CONSUMER per-package eslint.config.mjs files that re-export a base lacking R2.
+if [ "${_r2_verdict:-}" = "boundary-present" ] && [ "$DRY_RUN" != "--dry-run" ] \
+   && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+  _l2_degrade() {
+    echo "  · R2 not auto-wired: AST editor unavailable (Node or ts-morph not present)."
+    echo "    Add to <pkg>/eslint.config.mjs:"
+    echo "      export default [...base, { rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];"
+    echo "    (or run ./install.sh ts-server --full to install dev-deps and auto-wire)"
+  }
+  if ! command -v node >/dev/null 2>&1; then
+    _l2_degrade
+  elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
+    _l2_degrade
+  else
+    _wirer="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
+    if [ ! -f "$_wirer" ]; then
+      echo "  · R2 Layer-2 wirer not found at $_wirer — skipped"
+    else
+      # Find per-package eslint.config.mjs files (not the root one, not node_modules)
+      _l2_configs=()
+      while IFS= read -r -d '' _cfg; do
+        _l2_configs+=("$_cfg")
+      done < <(find "$PROJECT_ROOT" \
+        -name 'eslint.config.mjs' \
+        ! -path "$PROJECT_ROOT/eslint.config.mjs" \
+        ! -path '*/node_modules/*' \
+        -print0 2>/dev/null)
+      if [ "${#_l2_configs[@]}" -eq 0 ]; then
+        : # no per-package configs — nothing to wire
+      else
+        echo "▶ R2 Layer-2: wiring ${#_l2_configs[@]} per-package eslint config(s)"
+        for _cfg in "${_l2_configs[@]}"; do
+          # rc=0 forced by || true — never abort install on wirer failure
+          ( cd "$PROJECT_ROOT" && npx --no-install tsx "$_wirer" \
+              --path "$_cfg" ${FULL:+--yes} 2>&1 ) || true
+        done
+      fi
     fi
   fi
 fi
@@ -766,6 +1472,10 @@ elif [ -f "$PROJECT_ROOT/package.json" ] && \
   echo "⚠  Detected @opentelemetry/* but AIF_STRICT_RUNTIME is unset — R8 (require-otel-span) will not fire."
   echo "   Set AIF_STRICT_RUNTIME=1 to arm runtime-discipline rules (R7/R8)."
 fi
+
+# GH #531 (reopen): ignore the framework configs we shipped FRESH (consumer-owned ones stay checked).
+# Runs after ALL copy_safe calls so SKIPPED is complete, and after the static .prettierignore merge.
+ignore_shipped_configs
 
 # ─── Done ───────────────────────────────────────────────
 if [ ${#SKIPPED[@]} -gt 0 ]; then

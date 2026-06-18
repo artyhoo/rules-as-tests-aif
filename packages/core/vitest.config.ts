@@ -13,6 +13,7 @@ export default defineConfig({
       'research/**/*.test.ts',
       'synthesizer/**/*.test.ts',
       'validator/**/*.test.ts',
+      'install/**/*.test.ts',
       'installer/**/*.test.ts',
       'diff/**/*.test.ts',
       'tests/**/*.test.ts',
@@ -20,6 +21,7 @@ export default defineConfig({
       'audit-self/**/*.test.ts',
       'audit-self/**/*.audit.ts',
       'skills/**/*.test.ts',
+      'scenario-generator/**/*.test.ts',
     ],
     exclude: [
       '**/node_modules/**',

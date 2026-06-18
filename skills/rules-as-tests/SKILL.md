@@ -30,49 +30,51 @@ Use this skill when the user is working on (or asking about):
 Every rule fits into one of five layers, each with its own enforcement mechanism:
 
 1. **Architecture Tests / Fitness Functions** — structural rules as tests (no cycles, layered architecture, banned imports, naming, complexity ceilings). Tools: ESLint flat config + `typescript-eslint/strictTypeChecked`, dependency-cruiser, ArchUnit.
-2. **Meta-tests** — tests *about* the test suite (every public method has a test, every test has a real assertion, no conditional logic in tests, no real I/O in unit tests). Implemented as AST scans + `eslint-plugin-vitest` rules.
+2. **Meta-tests** — tests _about_ the test suite (every public method has a test, every test has a real assertion, no conditional logic in tests, no real I/O in unit tests). Implemented as AST scans + `eslint-plugin-vitest` rules.
 3. **Specification by Example** — table-driven tests where concrete input/output pairs ARE the spec. Vitest `it.each`, fast-check property-based tests, Zod schemas as contractual specs.
 4. **Mutation Testing** — sanity layer on the tests themselves. Catches tautological tests and always-green assertions. Stryker incremental on PR diff, full sweep nightly. Threshold ≥70% kill on changed lines.
-5. **Living Documentation** — tests *are* the documentation. Test names are sentences; ArchUnit `because(...)` clauses are ADRs; OpenAPI specs generated from Zod schemas.
+5. **Living Documentation** — tests _are_ the documentation. Test names are sentences; ArchUnit `because(...)` clauses are ADRs; OpenAPI specs generated from Zod schemas.
 
 These five extend in two directions:
+
 - **Down (shift-left → pre-PR)**: AI Factory `/aif-verify` with sub-agents (`rules-sidecar` validates `.ai-factory/RULES.md`; `review-sidecar` runs our two-AI tautology criteria delivered via the `aif-review` skill-context override).
 - **Up (shift-right → production)**: SLO-as-code (OpenSLO + Pyrra), error budgets, feature flags + observability 2.0, synthetic monitoring, chaos engineering.
 
 Plus a sideways layer:
+
 - **Contract testing (Pact)**: lives in CI by form (fast, deterministic) but solves shift-right problem (production compatibility) via `can-i-deploy` with Pact Broker holding production state.
 
 ## Where to dig in
 
 Read these references **as needed**, not all at once:
 
-| File | When to read |
-|---|---|
-| `references/checks-map.md` | **Always read first if user is unclear where their question fits.** Map of all 8 enforcement levels (edit-time → production) and what runs where. |
-| `references/overview.md` | Quick refresher of the 5-layer framework with patterns and anti-patterns per layer. |
-| `references/ai-traps.md` | Specifically what AI agents (Claude/Cursor/Copilot) violate most and which rule catches each. Use when user mentions AI-generated code drift. |
-| `references/doc-organization.md` | AGENTS.md hot/cold split, when skill vs rule, drift-detection commands, token economy targets. Use when user asks about AGENTS.md/CLAUDE.md structure or the `.claude/` layout. |
+| File                              | When to read                                                                                                                                                                              |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `references/checks-map.md`        | **Always read first if user is unclear where their question fits.** Map of all 8 enforcement levels (edit-time → production) and what runs where.                                         |
+| `references/overview.md`          | Quick refresher of the 5-layer framework with patterns and anti-patterns per layer.                                                                                                       |
+| `references/ai-traps.md`          | Specifically what AI agents (Claude/Cursor/Copilot) violate most and which rule catches each. Use when user mentions AI-generated code drift.                                             |
+| `references/doc-organization.md`  | AGENTS.md hot/cold split, when skill vs rule, drift-detection commands, token economy targets. Use when user asks about AGENTS.md/CLAUDE.md structure or the `.claude/` layout.           |
 | `references/self-testing-docs.md` | The `audit-ai-docs.sh` pattern: probe catalog, paired negative-test discipline, three levels of execution (local / pre-push / CI). Use when user is writing or extending an audit script. |
 
 ## Templates ready to copy
 
 Production-ready configs in `templates/`. Copy to a new project and they work:
 
-| File | Purpose |
-|---|---|
-| `templates/ts-server/eslint.config.mjs` | Server-side TS: typescript-eslint strict + Prettier + custom rules |
-| `templates/react-next/eslint.config.react.mjs` | React/Next.js: above + react-hooks + jsx-a11y/strict + @next/next |
-| `templates/shared/tsconfig.json` | Strict TypeScript with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
-| `templates/ts-server/dependency-cruiser.cjs` | Architectural rules: layering, no-cycles, no-cross-feature-imports |
-| `templates/ts-server/stryker.config.json` | Mutation testing with incremental mode, thresholds 60/70/85 |
-| `templates/ts-server/vitest.config.ts` (or `templates/react-next/vitest.config.ts`) | Test runner with per-module coverage thresholds |
-| `templates/shared/.lintstagedrc.json` | Pre-commit: prettier + eslint --fix on staged only |
-| `templates/shared/husky-pre-commit.sh` | Pre-commit hook entry |
-| `templates/shared/husky-pre-push.sh` | Pre-push hook with upstream-fallback (works on new branches) |
-| `templates/shared/.nvmrc` | Pinned Node version (CI depends on it) |
-| `factory/RULES.md` | Drop-in for `.ai-factory/RULES.md` — rules R1–R11 |
-| `factory/RULES.react-next.md` | Extension R12–R20 for React/Next.js stack |
-| `templates/ts-server/github-actions-ci.yml` (or `templates/react-next/github-actions-ci-ui.yml`) | Full CI workflow: lint, typecheck, arch, test, mutation incremental |
+| File                                                                                             | Purpose                                                                         |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `templates/ts-server/eslint.config.mjs`                                                          | Server-side TS: typescript-eslint strict + Prettier + custom rules              |
+| `templates/react-next/eslint.config.react.mjs`                                                   | React/Next.js: above + react-hooks + jsx-a11y/strict + @next/next               |
+| `templates/shared/tsconfig.json`                                                                 | Strict TypeScript with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
+| `templates/ts-server/dependency-cruiser.cjs`                                                     | Architectural rules: layering, no-cycles, no-cross-feature-imports              |
+| `templates/ts-server/stryker.config.json`                                                        | Mutation testing with incremental mode, thresholds 60/70/85                     |
+| `templates/ts-server/vitest.config.ts` (or `templates/react-next/vitest.config.ts`)              | Test runner with per-module coverage thresholds                                 |
+| `templates/shared/.lintstagedrc.json`                                                            | Pre-commit: prettier + eslint --fix on staged only                              |
+| `templates/shared/husky-pre-commit.sh`                                                           | Pre-commit hook entry                                                           |
+| `templates/shared/husky-pre-push.sh`                                                             | Pre-push hook with upstream-fallback (works on new branches)                    |
+| `templates/shared/.nvmrc`                                                                        | Pinned Node version (CI depends on it)                                          |
+| `factory/RULES.md`                                                                               | Drop-in for `.ai-factory/RULES.md` — rules R1–R11                               |
+| `factory/RULES.react-next.md`                                                                    | Extension R12–R20 for React/Next.js stack                                       |
+| `templates/ts-server/github-actions-ci.yml` (or `templates/react-next/github-actions-ci-ui.yml`) | Full CI workflow: lint, typecheck, arch, test, mutation incremental             |
 
 ## Workflow when applying this skill
 
@@ -93,7 +95,7 @@ A bug pattern this skill explicitly fights: dependency lists with stale versions
 4. **Each file referenced from CI/hooks must be created** in the artifact (`.nvmrc` is the canonical case — easy to forget).
 5. **Each shell command must work on edge cases** — empty branch, missing upstream, fresh checkout.
 
-If you skip this and produce buggy artifacts, you have failed the user — the entire skill is *about* getting these details right.
+If you skip this and produce buggy artifacts, you have failed the user — the entire skill is _about_ getting these details right.
 
 ## Universal AI angle
 
@@ -112,7 +114,7 @@ Every one of these is caught by a specific automated rule from this skill's temp
 
 ## Glossary of key terms
 
-- **Fitness function** — an executable check that the system meets a non-functional requirement (Ford/Parsons/Kua, *Building Evolutionary Architectures*, 2017).
+- **Fitness function** — an executable check that the system meets a non-functional requirement (Ford/Parsons/Kua, _Building Evolutionary Architectures_, 2017).
 - **Specification by Example** — concrete input/output pairs as the spec (Gojko Adzic, 2011).
 - **Living Documentation** — tests as the single source of truth (Cyrille Martraire, 2019).
 - **Mutation testing** — introducing artificial bugs to verify tests detect them.

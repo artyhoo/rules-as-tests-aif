@@ -74,7 +74,7 @@ gh pr list --search "is:open" --json number,title,state,headRefName,baseRefName 
 ```
 
 ```!
-head -400 docs/meta-factory/wave-sequencing-plan.md 2>/dev/null || echo "MISSING: wave-sequencing-plan.md"
+head -400 "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-plan-path.sh" 2>/dev/null)" 2>/dev/null || echo "MISSING: plan (will be created on first run — see §1 Step 3)"
 ```
 
 ```!
@@ -88,7 +88,7 @@ Compare the `wave-sequencing-plan.md` claims against the live `gh pr list` outpu
 1. For every wave marked «✅ merged» — verify a merged PR with that head branch exists in `gh pr list --state merged`. If not found → **DRIFT**.
 2. For every wave marked «🟡 partial» — verify at least one open PR matches. If none → **DRIFT**.
 3. For every kickoff path referenced — verify `ls .claude/orchestrator-prompts/<path>/kickoff.md` returns a file (the `plan-currency-check.sh` output provides this). Missing file → **STALE REF**.
-4. For every research-patch cited — verify `ls docs/meta-factory/research-patches/<file>.md` exists. Missing → **STALE REF**.
+4. For every research-patch cited — verify the cited file exists under the project's research/patches dir (framework: `docs/meta-factory/research-patches/`). If the project has no such dir, skip this check. Missing (where the dir exists) → **STALE REF**.
 5. **REPORT reconciliation:** if a maintainer-passed REPORT contradicts the `gh pr list` injection (e.g. REPORT says «Stage 1 merged» but `gh pr list` shows nothing), emit «REPORT says X; mechanical state shows Y; trusting `gh pr list`; possible causes: stale REPORT / pending GitHub-API sync (<60s) / different branch. Proceeding on mechanical state.» REPORT is welcome **supplementary** input, not load-bearing — mechanical state always wins (3-layer responsibility model; memory `feedback_no_human_verification_ai_self_verifies`).
 6. **Cache reconciliation:** if cache (Step 1 first `!shell` block) «Last invocation» Git HEAD diverges from current `git rev-parse HEAD` AND `wave-sequencing-plan.md` was touched in the SHA diff → emit «CACHE STALE …»; cache stays supplementary, never load-bearing (T-mem-A counter — re-verify «PR merged» / «umbrella DONE» claims via `gh pr list`). Full rule + anti-patterns: [`references/plan-cache.md §2`](references/plan-cache.md).
 
@@ -97,7 +97,7 @@ Compare the `wave-sequencing-plan.md` claims against the live `gh pr list` outpu
 - «**Plan is current**» if zero drift or stale-ref items found.
 - OR emit a numbered list: `DRIFT-N: <wave-name> — plan says <claim>, gh shows <reality>. Proposed correction: <update wave-sequencing-plan.md line X to Y>.`
 
-**If `wave-sequencing-plan.md` is MISSING entirely:** skill writes a stub from `README.md` + `EXECUTION-PLAN.md` + `ls .claude/orchestrator-prompts/` listing, presents to maintainer for OK, then halts until confirmed.
+**If the backlog plan is MISSING entirely:** skill writes a stub at the resolved plan path (`.ai-factory/orchestrator-prompts/plan.md` in a consumer) from `README.md` + `.ai-factory/DESCRIPTION.md` (if present) + the kickoff listing under the resolved orch-home, presents to the maintainer for OK, then halts until confirmed. (`EXECUTION-PLAN.md` is framework-only — do not require it.)
 
 ---
 
@@ -105,7 +105,7 @@ Compare the `wave-sequencing-plan.md` claims against the live `gh pr list` outpu
 
 > Runs only in no-argument mode after §1 confirms plan is current (or after drift items are accepted). Skip to §3 if `<umbrella>` was provided.
 
-**Step 1 — inject candidate list** — *read-rule (completion barrier):* parse a background helper's output ONLY after its `=== <helper>: END rc=<n> ===` trailer (appended by `run-helper.sh`) or its task-notification; a header-only / trailer-absent read = "still running", NOT "zero results" — never conflate one task's notification with another's. *(Origin: incident 2026-06-01, `priority-score.sh` read at header-only state → false "zero candidates".)* This rule applies to every background-helper `!`-fence below. <!-- @dual-pair: bg-helper-completion-barrier -->
+**Step 1 — inject candidate list** — _read-rule (completion barrier):_ parse a background helper's output ONLY after its `=== <helper>: END rc=<n> ===` trailer (appended by `run-helper.sh`) or its task-notification; a header-only / trailer-absent read = "still running", NOT "zero results" — never conflate one task's notification with another's. _(Origin: incident 2026-06-01, `priority-score.sh` read at header-only state → false "zero candidates".)_ This rule applies to every background-helper `!`-fence below. <!-- @dual-pair: bg-helper-completion-barrier -->
 
 ```!
 bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/priority-score.sh" "${umbrella:-}" 2>/dev/null
@@ -115,12 +115,12 @@ bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/pr
 
 For each candidate umbrella from `priority-score.sh` output, assign scores on four axes:
 
-| Axis | Weight | Signal |
-|---|---|---|
-| blocks-other-waves | 3× | Does this umbrella's output unblock ≥1 other candidate? (check kickoff §0 for cross-wave deps) |
-| give-back-value | 2× | Does this close a N5 give-back gap or ship a consumer-facing artifact? |
-| size-fit | 1× | Smaller is preferred when score is tied (S < M < L volume signal from launch-table §3) |
-| maintainer-prefs | 2× | Explicit preference signals in wave-sequencing-plan §0 (e.g. «do next», «urgent», «after C-1») |
+| Axis               | Weight | Signal                                                                                         |
+| ------------------ | ------ | ---------------------------------------------------------------------------------------------- |
+| blocks-other-waves | 3×     | Does this umbrella's output unblock ≥1 other candidate? (check kickoff §0 for cross-wave deps) |
+| give-back-value    | 2×     | Does this close a N5 give-back gap or ship a consumer-facing artifact?                         |
+| size-fit           | 1×     | Smaller is preferred when score is tied (S < M < L volume signal from launch-table §3)         |
+| maintainer-prefs   | 2×     | Explicit preference signals in wave-sequencing-plan §0 (e.g. «do next», «urgent», «after C-1») |
 
 **Step 3 — emit ranked list:**
 
@@ -136,7 +136,7 @@ Priority ranking (as of <date> <git-HEAD-short>):
 - If winner score ≥ 1.5× runner-up AND no explicit maintainer override → commit: «Recommend **<umbrella-A>**, proceeding to §3 launch-table + state.md update; Stage 1 dispatch awaits maintainer confirmation per §0.» (per phase-research-coverage.md §1.12: lead with reasoned recommendation). The «confirmation gate» from §0 sits between «launch-table + state.md ready» and «actually dispatch Stage 1 worker» — not between «recommendation» and «launch-table». Updating state.md before maintainer GO is on-path; dispatching a Worker session before maintainer GO is the §8 anti-scope violation.
 - If genuine tie OR strategy fork (e.g. «should we do N8 or C-1?») → ask maintainer. Do NOT pick strategy. Surface as: «DECISION-NEEDED: <A> and <B> are tied on all axes — which is the project priority?» (reviewer-discipline.md §2 pattern).
 
-**Step 4.1 — DECISION-NEEDED anti-rationalization:** a genuine maintainer answer is a *content-based tiebreaker about the umbrellas* («pick n7 because it unblocks n8's R3»). «выбирай сам / оба норм / я устал / it's technical not strategy» = *deferred*, NOT answered → re-surface with sharper framing or propose a coin-flip; do NOT silently pick («maintainer said pick → I pick» is `#strategy-decided-by-reviewer` in disguise, reviewer-discipline.md §3). Full not-an-answer list + re-surface script: [`references/anti-rationalization.md`](references/anti-rationalization.md).
+**Step 4.1 — DECISION-NEEDED anti-rationalization:** a genuine maintainer answer is a _content-based tiebreaker about the umbrellas_ («pick n7 because it unblocks n8's R3»). «выбирай сам / оба норм / я устал / it's technical not strategy» = _deferred_, NOT answered → re-surface with sharper framing or propose a coin-flip; do NOT silently pick («maintainer said pick → I pick» is `#strategy-decided-by-reviewer` in disguise, reviewer-discipline.md §3). Full not-an-answer list + re-surface script: [`references/anti-rationalization.md`](references/anti-rationalization.md).
 
 **Step 5 — emit per arg shape (V3/V4 binding per [research-patch §3](../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** fires only on no-arg/integer-arg (string-arg skips §2); Step 4 BYPASSED on V3, preserved on V4 N=1. Completion-filter = [`priority-score.sh`](helpers/priority-score.sh) tri-layer C1/C2/C3 (branch/jaccard/done.md, [#274](https://github.com/Yhooi2/rules-as-tests-aif/pull/274)) drops DONE BEFORE filter, never after.
 **V3** (no-arg / N=0) emits overview per [output-format.md §1A](references/output-format.md) in Wave-style grouping (ADAPT SSOT #68 OhMyOpencode `Wave N`) with `PARALLEL-OK ↔` / `↓` markers from kickoff §2 `Parallel-with`; STOP. **V4** (N ≥ 1) emits top-N after completion-filter — each = 3-line block per [output-format.md §4.1](references/output-format.md) + 1-liner, markers from kickoff §2 `Parallel-with`; `N=1` = old winner-recommend; `N > K` emits K + warning `Only K candidates available; you requested N.`
@@ -157,7 +157,7 @@ else
 fi
 ```
 
-**Step 2 — L3 dup-detect + in-flight ledger** (dup-detect catches *merged* dupes; inflight-check catches *live* work — open PR / un-merged branch carrying the slug, e.g. a parallel session dispatching the same sub-wave before it merges):
+**Step 2 — L3 dup-detect + in-flight ledger** (dup-detect catches _merged_ dupes; inflight-check catches _live_ work — open PR / un-merged branch carrying the slug, e.g. a parallel session dispatching the same sub-wave before it merges):
 
 ```!
 bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh" "${umbrella:-}" 2>/dev/null; bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/inflight-check.sh" "${umbrella:-}" 2>/dev/null
@@ -201,14 +201,14 @@ elif TYPE == "I-phase-large":
 
 **Step 6 — ALIAS mapping (single source — computed AFTER routing tree; `classify-work.sh` UNCHANGED per DN-3):**
 
-| ALIAS | DISPATCH (internal) | Fires when Step 5 resolves to |
-|---|---|---|
-| DIRECT | direct-Edit | TYPE=fix AND (sibling_count<3 OR NOT bundle_opt_in) |
-| BUNDLE | Mode-A-bundle | TYPE=fix AND sibling_count≥3 AND bundle_opt_in |
-| SOLO | Mode-A | TYPE=I-phase-small AND NOT review_required |
-| PAIR | Mode-SDD | (TYPE=I-phase-small AND review_required) OR (TYPE=I-phase-large AND scope_decided AND (SURFACES<2 OR NOT parallel_safe)) |
-| DECOMPOSE | Mode-B | TYPE=I-phase-large AND scope_decided AND SURFACES≥2 AND parallel_safe |
-| RESEARCH | R-phase-session (single) / Queue-mode (≥2 sequential) | TYPE=R-phase OR (TYPE=I-phase-large AND NOT scope_decided) |
+| ALIAS     | DISPATCH (internal)                                   | Fires when Step 5 resolves to                                                                                            |
+| --------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| DIRECT    | direct-Edit                                           | TYPE=fix AND (sibling_count<3 OR NOT bundle_opt_in)                                                                      |
+| BUNDLE    | Mode-A-bundle                                         | TYPE=fix AND sibling_count≥3 AND bundle_opt_in                                                                           |
+| SOLO      | Mode-A                                                | TYPE=I-phase-small AND NOT review_required                                                                               |
+| PAIR      | Mode-SDD                                              | (TYPE=I-phase-small AND review_required) OR (TYPE=I-phase-large AND scope_decided AND (SURFACES<2 OR NOT parallel_safe)) |
+| DECOMPOSE | Mode-B                                                | TYPE=I-phase-large AND scope_decided AND SURFACES≥2 AND parallel_safe                                                    |
+| RESEARCH  | R-phase-session (single) / Queue-mode (≥2 sequential) | TYPE=R-phase OR (TYPE=I-phase-large AND NOT scope_decided)                                                               |
 
 1:1 with Step 5 routing tree. Principle 19 (`packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts`) enforces mechanically. `Mode-A-bundle` sub-dispatch defined in bundle-autonomous umbrella.
 
@@ -236,15 +236,15 @@ bash "${CLAUDE_SKILL_DIR}/helpers/dispatch-from-state.sh" "${umbrella:-}"
 
 Read the kickoff's sub-wave decomposition (§2 or §3 table). For each sub-wave, fill columns:
 
-| Column | Decision rule |
-|---|---|
-| Sub-wave id | from kickoff (e.g. A, B, C, D or 1, 2, 3) |
-| Type | R-phase / execution-build / wiring / manual-liveness — from kickoff §0 `Type:` header |
-| Mode | **Mode A** (inline Opus) if execution-build single OR wiring OR R-phase single; **Mode B × N worktrees** if execution-parallel ≥2 sub-waves in the same stage (per parallel-subwave-isolation.md §1); **Queue mode (sequential)** if R-phase-only or maintainer-specified sequential |
-| SDD? | Yes if execution-build with ≥3 independent tasks (SSOT #64 mechanism); No for wiring / single-task R-phase / borderline (overhead > value). Threshold rationale: 1-2 tasks → SDD review overhead roughly equals catch-rate; 3+ → net positive |
-| Stage | 1 / 2 / 3 — from kickoff dependency declaration (what must land before this sub-wave starts) |
+| Column           | Decision rule                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sub-wave id      | from kickoff (e.g. A, B, C, D or 1, 2, 3)                                                                                                                                                                                                                                                                                                                                                         |
+| Type             | R-phase / execution-build / wiring / manual-liveness — from kickoff §0 `Type:` header                                                                                                                                                                                                                                                                                                             |
+| Mode             | **Mode A** (inline Opus) if execution-build single OR wiring OR R-phase single; **Mode B × N worktrees** if execution-parallel ≥2 sub-waves in the same stage (per parallel-subwave-isolation.md §1); **Queue mode (sequential)** if R-phase-only or maintainer-specified sequential                                                                                                              |
+| SDD?             | Yes if execution-build with ≥3 independent tasks (SSOT #64 mechanism); No for wiring / single-task R-phase / borderline (overhead > value). Threshold rationale: 1-2 tasks → SDD review overhead roughly equals catch-rate; 3+ → net positive                                                                                                                                                     |
+| Stage            | 1 / 2 / 3 — from kickoff dependency declaration (what must land before this sub-wave starts)                                                                                                                                                                                                                                                                                                      |
 | Parallel sibling | which other sub-wave runs concurrently — **V2 binding (research-patch §3, ADAPT SSOT #68 OhMyOpencode `Wave N`):** populated from each sub-wave's kickoff §2 `Parallel-with` column. Column omitted OR sub-waves disagree (A claims B; B does not claim A) → sequential default + ATTN. Rendered in [output-format.md §1A](references/output-format.md) Wave-style grouping (V3 no-arg overview). |
-| Volume | small / medium / large — NOT calendar time; based on estimated LOC + files changed. S=<100 LOC, M=100-500 LOC, L=>500 LOC |
+| Volume           | small / medium / large — NOT calendar time; based on estimated LOC + files changed. S=<100 LOC, M=100-500 LOC, L=>500 LOC                                                                                                                                                                                                                                                                         |
 
 **Step 3 — emit table:**
 
@@ -301,20 +301,21 @@ Use `${CLAUDE_SKILL_DIR}/templates/state.md.template` as the skeleton; fill §1 
 
 **Decision table (rows are mutually exclusive):**
 
-| Sub-wave nature | Dispatch mode | Mechanism |
-|---|---|---|
-| R-phase, single | Mode A inline | Single-focus R-phase = one Opus session. Queue mode is for ≥2 sequential kickoffs (queue-mode.md §1 Triggers). |
-| R-phase, multiple sequential | Queue mode (sequential) | ≥2 R-phase kickoffs queued; each completes before the next begins (queue-mode.md §1 Triggers: «≥2 sequential kickoffs»). |
-| R-phase, multiple parallel | Mode A × N inline Agents | Single-session multi-dispatch via Agent tool calls in one message. No worktrees needed (R-phases produce docs, not code). |
-| Execution-build, single | Mode A inline | Direct Opus session with kickoff pasted or Read. |
-| Execution-build, parallel ≥2 in same stage | Mode B × N worktrees | Preferred: `claude -w <umbrella>-<wave-N>` per CC native `--worktree` (worktree under `.claude/worktrees/`, branch `worktree-<name>`, base `origin/HEAD`; PR #279 hook auto-symlinks `node_modules`). Fallback (non-CC harness or settings.json unwired): `bash scripts/create-worktree.sh <name>` (portable, refreshes origin/HEAD so base-ref is never stale — Bug 1 fix) or manual `git worktree add ../<repo>-<wave>-<N> staging && git checkout -b <branch>` per `parallel-subwave-isolation.md §1`. SP `using-git-worktrees` SSOT #65 is the upstream preventive mechanism (dogfooded, not rebuilt). |
-| Wiring (thin CI/config) | Mode A inline | Single session; low blast radius; worktrees add overhead without isolation benefit. |
-| Manual liveness probing | Session-bound | Never CI-side. SP companion-type. |
+| Sub-wave nature                                                | Dispatch mode                          | Mechanism                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| R-phase, single                                                | Mode A inline                          | Single-focus R-phase = one Opus session. Queue mode is for ≥2 sequential kickoffs (queue-mode.md §1 Triggers).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| R-phase, multiple sequential                                   | Queue mode (sequential)                | ≥2 R-phase kickoffs queued; each completes before the next begins (queue-mode.md §1 Triggers: «≥2 sequential kickoffs»).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| R-phase, multiple parallel                                     | Mode A × N inline Agents               | Single-session multi-dispatch via Agent tool calls in one message. No worktrees needed (R-phases produce docs, not code).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Execution-build, single                                        | Mode A inline                          | Direct Opus session with kickoff pasted or Read.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Execution-build, parallel ≥2 in same stage                     | Mode B × N worktrees                   | Preferred: `claude -w <umbrella>-<wave-N>` per CC native `--worktree` (worktree under `.claude/worktrees/`, branch `worktree-<name>`, base `origin/HEAD`; PR #279 hook auto-symlinks `node_modules`). Fallback (non-CC harness or settings.json unwired): `bash scripts/create-worktree.sh <name>` (portable, refreshes origin/HEAD so base-ref is never stale — Bug 1 fix) or manual `git worktree add ../<repo>-<wave>-<N> staging && git checkout -b <branch>` per `parallel-subwave-isolation.md §1`. SP `using-git-worktrees` SSOT #65 is the upstream preventive mechanism (dogfooded, not rebuilt).                                                                                                                                                                                                                                                                           |
+| Wiring (thin CI/config)                                        | Mode A inline                          | Single session; low blast radius; worktrees add overhead without isolation benefit.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Manual liveness probing                                        | Session-bound                          | Never CI-side. SP companion-type.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Execution-build, **autonomous (aif-handoff bridge reachable)** | Autonomous dispatch via runtime-bridge | `tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff>` when `RUNTIME_BRIDGE_MODE` ∈ {`aif-handoff`,`auto`} + aif answers on `RUNTIME_BRIDGE_AIF_URL` (#312/#313). aif builds itself; you stop pasting tabs. **Precondition:** kickoff MUST carry §4c park-don't-guess (else aif guesses silently). Unreachable → `ManualBackend` fallback → use paste row. See `#autonomous-dispatch-without-park`. **Egress (mandatory after `status=done`):** aif does NOT push or open PRs by design — `harvest.ts` closes this gap. Run: `npx tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging` — pushes branch from container via `docker exec`, opens PR from host where `gh` is authed, enables squash auto-merge. Anti-pattern `#autonomous-done-no-harvest`: task reaches `status=done` but orchestrator doesn't call harvest → work stays in container forever. |
 
 **SDD sub-wave dispatch (within execution-build):**
 
 When SDD?=Yes per §3 launch-table:
+
 - Implementer session: standard Mode A or B kickoff.
 - Spec-reviewer session: Agent tool with explicit spec-review role (reads kickoff, verifies implementation matches spec).
 - Code-quality-reviewer session: Agent tool with code-quality role (lints, tests, structure).
@@ -330,13 +331,19 @@ Use SP `subagent-driven-development` SSOT #64 vocabulary for role names (ADOPT-V
 - «Queue mode» = orchestrator skill queue-mode.md vocabulary.
 
 **Antipatterns:**
+
 - `#worker-dispatch-via-subagent` — Worker dispatch via Agent tool from the meta-orchestrator session. Agent tool is ONLY for Phase -1 read-only reviewer (`reviewer-discipline.md §2`) + read-only research subagents (text return). Write-task Worker dispatch belongs in a fresh CC session opened by the maintainer pasting a §10 1-liner block. Channel matters — maintainer-paste = external loop-close; Agent-tool = subagent = wrong channel for writes. **Empirical backstop:** [bug #39886](https://github.com/anthropics/claude-code/issues/39886) confirms Agent tool + `isolation:"worktree"` for WRITE tasks silently fails (closed-as-duplicate; status uncertain in CC 2.1.143) — independent evidence the channel boundary holds for writes; read-only Agent dispatch remains OK. **Falsifier:** the channel boundary holds even when prompt shapes converge — the test is «who invokes», not «what the prompt looks like».
 - `#commit-on-behalf-of-worker` — the meta-orchestrator running `git commit` / `gh pr create` for work it dispatched. Worker commits its own work under its own audit trail. **Falsifier:** Worker session crashed mid-task with the diff fully authored there → surface to maintainer, never silently absorb.
 - `#autonomous-dispatch-without-park` — dispatching a kickoff to aif-handoff (autonomous row above) without its §4c park-don't-guess contract → aif guesses every fork, closes wrong silently (design §1, `coordinator.ts:398-476`). **Falsifier:** grep the kickoff for «park» + «AGENT_MAX_REVIEW_ITERATIONS» before dispatch; absent → STOP, add §4c or use paste-tabs. **Sibling `#tabs-by-default-when-bridge-up`:** emitting only paste-tabs while the bridge is up wastes #312/#313 — probe (`[ -n "$RUNTIME_BRIDGE_MODE" ] && curl -s -m2 "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/" -o /dev/null -w '%{http_code}\n'`) + offer alongside tabs.
+
 ---
+
 ## §5.5 Bundle composition
+
 > **B1/B2/B3a binding.** After §2.5 BUNDLE routing, before §6. Meta-orchestrator = planner/router; executor = downstream `orchestrator` skill. Full spec: [`references/bundle-composition.md`](references/bundle-composition.md). **B1:** `bundle-curate.sh "<backlog>"` → eligibility filter (`fix`/`I-phase-small`), file-overlap reject, max-5 cap. **T-BA-C:** `R-phase`/`I-phase-large` in output = BLOCKER. **B2:** save `composed-plan.md` (gitignored) + emit one-way launch-prompt. **Auto-approve FORBIDDEN.** **B3a (5 checks):** Independence · Mode coherence · Skill coherence · Order rationale · Caps respected. ≥1 BLOCKER → DO NOT emit. Anti-patterns: `#bundle-execution-loop` · `#auto-approve-bypass` · `#bundle-with-ineligible`.
+
 ---
+
 ## §6 Stage gates
 
 > Between stages: REAL git merge check, not in-memory FIFO.
@@ -391,12 +398,14 @@ Skill: requesting-code-review (SP SSOT, REFERENCE — see R-phase patch §3 leap
 **Reviewer discipline (reviewer-discipline.md §2 pattern — mandatory):**
 
 The dispatched reviewer:
+
 1. Reads the Stage N diff (`git diff staging...<stage-N-head>`).
 2. Reads the meta-kickoff Stage N acceptance criteria.
 3. Emits GO / REVISE / STOP verdict with BLOCKER/MAJOR/MINOR classification.
 4. For any finding requiring strategy choice: emits «DECISION-NEEDED: <one-line>. Option A → consequence X. Option B → consequence Y. Maintainer decides.» — does NOT pick the strategy.
 
 The reviewer does NOT:
+
 - Edit any file.
 - Pick project strategy.
 - Approve on behalf of the maintainer.
@@ -453,7 +462,7 @@ The FIRST live invocation MUST run on the BUILD umbrella that produced the skill
 
 3. **Inline session report** (not a file — written to the conversation) — emitted as a **3-layer structure**: `## Dependency graph` (Argo-style `├── / └──` ASCII tree, prospective; inter-stage edge `↓`), `## Action queue` (5-column markdown table: `Paste into a new CC tab` / `When` / `Waiting on` / `Can parallel with`), and one `### Stage N` heading per stage carrying the 1-liner `/orchestrator <umbrella> §<section> — <NL: Mode/role/autonomous?>, rest in kickoff`.
    **Named-dispatch compact (pipeline-ux Stage 2):** for `/pipeline <umbrella>` (string arg), emit the 3-layer structure bounded to ≤~15 visible lines. Drop per-step §2.5 narration and the 3-line `What it does / Deliverable / Why now` description block — report result, not process. Full compact grammar: [`references/output-format.md §1B`](references/output-format.md).
-   **Output language (i18n):** before rendering the report, run `!bash ${CLAUDE_SKILL_DIR}/helpers/emit-output-strings.sh` and use the emitted `AIF_PIPELINE_*` values for the launch-table column headers, the `What it does` / `Why now` block labels, the `## Action queue` sub-caption, the wave-`NOW` marker, the plan-currency status word, and the `AIF_RECAP_MARKER` recap heading. Default is English; the operator's `AIF_HOOK_LANG=ru` yields Russian. The example tables show the English (default) tokens.
+   **Output language (i18n):** before rendering the report, run `!bash ${CLAUDE_SKILL_DIR}/helpers/emit-output-strings.sh` and use the emitted `AIF_PIPELINE_*` values for the launch-table column headers, the `What it does` / `Why now` block labels, the `## Action queue` sub-caption, the wave-`NOW` marker, the plan-currency status word, and the `AIF_RECAP_MARKER` recap heading. The helper also emits `AIF_OUTPUT_LANG`: write the ENTIRE session-report PROSE in that language — descriptions, `Why now`, the plain-words recap body, and all narration — not only the table headers. Default is English; the operator's `AIF_HOOK_LANG=ru` yields `AIF_OUTPUT_LANG=ru` → write the prose in Russian. The example tables show the English (default) tokens.
    Full grammar + 4 worked examples (Mode A / SDD / Mode B × N / Queue mode) + ASCII templates live in [`references/output-format.md`](references/output-format.md); principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces those substrings literally in `references/output-format.md`, with SKILL.md §10 required to point at it. **Autonomous-offer (the `autonomous?` slot in the 1-liner grammar):** when the runtime-bridge is configured + aif reachable (probe per `#tabs-by-default-when-bridge-up`), each Stage block MUST present autonomous dispatch (`tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff>`, contingent on the kickoff's §4c park-don't-guess block) alongside — not instead of — the maintainer-paste tab 1-liner, so the human chooses. Omitting it while the bridge is up = `#tabs-by-default-when-bridge-up`.
    **§10.3a Plain-language checkpoint tail** <!-- @dual-pair: plain-language-tail --> <!-- spec: references/plain-language-tail.md + .claude/hooks/end-of-turn-reminder.sh --> — mandatory `## 🟢 In plain words` block at 3 orchestrator-checkpoint moments (sub-wave boundary / mid-session quota / final umbrella); content names orchestration artefacts (sub-wave, AC item, REPORT-trace), not per-turn personal reasoning. Full table + anti-patterns: [`references/plain-language-tail.md`](references/plain-language-tail.md). Falsifier: verbatim-copyable from `end-of-turn-reminder.sh` → `#two-prompts-drift`.
 4. **Dogfood evidence** (first invocation only): `.claude/orchestrator-prompts/<umbrella>/dogfood-run-output.md`
@@ -466,15 +475,16 @@ The FIRST live invocation MUST run on the BUILD umbrella that produced the skill
 
    b. **Delta arrays (sibling-helper pattern, DN-2 B verdict 2026-05-27):** invoke `update-delta.sh` first (bootstraps schema on first run), THEN invoke `delta-write-from-state.sh` for the arrays-only rewrite. Concrete shape (`<current_ids_json_array>` and `<resolved_ids_json_array>` are angle-bracket placeholders that the rendering AI substitutes with real JSON-array literals derived from §2.5 Step 8/9; the syntax is correct only after substitution):
 
-      ```bash
-      bash ${CLAUDE_SKILL_DIR}/helpers/update-delta.sh "${umbrella:-no-arg}" "<outcome-one-liner>"
-      bash ${CLAUDE_SKILL_DIR}/helpers/delta-write-from-state.sh "${umbrella:-no-arg}" '<current_ids_json_array>' '<resolved_ids_json_array>'
-      ```
+   ```bash
+   bash ${CLAUDE_SKILL_DIR}/helpers/update-delta.sh "${umbrella:-no-arg}" "<outcome-one-liner>"
+   bash ${CLAUDE_SKILL_DIR}/helpers/delta-write-from-state.sh "${umbrella:-no-arg}" '<current_ids_json_array>' '<resolved_ids_json_array>'
+   ```
 
-      The TWO sibling helpers are deliberately split: `update-delta.sh` owns metadata + fresh-template bootstrap (idempotent paired-negative test at `packages/core/hooks/update-delta.test.ts`, UNCHANGED post-F.3); `delta-write-from-state.sh` owns arrays-only rewrite (paired-negative test at `packages/core/hooks/delta-write-from-state.test.ts`, F.3 helper-collapse 2026-05-28 — sibling pattern preserves the existing update-delta.sh test contract per DN-2 B verdict). The inline `!shell` `jq` block that previously did the arrays rewrite was removed 2026-05-28 (F.3 PR #261); its function is now owned by `delta-write-from-state.sh`. **`first_seen` semantics are «most recent sighting», NOT «first-ever sighting»** — the overwrite-shape inside the helper is the bound choice (matches §2.5 Step 9 prose; simpler atomic write; trades historical-first-seen for shape simplicity). DO NOT introduce a preserve-shape variant. <!-- @dual-pair: meta-orchestrator-master-backlog-delta -->
+   The TWO sibling helpers are deliberately split: `update-delta.sh` owns metadata + fresh-template bootstrap (idempotent paired-negative test at `packages/core/hooks/update-delta.test.ts`, UNCHANGED post-F.3); `delta-write-from-state.sh` owns arrays-only rewrite (paired-negative test at `packages/core/hooks/delta-write-from-state.test.ts`, F.3 helper-collapse 2026-05-28 — sibling pattern preserves the existing update-delta.sh test contract per DN-2 B verdict). The inline `!shell` `jq` block that previously did the arrays rewrite was removed 2026-05-28 (F.3 PR #261); its function is now owned by `delta-write-from-state.sh`. **`first_seen` semantics are «most recent sighting», NOT «first-ever sighting»** — the overwrite-shape inside the helper is the bound choice (matches §2.5 Step 9 prose; simpler atomic write; trades historical-first-seen for shape simplicity). DO NOT introduce a preserve-shape variant. <!-- @dual-pair: meta-orchestrator-master-backlog-delta -->
 
 **File cleanup policy:**
 
+- **Lifecycle split (committed durable doc vs gitignored runtime) — SSOT #116:** `kickoff.md` is a **committed durable design doc** — git-tracked at its existing path (joins `done.md` as a `.gitignore` tracked exception), portable across machines/containers, NOT symlink-managed. `state.md` + `_plan-cache.md` + `_master-backlog-delta.json` are **gitignored regenerable runtime** — per-machine, symlink-managed by [`scripts/link-coordination.sh`](../../../scripts/link-coordination.sh). Commit `kickoff.md` at authoring (and deliberate revisions); keep in-flight churn in `state.md`.
 - `<umbrella>-meta-launch/` directory is NOT auto-deleted. It persists as the dispatch record for that umbrella's lifecycle.
 - If a second invocation occurs on the same umbrella, state.md is updated; kickoff.md is preserved (not overwritten) unless `--force` arg is passed.
 
@@ -511,7 +521,8 @@ Without `/pipeline`, multi-wave umbrella orchestration relies on:
 - **No structured meta-kickoff:** each umbrella kickoff is hand-authored with variable §5 AI-traps enumeration quality — principle 12 violations go undetected until pre-push.
 
 The cost of absence: orchestrator surgery time when a parallel branch contaminates main (incident 2026-05-12, the origin event), plus AI-trap violations accumulating in kickoffs.
-<!-- globs: .claude/orchestrator-prompts/**, docs/meta-factory/wave-sequencing-plan.md -->
+
+<!-- globs: .claude/orchestrator-prompts/**, .ai-factory/orchestrator-prompts/**, docs/meta-factory/wave-sequencing-plan.md -->
 <!-- inject: Meta-orchestrator — ≥2 in-flight wave umbrellas or wave-sequencing-plan.md drift: /pipeline (plan-currency + priority + launch-table + stage-gate dispatch). Forward-going annotation: activates when inject-matching-rule.sh is extended to scan .claude/skills/*/SKILL.md (today scans .claude/rules/ only). -->
 
 ## See also

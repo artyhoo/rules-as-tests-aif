@@ -15,6 +15,10 @@
 # in the recap instruction. Guard ↔ message stay consistent because both read this.
 AIF_RECAP_MARKER='## 🟢 In plain words'
 
+# Extended-regex of trailing-fork phrases that count as "the turn ended on a choice"
+# (used by end-of-turn-reminder.sh Branch B). English phrasings; ru.sh has the Russian.
+AIF_EOT_QUESTION_PATTERN='Option [AB]|decide|which (option|approach)|you (decide|choose)|pick (one|between)'
+
 # Fallback value for the session-goal anchor when extraction fails.
 aif_msg_eot_anchor_fallback() {
   printf '%s' '(session goal not extractable — state it yourself)'
@@ -96,5 +100,29 @@ Session goal: "${anchor}".
 2. If it is a real fork — lead with MY reasoned recommendation first: "I recommend <option>, because <reason against the goals and trade-offs>". Then the alternatives briefly. The human decides.
 3. In plain words: what exactly are we deciding and why does it block — on a simple example, not a restatement of the question text.
 If the crux of the choice cannot be explained simply → the question itself is imprecisely framed: say so.
+EOF
+}
+
+# Story-recap heading (Stop-hook story branch + /story skill greps/embeds this).
+AIF_STORY_MARKER='## 🎬 The story'
+
+# Stop hook story branch / /story skill: engaging plain-language session recap when
+# work is done (a PR was pushed). Hook-style: the whole instruction is localized so
+# output language follows the active pack. ${anchor:-} is safe when unset (the /story
+# skill has no transcript anchor and names the goal from context).
+aif_msg_eot_branch_story() {
+  cat <<EOF
+The work is done (a PR was just pushed) — now tell the human the story of this whole session, primarily for them.
+You MUST begin the block with exactly the line "${AIF_STORY_MARKER}" — so the human spots it at a glance.
+
+Session goal (from the title / first instruction): "${anchor:-(name it yourself from context)}".
+
+Tell it as a story, in plain, engaging language — NOT a dry checklist:
+• Open in one sentence — what we set out to do and why, in human terms.
+• By acts — the narrative arc of the key moves, named (file / PR / decision): what we did, what went wrong, how we fixed it.
+• Explain jargon on the spot — hit a term (egress, caffeinate, Docker) → give a one-line analogy right there.
+• Be honest — where it is thinly verified (one run, one case), what you are least sure of, what is still left.
+• End on the human — the one thing left for them to decide or do ("one step — your go").
+Tone: interesting, like a story; no filler, no self-congratulation; truth over smoothness. If a part does not come out concrete, say so plainly.
 EOF
 }

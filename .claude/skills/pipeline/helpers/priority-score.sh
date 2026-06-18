@@ -80,7 +80,7 @@ fi
 # REPO_ROOT (+ shared resolve_target / tokeniser primitives) sourced from lib/common.sh
 # (Stage 4 dedup, BASH_SOURCE-relative so it survives the REPO_ROOT test-seam).
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
-PROMPTS_DIR="${REPO_ROOT}/.claude/orchestrator-prompts"
+PROMPTS_DIR="$(resolve_orch_home)"
 
 MO_GH_BIN="${MO_GH_BIN:-gh}"
 # C2 jaccard seam: override dup-detect.sh path for testing (completion-detection Layer C2).
@@ -92,7 +92,7 @@ MO_DUP_DETECT_BIN="${MO_DUP_DETECT_BIN:-${_DEFAULT_DUP_DETECT}}"
 # silently (memory is supplementary, not load-bearing).
 _repo_slug="${REPO_ROOT//\//-}"
 MO_MEM_DIR="${MO_MEM_DIR:-${HOME}/.claude/projects/${_repo_slug}/memory}"
-MO_WAVE_PLAN="${MO_WAVE_PLAN:-${REPO_ROOT}/docs/meta-factory/wave-sequencing-plan.md}"
+MO_WAVE_PLAN="$(resolve_plan_path)"
 MO_OPEN_QUESTIONS="${MO_OPEN_QUESTIONS:-${REPO_ROOT}/docs/meta-factory/open-questions.md}"
 MO_PACKAGES_DIR="${MO_PACKAGES_DIR:-${REPO_ROOT}/packages}"
 MO_PATCHES_DIR="${MO_PATCHES_DIR:-${REPO_ROOT}/docs/meta-factory/research-patches}"
@@ -115,16 +115,49 @@ fi
 # Counters T-NoArg-C: does NOT rely on PR-title word overlap (that is Layer C2's job).
 merged_prs_json="$(${MO_GH_BIN} pr list --state merged --json number,headRefName --limit 100 2>/dev/null || echo '[]')"
 
+# ── Skip-closed pre-filter: feed the expensive C2 scan only the OPEN survivors ──────
+# Perf (pipeline-completion-scan-skip-closed, 2026-06-17): the per-umbrella jaccard in
+# dup-detect --all is the dominant cost (measured: ~2.70s/umbrella over the full set vs
+# ~3.0s umbrella-invariant gh+precompute → full=446s, open-only=76s, 83% of the cost is
+# per-umbrella). Umbrellas already provably closed by a CHEAP signal — C3 done.md (file
+# existence) or C1 branch-match (jq over the already-fetched merged_prs_json) — are
+# classified DONE by the loop below via C1/C3 regardless, so they never need the expensive
+# C2 pass. Feed dup-detect ONLY the open survivors. An umbrella closed ONLY by C2 jaccard
+# (no done.md, no branch-match) is NOT cheap-closed → it stays in the subset → C2 still
+# tags it DONE (AC-2 paired-negative invariant: DONE-membership is unchanged).
+# Fix shape (a): the filter lives here (orchestration-side); dup-detect stays
+# closure-agnostic (it scans the names it is handed via MO_UMBRELLA_SUBSET). Zero new gh,
+# zero new dependency. Caller B (SKILL §2.5 standalone dedup) never sets the subset.
+_merged_branch_names=""
+if command -v jq &>/dev/null && [[ -n "${merged_prs_json}" && "${merged_prs_json}" != "[]" ]]; then
+  _merged_branch_names="$(echo "${merged_prs_json}" \
+    | jq -r '.[] | (.headRefName | sub("^(feat|fix|chore|docs|research)/"; ""))' 2>/dev/null || true)"
+fi
+_open_survivors=""
+for _d in "${PROMPTS_DIR}"/*/; do
+  _n="${_d%/}"; _n="${_n##*/}"                        # basename, pure-bash (no subprocess)
+  [[ -f "${_d}kickoff.md" ]] || continue             # no kickoff → not a real candidate
+  [[ -f "${_d}done.md" ]] && continue                # C3 cheap-closed → skip expensive C2
+  if [[ -n "${_merged_branch_names}" ]] \
+      && printf '%s\n' "${_merged_branch_names}" | grep -qxF "${_n}" 2>/dev/null; then
+    continue                                          # C1 cheap-closed → skip expensive C2
+  fi
+  _open_survivors+="${_n}"$'\n'
+done
+
 # ── completion Layer C2: dup-detect.sh jaccard pre-fetch (REUSE, sub-shell) ─────────────────
 # completion-detection Layer C2 (jaccard title overlap, meta-orch-no-arg-overview Stage 2-extend).
 # REUSE: calls dup-detect.sh --all (sub-shell approach — option (a); preserves dup-detect.sh
 # callers unchanged, avoids modifying a Stage-4-owned file per §6 Option B).
 # Parse output: "POTENTIAL_DUPE: <umbrella> may overlap with merged #<num> ..." lines only.
 # Populated once; per-umbrella lookup is a grep against this variable.
+# Restricted to the open survivors via MO_UMBRELLA_SUBSET (skip-closed). If there are no
+# open survivors (all umbrellas cheap-closed) the call is skipped (C2 has nothing to find).
 # If dup-detect.sh unavailable or gh fails, falls back to empty string (C2 skipped; C3 still runs).
 _dup_detect_all_output=""
-if [[ -x "${MO_DUP_DETECT_BIN}" ]]; then
+if [[ -x "${MO_DUP_DETECT_BIN}" && -n "${_open_survivors}" ]]; then
   _dup_detect_all_output="$(REPO_ROOT="${REPO_ROOT}" MO_GH_BIN="${MO_GH_BIN}" \
+    MO_UMBRELLA_SUBSET="${_open_survivors}" \
     "${MO_DUP_DETECT_BIN}" --all 2>/dev/null || true)"
 fi
 
@@ -143,6 +176,18 @@ for dir in "${PROMPTS_DIR}"/*/; do
   # Skip internal-only dirs (state-only, no kickoff)
   if [[ ! -f "${kickoff}" ]]; then
     echo "${name} kickoff=missing"
+    # D6 (legacy reconstruct fallback, cross-session kickoff portability SSOT #116):
+    # if a committed plan row references this umbrella, surface a non-authoritative
+    # reconstruct notice. Does NOT auto-write the plan (Direction A REJECTED — see
+    # SKILL.md §2.5 Step 8). Degraded safety net for LEGACY umbrellas whose kickoffs
+    # predate the portability convention and were never committed.
+    # Word-boundary match (treat hyphen as a name char) so a short umbrella name
+    # is not a false-positive substring of an unrelated plan row (e.g. "ux" inside
+    # "ux-improvements"). Kebab-case names are regex-safe (alnum + hyphen only).
+    _rs_re="(^|[^[:alnum:]-])${name}([^[:alnum:]-]|$)"
+    if [[ -f "${MO_WAVE_PLAN}" ]] && grep -qE "${_rs_re}" "${MO_WAVE_PLAN}" 2>/dev/null; then
+      echo "RECONSTRUCT-STUB: ${name} has a committed plan row but kickoff=missing — author + commit .claude/orchestrator-prompts/${name}/kickoff.md to restore portability (no auto-write)"
+    fi
     continue
   fi
 
@@ -210,7 +255,12 @@ for dir in "${PROMPTS_DIR}"/*/; do
   if [[ -z "${done_pr}" && -f "${dir}done.md" ]]; then
     done_pr="$(grep -m1 '^- Final PR: #' "${dir}done.md" 2>/dev/null \
       | grep -oE '[0-9]+' | head -n1 || true)"
-    [[ -n "${done_pr}" ]] && done_basis="done-md"
+    # done.md existence ALONE proves closure (C3 ADAPT Cline #77). A stale/superseded closure
+    # carries "Final PR: n/a" (no numeric PR) — still DONE; tag done_pr=n/a so the filter drops
+    # it. Pre-fix bug: n/a closures (e.g. the 2026-06-05 sweep) stayed false-open because this
+    # layer only tagged DONE on a numeric PR — fixed 2026-06-16 closure-sweep.
+    [[ -z "${done_pr}" ]] && done_pr="n/a"
+    done_basis="done-md"
   fi
 
   # Emit candidate line with optional DONE tag (basis indicates which layer matched).

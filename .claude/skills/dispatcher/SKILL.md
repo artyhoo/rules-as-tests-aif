@@ -47,14 +47,14 @@ allowed-tools:
 
 All 4 CLI primitives are pre-built. `/dispatcher` wires them — it does NOT build new ones.
 
-| Primitive | Path | Role in loop |
-|---|---|---|
-| `dispatch.ts` | `packages/runtime-bridge/src/cli/dispatch.ts` | Send kickoff to aif via REST; exit 0 always (injection hook, never a gate); ManualBackend fallback not deduped so retry is always possible |
-| `harvest.ts` | `packages/runtime-bridge/src/cli/harvest.ts` | Push aif branch from container, open PR, optionally enable auto-merge; ZERO LLM; throws on wrong-branch container (operator-ATTN case — see §4) |
-| `questions.ts` | `packages/runtime-bridge/src/cli/questions.ts` | Read-only GET /tasks, filter to parked tasks, display park reasons; appends brainstorm nudge to output |
-| `answer.ts` | `packages/runtime-bridge/src/cli/answer.ts` | Resolve a parked task via REST state-machine events; invalid `--decision` is an error (never silently defaults) |
-| `superpowers:brainstorming` | CC companion skill | Autonomous technical-fork resolution on CC-present path |
-| `superpowers:requesting-code-review` | CC companion skill | Phase-1 cold-review between stages |
+| Primitive                            | Path                                           | Role in loop                                                                                                                                    |
+| ------------------------------------ | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dispatch.ts`                        | `packages/runtime-bridge/src/cli/dispatch.ts`  | Send kickoff to aif via REST; exit 0 always (injection hook, never a gate); ManualBackend fallback not deduped so retry is always possible      |
+| `harvest.ts`                         | `packages/runtime-bridge/src/cli/harvest.ts`   | Push aif branch from container, open PR, optionally enable auto-merge; ZERO LLM; throws on wrong-branch container (operator-ATTN case — see §4) |
+| `questions.ts`                       | `packages/runtime-bridge/src/cli/questions.ts` | Read-only GET /tasks, filter to parked tasks, display park reasons; appends brainstorm nudge to output                                          |
+| `answer.ts`                          | `packages/runtime-bridge/src/cli/answer.ts`    | Resolve a parked task via REST state-machine events; invalid `--decision` is an error (never silently defaults)                                 |
+| `superpowers:brainstorming`          | CC companion skill                             | Autonomous technical-fork resolution on CC-present path                                                                                         |
+| `superpowers:requesting-code-review` | CC companion skill                             | Phase-1 cold-review between stages                                                                                                              |
 
 ---
 
@@ -63,13 +63,16 @@ All 4 CLI primitives are pre-built. `/dispatcher` wires them — it does NOT bui
 Steps run in order for each stage kickoff. After §2.7, loop back to §2.1 with the next stage kickoff, or emit "umbrella complete".
 
 **§2.0 — Pre-dispatch dedup guard (run before §2.1)**
+
 ```bash
 slug="<umbrella>"
 git branch -a --list "*${slug}*"                              # Signal 1: branch match
 gh pr list --state all --search "${slug}" --json number,state # Signal 2: broad PR search (not in:title)
 test -f ".claude/orchestrator-prompts/${slug}/done.md"        # Signal 3: done.md (Layer-C3)
 ```
+
 Verdict — **≥2 of 3 signals required** to mark ALREADY-DONE (T-DUX-A: lone slug-substring PR hit is insufficient):
+
 - **ALREADY-DONE**: skip dispatch → auto-write `done.md` + CANON sync + report (CLEAR action — **never surface as question**, T15 / P4); see §2.8 for schema
 - **IN-FLIGHT**: open PR or live branch, no done.md → surface + let operator decide
 - **FRESH** (0–1 signals): proceed to §2.1
@@ -77,54 +80,66 @@ Verdict — **≥2 of 3 signals required** to mark ALREADY-DONE (T-DUX-A: lone s
 **Base normalization (P3):** before §2.1, run `git remote set-head origin --auto` to refresh trunk ref. If kickoff's stated base diverges from live trunk, warn and use live trunk for harvest `--base` in §2.4.
 
 **§2.1 — Dispatch**
+
 ```bash
 tsx packages/runtime-bridge/src/cli/dispatch.ts \
   .claude/orchestrator-prompts/<umbrella>/kickoff.md
 ```
+
 `AifHandoffBackend.dispatch()` → `POST /tasks (paused:true)` → `PUT /tasks/:id (unpause)` → aif coordinator picks up: `backlog → planning` (per-task worktree created) → `implementing`. The `exit 0` contract holds at every call-site — a ManualBackend fallback (written to `/tmp/runtime-bridge-<taskId>.md`) means aif was unreachable; retry once the blocker clears.
 
 Emit watch-link immediately after dispatch (P6): `http://${AIF_WEB_HOST:-localhost}:${AIF_WEB_PORT:-5180}/tasks/<taskId>`. Web port (`AIF_WEB_PORT`, default `5180`) is separate from API port (`AIF_PORT`, default `3009`). If the web container is absent, emit the REST task URL instead.
 
 **§2.2 — Monitor (single-poll-per-turn)**
 Classify one poll using `monitor-classify.sh` (proven by `packages/core/skills/dispatcher/monitor.test.ts`):
+
 ```bash
 TASK_JSON=$(curl -s "http://${AIF_HOST:-localhost}:${AIF_PORT:-3009}/tasks/<taskId>")
 classification=$(TASK_JSON="$TASK_JSON" bash .claude/skills/dispatcher/helpers/monitor-classify.sh)
 ```
+
 Branch on output prefix: `RUNNING:*` → re-invoke `/dispatcher <umbrella>` next turn. `DONE:*` → §2.4. `PARKED:*` → §2.3. `ERROR:*` → ATTN operator.
 **DO NOT** use foreground `sleep <N>` — harness-blocked. **DO NOT** chain commands with `;` compound sequences — harness-blocked.
-Timeout: track invocation count; after operator-configured ceiling → surface **ATTN: task stalled**. A stall is an *environment* symptom, not a loop bug — **run [`/aif-doctor`](../aif-doctor/SKILL.md)** to triage it (distinguishes a runtime crash-loop / capacity saturation / proxy block from a slow-stale task the upstream watchdog will recover on its own). Do not re-dispatch blindly.
+Timeout: track invocation count; after operator-configured ceiling → surface **ATTN: task stalled**. A stall is an _environment_ symptom, not a loop bug — **run [`/aif-doctor`](../aif-doctor/SKILL.md)** to triage it (distinguishes a runtime crash-loop / capacity saturation / proxy block from a slow-stale task the upstream watchdog will recover on its own). Do not re-dispatch blindly.
 
 **§2.3 — Q&A (three types — see §3)**
 
 **§2.4 — Harvest (after done/verified)**
+
 ```bash
 tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
 ```
+
 `harvest.ts` → `GET /tasks/:id` → `docker exec aif-handoff-agent-1 git push origin <branch>` → `gh pr create --base staging --head <branch>` → `gh pr merge <prUrl> --auto --squash`. Emits `{ prUrl, branch, autoMerge, committed }`.
 
 If `/dispatcher` has prepared a §1.7-compliant PR body, pass it via `--body-file <path>`. Otherwise a minimal pointer body is used (harvest warns about missing §1.7 sections in that case).
 
 **§2.4b — Harvest when the container github-host is unroutable (resilience helper).** When the proxy/tunnel blocks `github.com` from the container (`git push` → `gnutls_handshake`/`SSL_ERROR_SYSCALL`/000) but `api.github.com` is reachable (discriminate via `gh api rate_limit`), the stock `harvest.ts` push fails. Use the API-harvest helper instead — it commits the task's declared file via the GitHub Contents API (branch ref + PUT), no `git push` needed:
+
 ```bash
 bash .claude/skills/dispatcher/helpers/harvest-via-api.sh <taskId> staging [path]
 # then (separate command, git-safety blocks compound merge):
 gh pr merge <prUrl> --auto --squash
 ```
+
 It reads the file from the container worktree (uncommitted ok), and **append-merges** onto the current `staging` version (never `git add -A`, never clobber — fixes the stale-overwrite hazard where a worker's stale full-file copy silently reverts newer rounds). Proven 2026-06-05 (PRs #427/#429/#431). Single-file; multi-file needs the Git Data API.
 
 **§2.4c — Notification discipline for unattended runs (3-tier).** Routine ticks are SILENT (journal only). A heartbeat fires at most once per ~30min via `helpers/notify-gate.sh` (so the operator sees "alive" without per-tick spam). Only genuine human-decisions/blockers ping immediately. aif's own notifier sends a TG per status-change with no verbosity knob; to filter to **done / stalled / question only**, silence aif's raw channel (unset `TELEGRAM_BOT_TOKEN` in the container on a between-runs restart) and let the dispatcher send the filtered set via `helpers/tg-notify.sh <done|stalled|question|blocker> "<msg>"`. The operator does not go dark — they get the important events, deduped.
 
 **§2.5 — Phase-1 cold-review**
+
 ```text
 Invoke superpowers:requesting-code-review on the harvested PR diff.
 ```
+
 Reviewer emits `GO` / `REVISE` / `STOP`. `REVISE` → operator fixes, re-dispatch. `STOP` → escalate. `GO` → proceed to §2.6.
 
 **§2.6 — Stage gate**
+
 ```bash
 gh pr list --search "is:merged head:<branch> base:staging" --json number,mergedAt
 ```
+
 Empty → HALT (PR not yet merged; wait for CI). Non-empty → CLEAR, proceed to §2.7.
 
 **§2.7 — Advance**
@@ -132,10 +147,12 @@ Dispatch next stage kickoff → back to §2.1. If no remaining stages → §2.8.
 
 **§2.8 — Closure marker (P2)**
 Write `done.md` schema (`# <umbrella> — DONE` / `- Final PR: #<num>` / `- Closed: <YYYY-MM-DD>` / `- Summary: <one-line>`) and CANON sync:
+
 ```bash
 cp .claude/orchestrator-prompts/<umbrella>/done.md \
    ~/.claude-coordination/<repo-slug>/<umbrella>/done.md
 ```
+
 Also write retroactively when §2.0 detects ALREADY-DONE but `done.md` is absent.
 
 ---
@@ -146,12 +163,12 @@ When §2.2 detects a parked signal, identify the park type from the taxonomy tab
 
 ### Park-type taxonomy
 
-| Park mechanism | Detected via | Resolved via | `answer.ts --decision` |
-|---|---|---|---|
-| `blockedReason` non-empty | `questions.ts` `isParked()` | see fork-type below | `request_changes` or `retry` |
-| `status=blocked_external` | `questions.ts` `isParked()` | `answer.ts` | `retry` |
-| `manualReviewRequired:true` | `questions.ts` `isParked()` | `answer.ts` | `approve` or `request_changes` |
-| A-park: `paused:true + OPEN_QUESTION_ANCHOR` in plan | `questions.ts` conjunction check | `answer.ts --decision resume` (PUT, bypasses events API) | `resume` |
+| Park mechanism                                       | Detected via                     | Resolved via                                             | `answer.ts --decision`         |
+| ---------------------------------------------------- | -------------------------------- | -------------------------------------------------------- | ------------------------------ |
+| `blockedReason` non-empty                            | `questions.ts` `isParked()`      | see fork-type below                                      | `request_changes` or `retry`   |
+| `status=blocked_external`                            | `questions.ts` `isParked()`      | `answer.ts`                                              | `retry`                        |
+| `manualReviewRequired:true`                          | `questions.ts` `isParked()`      | `answer.ts`                                              | `approve` or `request_changes` |
+| A-park: `paused:true + OPEN_QUESTION_ANCHOR` in plan | `questions.ts` conjunction check | `answer.ts --decision resume` (PUT, bypasses events API) | `resume`                       |
 
 Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 
@@ -160,6 +177,7 @@ Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 **Detected:** parked reason describes an implementation choice where either path is technically valid and does not affect project scope or direction (e.g. "which API variant", "which data structure", "retry or fail-fast on 429").
 
 **Resolution (CC-present path):**
+
 1. Read the parked question via `tsx packages/runtime-bridge/src/cli/questions.ts`
 2. Invoke `superpowers:brainstorming` autonomously with the question as input → generates a reasoned recommendation with evidence
 3. Apply via `answer.ts --task <id> --answer "<recommendation>" --decision request_changes` (B-park) OR `--decision resume` (A-park)
@@ -172,6 +190,7 @@ Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 **Detected:** parked reason involves scope, architecture, project-wide policy, or project direction — the operator must decide.
 
 **Resolution:**
+
 1. `tsx packages/runtime-bridge/src/cli/questions.ts` → surface parked task to operator
 2. Operator reviews, optionally invokes `superpowers:brainstorming` for deliberation
 3. Operator provides answer; `/dispatcher` applies: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<decision>" --decision request_changes` (B-park) OR `--decision resume` (A-park)
@@ -197,7 +216,7 @@ If the brainstorming companion is unreachable (Cursor / Aider / Codex / no Super
 
 **Harvest idempotency:** `gh pr create` fails if the PR already exists; re-run with `--no-auto-merge` to skip the merge step and recover gracefully.
 
-**ATTN: environment-level failure (not a loop bug).** When dispatch/monitor/harvest misbehaves for a reason outside this loop's logic — task crash-loops in `planning` with `tokenTotal:0` (broken claude runtime), new task stuck `backlog` (capacity cap saturated), in-container `npm`/network failures (proxy block) — that is an aif *environment* fault. **Hand off to [`/aif-doctor`](../aif-doctor/SKILL.md)** for read-only triage + the mapped fix (each mutation gated on operator GO). `/dispatcher` owns the loop; `/aif-doctor` owns the environment the loop runs in.
+**ATTN: environment-level failure (not a loop bug).** When dispatch/monitor/harvest misbehaves for a reason outside this loop's logic — task crash-loops in `planning` with `tokenTotal:0` (broken claude runtime), new task stuck `backlog` (capacity cap saturated), in-container `npm`/network failures (proxy block) — that is an aif _environment_ fault. **Hand off to [`/aif-doctor`](../aif-doctor/SKILL.md)** for read-only triage + the mapped fix (each mutation gated on operator GO). `/dispatcher` owns the loop; `/aif-doctor` owns the environment the loop runs in.
 
 ---
 

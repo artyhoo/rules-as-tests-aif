@@ -7,7 +7,7 @@
 
 ## Layer structure (Feature-Sliced + hexagonal)
 
-```
+```text
 src/
 ├── app/                      # Next.js App Router
 │   ├── (marketing)/          # Route group: landing, blog
@@ -45,7 +45,7 @@ src/
 
 ## Server vs Client — three zones
 
-```
+```text
 ┌────────────────────── server-only ──────────────────────┐
 │                                                         │
 │  domain/, application/, infrastructure/, app/api/       │
@@ -96,7 +96,7 @@ src/
 
 ## Test structure
 
-```
+```text
 src/components/CyberButton/
 ├── CyberButton.tsx
 ├── CyberButton.module.css
@@ -113,13 +113,13 @@ src/lib/
 └── audit-rules.audit.ts            # tests of the rule-checker itself
 ```
 
-| Kind | Suffix | Tool |
-|---|---|---|
-| Unit / hook test | `.unit.ts` | Vitest + jsdom |
-| Integration test | `.integration.ts` | Vitest |
-| Audit (rule checker) | `.audit.ts` | Vitest |
+| Kind                    | Suffix            | Tool                  |
+| ----------------------- | ----------------- | --------------------- |
+| Unit / hook test        | `.unit.ts`        | Vitest + jsdom        |
+| Integration test        | `.integration.ts` | Vitest                |
+| Audit (rule checker)    | `.audit.ts`       | Vitest                |
 | Storybook play function | in `.stories.tsx` | Storybook test runner |
-| E2E / visual | `.e2e.ts` | Playwright |
+| E2E / visual            | `.e2e.ts`         | Playwright            |
 
 ## Forbidden patterns
 
@@ -142,17 +142,17 @@ src/lib/
 
 ## Where rules are enforced
 
-| Rule | Enforced by |
-|---|---|
-| No cycles | dependency-cruiser |
-| Server/Client boundary | `server-only`/`client-only` packages + ESLint + `audit-ai-docs.react-next.sh` probe `R12` |
-| `<Link>` for internal | `@next/next/no-html-link-for-pages` + probe `R16b` |
-| `<Image>` for images | `@next/next/no-img-element` + probe `R16a` |
-| `<button>` not `<div onClick>` | `jsx-a11y/no-static-element-interactions` + probe `R15` |
-| Component has stories | probe `R17` (WARN) |
-| Server Action has 'use server' | probe `R20` |
-| Server Action validates FormData via Zod | probe `R14` |
-| No `screen.debug()` | `testing-library/no-debugging-utils` + probe `R20` (subset) |
-| useEffect deps | `react-hooks/exhaustive-deps: 'error'` (manual review) |
+| Rule                                     | Enforced by                                                                               |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------- |
+| No cycles                                | dependency-cruiser                                                                        |
+| Server/Client boundary                   | `server-only`/`client-only` packages + ESLint + `audit-ai-docs.react-next.sh` probe `R12` |
+| `<Link>` for internal                    | `@next/next/no-html-link-for-pages` + probe `R16b`                                        |
+| `<Image>` for images                     | `@next/next/no-img-element` + probe `R16a`                                                |
+| `<button>` not `<div onClick>`           | `jsx-a11y/no-static-element-interactions` + probe `R15`                                   |
+| Component has stories                    | probe `R17` (WARN)                                                                        |
+| Server Action has 'use server'           | probe `R20`                                                                               |
+| Server Action validates FormData via Zod | probe `R14`                                                                               |
+| No `screen.debug()`                      | `testing-library/no-debugging-utils` + probe `R20` (subset)                               |
+| useEffect deps                           | `react-hooks/exhaustive-deps: 'error'` (manual review)                                    |
 
 See `.ai-factory/RULES.react-next.md` for R12–R20 and `references/checks-map.md` for the enforcement layer map.

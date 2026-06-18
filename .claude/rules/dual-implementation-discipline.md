@@ -62,9 +62,11 @@ Consumer-facing means: shipped to consumer projects via `install.sh`, or consume
 
 **Default:** ship CC-native primary for CC consumers; ship portable markdown fallback for non-CC consumers. Both reference the same SSOT spec (§7).
 
-**Examples:** `agents/compliance-verifier.md` (portable markdown read by any AI session); `agents/living-docs-auditor.md` (same); `.claude/skills/pipeline/` (skill consumed in CC-compatible harnesses). When a CC hook is added to complement one of these agents, the pair is dual-channel.
+**Examples:** `agents/compliance-verifier.md` (portable markdown read by any AI session); `agents/living-docs-auditor.md` (same); `.claude/skills/pipeline/` + `.claude/skills/dispatcher/` (orchestration skills — **test-proven portable-with-graceful-degradation**, NOT CC-only: helpers self-resolve via `$(dirname "${BASH_SOURCE[0]}")`, a `CC-absent degradation` path is shipped, and `packages/core/principles/21-agnosticism-conformance.test.ts` enforces it). When a CC hook is added to complement one of these agents, the pair is dual-channel.
 
 **May deviate when:** consumer-base is provably CC-only by current usage data AND the capability is not semantically meaningful outside CC (e.g., a PostToolUse hook providing real-time edit feedback has no portable equivalent that would fire at the same moment).
+
+> **Posture reconciliation (agnosticism-remediation T-D, 2026-06-16, #577).** The Umbrella-1 conformance audit (#564) + principle 21 **proved** the orchestration skills (`pipeline`/`dispatcher`) reach **functional parity** off-CC — substrate is test-proven portable, the workflow is preserved even when invoked differently (slash-command sugar may differ). This rule therefore does **NOT** accept «orchestration is CC-only»; the achieved bar is portable-with-graceful-degradation. The one residual off-CC degradation — the dispatcher's autonomous technical-fork resolution becomes surface-to-operator (`dispatcher/SKILL.md` `CC-absent degradation`) — is **accepted by design** under functional parity (workflow continues; one autonomy step is manual): a documented degradation, NOT a portability gap. **Not a goal change** — the implementation already meets the higher bar.
 
 ### Performance-critical — default: CC-native first; portable optional
 

@@ -45,6 +45,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   '.claude/rules/memory-codification.md',
   '.claude/rules/rule-enforcement-channel-selection.md',
   '.claude/rules/companion-install-principle.md',
+  '.claude/rules/language-discipline.md',
 
   // docs/meta-factory/ reference docs (excluding sub-folders + filename-convention transients)
   'docs/meta-factory/EXECUTION-PLAN.md',
@@ -107,7 +108,8 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'agents/living-docs-auditor.md',
   'agents/compliance-verifier.md',
   'agents/memory-codification-auditor.md',
-  'agents/manual-rule-liveness-prober.md',
+  'agents/orchestrator-worker-discipline.md',
+  'agents/aif-init.md',
 ];
 
 /**

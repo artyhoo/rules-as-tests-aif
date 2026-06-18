@@ -38,6 +38,7 @@ import {
   getCommits,
   getChangedFiles,
   upstreamExists,
+  resolveDefaultBase,
   realGit,
   parsePushRefs,
   commitsNotOnRemotes,
@@ -84,44 +85,73 @@ function readPushStdin(): string {
  *      signal (what HEAD is actually being pushed against). For a new branch
  *      (`remote_sha` == {@link Z40}) the checked set is "commits not on any
  *      remote" (ADAPT of pre-commit's stdin handling).
- *   3. legacy `origin/staging`, *only if it exists*, with a visible warning.
+ *   3. the derived default branch (origin/HEAD → origin/staging|main|master),
+ *      *only if one exists* (GH #568, via {@link resolveDefaultBase}); else a
+ *      visible warning + skip.
  *
  * Returns `{ base: null, commits: null }` when nothing resolves — callers emit a
  * VISIBLE warning and skip, never a silent pass (research-patch finding F2).
  */
 interface ResolvedBase {
-  /** Tree-ish for `<base>..HEAD` changed-file diffs; null when unresolvable. */
+  /** Tree-ish for `<base>..<head>` changed-file diffs; null when unresolvable. */
   base: string | null;
-  /** Explicit commit list (new-branch Z40 case); null = derive from `base..HEAD`. */
+  /**
+   * The diff/range endpoint — what the push range runs *to*. The pushed ref's
+   * `local_sha` on a real `git push` (so the range follows the branch being
+   * pushed, even when the checkout's HEAD is on a different branch — the
+   * 2026-06-17 cross-checkout incident); `HEAD` for a manual run / CI backstop
+   * where the checkout IS the thing being checked.
+   */
+  head: string;
+  /** Explicit commit list (new-branch Z40 case); null = derive from `base..head`. */
   commits: string[] | null;
   source: 'env' | 'stdin' | 'stdin-new-branch' | 'default' | 'unresolved';
 }
 
 function resolveBase(): ResolvedBase {
   const env = process.env['PREPUSH_UPSTREAM_REF'];
-  if (env) return { base: env, commits: null, source: 'env' };
+  // CI backstop / manual override: HEAD is the thing being checked against the
+  // override base (the CI job checks out the PR head), so the endpoint is HEAD.
+  if (env) return { base: env, commits: null, head: 'HEAD', source: 'env' };
 
   const refs = parsePushRefs(readPushStdin());
   if (refs.length > 0) {
     const r = refs[0];
     // `^{commit}` peels to a commit object — parity with the fallback's check,
-    // and rejects a tag sha (which would not be a valid `..HEAD` diff base).
+    // and rejects a tag sha (which would not be a valid `..head` diff base).
     if (r.remoteSha !== Z40 && upstreamExists(`${r.remoteSha}^{commit}`)) {
-      return { base: r.remoteSha, commits: null, source: 'stdin' };
+      // Range endpoint is the PUSHED ref's local_sha, NOT HEAD: pushing `feat`
+      // from a checkout on `staging` must validate feat's commits, not staging's.
+      return {
+        base: r.remoteSha,
+        commits: null,
+        head: r.localSha,
+        source: 'stdin',
+      };
     }
     // New branch (Z40) or an unknown remote sha → the commits this push adds.
     const newCommits = commitsNotOnRemotes(r.localSha);
     const oldest = newCommits[newCommits.length - 1];
-    const base = oldest && upstreamExists(`${oldest}^`) ? `${oldest}^` : EMPTY_TREE;
-    return { base, commits: newCommits, source: 'stdin-new-branch' };
+    const base =
+      oldest && upstreamExists(`${oldest}^`) ? `${oldest}^` : EMPTY_TREE;
+    // `commits` is explicit here; `head` still set to local_sha so the §6/§8
+    // changed-file diffs (which derive from `base..head`) follow the pushed ref.
+    return {
+      base,
+      commits: newCommits,
+      head: r.localSha,
+      source: 'stdin-new-branch',
+    };
   }
 
-  // No env, no stdin (a manual `node pre-push.ts` run): keep the legacy default
-  // only when it actually exists, and announce it — never silently skip.
-  if (upstreamExists('origin/staging')) {
-    return { base: 'origin/staging', commits: null, source: 'default' };
+  // No env, no stdin (a manual `node pre-push.ts` run): derive the consumer's REAL
+  // default branch instead of hard-coding origin/staging (GH #568) — announce via
+  // source:'default', never silently skip. Endpoint is HEAD (no pushed ref to follow).
+  const def = resolveDefaultBase();
+  if (def) {
+    return { base: def, commits: null, head: 'HEAD', source: 'default' };
   }
-  return { base: null, commits: null, source: 'unresolved' };
+  return { base: null, commits: null, head: 'HEAD', source: 'unresolved' };
 }
 
 /** Emit a visible (non-silent) warning that a section is being skipped. */
@@ -140,14 +170,14 @@ function warnSkip(label: string, why: string): void {
 function commitsToCheck(rb: ResolvedBase, label: string): string[] | null {
   if (rb.commits !== null) return rb.commits;
   if (rb.base === null) {
-    warnSkip(label, 'no PREPUSH_UPSTREAM_REF, no git stdin, no origin/staging');
+    warnSkip(label, 'no PREPUSH_UPSTREAM_REF, no git stdin, no default branch');
     return null;
   }
   if (!upstreamExists(rb.base)) {
     warnSkip(label, `base ref '${rb.base}' not found`);
     return null;
   }
-  return getCommits(rb.base);
+  return getCommits(rb.base, rb.head);
 }
 
 /** Re-emit a captured result's output to the operator. */
@@ -183,33 +213,39 @@ function requireTool(
   emit(r);
 }
 
-
 /**
  * §7 Prior-art trailer check. Extracted so it can run in isolation (PREPUSH_ONLY)
  * — the anti-tautology end-to-end test exercises only this section and must not
  * depend on the other sections' tools/deps.
  */
+/** Path (repo-relative) of the Prior-art SSOT register, read per-commit below. */
+const SSOT_REL = 'docs/meta-factory/prior-art-evaluations.md';
+
 /**
- * The SSOT register's entry id-set, for the C1 broken-citation arm. Unreadable
- * register → undefined → existence check is a graceful no-op (never blocks a
- * push because the file moved).
+ * The SSOT register's entry id-set **as it existed in `sha`'s tree**, for the C1
+ * broken-citation arm. Reads `git show <sha>:<SSOT_REL>` (via the GitProvider) so
+ * a citation is checked against the same commit it lives in — not the working
+ * tree of whatever branch is checked out, which may be dirty or a different
+ * branch entirely (the 2026-06-17 incident: a commit citing #124 was flagged
+ * broken because the working-tree SSOT had #124 removed). SSOT absent/unreadable
+ * at that commit → undefined → existence check is a graceful no-op for it.
  */
-function ssotIds(): ReadonlySet<number> | undefined {
-  try {
-    return loadSsotIds(readFileSync(resolve(REPO_ROOT, 'docs/meta-factory/prior-art-evaluations.md'), 'utf8'));
-  } catch {
-    return undefined;
-  }
+function ssotIdsAt(sha: string): ReadonlySet<number> | undefined {
+  const content = realGit.fileContent(sha, SSOT_REL);
+  return content === null ? undefined : loadSsotIds(content);
 }
 
 function priorArtSection(rb: ResolvedBase): void {
   const commits = commitsToCheck(rb, '§7');
   if (commits === null) return;
-  const substanceWarnOnly = (process.env['PA_SUBSTANCE_WARN_ONLY'] ?? 'true') !== 'false';
-  const report = runPriorArtCheck(commits, realGit, undefined, ssotIds());
+  const substanceWarnOnly =
+    (process.env['PA_SUBSTANCE_WARN_ONLY'] ?? 'true') !== 'false';
+  const report = runPriorArtCheck(commits, realGit, undefined, ssotIdsAt);
 
   if (report.failures.length > 0) {
-    process.stdout.write('\n❌ Prior-art trailer missing or invalid on capability commit(s):\n');
+    process.stdout.write(
+      '\n❌ Prior-art trailer missing or invalid on capability commit(s):\n',
+    );
     for (const f of report.failures) {
       process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
     }
@@ -225,7 +261,9 @@ function priorArtSection(rb: ResolvedBase): void {
   }
 
   if (report.brokenCitations.length > 0) {
-    process.stdout.write('\n❌ Prior-art trailer cites a non-existent SSOT entry (C1 existence check):\n');
+    process.stdout.write(
+      '\n❌ Prior-art trailer cites a non-existent SSOT entry (C1 existence check):\n',
+    );
     for (const f of report.brokenCitations) {
       process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
     }
@@ -239,7 +277,9 @@ function priorArtSection(rb: ResolvedBase): void {
 
   if (report.substanceFailures.length > 0) {
     if (substanceWarnOnly) {
-      process.stdout.write('\n⚠ Prior-art: escape-hatch on capability commit (substance arm, Wave 8.4):\n');
+      process.stdout.write(
+        '\n⚠ Prior-art: escape-hatch on capability commit (substance arm, Wave 8.4):\n',
+      );
       for (const f of report.substanceFailures) {
         process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
       }
@@ -248,7 +288,9 @@ function priorArtSection(rb: ResolvedBase): void {
           'Fix: replace `Prior-art: skipped — …` with `Prior-art: prior-art-evaluations.md#N (verdict X — rationale)`.\n\n',
       );
     } else {
-      process.stdout.write('\n❌ Prior-art: escape-hatch on capability commit:\n');
+      process.stdout.write(
+        '\n❌ Prior-art: escape-hatch on capability commit:\n',
+      );
       for (const f of report.substanceFailures) {
         process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
       }
@@ -271,20 +313,27 @@ function s17Section(rb: ResolvedBase): void {
   const commits = commitsToCheck(rb, '§1.7');
   if (commits === null) return;
   const warnOnly = (process.env['S17_WARN_ONLY'] ?? 'false') !== 'false';
-  const substanceWarnOnly = (process.env['S17_SUBSTANCE_WARN_ONLY'] ?? 'false') !== 'false';
+  const substanceWarnOnly =
+    (process.env['S17_SUBSTANCE_WARN_ONLY'] ?? 'false') !== 'false';
   const report = runS17Check(commits, realGit);
 
   if (report.failures.length > 0) {
     if (warnOnly) {
-      process.stdout.write('\n⚠ §1.7 trailer missing or invalid on rule-introducing commit(s):\n');
-      for (const f of report.failures) process.stdout.write(`  ${f.sha}  ${f.message}\n`);
+      process.stdout.write(
+        '\n⚠ §1.7 trailer missing or invalid on rule-introducing commit(s):\n',
+      );
+      for (const f of report.failures)
+        process.stdout.write(`  ${f.sha}  ${f.message}\n`);
       process.stdout.write(
         '\nLocal downgrade active (S17_WARN_ONLY=true); the default is enforcing.\n' +
           'Fix: add `§1.7: forward-check applied — …; backward-check sweep — …` to commit body.\n\n',
       );
     } else {
-      process.stdout.write('\n❌ §1.7 trailer missing or invalid on rule-introducing commit(s):\n');
-      for (const f of report.failures) process.stdout.write(`  ${f.sha}  ${f.message}\n`);
+      process.stdout.write(
+        '\n❌ §1.7 trailer missing or invalid on rule-introducing commit(s):\n',
+      );
+      for (const f of report.failures)
+        process.stdout.write(`  ${f.sha}  ${f.message}\n`);
       process.stdout.write(
         '\nFix: add `§1.7: forward-check applied — …; backward-check sweep — …` to commit body.\n' +
           'Bootstrap exemption: `§1.7 Bootstrap: <reason>` (≥20 chars rationale).\n\n',
@@ -295,15 +344,21 @@ function s17Section(rb: ResolvedBase): void {
 
   if (report.substanceFailures.length > 0) {
     if (substanceWarnOnly) {
-      process.stdout.write('\n⚠ §1.7 trailer lacks file:line citation on rule-introducing commit(s) (substance arm — Wave 8.3):\n');
-      for (const f of report.substanceFailures) process.stdout.write(`  ${f.sha}  ${f.message}\n`);
+      process.stdout.write(
+        '\n⚠ §1.7 trailer lacks file:line citation on rule-introducing commit(s) (substance arm — Wave 8.3):\n',
+      );
+      for (const f of report.substanceFailures)
+        process.stdout.write(`  ${f.sha}  ${f.message}\n`);
       process.stdout.write(
         '\nLocal downgrade active (S17_SUBSTANCE_WARN_ONLY=true); the default is enforcing.\n' +
           'Fix: include ≥1 file:line citation, e.g. `packages/core/principles/02.test.ts:82`.\n\n',
       );
     } else {
-      process.stdout.write('\n❌ §1.7 trailer lacks file:line citation on rule-introducing commit(s) (substance arm — Wave 8.3):\n');
-      for (const f of report.substanceFailures) process.stdout.write(`  ${f.sha}  ${f.message}\n`);
+      process.stdout.write(
+        '\n❌ §1.7 trailer lacks file:line citation on rule-introducing commit(s) (substance arm — Wave 8.3):\n',
+      );
+      for (const f of report.substanceFailures)
+        process.stdout.write(`  ${f.sha}  ${f.message}\n`);
       process.stdout.write(
         '\nFix: include ≥1 file:line citation, e.g. `packages/core/principles/02.test.ts:82`.\n' +
           'Bootstrap exemption: `§1.7 Bootstrap: <reason>` (≥20 chars rationale).\n\n',
@@ -321,7 +376,10 @@ function s17Section(rb: ResolvedBase): void {
  */
 async function guardLivenessSection(rb: ResolvedBase): Promise<void> {
   if (rb.base === null) {
-    warnSkip('guard-liveness', 'no resolvable base for change-scoped liveness diff');
+    warnSkip(
+      'guard-liveness',
+      'no resolvable base for change-scoped liveness diff',
+    );
     return;
   }
   // Lazy-load the gate: keeps PREPUSH_ONLY=prior-art / =s17 seams and the CI
@@ -344,17 +402,23 @@ async function guardLivenessSection(rb: ResolvedBase): Promise<void> {
     process.stdout.write(`ℹ guard-liveness: SKIP ${s}\n`);
   }
   for (const id of report.noData) {
-    process.stdout.write(`⚠ guard-liveness: ${id} has no negative-test data — add negative-test.input to enable liveness check\n`);
+    process.stdout.write(
+      `⚠ guard-liveness: ${id} has no negative-test data — add negative-test.input to enable liveness check\n`,
+    );
   }
 
   if (report.failures.length === 0) {
     if (report.passed.length > 0) {
-      process.stdout.write(`✅ guard-liveness: ${report.passed.length} ESLint rule(s) passed liveness check\n`);
+      process.stdout.write(
+        `✅ guard-liveness: ${report.passed.length} ESLint rule(s) passed liveness check\n`,
+      );
     }
     return;
   }
 
-  process.stdout.write('\n❌ Guard-liveness: ESLint rule negative-test failures on changed rules:\n');
+  process.stdout.write(
+    '\n❌ Guard-liveness: ESLint rule negative-test failures on changed rules:\n',
+  );
   for (const f of report.failures) {
     process.stdout.write(`  ${f.ruleId}:\n`);
     for (const msg of f.failures) {
@@ -378,7 +442,10 @@ async function guardLivenessSection(rb: ResolvedBase): Promise<void> {
  */
 async function cmdScriptLivenessSection(rb: ResolvedBase): Promise<void> {
   if (rb.base === null) {
-    warnSkip('cmd-script-liveness', 'no resolvable base for change-scoped liveness diff');
+    warnSkip(
+      'cmd-script-liveness',
+      'no resolvable base for change-scoped liveness diff',
+    );
     return;
   }
   // Lazy-load — keeps the orchestrator loadable in topologies that do not run
@@ -406,12 +473,16 @@ async function cmdScriptLivenessSection(rb: ResolvedBase): Promise<void> {
 
   if (report.failures.length === 0) {
     if (report.passed.length > 0) {
-      process.stdout.write(`✅ cmd-script-liveness: ${report.passed.length} command/script rule(s) passed liveness check\n`);
+      process.stdout.write(
+        `✅ cmd-script-liveness: ${report.passed.length} command/script rule(s) passed liveness check\n`,
+      );
     }
     return;
   }
 
-  process.stdout.write('\n❌ Cmd/script-liveness: rule check failed to catch its violation on changed rules:\n');
+  process.stdout.write(
+    '\n❌ Cmd/script-liveness: rule check failed to catch its violation on changed rules:\n',
+  );
   for (const f of report.failures) {
     process.stdout.write(`  ${f.ruleId} [${f.mode ?? 'unknown'}]:\n`);
     for (const msg of f.failures) process.stdout.write(`    - ${msg}\n`);
@@ -471,10 +542,13 @@ async function main(): Promise<void> {
   // audit-ai-docs.test.ts (Wave 10.4): run via vitest (replaces audit-ai-docs.test.sh)
   {
     const r = run('npx', [
-      'vitest', 'run', '--reporter=default',
+      'vitest',
+      'run',
+      '--reporter=default',
       'packages/core/audit-self/audit-ai-docs.test.ts',
     ]);
-    if (r.notFound) die('❌ npx not found — install Node.js to run audit-ai-docs tests');
+    if (r.notFound)
+      die('❌ npx not found — install Node.js to run audit-ai-docs tests');
     if (r.exitCode !== 0) die('❌ audit-ai-docs.test.ts failed:', r);
     emit(r);
   }
@@ -488,11 +562,64 @@ async function main(): Promise<void> {
     emit(r);
   }
 
+  // ── 3c. Rule-glob liveness (universalization-fix-s2) ──────────────────────────
+  // Shipped consumer gate (install.sh → scripts/): FAILS if an ACTIVE custom ESLint
+  // rule's globs match zero source files (silently-inert rule — the worst failure
+  // for a "no check → no rule" framework). The script lives at scripts/ only in a
+  // consumer repo; in the maintainer repo it is at packages/core/audit-self/, so
+  // existsSync is false here and this section is skipped (never blocks our own push).
+  if (existsSync(resolve(REPO_ROOT, 'scripts/check-rule-globs.sh'))) {
+    const r = run('bash', ['scripts/check-rule-globs.sh']);
+    if (r.exitCode !== 0) die('❌ rule-glob liveness check failed', r);
+    emit(r);
+  }
+
+  // ── 3d. lint-staged binary resolution (universalization-fix-s2) ───────────────
+  // Shipped consumer gate (install.sh → scripts/): FAILS if a lint-staged command's
+  // binary cannot resolve in the consumer's layout (e.g. a pnpm monorepo where the
+  // per-package eslint is not on the root .bin) before the first blocked commit.
+  // Absent in the maintainer repo → existsSync skips (same guard as 3c).
+  if (existsSync(resolve(REPO_ROOT, 'scripts/check-lintstaged-resolves.sh'))) {
+    const r = run('bash', ['scripts/check-lintstaged-resolves.sh']);
+    if (r.exitCode !== 0) die('❌ lint-staged resolution check failed', r);
+    emit(r);
+  }
+
+  // ── 3e. Kickoff portability (D5) — in-flight kickoffs must be git-tracked ─────
+  // cross-session kickoff portability, SSOT #116. A kickoff committed only when the
+  // author remembers is a memory-dependent convention (the goal forbids it); this
+  // makes portability a checked property at the earliest reachable channel. Warn-only
+  // during the calibration window (script default KICKOFF_PORTABILITY_WARN_ONLY=true);
+  // flips to hard fail when that env is "false" (post back-catalog migration). No-ops
+  // in repos without .claude/orchestrator-prompts (consumers — out of scope); the
+  // script lives at packages/core/audit-self/ only in the maintainer repo (same guard
+  // as 3c/3d), so existsSync skips it on consumers.
+  if (
+    existsSync(
+      resolve(
+        REPO_ROOT,
+        'packages/core/audit-self/check-kickoff-portability.sh',
+      ),
+    )
+  ) {
+    const r = run('bash', [
+      'packages/core/audit-self/check-kickoff-portability.sh',
+    ]);
+    if (r.exitCode !== 0) die('❌ kickoff-portability check failed', r);
+    emit(r);
+  }
+
   // ── 4. Manifest render drift ──────────────────────────────────────────────────
   {
-    const r = run('npx', ['tsx', 'packages/core/render/render-rules.ts', '--check']);
+    const r = run('npx', [
+      'tsx',
+      'packages/core/render/render-rules.ts',
+      '--check',
+    ]);
     if (r.notFound) {
-      die('❌ npx not found. Install Node.js to enable manifest render drift check.');
+      die(
+        '❌ npx not found. Install Node.js to enable manifest render drift check.',
+      );
     }
     if (r.exitCode !== 0) die('❌ manifest render drift detected:', r);
     emit(r);
@@ -502,9 +629,12 @@ async function main(): Promise<void> {
   {
     const r = run('npm', ['--prefix', CORE, 'run', 'test:principles']);
     if (r.notFound) {
-      die('❌ npm/npx not found. Install Node.js to enable principles meta-tests.');
+      die(
+        '❌ npm/npx not found. Install Node.js to enable principles meta-tests.',
+      );
     }
-    if (r.exitCode !== 0) die('❌ principles meta-tests failed — fix before push', r);
+    if (r.exitCode !== 0)
+      die('❌ principles meta-tests failed — fix before push', r);
     emit(r);
   }
 
@@ -514,16 +644,20 @@ async function main(): Promise<void> {
   // was a stranded hard-coded `origin/main...HEAD` (3-dot) that bypassed the
   // resolver and diverged from git.ts's 2-dot range — reconciled to 2-dot here.
   if (rb.base !== null) {
-    const specFiles = getChangedFiles(rb.base, 'ACM')
-      .filter((f) => /^\.claude\/orchestrator-prompts\/.*\.md$/.test(f));
+    const specFiles = getChangedFiles(rb.base, 'ACM', rb.head).filter((f) =>
+      /^\.claude\/orchestrator-prompts\/.*\.md$/.test(f),
+    );
     if (specFiles.length > 0) {
-      process.stdout.write('Validating force-added orchestrator-prompts in this push...\n');
+      process.stdout.write(
+        'Validating force-added orchestrator-prompts in this push...\n',
+      );
       const r = run('npx', [
         'tsx',
         'packages/core/spec-validation/validate-batch-spec.ts',
         ...specFiles,
       ]);
-      if (r.exitCode !== 0) die('❌ spec-validate findings — fix before push', r);
+      if (r.exitCode !== 0)
+        die('❌ spec-validate findings — fix before push', r);
       emit(r);
     }
   } else {
@@ -553,16 +687,25 @@ async function main(): Promise<void> {
 
   // ── 8. lychee offline link check on changed *.md ─────────────────────────────
   if (rb.base !== null) {
-    const changedMd = getChangedFiles(rb.base).filter((f) => f.endsWith('.md'));
+    const changedMd = getChangedFiles(rb.base, 'ACMR', rb.head).filter((f) =>
+      f.endsWith('.md'),
+    );
     if (changedMd.length > 0) {
       const r = run('lychee', ['--offline', '--no-progress', ...changedMd]);
       if (r.notFound) {
-        process.stdout.write('⚠ lychee not found in PATH — offline link check skipped.\n');
-        process.stdout.write('  Install: cargo install lychee   OR   brew install lychee\n');
+        process.stdout.write(
+          '⚠ lychee not found in PATH — offline link check skipped.\n',
+        );
+        process.stdout.write(
+          '  Install: cargo install lychee   OR   brew install lychee\n',
+        );
       } else {
         emit(r);
         if (r.exitCode !== 0) {
-          die('❌ lychee found broken links in changed Markdown files — fix before push', r);
+          die(
+            '❌ lychee found broken links in changed Markdown files — fix before push',
+            r,
+          );
         }
       }
     }

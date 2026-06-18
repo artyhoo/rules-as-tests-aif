@@ -5,7 +5,7 @@
  *
  * After the J5 → symlink-to-canonical migration (SSOT #110), both helpers
  * call `scripts/link-coordination.sh` instead of running rsync directly.
- * The positive test checks that kickoff.md is reachable AS A SYMLINK pointing
+ * The positive test checks that state.md is reachable AS A SYMLINK pointing
  * into $CANON; the paired-negative test strips the link-coordination.sh call
  * and asserts the kickoff is absent (proving the wiring is load-bearing).
  *
@@ -128,10 +128,12 @@ function setupRepoWithKickoffs(): string {
 
   execSync('git add . && git commit -q -m init', { cwd: dir });
 
-  // Now add a gitignored kickoff to the primary checkout (not committed)
+  // Now add a gitignored state.md to the primary checkout (not committed).
+  // SSOT #116: kickoff.md is a tracked durable doc (link-coordination skips */kickoff.md);
+  // state.md is the per-umbrella gitignored regenerable runtime the helpers seed + symlink.
   writeFileSync(
-    resolve(dir, '.claude/orchestrator-prompts/my-umbrella/kickoff.md'),
-    '# my-umbrella kickoff\nThis is the real kickoff content.\n',
+    resolve(dir, '.claude/orchestrator-prompts/my-umbrella/state.md'),
+    '# my-umbrella state\nThis is the real runtime state content.\n',
   );
 
   // Primary node_modules symlink target
@@ -191,22 +193,22 @@ describe.skipIf(!JQ)(
       try { rmSync(canon, { recursive: true, force: true }); } catch { /* ignore */ }
     });
 
-    it('POSITIVE: kickoff.md present AS A SYMLINK in worktree after creation', () => {
+    it('POSITIVE: state.md present AS A SYMLINK in worktree after creation', () => {
       const r = runHook(hookPayload('hyd-pos', repo), {
         CLAUDE_PROJECT_DIR: repo,
         CLAUDE_COORDINATION_DIR: canon,
       });
       expect(r.status).toBe(0);
       const wt = `${repo}/.claude/worktrees/hyd-pos`;
-      const kickoffPath = `${wt}/.claude/orchestrator-prompts/my-umbrella/kickoff.md`;
-      expect(existsSync(kickoffPath), 'kickoff.md must exist').toBe(true);
-      // With symlink-to-canonical, kickoff.md is a symlink (adopted from primary seed)
-      expect(lstatSync(kickoffPath).isSymbolicLink(), 'kickoff.md must be a symlink into $CANON').toBe(true);
-      const content = readFileSync(kickoffPath, 'utf8');
-      expect(content).toContain('my-umbrella kickoff');
+      const statePath = `${wt}/.claude/orchestrator-prompts/my-umbrella/state.md`;
+      expect(existsSync(statePath), 'state.md must exist').toBe(true);
+      // With symlink-to-canonical, state.md is a symlink (adopted from primary seed)
+      expect(lstatSync(statePath).isSymbolicLink(), 'state.md must be a symlink into $CANON').toBe(true);
+      const content = readFileSync(statePath, 'utf8');
+      expect(content).toContain('my-umbrella state');
     });
 
-    it('PAIRED-NEGATIVE: without link-coordination.sh call, kickoff.md is ABSENT (T-coord-sync)', () => {
+    it('PAIRED-NEGATIVE: without link-coordination.sh call, state.md is ABSENT (T-coord-sync)', () => {
       // Create a stripped version of the hook without the link-coordination.sh call
       // and verify the worktree does NOT contain the kickoff.
       const strippedHook = (() => {
@@ -230,7 +232,7 @@ describe.skipIf(!JQ)(
         const wt = result.trim();
         // Worktree was created but kickoff must be ABSENT (the gap)
         expect(
-          existsSync(`${wt}/.claude/orchestrator-prompts/my-umbrella/kickoff.md`),
+          existsSync(`${wt}/.claude/orchestrator-prompts/my-umbrella/state.md`),
         ).toBe(false);
       } finally {
         try { rmSync(tmpHook); } catch { /* ignore */ }
@@ -256,16 +258,16 @@ describe(
       try { rmSync(canon, { recursive: true, force: true }); } catch { /* ignore */ }
     });
 
-    it('POSITIVE: kickoff.md present AS A SYMLINK in worktree after script run', () => {
+    it('POSITIVE: state.md present AS A SYMLINK in worktree after script run', () => {
       const r = runScript(['hyd-script-pos', repo], { CLAUDE_COORDINATION_DIR: canon });
       expect(r.status).toBe(0);
       const wt = `${repo}/.claude/worktrees/hyd-script-pos`;
-      const kickoffPath = `${wt}/.claude/orchestrator-prompts/my-umbrella/kickoff.md`;
-      expect(existsSync(kickoffPath), 'kickoff.md must exist').toBe(true);
-      expect(lstatSync(kickoffPath).isSymbolicLink(), 'kickoff.md must be a symlink').toBe(true);
+      const statePath = `${wt}/.claude/orchestrator-prompts/my-umbrella/state.md`;
+      expect(existsSync(statePath), 'state.md must exist').toBe(true);
+      expect(lstatSync(statePath).isSymbolicLink(), 'state.md must be a symlink').toBe(true);
     });
 
-    it('PAIRED-NEGATIVE (script): without link-coordination.sh call, kickoff.md absent (T-coord-sync)', () => {
+    it('PAIRED-NEGATIVE (script): without link-coordination.sh call, state.md absent (T-coord-sync)', () => {
       const strippedScript = (() => {
         const src = readFileSync(SCRIPT, 'utf8');
         // Remove the line calling link-coordination.sh
@@ -285,7 +287,7 @@ describe(
         });
         const wt = result.trim();
         expect(
-          existsSync(`${wt}/.claude/orchestrator-prompts/my-umbrella/kickoff.md`),
+          existsSync(`${wt}/.claude/orchestrator-prompts/my-umbrella/state.md`),
         ).toBe(false);
       } finally {
         try { rmSync(tmpScript); } catch { /* ignore */ }
@@ -298,11 +300,11 @@ describe(
       const r = runScript(['hyd-parity', repo], { CLAUDE_COORDINATION_DIR: canon });
       expect(r.status).toBe(0);
       const wt = `${repo}/.claude/worktrees/hyd-parity`;
-      const kickoffPath = `${wt}/.claude/orchestrator-prompts/my-umbrella/kickoff.md`;
-      expect(existsSync(kickoffPath), 'kickoff.md must exist').toBe(true);
-      expect(lstatSync(kickoffPath).isSymbolicLink(), 'kickoff.md must be symlink').toBe(true);
-      const content = readFileSync(kickoffPath, 'utf8');
-      expect(content).toContain('my-umbrella kickoff');
+      const statePath = `${wt}/.claude/orchestrator-prompts/my-umbrella/state.md`;
+      expect(existsSync(statePath), 'state.md must exist').toBe(true);
+      expect(lstatSync(statePath).isSymbolicLink(), 'state.md must be symlink').toBe(true);
+      const content = readFileSync(statePath, 'utf8');
+      expect(content).toContain('my-umbrella state');
     });
   },
 );

@@ -31,6 +31,14 @@ H="$T/packages/core/hooks"
 [ -f "$H/checks/prior-art.ts" ] && ok "checks/prior-art.ts shipped" || bad "checks/prior-art.ts missing"
 [ -f "$H/checks/s17.ts" ]       && ok "checks/s17.ts shipped"       || bad "checks/s17.ts missing"
 
+# GH #532 — the hooks-scoped {"type":"module"} marker must ship so the ESM-authored pre-push.ts
+# loads as ESM in the consumer (whose root package.json — here "f1t", no "type" — defaults to CJS).
+# Without it tsx's require(esm) bridge dies with ERR_REQUIRE_CYCLE_MODULE on Node ≥22, before any
+# check runs. Structural assertion (catchable on CI's Node 20, where the runtime crash itself isn't).
+[ -f "$H/package.json" ] && grep -q '"type"[[:space:]]*:[[:space:]]*"module"' "$H/package.json" \
+  && ok "GH#532: hooks/package.json ships with type:module (ESM-loads the shipped .ts hook)" \
+  || bad "GH#532: hooks/package.json missing or lacks type:module — shipped pre-push.ts will load as CJS and crash on Node ≥22"
+
 # PAIRED-NEGATIVE arm 1 — fallback still lands (TS arm is additive, not a replacement)
 [ -f "$H/pre-push.fallback.sh" ] && ok "neg: bash fallback still shipped (TS arm is additive)" || bad "neg: fallback lost"
 

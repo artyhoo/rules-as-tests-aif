@@ -111,7 +111,7 @@ Total open umbrellas: <K> (after §2.5 completion-filter; recently DONE entries 
 
 ## §1B Named-dispatch compact format (pipeline-ux Stage 2)
 
-> **Origin:** pipeline-ux Stage 2 (2026-06-04). Operator feedback: «почему столько текста». The live run produced walls of per-step narration on every `/pipeline <umbrella>` invocation.
+> **Origin:** pipeline-ux Stage 2 (2026-06-04). Operator feedback: "why so much text". The live run produced walls of per-step narration on every `/pipeline <umbrella>` invocation.
 
 Emitted by `/pipeline <umbrella>` (string arg). Same 3-layer structure as §1 but **bounded to ≤~15 visible lines**: dep-graph + action-queue + 1-liner blocks WITHOUT the verbose 3-line `What it does / Deliverable / Why now` description block per stage. Description blocks are optional in named-dispatch mode — the operator already selected the umbrella.
 
@@ -190,11 +190,11 @@ Stage 3 — after Stage 2 merges:
 
 **Required columns** (principle 18 grep-checks these column-header substrings):
 
-| # | Paste into a new CC tab | When | Waiting on | Can parallel with |
-|---|-------------------------|------|------------|-------------------|
-| 1 | Stage 1 block below | Now | — | Stage 1 sibling (if any) |
-| 2 | Stage 2 block below | After Stage 1 merges | <PR# / event> | Stage 2 sibling (if any) |
-| 3 | … | … | … | … |
+| #   | Paste into a new CC tab | When                 | Waiting on    | Can parallel with        |
+| --- | ----------------------- | -------------------- | ------------- | ------------------------ |
+| 1   | Stage 1 block below     | Now                  | —             | Stage 1 sibling (if any) |
+| 2   | Stage 2 block below     | After Stage 1 merges | <PR# / event> | Stage 2 sibling (if any) |
+| 3   | …                       | …                    | …             | …                        |
 
 Tail line below the table:
 
@@ -230,7 +230,7 @@ Exactly one block per stage. Maintainer pastes the entire block into a fresh CC 
 
 ## §4.1 Description block above each 1-liner (mandatory, prose-discipline)
 
-> **Origin:** 2026-05-25 maintainer feedback («Why is there no description of what each one does? … shouldn't the meta-orchestrator prompts include descriptions»). Spec gap identified post-F.3-ship: §1 template + §5 examples produced heading + 1-liner with no plain-language context, which is paste-able but not *reader-comprehensible* without opening the kickoff. Maintainer chose **Option A** (template + examples patch, no principle 18 extension) over Option B (mechanical gate via `**What it does:**` substring grep).
+> **Origin:** 2026-05-25 maintainer feedback («Why is there no description of what each one does? … shouldn't the meta-orchestrator prompts include descriptions»). Spec gap identified post-F.3-ship: §1 template + §5 examples produced heading + 1-liner with no plain-language context, which is paste-able but not _reader-comprehensible_ without opening the kickoff. Maintainer chose **Option A** (template + examples patch, no principle 18 extension) over Option B (mechanical gate via `**What it does:**` substring grep).
 
 Every `### Stage X — <name> (<Mode>, <cost>)` heading MUST be followed by a 3-line description block BEFORE the `/orchestrator …` 1-liner:
 
@@ -246,7 +246,7 @@ Every `### Stage X — <name> (<Mode>, <cost>)` heading MUST be followed by a 3-
 
 **Why this block is load-bearing:**
 
-- `/pipeline`'s entire purpose is to dispatch *fresh CC-sessions without the maintainer's current session context*. Each paste = one autonomous world. The 1-liner starts with `/orchestrator` and is optimised for the **receiving** session (it re-reads kickoff). The description block is optimised for the **maintainer-reader who must decide whether to paste**.
+- `/pipeline`'s entire purpose is to dispatch _fresh CC-sessions without the maintainer's current session context_. Each paste = one autonomous world. The 1-liner starts with `/orchestrator` and is optimised for the **receiving** session (it re-reads kickoff). The description block is optimised for the **maintainer-reader who must decide whether to paste**.
 - Without the block, the reader must open `kickoff.md §<anchor>` to learn what the dispatched session will produce — which defeats the one-message-one-session pattern.
 - `### Stage X — <name> (<Mode>, <cost>)` heading answers «**how** big / **what** mode» — not «**what** the work is / **why** now». The three triplet fields close that gap.
 

@@ -40,3 +40,29 @@ MO_STOP_BASE='with|from|that|this|into|over|then|kickoff|umbrella|phase|stage|wo
 # Tokeniser filter tail: from stdin (one token per line, already lowercased + split by the
 # caller), keep tokens >= 4 chars, strip stopwords ($1, default MO_STOP_BASE), sort unique.
 mo_filter_tokens() { awk 'length>=4' | grep -vE "^(${1:-$MO_STOP_BASE})$" | sort -u || true; }
+
+# ── Orchestration-home resolution (consumer-usable /pipeline, 2026-06-16) ───────────────
+# The skill file is identical in framework and consumer (install copies it). Differentiate at
+# RUNTIME by presence: the framework dogfoods kickoffs in .claude/orchestrator-prompts/ (a
+# Claude-Code dir); a consumer must NOT couple its backlog to one harness, so its data lives in
+# the agnostic .ai-factory/ namespace (dual-implementation-discipline.md §3). MO_ORCH_HOME /
+# MO_WAVE_PLAN env overrides win over detection (test seam + power-user escape hatch).
+resolve_orch_home() {
+  if [ -n "${MO_ORCH_HOME:-}" ]; then printf '%s\n' "${MO_ORCH_HOME}"; return; fi
+  if [ -d "${REPO_ROOT}/.claude/orchestrator-prompts" ]; then
+    printf '%s\n' "${REPO_ROOT}/.claude/orchestrator-prompts"      # framework dogfood
+  else
+    printf '%s\n' "${REPO_ROOT}/.ai-factory/orchestrator-prompts"  # agnostic consumer default
+  fi
+}
+
+# The backlog-priority registry ("wave plan"). Framework keeps docs/meta-factory/wave-sequencing-plan.md;
+# a consumer's plan lives beside its kickoffs at <orch-home>/plan.md (created on first run, SKILL §1).
+resolve_plan_path() {
+  if [ -n "${MO_WAVE_PLAN:-}" ]; then printf '%s\n' "${MO_WAVE_PLAN}"; return; fi
+  if [ -f "${REPO_ROOT}/docs/meta-factory/wave-sequencing-plan.md" ]; then
+    printf '%s\n' "${REPO_ROOT}/docs/meta-factory/wave-sequencing-plan.md"
+  else
+    printf '%s\n' "$(resolve_orch_home)/plan.md"
+  fi
+}

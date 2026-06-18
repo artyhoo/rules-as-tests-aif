@@ -15,7 +15,13 @@
 
 ```json
 [
-  {"number": 411, "title": "feat(n8-bar): sub-wave A — parser", "state": "OPEN", "headRefName": "worktree-n8-bar-a", "baseRefName": "staging"}
+  {
+    "number": 411,
+    "title": "feat(n8-bar): sub-wave A — parser",
+    "state": "OPEN",
+    "headRefName": "worktree-n8-bar-a",
+    "baseRefName": "staging"
+  }
 ]
 ```
 
@@ -23,8 +29,20 @@
 
 ```json
 [
-  {"number": 409, "title": "chore(deps): bump vitest", "state": "MERGED", "headRefName": "chore-bump-vitest", "baseRefName": "staging"},
-  {"number": 408, "title": "docs(readme): badge fix", "state": "MERGED", "headRefName": "docs-badge-fix", "baseRefName": "staging"}
+  {
+    "number": 409,
+    "title": "chore(deps): bump vitest",
+    "state": "MERGED",
+    "headRefName": "chore-bump-vitest",
+    "baseRefName": "staging"
+  },
+  {
+    "number": 408,
+    "title": "docs(readme): badge fix",
+    "state": "MERGED",
+    "headRefName": "docs-badge-fix",
+    "baseRefName": "staging"
+  }
 ]
 ```
 
