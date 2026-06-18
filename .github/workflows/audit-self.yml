@@ -305,6 +305,8 @@ jobs:
         run: bash tests/install-sh/consumer-pipeline.test.sh
       - name: install-sh — consumer-upgrade-path (--refresh acceptance gate — stale-refreshed + customise-survives)
         run: bash tests/install-sh/consumer-upgrade-path.test.sh
+      - name: install-sh — gh-636 dispatcher tsx probe (degrade to fallback, never crash on unresolvable tsx)
+        run: bash tests/install-sh/gh-636-dispatcher-tsx-probe.test.sh
       - name: install-sh — wire-eslint-r2 (GH #547 Layer 2 AST wirer degrade fixtures D+F)
         run: bash tests/install-sh/wire-eslint-r2.test.sh
       - name: install-sh — f16 stryker live-mutants (post-install liveness smoke #549 class)
