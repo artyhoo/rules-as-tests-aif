@@ -23,7 +23,8 @@
  *            prior-art-evaluations.md#118 (check:enforced oracle ADOPT)
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
@@ -199,6 +200,49 @@ export interface ResolveWireArgs {
   configPath: string;
   cwd: string;
   runProbe: (configPath: string, cwd: string) => Promise<ProbeVerdict>;
+}
+
+function synthProbeTarget(configDir: string): string {
+  // ALWAYS synthesize (deterministic). The bare element is global (no `files`), so the verdict
+  // depends only on whether the plugin is registered anywhere, not on which file we probe.
+  const p = resolve(configDir, '__aif_r2_probe__.ts');
+  writeFileSync(p, 'export const __aif_probe = 1;\n', 'utf8');
+  return p;
+}
+
+/**
+ * Default probe: resolve the consumer's eslint and run `--print-config` on a synthesized target.
+ * eslint's package `exports` does NOT expose `./bin/eslint.js` (resolve throws ERR_PACKAGE_PATH_NOT_EXPORTED
+ * on v9/v10) — resolve the EXPORTED `./package.json` and derive the bin path. GH #644 (#535 trap).
+ */
+export async function probeViaEslint(configPath: string, cwd: string): Promise<ProbeVerdict> {
+  let eslintBin: string;
+  try {
+    const reqd = createRequire(resolve(cwd, 'package.json'));
+    const pj = reqd.resolve('eslint/package.json');
+    eslintBin = join(dirname(pj), 'bin', 'eslint.js');
+    if (!existsSync(eslintBin)) return 'unavailable';
+  } catch {
+    return 'unavailable';
+  }
+  const dir = dirname(resolve(configPath));
+  const target = synthProbeTarget(dir);
+  try {
+    execFileSync(process.execPath, [eslintBin, '--print-config', target], { cwd: dir, stdio: 'pipe' });
+    return 'ok';
+  } catch (e: unknown) {
+    const stderr = String((e as { stderr?: Buffer }).stderr ?? '');
+    if (/could not find plugin/i.test(stderr)) return 'could-not-find-plugin';
+    // Surface WHY we degrade (e.g. type-aware projectService/tsconfig error) — no silent degrade.
+    console.error(`  · R2 probe: unexpected eslint error → degrading:\n${stderr.slice(0, 400)}`);
+    return 'other-error';
+  } finally {
+    try {
+      unlinkSync(target);
+    } catch {
+      /* best-effort */
+    }
+  }
 }
 
 /**
