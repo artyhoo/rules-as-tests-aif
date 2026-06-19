@@ -342,15 +342,13 @@ async function main(): Promise<void> {
       break;
 
     case 'wired': {
-      const diff = buildLineDiff(result.original, result.modified);
+      const diff = buildLineDiff(result.original, result.modified); // bare preview
       if (dryRun || diffOnly) {
         console.log(`Diff for ${configPath}:\n${diff}`);
         process.exit(0);
       }
 
-      console.log(`\nProposed change to ${configPath}:\n`);
-      console.log(diff);
-      console.log('');
+      console.log(`\nProposed change to ${configPath}:\n${diff}\n`);
 
       let apply = assumeYes;
       if (!apply) {
@@ -361,21 +359,28 @@ async function main(): Promise<void> {
         }
         const { createInterface } = await import('node:readline');
         const rl = createInterface({ input: process.stdin, output: process.stdout });
-        const answer = await new Promise<string>((resolve) => {
-          rl.question('Apply this change? [y/N] ', resolve);
+        const answer = await new Promise<string>((done) => {
+          rl.question('Apply this change? [y/N] ', done);
         });
         rl.close();
         apply = /^y(es)?$/i.test(answer.trim());
       }
 
-      if (apply) {
-        writeFileSync(configPath, result.modified, 'utf8');
-        console.log(`  ✓ R2 wired into ${configPath}`);
+      if (!apply) {
+        console.log(generateDegradedSnippet(configPath));
+        process.exit(0);
+      }
+
+      // Apply through the probe loop: bare → escalate to self-contained → degrade.
+      const wired = await resolveAndWire({ configPath, cwd: process.cwd(), runProbe: probeViaEslint });
+      if (wired.status === 'wired') {
+        console.log(`  ✓ R2 wired into ${configPath} (${wired.variant})`);
+      } else if (wired.status === 'already-wired') {
+        console.log(`· R2 already enforced in ${configPath}`);
       } else {
         console.log(generateDegradedSnippet(configPath));
       }
       process.exit(0);
-      break;
     }
   }
 }
