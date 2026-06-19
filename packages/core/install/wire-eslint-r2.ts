@@ -191,6 +191,54 @@ export async function wireConfigSource(source: string, opts: TransformOpts = {})
   return { status: 'wired', original: source, modified, variant };
 }
 
+// ─── Probe-driven resolution (try-bare → escalate → degrade) ────────────────────
+
+export type ProbeVerdict = 'ok' | 'could-not-find-plugin' | 'unavailable' | 'other-error';
+
+export interface ResolveWireArgs {
+  configPath: string;
+  cwd: string;
+  runProbe: (configPath: string, cwd: string) => Promise<ProbeVerdict>;
+}
+
+/**
+ * Write the bare element, ask ESLint (via runProbe) whether the config loads, and escalate to
+ * the self-contained (plugin-registering) element ONLY on `could-not-find-plugin`. Bare never
+ * registers a plugin → "Cannot redefine plugin" is unreachable by construction. Any non-ok
+ * terminal verdict restores the original (no half-edit). GH #644.
+ */
+export async function resolveAndWire(args: ResolveWireArgs): Promise<WireResult> {
+  const { configPath, cwd, runProbe } = args;
+  const original = readFileSync(configPath, 'utf8');
+  if (original.includes(R2_RULE_ID)) {
+    return { status: 'already-wired', original, modified: original };
+  }
+
+  // 1. bare
+  const bare = await wireConfigSource(original, { variant: 'bare' });
+  if (bare.status !== 'wired') return bare; // unrecognised / degrade — nothing written
+  writeFileSync(configPath, bare.modified, 'utf8');
+
+  // 2. probe
+  const v1 = await runProbe(configPath, cwd);
+  if (v1 === 'ok') return { ...bare, variant: 'bare' };
+
+  // 3. escalate: self-contained (only when the base registers the plugin nowhere)
+  if (v1 === 'could-not-find-plugin') {
+    const spec = customRulesImportSpecifier(configPath, cwd);
+    const sc = await wireConfigSource(original, { variant: 'self-contained', customRulesImportPath: spec });
+    if (sc.status === 'wired') {
+      writeFileSync(configPath, sc.modified, 'utf8');
+      const v2 = await runProbe(configPath, cwd);
+      if (v2 === 'ok') return { ...sc, variant: 'self-contained' };
+    }
+  }
+
+  // 4. degrade: restore, never leave a half-edit
+  writeFileSync(configPath, original, 'utf8');
+  return { status: 'degrade', original, modified: original, degradeReason: `probe verdict: ${v1}` };
+}
+
 // ─── CLI entry point ──────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
