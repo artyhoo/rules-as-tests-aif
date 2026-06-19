@@ -73,8 +73,9 @@ export interface WireResult {
 export function generateDegradedSnippet(configPath: string): string {
   return [
     `· R2 not auto-wired: AST editor unavailable (Node or ts-morph not present).`,
-    `  Add to ${configPath}:`,
-    `    export default [...base, { rules: { '${R2_RULE_ID}': 'error' } }];`,
+    `  Add to ${configPath} (adjust the relative path to your eslint-rules-local/):`,
+    `    import customRules from './eslint-rules-local/index.ts';`,
+    `    export default [...base, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`,
     `  (or run ./install.sh ts-server --full to install dev-deps and auto-wire)`,
   ].join('\n');
 }
@@ -335,8 +336,9 @@ async function main(): Promise<void> {
     case 'unrecognised':
       console.log([
         `· R2 not auto-wired: ${configPath} uses an unrecognised export shape.`,
-        `  Add manually:`,
-        `    export default [...yourConfig, { rules: { '${R2_RULE_ID}': 'error' } }];`,
+        `  Add manually (adjust the relative path to your eslint-rules-local/):`,
+        `    import customRules from './eslint-rules-local/index.ts';`,
+        `    export default [...yourConfig, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`,
       ].join('\n'));
       process.exit(0);
       break;

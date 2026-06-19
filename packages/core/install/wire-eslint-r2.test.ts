@@ -265,3 +265,12 @@ describe('resolveAndWire (#644)', () => {
     expect(readFileSync(p, 'utf8')).toBe(wired);
   });
 });
+
+describe('manual snippets are self-contained (#644)', () => {
+  it('degraded snippet registers the plugin (import + plugins), not a bare rule', () => {
+    const s = generateDegradedSnippet('apps/api/eslint.config.mjs');
+    expect(s).toContain('eslint-rules-local');
+    expect(s).toContain(`plugins: { 'rules-as-tests': customRules }`);
+    expect(s).toContain(R2_RULE_ID);
+  });
+});
