@@ -18,14 +18,7 @@ FALLBACK="$REPO_ROOT/packages/core/hooks/pre-push.fallback.sh"
 
 node_major() { node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0; }
 
-# The trailing probe (`node --import tsx/esm -e ''`) actually exercises the tsx ESM
-# loader: on a pnpm monorepo tsx can live in a sub-package and not resolve from the
-# repo root, so `--import tsx/esm` would throw and the hook would CRASH instead of
-# degrading. A failing probe falls through to the bash FALLBACK — never a hard crash
-# that blocks `git push` (GH #636). Deliberate ~130ms/push cost: do NOT remove without
-# understanding it guards against an unresolvable-tsx hard crash.
-if command -v node >/dev/null 2>&1 && [ "$(node_major)" -ge 20 ] && [ -f "$TS_HOOK" ] \
-   && node --import tsx/esm -e '' >/dev/null 2>&1; then
+if command -v node >/dev/null 2>&1 && [ "$(node_major)" -ge 20 ] && [ -f "$TS_HOOK" ]; then
   exec node --import tsx/esm "$TS_HOOK"
 elif [ -x "$FALLBACK" ]; then
   exec bash "$FALLBACK"
