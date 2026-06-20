@@ -5,11 +5,9 @@
  * flat-config (.mjs). Uses ts-morph for targeted minimal-edit with format
  * preservation (Fixture E invariant: unchanged lines are byte-identical).
  *
- * Ensure-then-use: install.sh's bash probe checks node AND the consumer's
- * node_modules/ts-morph BEFORE calling this script. Both that probe and this
- * module's :86 import resolve ts-morph from the consumer's cwd, NOT the framework
- * checkout this file lives in (GH #642). The import still degrades gracefully on
- * failure as a belt-and-suspenders (genuine consumer-absence path).
+ * Ensure-then-use: the bash probe (install.sh §8+) checks node AND
+ * node_modules/ts-morph/package.json BEFORE calling this script.
+ * This module degrades gracefully on import failure as a belt-and-suspenders.
  *
  * @cc-only-rationale: runs in consumer context after --full dep-install; the
  *   bash probe is the primary gatekeeper; this degrade is secondary belt.
@@ -24,10 +22,8 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import process from 'node:process';
-import { pathToFileURL } from 'node:url';
 
 export const R2_RULE_ID = 'rules-as-tests/no-unsafe-zod-parse';
 const R2_ELEMENT = `{ rules: { '${R2_RULE_ID}': 'error' } }`;
@@ -83,18 +79,11 @@ export async function wireConfigSource(source: string): Promise<WireResult> {
     return { status: 'already-wired', original: source, modified: source };
   }
 
-  // Dynamic import resolved from process.cwd(), NOT this file's directory.
-  // install.sh runs the wirer from the framework checkout (PKG_ROOT/packages/core/
-  // install/wire-eslint-r2.ts) with cwd=consumer-root. A bare `import('ts-morph')`
-  // resolves relative to the importing FILE (the framework tree) — so it would miss
-  // the consumer's freshly-installed ts-morph and falsely degrade (GH #642). Anchor
-  // resolution to the consumer's cwd so the engine installed by `--full` is found.
+  // Dynamic import — degrade if ts-morph not resolvable in CWD's node_modules
   let Project: any;
   let SyntaxKind: any;
   try {
-    const requireFromCwd = createRequire(resolve(process.cwd(), 'package.json'));
-    const tsMorphPath = requireFromCwd.resolve('ts-morph'); // resolves from <cwd>/node_modules
-    const mod = await import(pathToFileURL(tsMorphPath).href); // file URL — raw abs path → ERR_UNSUPPORTED_ESM_URL_SCHEME
+    const mod = await import('ts-morph');
     Project = mod.Project;
     SyntaxKind = mod.SyntaxKind;
   } catch {
