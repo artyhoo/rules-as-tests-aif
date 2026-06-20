@@ -226,10 +226,21 @@ export async function probeViaEslint(configPath: string, cwd: string): Promise<P
   } catch {
     return 'unavailable';
   }
+  // tsx loader lets eslint load a config that imports a `.ts` barrel on ANY Node (the shipped
+  // .nvmrc is 20.x — no native type-stripping; plain node → ERR_UNKNOWN_FILE_EXTENSION). tsx is a
+  // consumer devDep + the pre-push-hook pattern (build-first-reuse). Absent → plain node (works on
+  // Node >=22.18, degrades on 20 — same as the consumer's own `eslint .` would).
+  const nodeArgs: string[] = [];
+  try {
+    createRequire(resolve(cwd, 'package.json')).resolve('tsx');
+    nodeArgs.push('--import', 'tsx');
+  } catch {
+    /* tsx not resolvable → plain node */
+  }
   const dir = dirname(resolve(configPath));
   const target = synthProbeTarget(dir);
   try {
-    execFileSync(process.execPath, [eslintBin, '--print-config', target], { cwd: dir, stdio: 'pipe' });
+    execFileSync(process.execPath, [...nodeArgs, eslintBin, '--print-config', target], { cwd: dir, stdio: 'pipe' });
     return 'ok';
   } catch (e: unknown) {
     const stderr = String((e as { stderr?: Buffer }).stderr ?? '');

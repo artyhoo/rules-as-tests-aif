@@ -421,8 +421,8 @@ if command -v jq >/dev/null 2>&1 && [ -f package.json ]; then
     echo "[dry-run] would: jq-mutate package.json scripts (lint/test/typecheck/audit:docs/...)"
   else
   jq --arg audit "$AUDIT_SCRIPT" \
-     '.scripts.lint                = "eslint . --max-warnings=0" |
-      .scripts["lint:fix"]         = "eslint . --fix" |
+     '.scripts.lint                = "NODE_OPTIONS=\"--import tsx\" eslint . --max-warnings=0" |
+      .scripts["lint:fix"]         = "NODE_OPTIONS=\"--import tsx\" eslint . --fix" |
       .scripts.format              = "prettier --write ." |
       .scripts["format:check"]     = "prettier --check ." |
       .scripts.typecheck           = "tsc --noEmit" |
@@ -442,8 +442,8 @@ else
   cat <<'EOF'
 
   "scripts": {
-    "lint": "eslint . --max-warnings=0",
-    "lint:fix": "eslint . --fix",
+    "lint": "NODE_OPTIONS=\"--import tsx\" eslint . --max-warnings=0",
+    "lint:fix": "NODE_OPTIONS=\"--import tsx\" eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
