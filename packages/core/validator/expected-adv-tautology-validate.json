@@ -1,0 +1,26 @@
+{
+  "ok": false,
+  "gates": {
+    "schema": {
+      "status": "pass",
+      "failures": []
+    },
+    "ruleTester": {
+      "status": "pass",
+      "failures": []
+    },
+    "tautology": {
+      "status": "fail",
+      "failures": [
+        {
+          "ruleId": "G99",
+          "reason": "tautology — rule 'no-restricted-imports' fires on negative-corpus/unrelated.tsx: 'react' import is restricted from being used. tautology-test"
+        }
+      ]
+    },
+    "conflict": {
+      "status": "pass",
+      "failures": []
+    }
+  }
+}
