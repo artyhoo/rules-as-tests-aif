@@ -16,7 +16,7 @@ const RECIPES_ROOT = resolve(HERE, 'recipes');
 const SCHEMA_PATH = resolve(HERE, 'synthesis-plan.schema.json');
 const RECIPE_SCHEMA_PATH = resolve(HERE, 'recipe.schema.json');
 
-interface Recipe {
+export interface Recipe {
   patternId: string;
   appliesTo: string[];
   rule: Omit<SynthesizedRule, 'id' | 'research'>;
@@ -49,7 +49,7 @@ export class RecipeError extends Error {
   }
 }
 
-function loadRecipe(patternId: string): Recipe | null {
+export function loadRecipe(patternId: string): Recipe | null {
   const path = resolve(RECIPES_ROOT, `${patternId}.json`);
   if (!existsSync(path)) return null;
   const raw = JSON.parse(readFileSync(path, 'utf8'));
