@@ -192,14 +192,22 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
   });
 
   // ── (e) drift guard — relocated inject-matching-rule keeps its source's logic ─
-  it('(e) drift: plugin/hooks/inject-matching-rule shares the source hook anchor + core logic', () => {
+  it('(e) drift: plugin/hooks/inject-matching-rule core logic is byte-identical to its source', () => {
     const plugin = readFileSync(resolve(PLUGIN, 'hooks/inject-matching-rule'), 'utf8');
     const source = readFileSync(resolve(REPO_ROOT, '.claude/hooks/inject-matching-rule.sh'), 'utf8');
-    // Same @dual-pair anchor (the §5 dual-implementation contract) + the same glob-match core.
+    // Same @dual-pair anchor (the §5 dual-implementation contract).
     expect(plugin).toMatch(/@dual-pair: rule-path-scoping/);
     expect(source).toMatch(/@dual-pair: rule-path-scoping/);
-    expect(plugin).toMatch(/glob_match\(\)/);
-    expect(source).toMatch(/glob_match\(\)/);
+    // The ONLY legitimate divergence is the relocation (header + the project-dir resolution,
+    // which lives ABOVE glob_match). From `glob_match()` to EOF — the matcher + injection core —
+    // the two MUST be byte-identical, so a regression inside that logic is caught (not just a
+    // string-presence check). S6 cold-review hardening.
+    const coreOf = (s: string): string => {
+      const i = s.indexOf('glob_match()');
+      return i === -1 ? '' : s.slice(i);
+    };
+    expect(coreOf(plugin), 'plugin hook must contain the glob_match core').not.toBe('');
+    expect(coreOf(plugin), 'plugin/hooks/inject-matching-rule core logic drifted from .claude/hooks/inject-matching-rule.sh').toBe(coreOf(source));
   });
 
   // ── (f) T15 self-application — this gate is itself an executable artifact ────
