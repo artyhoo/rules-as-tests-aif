@@ -32,7 +32,7 @@ jobs:
           node-version: '20'
 
       - name: Install packages/core deps
-        run: npm install --prefix packages/core --silent
+        run: npm ci --prefix packages/core --silent
 
       - name: Run P1/P4/P6 template render probes
         run: npm --prefix packages/core run test:template-render

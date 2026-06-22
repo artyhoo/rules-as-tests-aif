@@ -162,7 +162,7 @@ jobs:
         with:
           node-version: '20'
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
-        run: npm install --prefix packages/core --silent
+        run: npm ci --prefix packages/core --silent
       - name: Run packages/core/audit-self/audit-ai-docs.test.ts (Wave 10.4 — vitest)
         run: |
           if [ -f packages/core/audit-self/audit-ai-docs.test.ts ]; then
@@ -203,7 +203,7 @@ jobs:
         with:
           node-version: '20'
       - name: Install packages/core deps
-        run: npm install --prefix packages/core --silent
+        run: npm ci --prefix packages/core --silent
       - name: Run principles meta-tests
         run: npm --prefix packages/core run test:principles
       # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
@@ -305,6 +305,10 @@ jobs:
         run: bash tests/install-sh/consumer-pipeline.test.sh
       - name: install-sh — consumer-upgrade-path (--refresh acceptance gate — stale-refreshed + customise-survives)
         run: bash tests/install-sh/consumer-upgrade-path.test.sh
+      - name: install-sh — gh-636 dispatcher tsx probe (degrade to fallback, never crash on unresolvable tsx)
+        run: bash tests/install-sh/gh-636-dispatcher-tsx-probe.test.sh
+      - name: install-sh — gh-636 ensure-tsx-root (install guarantees tsx resolves from workspace root; --full/offer/warn)
+        run: bash tests/install-sh/gh-636-ensure-tsx-root.test.sh
       - name: install-sh — wire-eslint-r2 (GH #547 Layer 2 AST wirer degrade fixtures D+F)
         run: bash tests/install-sh/wire-eslint-r2.test.sh
       - name: install-sh — f16 stryker live-mutants (post-install liveness smoke #549 class)
@@ -437,9 +441,9 @@ jobs:
         with:
           node-version: '20'
       - name: Install python pyyaml (required by audit probes)
-        run: pip install pyyaml
+        run: pip install pyyaml==6.0.2
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
-        run: npm install --prefix "$GITHUB_WORKSPACE/packages/core" --silent
+        run: npm ci --prefix "$GITHUB_WORKSPACE/packages/core" --silent
       - name: Self-install on tmp consumer (ts-server preset)
         run: |
           mkdir -p /tmp/fake-consumer-ts && cd /tmp/fake-consumer-ts
@@ -467,9 +471,9 @@ jobs:
         with:
           node-version: '20'
       - name: Install python pyyaml (required by audit probes)
-        run: pip install pyyaml
+        run: pip install pyyaml==6.0.2
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
-        run: npm install --prefix "$GITHUB_WORKSPACE/packages/core" --silent
+        run: npm ci --prefix "$GITHUB_WORKSPACE/packages/core" --silent
       - name: Self-install on tmp consumer (react-next preset)
         run: |
           mkdir -p /tmp/fake-consumer-rn && cd /tmp/fake-consumer-rn
@@ -728,11 +732,17 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install zizmor
-        run: pip install zizmor
+        # Pinned for determinism — bumping zizmor is a deliberate edit.
+        # 1.25.2 was pinned while 5 adhoc-packages findings (npm install --prefix steps)
+        # were triaged. Those findings are now fixed via npm ci --prefix; pin bumped to
+        # 1.26.1 so we track the current auditor and its tightened adhoc-packages rules.
+        run: pip install zizmor==1.26.1
       - name: Run zizmor
         # Plain console output. zizmor exits non-zero on findings; that's the gate.
         # Avoiding SARIF upload keeps this runnable without GitHub Advanced Security.
-        run: zizmor --format plain .github/workflows/
+        # Also scan the SHIPPED CI templates (#637) so they can't drift past the
+        # gate — they live OUTSIDE .github/workflows/, so these are extra path args.
+        run: zizmor --format plain .github/workflows/ templates/ts-server/github-actions-ci.yml templates/ts-server/github-actions-workflow-integrity.yml packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml
 
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just

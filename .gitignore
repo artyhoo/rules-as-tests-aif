@@ -42,7 +42,8 @@ packages/*/reports/
 /.ai-factory/
 /.ai-factory.json
 /.codex/
-/.opencode/
+/.opencode/*
+!/.opencode/INSTALL.md
 /.claude/agents/
 /.claude/skills/aif/
 /.claude/skills/aif-*/

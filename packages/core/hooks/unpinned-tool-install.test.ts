@@ -1,0 +1,266 @@
+/**
+ * Paired-negative tests for the unpinned-tool-install pre-push gate
+ * (issue #654, .claude/rules/ci-tool-pinning.md §1 Rule A).
+ *
+ * Principle 02 (paired-negative) requirement: one positive test that TRIPS
+ * the check (would-flag), one negative test that PASSES (would-not-flag).
+ *
+ * Pure-function design: checkUnpinnedToolInstalls() takes workflow file content
+ * as a string (parallel to checkS17TrailerBody in checks/s17.ts), enabling
+ * unit-testing without filesystem I/O.
+ */
+import { describe, it, expect } from 'vitest';
+import {
+  checkUnpinnedToolInstalls,
+  type UnpinnedFinding,
+} from './checks/unpinned-tool-install.ts';
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function findingsFor(content: string, filename = 'test.yml'): UnpinnedFinding[] {
+  return checkUnpinnedToolInstalls(content, filename);
+}
+
+function trips(content: string): boolean {
+  return findingsFor(content).length > 0;
+}
+
+function passes(content: string): boolean {
+  return findingsFor(content).length === 0;
+}
+
+// ── POSITIVE: fixtures that SHOULD trip the check ────────────────────────────
+
+describe('unpinned-tool-install check — TRIPS (positive — violation)', () => {
+  it('pip install without version pin trips the check', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - name: Install pyyaml
+        run: pip install pyyaml
+`;
+    expect(trips(yml)).toBe(true);
+  });
+
+  it('npm install -g without @version trips the check', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - name: Install zizmor
+        run: npm install -g some-tool
+`;
+    expect(trips(yml)).toBe(true);
+  });
+
+  it('npm i -g shorthand without @version trips the check', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: npm i -g some-tool
+`;
+    expect(trips(yml)).toBe(true);
+  });
+
+  it('npm install -g scoped package without @version trips (scope @ is not a version pin)', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: npm install -g @angular/cli
+`;
+    expect(trips(yml)).toBe(true);
+  });
+
+  it('pip install with trailing regular comment (not escape hatch) trips the check', () => {
+    // A regular comment does NOT activate the escape hatch.
+    // Only the exact token # ci-tool-pin: allow triggers exemption.
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: pip install pyyaml  # install pyyaml for audit probes
+`;
+    expect(trips(yml)).toBe(true);
+  });
+
+  it('pip install with wrong comment prefix trips the check', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: pip install foo  # allow this
+`;
+    // "allow this" without the exact "ci-tool-pin: allow" token → still flagged
+    expect(trips(yml)).toBe(true);
+  });
+
+  it('finding includes file:line for every flagged line', () => {
+    const yml = [
+      'jobs:',
+      '  build:',
+      '    steps:',
+      '      - run: pip install pyyaml',
+    ].join('\n');
+    const findings = findingsFor(yml, 'audit-self.yml');
+    expect(findings.length).toBe(1);
+    expect(findings[0].file).toBe('audit-self.yml');
+    expect(findings[0].line).toBeGreaterThan(0);
+    expect(findings[0].text).toContain('pip install pyyaml');
+    expect(findings[0].hint).toMatch(/==/);
+  });
+});
+
+// ── NEGATIVE: fixtures that SHOULD pass (no finding) ─────────────────────────
+
+describe('unpinned-tool-install check — PASSES (negative — no violation)', () => {
+  it('pip install with ==version passes', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: pip install pyyaml==6.0.2
+`;
+    expect(passes(yml)).toBe(true);
+  });
+
+  it('npm ci --prefix passes (lockfile-aware, not global install)', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: npm ci --prefix packages/core --silent
+`;
+    expect(passes(yml)).toBe(true);
+  });
+
+  it('pip install -r requirements.txt passes (requirements-file carve-out)', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: pip install -r requirements.txt
+`;
+    expect(passes(yml)).toBe(true);
+  });
+
+  it('pip install . passes (local editable carve-out)', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: pip install .
+`;
+    expect(passes(yml)).toBe(true);
+  });
+
+  it('pip install -e . passes (explicit editable flag carve-out)', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: pip install -e .
+`;
+    expect(passes(yml)).toBe(true);
+  });
+
+  it('comment line starting with # passes (not a shell command)', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: |
+          # pip install pyyaml is documented but not run here
+          echo "done"
+`;
+    expect(passes(yml)).toBe(true);
+  });
+
+  it('escape hatch: exact # ci-tool-pin: allow token on same line passes', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: pip install some-tool  # ci-tool-pin: allow no stable release; main branch only
+`;
+    expect(passes(yml)).toBe(true);
+  });
+
+  it('escape hatch: # ci-tool-pin: allow with no trailing reason also passes', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: pip install foo  # ci-tool-pin: allow
+`;
+    expect(passes(yml)).toBe(true);
+  });
+
+  it('npm install -g with @version passes', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: npm install -g zizmor@1.26.1
+`;
+    expect(passes(yml)).toBe(true);
+  });
+
+  it('npm install -g scoped package with @version passes (scope stripped, version pin present)', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: npm install -g @angular/cli@15.0.0
+`;
+    expect(passes(yml)).toBe(true);
+  });
+
+  it('zizmor==1.26.1 (pinned) passes', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: pip install zizmor==1.26.1
+`;
+    expect(passes(yml)).toBe(true);
+  });
+});
+
+// ── Mutation-killer boundary tests ────────────────────────────────────────────
+
+describe('unpinned-tool-install check — mutation-killer boundaries', () => {
+  it('empty content produces no findings', () => {
+    expect(findingsFor('')).toHaveLength(0);
+  });
+
+  it('unrelated shell commands produce no findings', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: echo hello
+      - run: ls -la
+      - run: git status
+`;
+    expect(passes(yml)).toBe(true);
+  });
+
+  it('pip install with == is NOT flagged (exact boundary: == present)', () => {
+    expect(passes('      - run: pip install foo==1.0\n')).toBe(true);
+  });
+
+  it('pip install WITHOUT == IS flagged (exact boundary: no ==)', () => {
+    expect(trips('      - run: pip install foo\n')).toBe(true);
+  });
+
+  it('multiple violations produce one finding per line', () => {
+    const yml = [
+      '      - run: pip install aaa',
+      '      - run: pip install bbb',
+    ].join('\n');
+    expect(findingsFor(yml).length).toBe(2);
+  });
+});

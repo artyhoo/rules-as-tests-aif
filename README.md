@@ -126,6 +126,28 @@ It runs four steps:
 
 > `setup.sh` (the previous end-to-end wrapper: `ai-factory init` + `npm install` + husky init + npm scripts via `jq`) is **legacy** — superseded by `./setup` and will be absorbed by it.
 
+### As a Claude Code plugin (per-harness)
+
+The **soft layer** (skills, sub-agents, session hooks) also ships as a Claude Code plugin from an in-repo marketplace:
+
+```text
+/plugin marketplace add Yhooi2/rules-as-tests-aif
+/plugin install rules-as-tests@rules-as-tests-aif
+```
+
+One install and the skills **auto-trigger** (a `SessionStart` hook injects a `using-rules-as-tests` bootstrap — no manual `Skill` call), the consumer-facing sub-agents resolve, and the path-scoped rule-injector fires on edits.
+
+**The honest boundary (soft vs hard).** A plugin **never** silently mutates your git/CI, so the plugin delivers only the soft layer. The **hard** layer — `.husky` pre-commit/pre-push hooks + the CI workflow that actually *fail the build* — is opt-in via one command:
+
+```text
+/rules-as-tests:install-enforcement
+```
+
+It previews the changes (dry-run, writes nothing), asks for `[y/N]`, then fetches the project's own official `install.sh` and wires `.husky` + CI into the current repo. Same installer, reached honestly.
+
+- **OpenCode (and other non-CC harnesses):** the same skills are portable — see [`.opencode/INSTALL.md`](.opencode/INSTALL.md). The one accepted off-CC degradation: `SessionStart` auto-injection does not fire, so the bootstrap skill is read on demand (a documented degradation, not a portability gap).
+- **Plugin vs `./setup`:** the plugin is the **soft-layer-first** path (great for "just give me the skills"); `./setup` / `install.sh` is the **full file deploy + hard layer** in one shot. Both reach the same `install.sh` for enforcement.
+
 ### Optional companion install (K-1)
 
 Companion installs run as `./setup` step 3, driven by a manifest (`setup.d/companions.manifest`) — one row per companion (detect command, install command, kind), looped by `setup.d/engine.sh`:

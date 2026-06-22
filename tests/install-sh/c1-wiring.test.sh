@@ -71,8 +71,13 @@ if [ -x "$HOOK_C548" ]; then
   # PAIRED-NEGATIVE: store a sha256 hash that mismatches → hook MUST emit "deps changed"
   # (proves the check is non-vacuous: real deps drift IS still caught)
   if [ -f "$C548/.ai-factory/tool-decisions.md" ]; then
-    sed -i 's/^deps-hash:.*/deps-hash: sha256-0000000000000000000000000000000000000000000000000000000000000000/' \
-      "$C548/.ai-factory/tool-decisions.md"
+    # Portable in-place edit: BSD sed (macOS) and GNU sed (Linux CI) disagree on `sed -i`
+    # syntax — BSD reads the next token as a backup suffix, so `sed -i 's/…/…/' file` errors
+    # and never mutates the file, making this negative arm VACUOUS on macOS (spurious FAIL).
+    # Write to a sibling temp file and move it back — works identically on both seds.
+    TDM_NEG="$C548/.ai-factory/tool-decisions.md"
+    sed 's/^deps-hash:.*/deps-hash: sha256-0000000000000000000000000000000000000000000000000000000000000000/' \
+      "$TDM_NEG" > "$TDM_NEG.tmp" && mv "$TDM_NEG.tmp" "$TDM_NEG"
     out_c548_neg=$( cd "$C548" && bash "$HOOK_C548" 2>&1 )
     if echo "$out_c548_neg" | grep -q 'deps changed'; then
       ok "C1-548-neg: mismatched sha256 → 'deps changed' WARN (non-vacuous: real drift IS caught)"
