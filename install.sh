@@ -620,6 +620,12 @@ do_refresh() {
   if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_fb_dst" ]; then
     chmod_safe +x "$_fb_dst" 2>/dev/null || true
   fi
+  # #635: also refresh the hooks-scoped {"type":"module"} marker (mirrors the full-install copy_safe
+  # at install.sh:915). Without this, a consumer upgraded via --refresh gets the new multi-file
+  # pre-push.ts WITHOUT type:module → Node ≥22 dies with ERR_REQUIRE_CYCLE_MODULE on the require(esm)
+  # bridge. Same AIF-owned, hooks-scoped marker — cannot collide with a consumer's own package.
+  refresh_safe "$PKG_ROOT/packages/core/templates/shared/hooks-package.json" \
+               "$PROJECT_ROOT/packages/core/hooks/package.json"
 
   # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
   echo "▶ Skill-context → .ai-factory/skill-context/"
@@ -1408,6 +1414,63 @@ if [ "$_do_dep_install" = "yes" ]; then
     else
       echo "  ⚠  dev-dep install failed — run it manually (see Next steps)."
     fi
+  fi
+fi
+
+# ─── 8b. GH #636 (a): guarantee the pre-push TS hook runtime (tsx) resolves from the ROOT ─────
+# The dispatcher runs `node --import tsx/esm <root>/packages/core/hooks/pre-push.ts` from the repo
+# ROOT, so tsx must resolve THERE. tsx is in CORE_DEVDEPS, but on a pnpm monorepo a tsx that lives in
+# a sub-package is NOT hoisted to the root, so the TS hook degrades to the bash fallback (critical-only
+# checks — #638 made that degradation graceful instead of a crash). Close the gap: probe tsx-at-root
+# with the SAME expression the dispatcher uses (#638); if missing, install it (--full → silent;
+# interactive tty → [y/N], even without --full; refused / non-tty → WARN with the exact command).
+# tsx ONLY — NOT ts-morph/R2 (separate concern, §6b-bis-L2 below). Idempotent: the probe short-circuits
+# when tsx already resolves (incl. the --full §8 install above, which lands tsx with -w on a workspace).
+_tsx_resolves() { ( cd "$PROJECT_ROOT" && node --import tsx/esm -e '' ) >/dev/null 2>&1; }
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "▶ tsx-at-root → [dry-run] would ensure tsx resolves from the workspace root (pre-push TS hook runtime)"
+elif [ ! -f "$PROJECT_ROOT/package.json" ]; then
+  :   # no package.json — nothing to install into
+elif ! command -v node >/dev/null 2>&1; then
+  :   # no node → the dispatcher can't run the TS hook anyway; the bash fallback covers it
+elif _tsx_resolves; then
+  :   # already resolvable from the root (incl. the --full §8 install) — nothing to do
+else
+  # tsx is NOT resolvable from the root. Build the PM-aware, root-targeted install command ONCE — the
+  # SSOT for both the actual install and the WARN message, so the two can't drift (#two-prompts-drift).
+  _pm=$(detect_pm)
+  case "$_pm" in
+    pnpm) if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then _tsx_argv=(pnpm add -D -w tsx); else _tsx_argv=(pnpm add -D tsx); fi ;;
+    yarn) _tsx_argv=(yarn add -D tsx) ;;
+    *)    _tsx_argv=(npm i -D tsx) ;;
+  esac
+  _tsx_cmd="${_tsx_argv[*]}"
+  # Decide whether to install (mirror the §8 gate: --full → silent; interactive → offer; else No).
+  _do_tsx=""
+  if [ -n "$FULL" ]; then
+    _do_tsx="yes"
+  elif [ -t 0 ]; then
+    printf "▶ tsx is not resolvable from the workspace root (needed by the pre-push TS hook).\n"
+    printf "  Install it now with '%s'? [y/N] " "$_tsx_cmd"
+    read -r _ans || _ans=""
+    case "$_ans" in [yY]|[yY][eE][sS]) _do_tsx="yes" ;; esac
+  fi
+  if [ "$_do_tsx" = "yes" ]; then
+    if ! command -v "$_pm" >/dev/null 2>&1; then
+      echo "  ⚠  $_pm not found on PATH — could not install tsx."
+    else
+      echo "▶ Ensuring tsx at the workspace root: $_tsx_cmd"
+      ( cd "$PROJECT_ROOT" && "${_tsx_argv[@]}" ) || echo "  ⚠  '$_tsx_cmd' failed."
+    fi
+  fi
+  # Honest end-state: if tsx STILL doesn't resolve (refused, non-tty, PM missing, or install failed),
+  # the pre-push hook will run in REDUCED mode — say so + print the exact enabling command.
+  if ! _tsx_resolves; then
+    echo ""
+    echo "⚠  tsx is not resolvable from the workspace root — the pre-push hook will run in"
+    echo "   REDUCED mode (critical-only bash checks), not the full TypeScript suite."
+    echo "   To enable full pre-push checks, run from the repo root:"
+    echo "       $_tsx_cmd"
   fi
 fi
 

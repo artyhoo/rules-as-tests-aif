@@ -162,6 +162,48 @@ fi
 
 rm -rf "$TC3"
 
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 4 — #635: --refresh ships the hooks {"type":"module"} marker
+# A consumer that predates the marker (or whose marker was lost) must regain
+# packages/core/hooks/package.json on --refresh — else the refreshed multi-file
+# pre-push.ts loads as CJS and dies with ERR_REQUIRE_CYCLE_MODULE on Node ≥22.
+# Paired-negative: WITHOUT --refresh the deleted marker stays absent (non-vacuous).
+# ══════════════════════════════════════════════════════════════════════════════
+TC4=$(make_consumer)
+MARKER_DST="$TC4/packages/core/hooks/package.json"
+MARKER_SRC="$REPO_ROOT/packages/core/templates/shared/hooks-package.json"
+
+# Simulate the pre-fix state: a consumer that has no type:module marker.
+rm -f "$MARKER_DST"
+
+# Run --refresh (non-dry-run so it actually writes)
+( cd "$TC4" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+
+# (pos) marker now exists and equals the shipped source (not a stub)
+if [ -f "$MARKER_DST" ]; then
+  ok "gh-635 pos: hooks/package.json exists after --refresh (marker re-shipped)"
+else
+  bad "gh-635 pos: hooks/package.json still ABSENT after --refresh (#635 not fixed)"
+fi
+if [ -f "$MARKER_DST" ] && [ "$(cat "$MARKER_DST")" = "$(cat "$MARKER_SRC")" ]; then
+  ok "gh-635 pos: refreshed marker content equals shipped hooks-package.json (type:module, not a stub)"
+else
+  bad "gh-635 pos: refreshed marker does NOT match shipped source"
+fi
+
+# neg (LOAD-BEARING): delete the marker, do NOT refresh → it stays absent (non-vacuous).
+TC4_NEG=$(make_consumer)
+MARKER_NEG="$TC4_NEG/packages/core/hooks/package.json"
+rm -f "$MARKER_NEG"
+# Do NOT run --refresh
+if [ ! -f "$MARKER_NEG" ]; then
+  ok "gh-635 neg: without --refresh, deleted marker stays absent (assertion is non-vacuous)"
+else
+  bad "gh-635 neg: marker reappeared without --refresh → test was vacuous"
+fi
+
+rm -rf "$TC4" "$TC4_NEG"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

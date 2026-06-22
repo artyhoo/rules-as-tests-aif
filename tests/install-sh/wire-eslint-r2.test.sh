@@ -78,8 +78,10 @@ EOF
 _ORIG_F=$(cat "$T_F/apps/api/eslint.config.mjs")
 
 # Ensure ts-morph is NOT in this temp project's node_modules.
-# Run the wirer via tsx (the wirer dynamic-imports ts-morph from the framework's
-# node_modules, where it is absent → degrade), matching install.sh's invocation.
+# cwd = the consumer temp dir which has NO ts-morph → the wirer degrades at the
+# cwd guard (:169 existsSync('node_modules/ts-morph/package.json')) BEFORE reaching
+# the :86 import. This exercises the genuine consumer-absence path, distinct from
+# Fixture X (cwd HAS ts-morph, exercising the :86 cross-checkout resolution).
 if ! command -v node >/dev/null 2>&1; then
   echo "  [skip] node not installed — Fixture F skipped"
   ok "F: skipped (node absent on host)"
@@ -98,6 +100,38 @@ else
   [ "$_ORIG_F" = "$_AFTER_F" ] && ok "F: file unchanged (no half-edit)" || bad "F: file was modified"
 fi
 rm -rf "$T_F"
+
+# ── Fixture X: cross-checkout wire — cwd has ts-morph, wirer file does NOT (GH #642) ─
+# install.sh runs cwd=consumer (ts-morph present after --full) + wirer-file=framework.
+# The :86 dynamic import must resolve from process.cwd(), NOT the wirer file's tree.
+# Faithful repro: cwd = a dir WITH ts-morph; run a COPY of the wirer from a temp dir
+# that has NO ts-morph up-tree. Unfixed :86 (bare specifier) resolves from the copy's
+# tree → ERR_MODULE_NOT_FOUND → false degrade. The :169 cwd-guard PASSES (cwd has
+# ts-morph), so RED here is for the :86 import — the right reason (T-642-C).
+echo "Fixture X: cross-checkout wire (cwd has ts-morph, wirer file does not)"
+# Locate the engine (in-pattern with f16-stryker / f17 — declared dep, locate-or-skip-loudly).
+TSM=""
+for d in "$REPO_ROOT/packages/core/node_modules/ts-morph" "$REPO_ROOT/node_modules/ts-morph"; do
+  [ -f "$d/package.json" ] && { TSM="${d%/ts-morph}"; break; }   # TSM = the node_modules dir that holds ts-morph
+done
+if [ -z "$TSM" ] || [ -z "$RUN_WIRER_TSX" ]; then
+  echo "  [skip] ts-morph/tsx not installed (run: npm install --prefix packages/core) — fixture skipped"
+  ok "X: skipped (engine absent on host) — runs in CI where setup installs ts-morph (declared devDep)"
+else
+  _FW=$(mktemp -d)
+  cp "$WIRER" "$_FW/"   # wirer imports only node-builtins + dynamic ts-morph → single-file copy is self-contained
+  _CFGDIR=$(mktemp -d)
+  _CFG="$_CFGDIR/eslint.config.mjs"
+  printf "import base from './base.mjs';\nexport default base;\n" > "$_CFG"
+  # cwd = the dir that HAS ts-morph (clears :169); the COPIED wirer in $_FW has NO
+  # ts-morph up-tree → unfixed :86 import fails → degrade (config unchanged).
+  _CWD_DIR="${TSM%/node_modules}"
+  _out_X=$( cd "$_CWD_DIR" && "$RUN_WIRER_TSX" "$_FW/wire-eslint-r2.ts" --path "$_CFG" --yes 2>&1 )
+  grep -q 'rules-as-tests/no-unsafe-zod-parse' "$_CFG" \
+    && ok "X: cross-checkout wire succeeds (cwd has ts-morph, wirer file does not)" \
+    || bad "X: cross-checkout NOT wired (degraded — :86 resolved from wirer file tree, not cwd): $_out_X"
+  rm -rf "$_FW" "$_CFGDIR"
+fi
 
 # ── Layer-2 arm: install.sh §6b-bis-L2 exits 0 with no per-pkg configs ───────
 echo "Layer-2 arm: install.sh degrade when no per-package configs"

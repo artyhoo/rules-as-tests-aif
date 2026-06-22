@@ -201,15 +201,28 @@ function workflowYmlFiles(): string[] {
     .map((f) => `.github/workflows/${f}`);
 }
 
-/** A required external binary check: missing → install hint + fail. */
+/**
+ * A required external binary check: missing → install hint + fail.
+ * `failHint` (optional) is appended to the abort output when the tool ran but
+ * reported problems (exitCode !== 0) — used to hand the operator a concrete
+ * remediation path. Callers that omit it keep the original behaviour verbatim.
+ */
 function requireTool(
   cmd: string,
   args: readonly string[],
   installHint: string,
+  failHint?: string,
 ): void {
   const r = run(cmd, args);
   if (r.notFound) die(`❌ ${cmd} not found in PATH.\n${installHint}`);
-  if (r.exitCode !== 0) die(`❌ ${cmd} reported problems:`, r);
+  if (r.exitCode !== 0) {
+    if (failHint) {
+      // Emit the tool's findings first, then the remediation hint, then abort.
+      emit(r);
+      die(`\n${failHint}`);
+    }
+    die(`❌ ${cmd} reported problems:`, r);
+  }
   emit(r);
 }
 
@@ -532,11 +545,42 @@ async function main(): Promise<void> {
   }
 
   // ── 2. zizmor ────────────────────────────────────────────────────────────────
+  // HONEST brownfield fix hint (#637): `zizmor --fix=all` auto-fixes ONLY
+  // artipacked + template-injection. It does NOT fix unpinned-uses — that needs
+  // SHA-pinning (verified live: after `zizmor --fix=all`, unpinned-uses findings
+  // remain and the exit code stays non-zero). Saying "just run --fix" would
+  // mislead the consumer, so the hint spells out the split.
+  const ZIZMOR_FIX_HINT =
+    '   Fix: `zizmor --fix=all <file>` auto-fixes artipacked + template-injection.\n' +
+    '        unpinned-uses is NOT auto-fixable — SHA-pin each action (e.g. via `pinact` or Dependabot).\n' +
+    '   Audit docs: https://docs.zizmor.sh/audits/';
+  // Scan the repo's / consumer's live workflows (the brownfield path).
   requireTool(
     'zizmor',
     ['--format', 'plain', '.github/workflows/'],
     '   Install: pip install zizmor',
+    ZIZMOR_FIX_HINT,
   );
+  // Regression guard (#637): also scan the SHIPPED CI templates so they can't
+  // silently drift past the gate. NOTE the existsSync direction is INVERTED vs
+  // 3c/3d below: there the scripts live elsewhere in the maintainer repo, so the
+  // guard SKIPS here and fires on consumers. Here the templates EXIST in the
+  // maintainer repo and are ABSENT on a consumer (who receives the rendered
+  // .github/workflows/ci.yml, not templates/) — so this guard FIRES for the
+  // maintainer and NO-OPs for consumers.
+  const existingTemplates = [
+    'templates/ts-server/github-actions-ci.yml',
+    'templates/ts-server/github-actions-workflow-integrity.yml',
+    'packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml',
+  ].filter((p) => existsSync(resolve(REPO_ROOT, p)));
+  if (existingTemplates.length > 0) {
+    requireTool(
+      'zizmor',
+      ['--format', 'plain', ...existingTemplates],
+      '   Install: pip install zizmor',
+      ZIZMOR_FIX_HINT,
+    );
+  }
 
   // ── 3. Self-test pipeline ─────────────────────────────────────────────────────
   // audit-ai-docs.test.ts (Wave 10.4): run via vitest (replaces audit-ai-docs.test.sh)
