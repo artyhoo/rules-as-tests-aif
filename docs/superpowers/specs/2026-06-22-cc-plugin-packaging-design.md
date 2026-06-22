@@ -54,7 +54,7 @@ Per [build-first-reuse-default.md §1](../../../.claude/rules/build-first-reuse-
 
 ## §4 Layout — separate the plugin payload from repo-internal tooling
 
-The repo's own `.claude/` is the **maintainer's dev harness** (15 hooks, `orchestrator-prompts/`, internal skills like `dispatcher`/`pipeline`). Installing the plugin must **not** drag that into a consumer. So the plugin payload is a dedicated subtree; the in-repo marketplace points its plugin `source` at that subtree.
+The repo's own `.claude/` is the **maintainer's dev harness** (14 hooks, `orchestrator-prompts/`, internal skills like `.claude/skills/dispatcher` / `.claude/skills/pipeline`). Installing the plugin must **not** drag that into a consumer. So the plugin payload is a dedicated subtree; the in-repo marketplace points its plugin `source` at that subtree.
 
 ```text
 rules-as-tests-aif/                         (existing repo — internals untouched)
@@ -102,7 +102,8 @@ This is a **per-hook audit**, not a blanket find/replace — many hooks legitima
 | Class | Examples | Ships in `plugin/`? |
 |---|---|---|
 | Consumer-facing skills | `rules-as-tests`, `tool-bootstrapping` | yes |
-| Consumer-facing agents | `review-sidecar`, `living-docs-auditor`, `compliance-verifier` | yes (per extension.json + contract) |
+| Consumer-facing agents | `review-sidecar`, `living-docs-auditor` (declared in `extension.json`) | yes |
+| Consumer-facing agent — needs SSOT add | `compliance-verifier` (consumer-facing per CLAUDE.md Artifact Ownership Contract, but **NOT** yet in `extension.json`) | yes — **S4 must add it to `extension.json`**, do not claim «per extension.json» until then |
 | Consumer-relevant session hooks | the advisory/inject subset that operates on consumer files | yes (relocated per above) |
 | **Maintainer-internal** | `adopt-orchestrator-prompts.sh`, `runtime-bridge-dispatch.sh`, `dispatcher`/`pipeline` skills, `orchestrator-prompts/` | **no** — internal dev harness |
 
@@ -126,13 +127,13 @@ The project's signature is «documents lie; tests don't», applied to itself. Th
 - `marketplace.json` plugin version **== ** `plugin.json` version (no drift);
 - every hook in `plugin/hooks/` addressing plugin-data uses `${CLAUDE_PLUGIN_ROOT}` (grep: no hardcoded plugin-relative `$CLAUDE_PROJECT_DIR/.claude/hooks/…`);
 - every shipped hook carries the dual-implementation marker (`@dual-pair`/`@cc-only-rationale`) per [dual-implementation-discipline.md §6](../../../.claude/rules/dual-implementation-discipline.md);
-- shipped agents pass the existing **principle 21** (shipped-agent-tools — the one that would have caught bug #551: unresolvable tool names).
+- shipped agents pass the existing **`packages/core/principles/21-shipped-agent-tools-valid.test.ts`** (the one that would have caught bug #551: unresolvable tool names — note slot 21 is shared with `21-agnosticism-conformance.test.ts`, so cite the full filename).
 
 Plus **paired-negative sanity** (per `discipline-self-check.yml` precedent): a fixture with a deliberately broken manifest must fail the test. This is what makes the packaging itself non-theatre.
 
 ## §8 Multi-harness — CC-first, degrade gracefully (maintainer decision)
 
-CC gets the full feature set (all hooks, commands, MCP). Non-CC harnesses (OpenCode and the rest) get the **portable substrate** the project already proved portable (principle 21 agnosticism-conformance; skills self-resolve via `$(dirname "${BASH_SOURCE[0]}")`). Concretely:
+CC gets the full feature set (all hooks, commands, MCP). Non-CC harnesses (OpenCode and the rest) get the **portable substrate** the project already proved portable (`21-agnosticism-conformance.test.ts`; skills self-resolve via `$(dirname "${BASH_SOURCE[0]}")`). Concretely:
 
 - **Now (S1–S6):** `.claude-plugin/` perfect; `AGENTS.md` already carries the cross-harness instruction layer.
 - **Later (S7):** thin `.opencode/INSTALL.md` adapter (superpowers' OpenCode pattern: «fetch + follow INSTALL.md»), pointing at the same `plugin/skills/` body. The one accepted off-CC degradation: session-hook auto-injection may not fire — the meta-skill is then read on demand, exactly the posture in [dual-implementation-discipline §3 posture-reconciliation](../../../.claude/rules/dual-implementation-discipline.md). Not a portability gap — a documented degradation.
@@ -145,7 +146,7 @@ CC gets the full feature set (all hooks, commands, MCP). Non-CC harnesses (OpenC
 | **S1** | `.claude-plugin/plugin.json` + `marketplace.json` + `plugin/` skeleton + `run-hook.cmd` (ADOPT) | `/plugin marketplace add .` loads; manifest schema-valid; marketplace `source` key verified against docs | no (foundational) |
 | **S2** | Hook relocation: triage 15 hooks; convert shippable ones to extensionless + self-resolving + correct env vars + `hooks.json` | shipped hooks fire from plugin root in a throwaway consumer repo; no mis-rooted paths; markers present | no |
 | **S3** | `using-rules-as-tests` meta-bootstrap skill + `SessionStart` wiring; assemble shippable `skills/` | fresh session in throwaway repo surfaces bootstrap; skills discoverable via Skill tool | yes w/ S4 (disjoint) |
-| **S4** | Ship consumer-facing agent subset; pass principle 21 | agents resolve; principle 21 green | yes w/ S3 |
+| **S4** | Ship consumer-facing agent subset (add `compliance-verifier` to `extension.json`); pass `21-shipped-agent-tools-valid.test.ts` | agents resolve; `21-shipped-agent-tools-valid.test.ts` green | yes w/ S3 |
 | **S5** | Hybrid seam: bundle `install.sh`+templates; `installing-enforcement` skill + `/install-enforcement` command | command dry-run-wires git-hooks/CI into a throwaway repo; consent-gated | no (needs S1) |
 | **S6** | Recursive self-test: `<N>-plugin-manifest-integrity.test.ts` + paired-negative fixture + doc-authority headers on new shipped docs | principle test green; negative fixture fails; principle 09 green | no (needs S1–S5) |
 | **S7** | OpenCode adapter + reconcile `extension.json`/`AGENTS.md` | OpenCode INSTALL path documented; skills load off-CC | yes |
