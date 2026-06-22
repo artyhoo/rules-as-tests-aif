@@ -27,6 +27,7 @@ Universal format read by Cursor, Codex CLI, Aider, Windsurf, and other non-CC ha
 |---|---|
 | [`.claude/rules/ai-laziness-traps.md`](.claude/rules/ai-laziness-traps.md) | AI laziness trap catalogue with countermeasures; applied to all R-phases, audits, and open-ended AI tasks |
 | [`.claude/rules/build-first-reuse-default.md`](.claude/rules/build-first-reuse-default.md) | Project-wide default: ADOPT upstream before BUILD; macro-level scope discipline for capability proposals |
+| [`.claude/rules/ci-tool-pinning.md`](.claude/rules/ci-tool-pinning.md) | CI audit tool installs in `.github/workflows/` must use version pins; local dep installs must use `npm ci` (not `npm install`) |
 | [`.claude/rules/companion-install-principle.md`](.claude/rules/companion-install-principle.md) | Companions/external services install via their own official installer; no version pins; no reimplementing steps |
 | [`.claude/rules/doc-authority-hierarchy.md`](.claude/rules/doc-authority-hierarchy.md) | Every canonical doc declares its authority scope (Authoritative-for header) to prevent goal-redefinition drift |
 | [`.claude/rules/dual-implementation-discipline.md`](.claude/rules/dual-implementation-discipline.md) | CC-native and portable fallback delivery channels; when each applies; how to prevent drift between them |

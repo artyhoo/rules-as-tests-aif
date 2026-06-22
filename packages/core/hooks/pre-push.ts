@@ -29,6 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { runCheck, type CheckResult } from './utils/run-check.ts';
 import { runPriorArtCheck, loadSsotIds } from './checks/prior-art.ts';
 import { runS17Check } from './checks/s17.ts';
+import { checkUnpinnedToolInstalls } from './checks/unpinned-tool-install.ts';
 // NOTE: checks/guard-liveness.ts is intentionally NOT imported statically — see
 // guardLivenessSection. Its import chain (eslint → @typescript-eslint/parser →
 // core+preset plugins → @typescript-eslint/utils) only resolves after a
@@ -507,6 +508,53 @@ async function cmdScriptLivenessSection(rb: ResolvedBase): Promise<void> {
   process.exit(1);
 }
 
+/**
+ * Unpinned bare-run tool install gate (.claude/rules/ci-tool-pinning.md §1 Rule A).
+ * Scans every .github/workflows/*.yml for bare `run:` pip/npm-global install
+ * commands that lack an explicit version pin.
+ *
+ * This slice is NOT covered by zizmor's `adhoc-packages` audit (which targets
+ * npm/gem/pip via setup-python action inputs only — SSOT #153b, 2026-06-22).
+ * Deterministic regex scan; zero API calls (no-paid-llm-in-ci.md compliant).
+ */
+function unpinnedToolInstallSection(): void {
+  const workflows = workflowYmlFiles();
+  if (workflows.length === 0) return;
+
+  const allFindings: Array<{
+    file: string;
+    line: number;
+    text: string;
+    hint: string;
+  }> = [];
+
+  for (const relPath of workflows) {
+    const absPath = resolve(REPO_ROOT, relPath);
+    if (!existsSync(absPath)) continue;
+    const content = readFileSync(absPath, 'utf8');
+    const findings = checkUnpinnedToolInstalls(content, relPath);
+    allFindings.push(...findings);
+  }
+
+  if (allFindings.length === 0) return;
+
+  process.stdout.write(
+    '\n❌ Unpinned bare-run tool install(s) found in .github/workflows/ ' +
+      '(.claude/rules/ci-tool-pinning.md §1 Rule A):\n',
+  );
+  for (const f of allFindings) {
+    process.stdout.write(`  ${f.file}:${f.line}: ${f.text}\n`);
+    process.stdout.write(`    ${f.hint}\n`);
+  }
+  process.stdout.write(
+    '\nFix: add a version pin to each flagged install, e.g.:\n' +
+      '  pip install pyyaml  →  pip install pyyaml==6.0.2\n' +
+      '  npm install -g tool  →  npm install -g tool@1.2.3\n' +
+      'Escape hatch (genuinely un-pinnable): append  # ci-tool-pin: allow <reason>\n\n',
+  );
+  process.exit(1);
+}
+
 async function main(): Promise<void> {
   // Resolve the diff base ONCE, up front — this consumes git's pre-push stdin
   // (which must be read before any other use). All base-scoped sections (6, 7,
@@ -530,6 +578,10 @@ async function main(): Promise<void> {
   }
   if (process.env['PREPUSH_ONLY'] === 'cmd-script-liveness') {
     await cmdScriptLivenessSection(rb);
+    process.exit(0);
+  }
+  if (process.env['PREPUSH_ONLY'] === 'unpinned-tool-install') {
+    unpinnedToolInstallSection();
     process.exit(0);
   }
 
@@ -756,6 +808,13 @@ async function main(): Promise<void> {
   } else {
     warnSkip('§8', 'no resolvable base for the changed-Markdown link check');
   }
+
+  // ── ci-tool-pinning. Unpinned bare-run tool install gate ─────────────────────
+  // Scan .github/workflows/*.yml for bare `run: pip install <pkg>` / `npm i -g
+  // <pkg>` without a version pin. Slice not covered by zizmor adhoc-packages
+  // (which targets action inputs only — SSOT #153b). No base required: full scan
+  // every push (fast; <1ms per file). (.claude/rules/ci-tool-pinning.md §1 Rule A)
+  unpinnedToolInstallSection();
 
   process.exit(0);
 }
