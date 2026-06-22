@@ -176,6 +176,20 @@ export function collectAgentFiles(): string[] {
     .map((f) => resolve(dir, f));
 }
 
+/**
+ * Every shipped CC-plugin agent — plugin/agents/*.md (the plugin payload surface).
+ * Same #551 tool-name-validity invariant as collectAgentFiles(), applied to the
+ * agents the plugin-packaging umbrella ships into a consumer via the plugin channel.
+ */
+export function collectPluginAgentFiles(): string[] {
+  const dir = resolve(REPO_ROOT, 'plugin/agents');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => f.endsWith('.md'))
+    .sort()
+    .map((f) => resolve(dir, f));
+}
+
 /** Every shipped SKILL.md — the install.sh-copied surface only (NOT vendored aif-*). */
 export function collectShippedSkillFiles(): string[] {
   const files: string[] = [];
@@ -297,6 +311,24 @@ describe('Principle 21 — shipped agent/skill tools-name validity (M1 gate, clo
     const inline = '---\nname: s\nallowed-tools: Read Write Questions Task\n---\n# body\n';
     const v = checkFile('skills/s/SKILL.md', inline, 'allowed-tools');
     expect(v.map((x) => x.base).sort()).toEqual(['Questions', 'Task']);
+  });
+
+  // ── Arm (h): plugin-tree — every plugin/agents/*.md tools: entry is canonical ──
+  // The CC-plugin payload ships a consumer-facing agent subset (plugin-packaging
+  // umbrella S4). They are the same #551 surface as agents/*.md and must satisfy the
+  // same tool-name-validity invariant — guarded here so a future plugin-agent edit
+  // cannot drift to a non-canonical name unnoticed.
+  it('(j) plugin-tree: every plugin/agents/*.md tools: entry is a canonical CC tool', () => {
+    const agents = collectPluginAgentFiles();
+    // Non-vacuity guard: v1 ships review-sidecar + living-docs-auditor + compliance-verifier.
+    expect(agents.length, 'expected ≥3 shipped plugin/agents/*.md to scan').toBeGreaterThanOrEqual(3);
+
+    const violations = agents.flatMap((p) => checkFile(rel(p), readFileSync(p, 'utf8'), 'tools'));
+    expect(
+      violations,
+      `Non-canonical plugin-agent tool names (→ zero-tools dispatch, the #551 mechanism):\n` +
+        violations.map((v) => `  ${v.file}: "${v.entry}" (base "${v.base}")`).join('\n'),
+    ).toHaveLength(0);
   });
 
   // ── Arm (h): no-key files are not false-positives ──────────────────────────
