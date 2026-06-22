@@ -162,7 +162,7 @@ jobs:
         with:
           node-version: '20'
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
-        run: npm install --prefix packages/core --silent
+        run: npm ci --prefix packages/core --silent
       - name: Run packages/core/audit-self/audit-ai-docs.test.ts (Wave 10.4 — vitest)
         run: |
           if [ -f packages/core/audit-self/audit-ai-docs.test.ts ]; then
@@ -203,7 +203,7 @@ jobs:
         with:
           node-version: '20'
       - name: Install packages/core deps
-        run: npm install --prefix packages/core --silent
+        run: npm ci --prefix packages/core --silent
       - name: Run principles meta-tests
         run: npm --prefix packages/core run test:principles
       # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
@@ -443,7 +443,7 @@ jobs:
       - name: Install python pyyaml (required by audit probes)
         run: pip install pyyaml
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
-        run: npm install --prefix "$GITHUB_WORKSPACE/packages/core" --silent
+        run: npm ci --prefix "$GITHUB_WORKSPACE/packages/core" --silent
       - name: Self-install on tmp consumer (ts-server preset)
         run: |
           mkdir -p /tmp/fake-consumer-ts && cd /tmp/fake-consumer-ts
@@ -473,7 +473,7 @@ jobs:
       - name: Install python pyyaml (required by audit probes)
         run: pip install pyyaml
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
-        run: npm install --prefix "$GITHUB_WORKSPACE/packages/core" --silent
+        run: npm ci --prefix "$GITHUB_WORKSPACE/packages/core" --silent
       - name: Self-install on tmp consumer (react-next preset)
         run: |
           mkdir -p /tmp/fake-consumer-rn && cd /tmp/fake-consumer-rn
@@ -732,13 +732,11 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install zizmor
-        # Pinned (was unpinned `pip install zizmor` → non-deterministic CI). zizmor 1.26.1
-        # tightened the `adhoc-packages` audit, surfacing 5 pre-existing LOW findings in our
-        # own self-CI (npm install --prefix / git init steps) that 1.25.2 did not flag — a
-        # tool bump silently red-ing every PR via the ci-success aggregate. Pin to the last
-        # known-green (1.25.2) for determinism; the 1.26.1 findings are tracked for a
-        # separate triage (suppress-config vs fix). Bumping zizmor is now a deliberate edit.
-        run: pip install zizmor==1.25.2
+        # Pinned for determinism — bumping zizmor is a deliberate edit.
+        # 1.25.2 was pinned while 5 adhoc-packages findings (npm install --prefix steps)
+        # were triaged. Those findings are now fixed via npm ci --prefix; pin bumped to
+        # 1.26.1 so we track the current auditor and its tightened adhoc-packages rules.
+        run: pip install zizmor==1.26.1
       - name: Run zizmor
         # Plain console output. zizmor exits non-zero on findings; that's the gate.
         # Avoiding SARIF upload keeps this runnable without GitHub Advanced Security.
