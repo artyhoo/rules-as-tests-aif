@@ -1,0 +1,13 @@
+{
+  "name": "rules-as-tests-aif-BROKEN-FIXTURE",
+  "owner": { "name": "fixture" },
+  "metadata": { "description": "broken fixture", "version": "0.0.1" },
+  "plugins": [
+    {
+      "name": "rules-as-tests-BROKEN-FIXTURE",
+      "source": "./plugin",
+      "description": "version drift vs plugin.json (9.9.9 != 0.0.1) — must trip V2",
+      "version": "0.0.1"
+    }
+  ]
+}

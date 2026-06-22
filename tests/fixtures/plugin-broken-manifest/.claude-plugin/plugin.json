@@ -1,0 +1,5 @@
+{
+  "name": "rules-as-tests-BROKEN-FIXTURE",
+  "description": "Paired-negative fixture for principle 24 — deliberately broken; MUST fail checkPluginIntegrity. Not a real plugin.",
+  "version": "9.9.9"
+}

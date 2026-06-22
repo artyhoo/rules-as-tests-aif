@@ -5,6 +5,9 @@ description: Use when starting any conversation in a repo that has the rules-as-
 
 # Using Rules-as-Tests
 
+> **Authoritative for:** the rules-as-tests plugin's skill-activation protocol — the instruction-priority ladder (the consumer's own instructions win), the "invoke the relevant skill before responding" discipline, and the in-plugin skill map.
+> **NOT authoritative for:** the host project's goal or conventions (its own `CLAUDE.md`/`AGENTS.md` win); the rules-as-tests methodology itself — see the `rules-as-tests` skill.
+
 This is your entry point to the **rules-as-tests** plugin: a discipline for turning every codebase convention into an executable artifact that **fails at the earliest reachable channel** (edit-time → pre-commit → pre-push → CI → production). Its thesis: **documents lie; tests don't.** That matters most when an AI writes the code, because LLMs reliably violate undocumented conventions and write plausible-but-vacuous tests.
 
 ## Instruction priority (read this first)
