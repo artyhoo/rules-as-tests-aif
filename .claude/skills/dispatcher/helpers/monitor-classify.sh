@@ -33,8 +33,12 @@ if [[ "$is_parked" == "true" ]]; then
   exit 0
 fi
 
+# Running statuses mirror aifWsStatus.ts mapAifStatusToTaskStatus → 'running'
+# (packages/runtime-bridge/src/aifWsStatus.ts): backlog, planning, plan_ready,
+# implementing, review are all non-terminal — plan_ready/review auto-advance, they
+# are NOT terminal or parked. blocked_external is caught by the is_parked check above.
 case "$status" in
-  implementing|planning|backlog) echo "RUNNING:${status}" ;;
-  done|verified)                 echo "DONE:${status}" ;;
-  *)                             echo "UNKNOWN:${status}" ;;
+  implementing|planning|backlog|plan_ready|review) echo "RUNNING:${status}" ;;
+  done|verified)                                   echo "DONE:${status}" ;;
+  *)                                               echo "UNKNOWN:${status}" ;;
 esac
