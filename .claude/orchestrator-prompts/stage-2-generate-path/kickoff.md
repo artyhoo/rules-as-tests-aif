@@ -35,6 +35,8 @@ Turn the deterministic v1 pipeline (L1→L5, already shipped) into a **live gene
 
 Discharge [spec §6](../../../docs/superpowers/specs/2026-06-22-stage-2-generate-path-design.md). Per [build-first-reuse-default.md §3](../../../.claude/rules/build-first-reuse-default.md): DeepWiki + WebSearch ≥3 phrasings each on **AIF `/aif-evolve`** (LLM-driven rule synthesis — already a dependency; possible REUSE of the L3-live step) and the **Oh My ClaudeCode** family; consult prior-art SSOT. Output: a research-patch under `docs/meta-factory/research-patches/` with a per-candidate ADOPT/ADAPT/BUILD verdict + new `prior-art-evaluations.md` entries. **Gate:** the verdict sets the scope of Stages 2-4 — if `/aif-evolve` is ADOPT/ADAPT, the L3-live build may collapse to integration. No L2/L3 code may land before this verdict.
 
+**✅ R-phase discharged (2026-06-22):** [research-patch `2026-06-22-stage-2-generate-path-prior-art.md`](../../../docs/meta-factory/research-patches/2026-06-22-stage-2-generate-path-prior-art.md). Verdict: **`/aif-evolve` = REFERENCE → the L3-live synthesizer stays BUILD** (not integration — decisive primary-source evidence: different input, output, gate); **Oh My ClaudeCode = REJECT** (orchestration manager, no rule generation). 15 new SSOT entries appended (#154–#168); existing #1/#50/#66/#105 cross-linked, verdicts unchanged. Net Stage 2-4 scope: BUILD the menu-picker prompt + plan contract, REUSE the existing L4, ADAPT the test/UX patterns (Semgrep/OpenRewrite/GritQL gates; CEGIS/Reflexion loop; Renovate/Nx UX).
+
 ### Stage 1 — L4 adversarial hardening (no LLM, deterministic)
 
 Hand-author deliberately-bad `SynthesisPlan` fixtures (tautological rule, never-firing rule, rule conflicting with an existing one); confirm gates 1/2/4/6 **reject** each. Snapshot-tested. This is the precondition that makes non-deterministic upstream safe — cheap, $0, fully testable. Paired valid/invalid corpus per principle 02.
@@ -59,7 +61,7 @@ Full L1→L5 on a stack with **no** curated oracle (candidate: SvelteKit/Vite �
 
 ## Acceptance criteria
 
-- Stage 0 research-patch lands with per-candidate verdict + SSOT entries before any L2/L3 code.
+- ✅ **(met 2026-06-22)** Stage 0 research-patch lands with per-candidate verdict + SSOT entries before any L2/L3 code — [patch](../../../docs/meta-factory/research-patches/2026-06-22-stage-2-generate-path-prior-art.md), SSOT #154–#168.
 - L4 rejects every adversarial fixture (Stage 1); existing gates unchanged.
 - For ≥1 proving-case stack: LLM-sourced `SynthesisPlan` passes the existing L4 and reproduces the curated recipe (Stage 2).
 - For ≥1 genuinely-new stack: full L1→L5 produces ≥1 L4-validated rule that catches its target antipattern (Stage 4).
