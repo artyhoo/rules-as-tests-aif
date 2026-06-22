@@ -26,7 +26,8 @@
     "claude": {
       "files": [
         "agents/review-sidecar.md",
-        "agents/living-docs-auditor.md"
+        "agents/living-docs-auditor.md",
+        "agents/compliance-verifier.md"
       ]
     }
   },
