@@ -7,9 +7,17 @@
  * tests skip gracefully (mirror audit-ai-docs.ts:196 degrade pattern).
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { R2_RULE_ID, generateDegradedSnippet, wireConfigSource } from './wire-eslint-r2.ts';
+import {
+  R2_RULE_ID,
+  customRulesImportSpecifier,
+  generateDegradedSnippet,
+  resolveAndWire,
+  wireConfigSource,
+} from './wire-eslint-r2.ts';
 
 const TS_MORPH_AVAILABLE = existsSync('./node_modules/ts-morph/package.json')
   || existsSync('node_modules/ts-morph/package.json');
@@ -170,4 +178,99 @@ describe('wire-eslint-r2', () => {
       expect(result.modified).toBe(source); // no partial edit
     }
   );
+});
+
+describe('transform variants (#644)', () => {
+  const base = `import base from './base.mjs';\nexport default [...base];\n`;
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('bare (default): rules-only element, no plugins, no import', async () => {
+    const r = await wireConfigSource(base);
+    expect(r.status).toBe('wired');
+    expect(r.variant).toBe('bare');
+    expect(r.modified).toContain(`'${R2_RULE_ID}': 'error'`);
+    expect(r.modified).not.toContain('plugins:');
+    expect(r.modified).not.toContain('customRules');
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('self-contained: plugins+rules element + injected customRules import', async () => {
+    const r = await wireConfigSource(base, {
+      variant: 'self-contained',
+      customRulesImportPath: '../../eslint-rules-local/index.ts',
+    });
+    expect(r.status).toBe('wired');
+    expect(r.variant).toBe('self-contained');
+    expect(r.modified).toContain(`plugins: { 'rules-as-tests': customRules }`);
+    expect(r.modified).toContain(`'${R2_RULE_ID}': 'error'`);
+    expect(r.modified).toMatch(/import customRules from ['"]\.\.\/\.\.\/eslint-rules-local\/index\.ts['"]/);
+  });
+});
+
+describe('customRulesImportSpecifier (#644)', () => {
+  it('computes the relative path from a per-package config to <root>/eslint-rules-local', () => {
+    expect(customRulesImportSpecifier('/repo/apps/api/eslint.config.mjs', '/repo')).toBe(
+      '../../eslint-rules-local/index.ts',
+    );
+  });
+  it('prefixes ./ when the config is at the consumer root', () => {
+    expect(customRulesImportSpecifier('/repo/eslint.config.mjs', '/repo')).toBe(
+      './eslint-rules-local/index.ts',
+    );
+  });
+});
+
+describe('resolveAndWire (#644)', () => {
+  const body = `import base from './base.mjs';\nexport default [...base];\n`;
+  function tmpConfig(src: string): { dir: string; p: string } {
+    const dir = mkdtempSync(join(tmpdir(), 'r2wire-'));
+    const p = join(dir, 'eslint.config.mjs');
+    writeFileSync(p, src, 'utf8');
+    return { dir, p };
+  }
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('keeps bare when the probe says the config loads', async () => {
+    const { p } = tmpConfig(body);
+    const r = await resolveAndWire({ configPath: p, cwd: '/repo', runProbe: async () => 'ok' });
+    expect(r.status).toBe('wired');
+    expect(r.variant).toBe('bare');
+    const out = readFileSync(p, 'utf8');
+    expect(out).toContain(`'${R2_RULE_ID}': 'error'`);
+    expect(out).not.toContain('plugins:');
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('escalates to self-contained on could-not-find-plugin', async () => {
+    const { dir, p } = tmpConfig(body);
+    let calls = 0;
+    const runProbe = async (): Promise<'could-not-find-plugin' | 'ok'> =>
+      ++calls === 1 ? 'could-not-find-plugin' : 'ok';
+    const r = await resolveAndWire({ configPath: p, cwd: dir, runProbe });
+    expect(r.status).toBe('wired');
+    expect(r.variant).toBe('self-contained');
+    const out = readFileSync(p, 'utf8');
+    expect(out).toContain(`plugins: { 'rules-as-tests': customRules }`);
+    expect(out).toContain('import customRules from');
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('degrades + restores original when probe is unavailable', async () => {
+    const { p } = tmpConfig(body);
+    const r = await resolveAndWire({ configPath: p, cwd: '/repo', runProbe: async () => 'unavailable' });
+    expect(r.status).toBe('degrade');
+    expect(readFileSync(p, 'utf8')).toBe(body);
+  });
+
+  it('already-wired config left byte-identical (no probe needed)', async () => {
+    const wired = `import base from './base.mjs';\nexport default [...base, { rules: { '${R2_RULE_ID}': 'error' } }];\n`;
+    const { p } = tmpConfig(wired);
+    const r = await resolveAndWire({ configPath: p, cwd: '/repo', runProbe: async () => 'ok' });
+    expect(r.status).toBe('already-wired');
+    expect(readFileSync(p, 'utf8')).toBe(wired);
+  });
+});
+
+describe('manual snippets are self-contained (#644)', () => {
+  it('degraded snippet registers the plugin (import + plugins), not a bare rule', () => {
+    const s = generateDegradedSnippet('apps/api/eslint.config.mjs');
+    expect(s).toContain('eslint-rules-local');
+    expect(s).toContain(`plugins: { 'rules-as-tests': customRules }`);
+    expect(s).toContain(R2_RULE_ID);
+  });
 });
