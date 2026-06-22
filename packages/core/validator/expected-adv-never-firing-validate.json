@@ -1,0 +1,26 @@
+{
+  "ok": false,
+  "gates": {
+    "schema": {
+      "status": "pass",
+      "failures": []
+    },
+    "ruleTester": {
+      "status": "fail",
+      "failures": [
+        {
+          "ruleId": "G97",
+          "reason": "negative-test.input[0] did not produce expected violation 'no-restricted-imports' for rule 'no-restricted-imports'; got []"
+        }
+      ]
+    },
+    "tautology": {
+      "status": "pass",
+      "failures": []
+    },
+    "conflict": {
+      "status": "pass",
+      "failures": []
+    }
+  }
+}
