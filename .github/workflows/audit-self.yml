@@ -217,6 +217,15 @@ jobs:
         run: npm install --silent
       - name: Run packages/core/hooks/ suite (CI-gap option C — gate the hooks suite)
         run: npm --prefix packages/core run test:hooks
+      # CI-gap option C sibling (render-suite-rot): the packages/core/render/ vitest
+      # suite was never gated — only principles/ and hooks/ were — which is how a real
+      # snapshot drift (R11 audit-self.yml → ci.yml: the manifest R11 row was updated in
+      # #474 but the committed .snap was never regenerated) sat green-in-CI yet
+      # red-only-on-full-local-run. The manifest→RULES.md `--check` job catches RULES.md
+      # drift but not the vitest snapshot. Gate the render suite here. tsx is hoisted by
+      # the root install above; ajv comes from the packages/core install.
+      - name: Run packages/core/render/ suite (CI-gap option C sibling — gate the render snapshot)
+        run: npm --prefix packages/core run test:render
       - name: Run prior-art trailer hook anti-tautology test (Phase 8.8 T9)
         run: bash tests/hooks/prior-art-trailer-hook.test.sh
       - name: Run §1.7 discipline trailer hook anti-tautology test (Wave 10.3)
