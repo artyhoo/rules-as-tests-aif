@@ -28,6 +28,12 @@ describe('monitor-classify.sh — transition test (T-DUX-B a)', () => {
     expect(classify({ status: 'implementing' })).toMatch(/^RUNNING:/));
   it('planning → RUNNING', () =>
     expect(classify({ status: 'planning' })).toMatch(/^RUNNING:/));
+  it('backlog → RUNNING', () =>
+    expect(classify({ status: 'backlog' })).toMatch(/^RUNNING:/));
+  it('plan_ready → RUNNING (auto-advances to implementing; not terminal/parked)', () =>
+    expect(classify({ status: 'plan_ready' })).toMatch(/^RUNNING:/));
+  it('review → RUNNING (auto-review in progress; not terminal/parked)', () =>
+    expect(classify({ status: 'review' })).toMatch(/^RUNNING:/));
   it('done → DONE', () =>
     expect(classify({ status: 'done' })).toMatch(/^DONE:/));
   it('verified → DONE', () =>
@@ -40,6 +46,25 @@ describe('monitor-classify.sh — transition test (T-DUX-B a)', () => {
     expect(classify({ status: 'implementing', blockedReason: 'needs answer' })).toMatch(/^PARKED:/));
   it('isParked:true → PARKED', () =>
     expect(classify({ status: 'implementing', isParked: true })).toMatch(/^PARKED:/));
+});
+
+// ── (a′) Paired-negative — no running state leaks to UNKNOWN ──────────────────
+// Regression guard for the 2026-06-22 live-hit: dispatching stage-2-generate-path
+// Stage 1, a poller exited prematurely on `UNKNOWN:plan_ready`. SKILL.md §2.2 branches
+// only on RUNNING:* / DONE:* / PARKED:* / ERROR:* — an UNKNOWN:* result is unhandled, so
+// a running task (every task passes through plan_ready: backlog→planning→plan_ready→
+// implementing→review→done) was misread as terminal. The canonical mapping
+// (packages/runtime-bridge/src/aifWsStatus.ts:82) classifies plan_ready, implementing and
+// review all as 'running'. Each `.not.toMatch(/^UNKNOWN:/)` below fails if a running state
+// regresses back to the `*)` fall-through arm — the exact shape of the original bug.
+
+describe('monitor-classify.sh — paired-negative: running states never UNKNOWN (T-DUX-B a′)', () => {
+  it('plan_ready is NOT UNKNOWN', () =>
+    expect(classify({ status: 'plan_ready' })).not.toMatch(/^UNKNOWN:/));
+  it('review is NOT UNKNOWN', () =>
+    expect(classify({ status: 'review' })).not.toMatch(/^UNKNOWN:/));
+  it('implementing is NOT UNKNOWN', () =>
+    expect(classify({ status: 'implementing' })).not.toMatch(/^UNKNOWN:/));
 });
 
 // ── (b) Safety check — paired-negative ───────────────────────────────────────
