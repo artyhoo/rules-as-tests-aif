@@ -113,7 +113,7 @@ The triage output is itself a reviewable artifact; shipping the whole `.claude/`
 
 superpowers delivers actions through skills (a skill *does* the thing). We mirror that for the hard layer:
 
-1. The plugin ships a **thin seam** — `plugin/install/fetch-and-wire.sh` — that **fetches the project's own official `install.sh`** (pinned to the plugin version) and runs it against `$CLAUDE_PROJECT_DIR`. It does **not** bundle a copy of `install.sh` + payload.
+1. The plugin ships a **thin seam** — `plugin/install/fetch-and-wire.sh` — that **fetches the project's own official `install.sh`** (default ref: the stable `main` branch, which carries the current hardened installer; `RAT_INSTALL_REF`/`RAT_INSTALL_SOURCE` override) and runs it against `$CLAUDE_PROJECT_DIR`. It does **not** bundle a copy of `install.sh` + payload. **Ref decoupled from the plugin version (S8):** the framework's release tags (`v0.2.0`/`v0.3.0`) lag `staging` by weeks, so pinning the fetch to `v<plugin-version>` would ship a stale `install.sh` missing the hardening fixes — track `main` instead; a reproducible per-plugin tag is a future maintainer release action.
 2. A skill `installing-enforcement/SKILL.md` (gerund naming, superpowers house style) documents and gates the operation.
 3. A slash command `commands/install-enforcement.md` → `/rules-as-tests:install-enforcement` runs the seam **dry-run first**, shows the plan, consent-gates `[y/N]`, then `--apply` (the installer is idempotent + `--dry-run`-honest).
 

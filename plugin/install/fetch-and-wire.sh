@@ -19,11 +19,16 @@
 #   CLAUDE_PROJECT_DIR   target consumer repo (default: $PWD)
 #   RAT_INSTALL_SOURCE   installer source — a local dir containing install.sh (used in place,
 #                        for forks/tests) OR a git URL to clone (default: the official repo)
-#   RAT_INSTALL_REF      git ref to clone when SOURCE is a URL (default: the pinned version tag,
-#                        falling back to the repo default branch if the tag is absent)
+#   RAT_INSTALL_REF      git ref to clone when SOURCE is a URL (default: the stable `main` branch,
+#                        which carries the current hardened install.sh). Override to pin a
+#                        reproducible release tag once one is cut for the plugin.
 set -euo pipefail
 
-# Pinned to the plugin version (S8 bumps in lockstep; principle 24 asserts parity).
+# The plugin's OWN version (principle 24 asserts plugin.json/marketplace.json parity). It is
+# deliberately DECOUPLED from RAT_INSTALL_REF below: the framework's own release tags (v0.2.0,
+# v0.3.0) lag staging by weeks, so pinning the fetch to `v<plugin-version>` would ship a stale
+# install.sh missing the hardening fixes (#531/#551/#635/#636). We track `main` instead; a
+# reproducible per-plugin release tag is a future maintainer release action (see done.md).
 RAT_PLUGIN_VERSION="0.1.0"
 
 STACK="ts-server"
@@ -38,7 +43,7 @@ done
 
 TARGET="${CLAUDE_PROJECT_DIR:-$PWD}"
 SOURCE="${RAT_INSTALL_SOURCE:-https://github.com/Yhooi2/rules-as-tests-aif.git}"
-REF="${RAT_INSTALL_REF:-v${RAT_PLUGIN_VERSION}}"
+REF="${RAT_INSTALL_REF:-main}"
 
 [ -d "$TARGET" ] || { printf 'fetch-and-wire: target %s is not a directory\n' "$TARGET" >&2; exit 1; }
 
