@@ -9,7 +9,15 @@ export type ManifestCheck =
   | { type: 'eslint'; rule: string }
   | { type: 'command'; command: string }
   | { type: 'script'; script: string }
-  | { type: 'manual'; rationale?: string };
+  | { type: 'manual'; rationale?: string }
+  | {
+      type: 'declarative';
+      engine?: 'eslint-restricted' | 'ast-grep';
+      selector: string;
+      messageId?: string;
+      message?: string;
+      presence: 'forbid';
+    };
 
 export interface NegativeTest {
   /** One or more code snippets — each must produce the expected violation (bypass variants). */

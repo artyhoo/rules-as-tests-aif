@@ -66,7 +66,19 @@ function runEslintRoundtrip(
   rule: SynthesizedRule,
   parsedSnippet: Record<string, unknown>,
 ): GateFailure[] {
-  if (rule.check.type !== 'eslint') return [];
+  if (rule.check.type !== 'eslint' && rule.check.type !== 'declarative') return [];
+
+  // ast-grep engine is reserved but not wired in S2 — explicit deferred-marker per decision (i)
+  if (rule.check.type === 'declarative' && rule.check.engine === 'ast-grep') {
+    return [
+      {
+        ruleId: rule.id,
+        reason:
+          'ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)',
+      },
+    ];
+  }
+
   const negativeTest = rule['negative-test'];
   if (!negativeTest) {
     return [
@@ -77,7 +89,9 @@ function runEslintRoundtrip(
       },
     ];
   }
-  const ruleName = rule.check.rule;
+  // eslint type uses check.rule; declarative+eslint-restricted derives no-restricted-syntax
+  const ruleName =
+    rule.check.type === 'eslint' ? rule.check.rule : 'no-restricted-syntax';
   const ruleConfig = parsedSnippet[ruleName] ?? 'error';
   const config = buildSingleRuleConfig(ruleName, ruleConfig);
   const linter = new Linter();
@@ -115,7 +129,9 @@ function runEslintRoundtrip(
 }
 
 export function runRuleTesterGate(plan: SynthesisPlan): GateOutcome {
-  const eslintRules = plan.rules.filter((r) => r.check.type === 'eslint');
+  const eslintRules = plan.rules.filter(
+    (r) => r.check.type === 'eslint' || r.check.type === 'declarative',
+  );
   if (eslintRules.length === 0) {
     return { status: 'n/a', failures: [] };
   }

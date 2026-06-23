@@ -86,6 +86,20 @@ export function synthesize(plan: ResearchPlan): SynthesisPlan {
       recipe.patternId,
       ruleSources,
     );
+    // For declarative+eslint-restricted: compile selector+message into no-restricted-syntax entry
+    if (
+      rule.check.type === 'declarative' &&
+      (!rule.check.engine || rule.check.engine === 'eslint-restricted')
+    ) {
+      const selectorEntry: Record<string, string> = { selector: rule.check.selector };
+      if (rule.check.message) selectorEntry.message = rule.check.message;
+      mergeEslintRuleConfig(
+        mergedEslintConfig,
+        { 'no-restricted-syntax': ['error', selectorEntry] } as Record<string, unknown>,
+        recipe.patternId,
+        ruleSources,
+      );
+    }
   }
 
   const result: SynthesisPlan = {
