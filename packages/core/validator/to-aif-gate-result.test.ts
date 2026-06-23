@@ -11,6 +11,9 @@ const PASS_REPORT: ValidationReport = {
     ruleTester: { status: 'pass', failures: [] },
     tautology: { status: 'pass', failures: [] },
     conflict: { status: 'pass', failures: [] },
+    singleTokenDiff: { status: 'n/a', failures: [] },
+    messageIdCoverage: { status: 'n/a', failures: [] },
+    autofixClean: { status: 'n/a', failures: [] },
   },
 };
 
@@ -27,6 +30,9 @@ const FAIL_REPORT: ValidationReport = {
       status: 'fail',
       failures: [{ reason: 'orphan plugin reference' }],
     },
+    singleTokenDiff: { status: 'n/a', failures: [] },
+    messageIdCoverage: { status: 'n/a', failures: [] },
+    autofixClean: { status: 'n/a', failures: [] },
   },
 };
 
