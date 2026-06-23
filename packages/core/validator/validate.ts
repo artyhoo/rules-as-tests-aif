@@ -37,6 +37,10 @@ export function validate(plan: SynthesisPlan): ValidationReport {
     messageIdCoverage.status !== 'fail' &&
     autofixClean.status !== 'fail';
 
+  // Read-only visibility of the silent manual-bypass: rules L4 cannot roundtrip
+  // (check.type:'manual') are surfaced here WITHOUT affecting `ok`.
+  const manualRules = plan.rules.filter((r) => r.check.type === 'manual');
+
   return {
     ok,
     gates: {
@@ -48,5 +52,7 @@ export function validate(plan: SynthesisPlan): ValidationReport {
       messageIdCoverage,
       autofixClean,
     },
+    manualCount: manualRules.length,
+    manualRuleIds: manualRules.map((r) => r.id),
   };
 }

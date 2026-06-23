@@ -29,5 +29,7 @@
       "status": "n/a",
       "failures": []
     }
-  }
+  },
+  "manualCount": 0,
+  "manualRuleIds": []
 }

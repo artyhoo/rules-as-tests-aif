@@ -15,6 +15,8 @@ const PASS_REPORT: ValidationReport = {
     messageIdCoverage: { status: 'n/a', failures: [] },
     autofixClean: { status: 'n/a', failures: [] },
   },
+  manualCount: 0,
+  manualRuleIds: [],
 };
 
 const FAIL_REPORT: ValidationReport = {
@@ -34,6 +36,8 @@ const FAIL_REPORT: ValidationReport = {
     messageIdCoverage: { status: 'n/a', failures: [] },
     autofixClean: { status: 'n/a', failures: [] },
   },
+  manualCount: 0,
+  manualRuleIds: [],
 };
 
 describe('fromValidationReport', () => {

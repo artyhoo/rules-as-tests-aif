@@ -26,4 +26,8 @@ export interface ValidationReport {
     messageIdCoverage: GateOutcome;
     autofixClean: GateOutcome;
   };
+  /** Count of rules emitted as check.type:'manual' (L4 cannot roundtrip them — surfaced, not failed). */
+  manualCount: number;
+  /** ids of the manual-checked rules — makes the silent manual-bypass visible without changing `ok`. */
+  manualRuleIds: string[];
 }

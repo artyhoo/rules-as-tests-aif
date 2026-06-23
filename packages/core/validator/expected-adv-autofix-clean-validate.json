@@ -34,5 +34,7 @@
         }
       ]
     }
-  }
+  },
+  "manualCount": 0,
+  "manualRuleIds": []
 }

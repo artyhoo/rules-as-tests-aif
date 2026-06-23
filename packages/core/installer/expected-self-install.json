@@ -45,7 +45,9 @@
         "status": "n/a",
         "failures": []
       }
-    }
+    },
+    "manualCount": 0,
+    "manualRuleIds": []
   },
   "postValidation": {
     "ok": true,
@@ -78,6 +80,8 @@
         "status": "n/a",
         "failures": []
       }
-    }
+    },
+    "manualCount": 0,
+    "manualRuleIds": []
   }
 }
