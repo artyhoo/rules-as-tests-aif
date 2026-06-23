@@ -23,6 +23,5 @@
       "expect-violation": "no-restricted-syntax"
     }
   },
-  "rulesMdTemplate": "## {{id}} — Forbid `.only` in test calls\n\n**Stack:** react-next  \n**Check:** declarative `no-restricted-syntax` (eslint-restricted engine)  \n**Why:** `.only` silently disables all other tests in the file/suite. A CI run with `.only` committed will pass while skipping the vast majority of tests — a systematic false-positive gate. Remove `.only` or use `--testNamePattern` for focused local runs.\n",
   "eslintRuleConfig": {}
 }

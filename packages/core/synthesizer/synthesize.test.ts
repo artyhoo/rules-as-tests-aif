@@ -130,4 +130,20 @@ describe('synthesize — pure recipe lookup + composition', () => {
       true,
     );
   });
+
+  it('loads a declarative recipe that omits rulesMdTemplate (data-only)', () => {
+    const result = synthesize(
+      plan({ patterns: [entry('test-only-forbid-declarative')] }),
+    );
+    expect(result.rules).toHaveLength(1);
+    expect(result.rules[0].check.type).toBe('declarative');
+  });
+
+  it('generates rulesMd for a declarative forbid from spec, not from a template', () => {
+    const result = synthesize(
+      plan({ patterns: [entry('test-only-forbid-declarative')] }),
+    );
+    expect(result.rulesMd).toContain('## G1 — Forbid `.only` in test calls');
+    expect(result.rulesMd).toContain('no-restricted-syntax');
+  });
 });

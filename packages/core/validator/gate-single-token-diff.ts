@@ -6,13 +6,15 @@
 // construct — the bad example could "redden" for unrelated reasons, making
 // the rule's positive-signal vacuous.
 //
-// THRESHOLD: MAX_TOKEN_EDITS = 5 is a CONSERVATIVE INTERIM bound — it rejects
-// grossly non-minimal pairs (this gate's adversarial BAD fixture is 22 edits).
-// The ideal is a single targeted construct (≈1 token / 1 AST-node — the
-// umbrella §S3 intent). The exact minimality threshold is CALIBRATED at S4,
-// against the first real `declarative` forbid pairs `synthesize` emits; no real
-// pair exists yet (until S4 this gate is n/a on every live-pipeline plan — see
-// architecture.md §2.6 "Runtime status").
+// THRESHOLD: MAX_TOKEN_EDITS = 5 is a CONSERVATIVE bound — it rejects grossly
+// non-minimal pairs (this gate's adversarial BAD fixture is 22 edits).
+// CALIBRATED at S4 against the first real `declarative` forbid pair `synthesize`
+// emits — `.only` test-focus (`it.only('should work', ...)` vs `it('should
+// work', ...)`) measures token-distance = 1, confirming real forbid pairs sit at
+// the ≈1 token / 1 AST-node ideal (umbrella §S3 intent). The threshold 5 stays a
+// conservative-safe upper bound; tighten only if a future pair class proves a
+// lower ceiling. As of S4 this gate is `pass` (not n/a) on any plan carrying a
+// declarative forbid — see validator/expected-fixture-validate.json.
 //
 // NET-NEW vs gate 2 (rule-tester): gate 2 checks the rule FIRES; this gate
 // checks the example pair IS MINIMAL — isolating the forbidden construct.

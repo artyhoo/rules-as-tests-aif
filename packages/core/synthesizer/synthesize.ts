@@ -8,6 +8,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Ajv } from 'ajv';
 import type { ResearchPlan } from '../research/types.ts';
+import { compileDeclarativeMd } from './compile-declarative-md.ts';
 import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
 import type { SynthesisPlan, SynthesizedRule } from './types.ts';
 
@@ -20,7 +21,7 @@ export interface Recipe {
   patternId: string;
   appliesTo: string[];
   rule: Omit<SynthesizedRule, 'id' | 'research'>;
-  rulesMdTemplate: string;
+  rulesMdTemplate?: string;
   eslintRuleConfig: Record<string, unknown>;
 }
 
@@ -79,7 +80,11 @@ export function synthesize(plan: ResearchPlan): SynthesisPlan {
       research: { entryId: entry.id, provenance: entry.provenance },
     };
     rules.push(rule);
-    mdFragments.push(recipe.rulesMdTemplate.replace(/\{\{id\}\}/g, id));
+    if (rule.check.type === 'declarative') {
+      mdFragments.push(compileDeclarativeMd(rule));
+    } else {
+      mdFragments.push((recipe.rulesMdTemplate ?? '').replace(/\{\{id\}\}/g, id));
+    }
     mergeEslintRuleConfig(
       mergedEslintConfig,
       recipe.eslintRuleConfig,

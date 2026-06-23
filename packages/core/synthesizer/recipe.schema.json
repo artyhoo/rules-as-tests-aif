@@ -4,7 +4,7 @@
   "description": "Curated synthesizer recipe — hand-authored mapping from a research patternId to a SynthesizedRule shape (minus id/research, which the synthesizer assigns from the live ResearchEntry). Loaded by packages/core/synthesizer/synthesize.ts loadRecipe().\n\nSingle-source policy: one synthesizer recipe per emitted ESLint rule. Collisions (two recipes targeting the same plugin rule) are resolved by deletion + research-store patternId re-route, not by layered emission. The research-store entry remains as the catalog row; only its inner patternId aligns with the surviving recipe. Detector pattern-id surface is unchanged. Phase 9 A6 closure (2026-05-09).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["patternId", "appliesTo", "rule", "rulesMdTemplate", "eslintRuleConfig"],
+  "required": ["patternId", "appliesTo", "rule", "eslintRuleConfig"],
   "properties": {
     "patternId": {
       "description": "Stable identifier — must match a research entry id under packages/core/research/store/.",
@@ -121,5 +121,21 @@
       "description": "ESLint flat-config rule entry — merged into SynthesisPlan.eslintConfigSnippet. For check.type === 'eslint' rules with shared rule names (e.g. 'no-restricted-imports'), the synthesizer applies semantic merge (array concat for paths[]) — see Phase 7 B1 fix.",
       "type": "object"
     }
+  },
+  "$comment": "S4: declarative recipes generate rulesMd from the spec (compile-declarative-md.ts) and need no handwritten template (T-MVP-A); non-declarative recipes still require rulesMdTemplate.",
+  "if": {
+    "properties": {
+      "rule": {
+        "properties": {
+          "check": { "properties": { "type": { "const": "declarative" } } }
+        }
+      }
+    }
+  },
+  "then": {
+    "required": ["patternId", "appliesTo", "rule", "eslintRuleConfig"]
+  },
+  "else": {
+    "required": ["patternId", "appliesTo", "rule", "rulesMdTemplate", "eslintRuleConfig"]
   }
 }

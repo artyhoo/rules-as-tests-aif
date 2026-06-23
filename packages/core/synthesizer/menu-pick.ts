@@ -8,6 +8,7 @@
 
 import type { ResearchPlan } from '../research/types.ts';
 import { loadRecipe } from './synthesize.ts';
+import { compileDeclarativeMd } from './compile-declarative-md.ts';
 import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
 import type { SynthesisPlan, SynthesizedRule } from './types.ts';
 import type { Menu, MenuCandidate, MenuPickClient } from './menu-pick-port.ts';
@@ -53,7 +54,11 @@ export async function synthesizeLive(
       research: { entryId: entry.id, provenance: entry.provenance },
     };
     rules.push(rule);
-    mdFragments.push(recipe.rulesMdTemplate.replace(/\{\{id\}\}/g, id));
+    if (rule.check.type === 'declarative') {
+      mdFragments.push(compileDeclarativeMd(rule));
+    } else {
+      mdFragments.push((recipe.rulesMdTemplate ?? '').replace(/\{\{id\}\}/g, id));
+    }
 
     const eslintConfig = selected.eslintConfigOverride ?? recipe.eslintRuleConfig;
     mergeEslintRuleConfig(mergedEslintConfig, eslintConfig, recipe.patternId, ruleSources);
