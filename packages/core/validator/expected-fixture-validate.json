@@ -18,11 +18,11 @@
       "failures": []
     },
     "singleTokenDiff": {
-      "status": "n/a",
+      "status": "pass",
       "failures": []
     },
     "messageIdCoverage": {
-      "status": "n/a",
+      "status": "pass",
       "failures": []
     },
     "autofixClean": {

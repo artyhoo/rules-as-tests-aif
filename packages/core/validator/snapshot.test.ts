@@ -40,6 +40,7 @@ const fixturePlan = (): ResearchPlan => ({
     entry('nextjs-app-router'),
     entry('nextjs-pages-router'),
     entry('next-r12-no-server-imports-in-client'),
+    entry('test-only-forbid-declarative'),
   ],
   missing: [],
   drift: null,
