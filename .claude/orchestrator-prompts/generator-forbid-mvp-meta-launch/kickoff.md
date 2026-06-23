@@ -142,6 +142,25 @@ S1a/S1b pilots producing only markdown references / fixtures may not be capabili
 
 ---
 
+## §4d Cross-stage host-verify acceptance (S2–S5) — `tsc` + snapshot-ripple (MANDATORY)
+
+> **Codified from S3 #693 (2026-06-23):** the aif worker's own-QA + a validator-scoped `vitest` run were BOTH green, yet CI caught two real bugs across two rounds. `tsx`/`vitest` do **not** strictly type-check. Each stage's `/tmp` kickoff acceptance (§6) and the host pre-egress check MUST include the following, not just `vitest`:
+
+1. **`cd packages/core && npx tsc --noEmit` → exit 0.** Run this before egress (bundle → PR → merge). S3: `to-aif-gate-result.test.ts` ValidationReport literals + `GATE_NAMES` were stale for the 7-gate shape — `vitest` passed, `tsc` failed `TS2739`.
+
+2. **ValidationReport snapshot-ripple checklist.** When a stage changes `validate()` / `ValidationReport.gates` / a gate's emit, regenerate **ALL** consumers, not just L4:
+   - L4 validator: `expected-self-validate.json`, `expected-fixture-validate.json`, `expected-adv-*.json`
+   - L5 installer: `expected-self-install.json` (embeds pre/post `ValidationReport`s — regenerate via the CI `synth → install:synth → jq shape` pipeline, never hand-edit)
+   - converter: `to-aif-gate-result.ts` `GATE_NAMES` + its `PASS_REPORT`/`FAIL_REPORT` test literals
+
+   S3 regenerated L4 but missed L5 + converter; each surfaced on a separate CI round.
+
+3. **When CI is red, reproduce the exact failing check locally before re-push** (e.g. `gh run view --job <id> --log-failed`, then run that check) — do not push-and-pray.
+
+These mirror the lessons in memory `project_generator_forbid_mvp_state` (LESSONS 1–2).
+
+---
+
 ## §5 AI-traps active (per `ai-laziness-traps.md §2`)
 
 **Active canonical traps (from umbrella kickoff §4):** **T2, T3, T4, T5, T14, T15, T16, T20.**
