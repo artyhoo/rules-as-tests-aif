@@ -4,9 +4,12 @@
 // Installer (L5) consumes ValidationReport.ok before writing to disk.
 
 import type { SynthesisPlan } from '../synthesizer/types.ts';
+import { runAutofixCleanGate } from './gate-autofix-clean.ts';
 import { runConflictGate } from './gate-conflict.ts';
+import { runMessageIdCoverageGate } from './gate-message-id-coverage.ts';
 import { runRuleTesterGate } from './gate-rule-tester.ts';
 import { runSchemaGate } from './gate-schema.ts';
+import { runSingleTokenDiffGate } from './gate-single-token-diff.ts';
 import { runTautologyGate } from './gate-tautology.ts';
 import type { GateOutcome, ValidationReport } from './types.ts';
 
@@ -21,12 +24,29 @@ export function validate(plan: SynthesisPlan): ValidationReport {
   const ruleTester = downstreamSkipped ? SKIPPED : runRuleTesterGate(plan);
   const tautology = downstreamSkipped ? SKIPPED : runTautologyGate(plan);
   const conflict = downstreamSkipped ? SKIPPED : runConflictGate(plan);
+  const singleTokenDiff = downstreamSkipped ? SKIPPED : runSingleTokenDiffGate(plan);
+  const messageIdCoverage = downstreamSkipped ? SKIPPED : runMessageIdCoverageGate(plan);
+  const autofixClean = downstreamSkipped ? SKIPPED : runAutofixCleanGate(plan);
 
   const ok =
     schema.status !== 'fail' &&
     ruleTester.status !== 'fail' &&
     tautology.status !== 'fail' &&
-    conflict.status !== 'fail';
+    conflict.status !== 'fail' &&
+    singleTokenDiff.status !== 'fail' &&
+    messageIdCoverage.status !== 'fail' &&
+    autofixClean.status !== 'fail';
 
-  return { ok, gates: { schema, ruleTester, tautology, conflict } };
+  return {
+    ok,
+    gates: {
+      schema,
+      ruleTester,
+      tautology,
+      conflict,
+      singleTokenDiff,
+      messageIdCoverage,
+      autofixClean,
+    },
+  };
 }

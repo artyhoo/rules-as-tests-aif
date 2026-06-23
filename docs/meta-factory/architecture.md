@@ -12,7 +12,7 @@
 
 ### 2.1 Шесть слоёв
 
-```
+```text
 Layer 0 — Invariant Core (никогда не генерится)
 Layer 1 — Stack Detector
 Layer 2 — Research Agent
@@ -147,6 +147,12 @@ Layer 5 — Installer
 **Это и есть применение собственных принципов пакета к LLM-output.**
 
 > **v1 deterministic stance (2026-05-08):** Validator ships **gates 1, 2, 4, 6 REQUIRED** in Phase 7. Gate 3 (mutation testing via Stryker) is a v2 trigger per [open-questions.md §13.10 entry #5](open-questions.md) — only mutates AST, so nothing to mutate in Path A; activates with Path B (Phase 9+). Gate 5 (two-AI review) is a v2 trigger per §13.10 entry #4 — maps to AIF `review-sidecar` (`model: opus`); cost-scope decision deferred to Phase 8. See [retros/phase-7.md L4 6-gate triage table](retros/phase-7.md) for v1 lock state. v2 expansion is strict-superset over v1 REQUIRED gates.
+
+**Anti-vacuity cluster (S3, generator-forbid-mvp):** Three additional gates added in `packages/core/validator/` to catch example pairs that are correct but non-informative. All three are engine-agnostic; `eslint-restricted` implementation ships now; `ast-grep` yields an explicit deferred-marker per decision (i). These gates return `n/a` when no applicable rules are present and never re-implement gate 2 (firing check) or gate 4 (corpus-firing check).
+
+7. **single-token-diff** — `examples.good` and `examples.bad` must differ by ≤5 whitespace-token edits (Levenshtein). A larger distance means the pair may not isolate the targeted construct. Applies to `declarative` rules only.
+8. **messageId-coverage** — for `declarative` rules that declare `check.message` or `check.messageId`, verifies the declared value IS the one actually emitted when linting `examples.bad`. Closes the gate-2 loose ruleId-fallback gap.
+9. **autofix-clean** — for `eslint`/`declarative` rules, applies one pass of ESLint fix patches from `examples.bad` and re-verifies: (a) fixed output parses, (b) same-rule violation is gone, (c) no new same-rule violation introduced. Returns `n/a` for fixer-less rules (e.g. `no-restricted-syntax`). Forward-protects S4/G3b emit.
 
 ### 2.7 Layer 5 — Installer
 

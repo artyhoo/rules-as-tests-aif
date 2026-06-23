@@ -10,13 +10,8 @@
       "failures": []
     },
     "tautology": {
-      "status": "fail",
-      "failures": [
-        {
-          "ruleId": "G99",
-          "reason": "tautology — rule 'no-restricted-imports' fires on negative-corpus/unrelated.tsx: 'react' import is restricted from being used. tautology-test"
-        }
-      ]
+      "status": "pass",
+      "failures": []
     },
     "conflict": {
       "status": "pass",
@@ -31,8 +26,13 @@
       "failures": []
     },
     "autofixClean": {
-      "status": "n/a",
-      "failures": []
+      "status": "fail",
+      "failures": [
+        {
+          "ruleId": "G87",
+          "reason": "autofix-clean: fixer for 'no-extra-parens' left 1 violation(s) in fixed output — fix is incomplete or introduces new same-rule violations"
+        }
+      ]
     }
   }
 }

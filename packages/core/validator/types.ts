@@ -22,5 +22,8 @@ export interface ValidationReport {
     ruleTester: GateOutcome;
     tautology: GateOutcome;
     conflict: GateOutcome;
+    singleTokenDiff: GateOutcome;
+    messageIdCoverage: GateOutcome;
+    autofixClean: GateOutcome;
   };
 }

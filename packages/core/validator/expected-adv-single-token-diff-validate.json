@@ -10,24 +10,24 @@
       "failures": []
     },
     "tautology": {
-      "status": "fail",
-      "failures": [
-        {
-          "ruleId": "G99",
-          "reason": "tautology — rule 'no-restricted-imports' fires on negative-corpus/unrelated.tsx: 'react' import is restricted from being used. tautology-test"
-        }
-      ]
+      "status": "n/a",
+      "failures": []
     },
     "conflict": {
       "status": "pass",
       "failures": []
     },
     "singleTokenDiff": {
-      "status": "n/a",
-      "failures": []
+      "status": "fail",
+      "failures": [
+        {
+          "ruleId": "G91",
+          "reason": "single-token-diff: examples.bad and examples.good differ by 22 tokens (threshold 5) — pair does not isolate the forbidden construct; reduce to a minimal ≈1 token / 1 AST-node difference"
+        }
+      ]
     },
     "messageIdCoverage": {
-      "status": "n/a",
+      "status": "pass",
       "failures": []
     },
     "autofixClean": {

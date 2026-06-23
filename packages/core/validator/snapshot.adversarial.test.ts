@@ -4,6 +4,8 @@
 // the right gate to 'fail'. Mirrors the snapshot.test.ts pattern for
 // self + next-16 fixture; only new adversarial snapshots are added here.
 // DO NOT touch expected-self-validate.json or expected-fixture-validate.json.
+// Gates 7-9 (anti-vacuity cluster): single-token-diff, messageId-coverage,
+// autofix-clean adversarial snapshots added at bottom of describe block.
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -124,6 +126,66 @@ describe('validator adversarial snapshots', () => {
     const report = validate(snippetDropBadPlan);
     const expected = JSON.parse(
       readFileSync(resolve(HERE, 'expected-adv-snippet-drop-validate.json'), 'utf8'),
+    );
+    expect(report).toEqual(expected);
+  });
+
+  it('single-token-diff plan: ok=false, Gate 7 fail, matches expected-adv-single-token-diff-validate.json', () => {
+    const singleTokenDiffBadPlan: SynthesisPlan = {
+      framework: 'next', version: '16.0.0',
+      rules: [{
+        id: 'G91', title: 'adversarial-single-token-diff-bad', stack: ['react-next'],
+        check: { type: 'declarative', engine: 'eslint-restricted', selector: 'FunctionDeclaration[generator=true]', message: 'No generator functions allowed', presence: 'forbid' },
+        examples: { bad: 'const a = 1; const b = 2; const c = 3; function* gen() { yield a + b + c; }', good: '// no generators here' },
+        'negative-test': { input: ['function* gen() { yield 1; }'], 'expect-violation': 'no-restricted-syntax' },
+        research: { entryId: 'adv-std-bad', provenance: [provenance] },
+      }],
+      rulesMd: '',
+      eslintConfigSnippet: JSON.stringify({ 'no-restricted-syntax': ['error', { selector: 'FunctionDeclaration[generator=true]', message: 'No generator functions allowed' }] }),
+    };
+    const report = validate(singleTokenDiffBadPlan);
+    const expected = JSON.parse(
+      readFileSync(resolve(HERE, 'expected-adv-single-token-diff-validate.json'), 'utf8'),
+    );
+    expect(report).toEqual(expected);
+  });
+
+  it('messageId-coverage plan: ok=false, Gate 8 fail, matches expected-adv-message-id-coverage-validate.json', () => {
+    const messageIdCoverageBadPlan: SynthesisPlan = {
+      framework: 'next', version: '16.0.0',
+      rules: [{
+        id: 'G89', title: 'adversarial-messageId-coverage-bad', stack: ['react-next'],
+        check: { type: 'declarative', engine: 'eslint-restricted', selector: 'FunctionDeclaration[generator=true]', message: 'Do not use generators', presence: 'forbid' },
+        examples: { bad: 'function* gen() { return 1; }', good: 'function gen() { return 1; }' },
+        'negative-test': { input: ['function* gen() { yield 1; }'], 'expect-violation': 'no-restricted-syntax' },
+        research: { entryId: 'adv-mic-bad', provenance: [provenance] },
+      }],
+      rulesMd: '',
+      eslintConfigSnippet: JSON.stringify({ 'no-restricted-syntax': ['error', { selector: 'FunctionDeclaration[generator=true]', message: 'No generators!' }] }),
+    };
+    const report = validate(messageIdCoverageBadPlan);
+    const expected = JSON.parse(
+      readFileSync(resolve(HERE, 'expected-adv-message-id-coverage-validate.json'), 'utf8'),
+    );
+    expect(report).toEqual(expected);
+  });
+
+  it('autofix-clean plan: ok=false, Gate 9 fail, matches expected-adv-autofix-clean-validate.json', () => {
+    const autofixCleanBadPlan: SynthesisPlan = {
+      framework: 'next', version: '16.0.0',
+      rules: [{
+        id: 'G87', title: 'adversarial-autofix-clean-bad', stack: ['react-next'],
+        check: { type: 'eslint', rule: 'no-extra-parens' },
+        examples: { bad: '((x))', good: 'x' },
+        'negative-test': { input: ['((x))'], 'expect-violation': 'no-extra-parens' },
+        research: { entryId: 'adv-afc-bad', provenance: [provenance] },
+      }],
+      rulesMd: '',
+      eslintConfigSnippet: JSON.stringify({ 'no-extra-parens': 'error' }),
+    };
+    const report = validate(autofixCleanBadPlan);
+    const expected = JSON.parse(
+      readFileSync(resolve(HERE, 'expected-adv-autofix-clean-validate.json'), 'utf8'),
     );
     expect(report).toEqual(expected);
   });
