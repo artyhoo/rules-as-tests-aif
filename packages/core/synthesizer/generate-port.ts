@@ -26,9 +26,20 @@ export interface GenerateCandidate {
   examples: { bad: string; good: string };
   /**
    * Required when eslintConfig is present — L4 gate-2 enforces presence at runtime for check.type:'eslint'.
-   * Absent for manual-type rules.
+   * Absent for manual-type rules. MANDATORY for forbid candidates — declarative needs it (gate-schema).
    */
   negativeTest?: { input: string[]; 'expect-violation': string };
+  /**
+   * Forbid-class signal (seam i-2). When presence:'forbid' AND selector are present,
+   * synthesizeGenerate routes the candidate to check.type:'declarative' (executable L4 roundtrip)
+   * instead of eslint/manual. The LLM MAY propose `selector` for this sub-class only — it is
+   * validated executably by the declarative compiler + L4 roundtrip + anti-vacuity gates,
+   * which is why relaxing the `ruleId` "never an invented selector" rule above is safe here.
+   */
+  presence?: 'forbid';
+  selector?: string;
+  message?: string;
+  engine?: 'eslint-restricted' | 'ast-grep';
 }
 
 export interface GenerateSelection {
