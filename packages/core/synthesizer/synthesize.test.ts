@@ -108,4 +108,26 @@ describe('synthesize — pure recipe lookup + composition', () => {
     expect(merged).toHaveProperty('no-restricted-imports');
     expect(merged).toHaveProperty('rules-as-tests/no-server-imports-in-client');
   });
+
+  // M1: the declarative+eslint-restricted bridge in synthesize() (selector+message
+  // → no-restricted-syntax entry) was previously exercised by no test — the gate
+  // happy-path built the config by hand. This drives a real declarative recipe
+  // through synthesize() end-to-end, which also revives the recipe file.
+  it('compiles a declarative+eslint-restricted recipe into a no-restricted-syntax config via synthesize() (bridge end-to-end)', () => {
+    const result = synthesize(
+      plan({ patterns: [entry('test-only-forbid-declarative')] }),
+    );
+    expect(result.rules).toHaveLength(1);
+    expect(result.rules[0].check.type).toBe('declarative');
+    const merged = JSON.parse(result.eslintConfigSnippet);
+    expect(merged).toHaveProperty('no-restricted-syntax');
+    const [severity, ...entries] = merged['no-restricted-syntax'] as [
+      string,
+      ...{ selector: string }[],
+    ];
+    expect(severity).toBe('error');
+    expect(entries.some((e) => e.selector.includes("property.name='only'"))).toBe(
+      true,
+    );
+  });
 });
