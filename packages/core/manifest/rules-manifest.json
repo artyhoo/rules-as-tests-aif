@@ -308,7 +308,7 @@
     "auto-skip-if-missing": true,
     "check": {
       "type": "eslint",
-      "rule": "rules-as-tests/require-form-safe-parse"
+      "rule": "no-restricted-syntax"
     },
     "examples": {
       "bad": "'use server';\nexport async function submit(fd: FormData) {\n  await save(fd.get('name') as string); // no safeParse\n}",
@@ -319,7 +319,7 @@
       "input": [
         "'use server';\nexport async function submit(fd: FormData) {\n  await save(fd.get('name') as string);\n}"
       ],
-      "expect-violation": "rules-as-tests/require-form-safe-parse"
+      "expect-violation": "no-restricted-syntax"
     }
   },
   "R15": {
@@ -439,7 +439,7 @@
     "auto-skip-if-missing": true,
     "check": {
       "type": "eslint",
-      "rule": "rules-as-tests/require-use-server-directive"
+      "rule": "no-restricted-syntax"
     },
     "examples": {
       "bad": "export async function deleteItem(id: string) {\n  await db.delete(id); // no 'use server'\n}",
@@ -450,7 +450,7 @@
       "input": [
         "export async function deleteItem(id: string) {\n  await db.delete(id);\n}"
       ],
-      "expect-violation": "rules-as-tests/require-use-server-directive"
+      "expect-violation": "no-restricted-syntax"
     }
   },
   "IR1": {

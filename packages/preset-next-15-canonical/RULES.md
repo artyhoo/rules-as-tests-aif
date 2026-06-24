@@ -28,13 +28,13 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 | **R11 CI integrity** | ts-server, react-next | `ci.yml (lint/typecheck/architecture/test/security/audit-ai-docs → ci-success aggregate) + workflow-integrity.yml (branch-protection-assertion)` |
 | **R12 Server vs Client Components** | react-next | ESLint `rules-as-tests/no-server-imports-in-client` |
 | **R13 Data fetching** | react-next | Manual review — AST grep on TanStack Query / SWR usage; no ESLint rule today. |
-| **R14 Forms** | react-next | ESLint `rules-as-tests/require-form-safe-parse` |
+| **R14 Forms** | react-next | ESLint `no-restricted-syntax` |
 | **R15 Accessibility** | react-next | ESLint `jsx-a11y/strict` |
 | **R16 Performance** | react-next | ESLint `@next/next/no-img-element` |
 | **R17 Component tests** | react-next | `scripts/audit-ai-docs.react-next.sh` |
 | **R18 TanStack Query / SWR** | react-next | Manual review — AST grep on `useQuery` without `.parse()` in `queryFn` (project-specific). |
 | **R19 Styles** | react-next | `depcruise --validate (blocks styled-components/@emotion)` |
-| **R20 Server Actions** | react-next | ESLint `rules-as-tests/require-use-server-directive` |
+| **R20 Server Actions** | react-next | ESLint `no-restricted-syntax` |
 | **IR1 API contracts** | microservices | `CI job: zod-to-openapi diff against published OpenAPI` |
 | **IR2 Consumer-driven contracts (Pact)** | microservices | `CI: pact-publish + pact-verify + can-i-deploy` |
 | **IR3 Event schemas (async messaging)** | microservices | `audit-ai-docs.sh probe — `publish()` calls reference @org/event-schemas` |
