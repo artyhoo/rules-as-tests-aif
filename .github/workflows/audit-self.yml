@@ -324,6 +324,30 @@ jobs:
         run: bash tests/install-sh/f16-stryker-live-mutants.test.sh
       - name: install-sh — f17 lint rules planted-violation (post-install liveness smoke Check3 Arm ii)
         run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
+      - name: install-sh — S1 lib-helpers (mif modular-install-fullpack — lib.sh helpers unit-testable in isolation; O1 fix proof)
+        run: bash tests/install-sh/lib-helpers.test.sh
+      - name: install-sh — S1 byte-identical-snapshot (mif modular-install-fullpack — greenfield + brownfield install runs; compare locally with SNAPSHOT_MODE=compare)
+        run: bash tests/install-sh/s1-byte-identical-snapshot.test.sh ts-server
+      - name: install-sh — S1 layer-05-mcp (mif S1 stub sourceable in lib-only mode)
+        run: bash tests/install-sh/layer-05-mcp.test.sh
+      - name: install-sh — S1 layer-10-skills (mif S1 skills layer sourceable in lib-only mode)
+        run: bash tests/install-sh/layer-10-skills.test.sh
+      - name: install-sh — S1 layer-15-companions-stack (mif S1 stub sourceable in lib-only mode)
+        run: bash tests/install-sh/layer-15-companions-stack.test.sh
+      - name: install-sh — S1 layer-20-agents (mif S1 agents layer sourceable in lib-only mode)
+        run: bash tests/install-sh/layer-20-agents.test.sh
+      - name: install-sh — S1 layer-30-templates (mif S1 templates layer sourceable in lib-only mode)
+        run: bash tests/install-sh/layer-30-templates.test.sh
+      - name: install-sh — S1 layer-40-configs (mif S1 configs layer sourceable in lib-only mode)
+        run: bash tests/install-sh/layer-40-configs.test.sh
+      - name: install-sh — S1 layer-50-hooks (mif S1 hooks layer sourceable in lib-only mode)
+        run: bash tests/install-sh/layer-50-hooks.test.sh
+      - name: install-sh — S1 layer-60-ci (mif S1 CI layer sourceable in lib-only mode)
+        run: bash tests/install-sh/layer-60-ci.test.sh
+      - name: install-sh — S1 layer-70-deps (mif S1 deps layer sourceable in lib-only mode)
+        run: bash tests/install-sh/layer-70-deps.test.sh
+      - name: install-sh — S1 layer-99-finalize (mif S1 finalize layer sourceable in lib-only mode)
+        run: bash tests/install-sh/layer-99-finalize.test.sh
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
       - name: Run agnosticism harness self-test (Umbrella-1 anti-theatre gate — harness must fail on a seeded CC-break)
