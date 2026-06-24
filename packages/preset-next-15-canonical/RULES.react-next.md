@@ -73,7 +73,7 @@ export function Orders() {
 - `revalidatePath()` / `revalidateTag()` после мутаций, изменяющих кеш.
 
 **Check:** ESLint `rules-as-tests/require-form-safe-parse` (любая функция с параметром
-`FormData` обязана вызывать `.safeParse(...)` в теле).
+`FormData` обязана вызывать `.safeParse(...)` в теле). Known gap: per-parameter `/* audit:exempt */` exemption is comment-based (inexpressible in esquery) — handwritten rule retained; declarative migration deferred.
 
 ### Examples
 
@@ -231,7 +231,7 @@ import { cn } from '@/lib/utils';
 - Server Actions защищены auth-проверкой (если требуется): первая строка функции — `requireUser()` или эквивалент.
 
 **Check:** ESLint `rules-as-tests/require-use-server-directive` (`export async function`
-требует `'use server'` директивы в начале файла) + project-specific probe для auth.
+требует `'use server'` директивы в начале файла) + project-specific probe для auth. Known gap: per-line `// audit:exempt` exemption is comment-based (inexpressible in esquery) — handwritten rule retained; declarative migration deferred.
 
 ### Examples
 

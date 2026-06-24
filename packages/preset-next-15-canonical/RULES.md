@@ -22,7 +22,7 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 | **R5 Async correctness** | ts-server, react-next | ESLint `@typescript-eslint/no-floating-promises` |
 | **R6 Errors** | ts-server, react-next | ESLint `no-throw-literal` |
 | **R7 Time, randomness, IO** | ts-server, react-next | ESLint `rules-as-tests/no-direct-time-randomness` |
-| **R8 Observability** | ts-server, react-next | ESLint `rules-as-tests/require-otel-span` |
+| **R8 Observability** | ts-server, react-next | ESLint `no-restricted-syntax` |
 | **R9 Imports / dependencies** | ts-server, react-next | ESLint `no-restricted-imports` |
 | **R10 Naming** | ts-server, react-next | Manual review — Naming conventions are too project-specific to formalize reliably; sidecar runs ad-hoc grep on the diff. |
 | **R11 CI integrity** | ts-server, react-next | `ci.yml (lint/typecheck/architecture/test/security/audit-ai-docs → ci-success aggregate) + workflow-integrity.yml (branch-protection-assertion)` |
@@ -205,7 +205,7 @@ const now = clock.now(); // injected from infrastructure/clock
 - Span attributes include: relevant business identifiers and active feature flags.
 - Errors set span status with structured cause, never bare error strings.
 
-**Check:** ESLint rule `rules-as-tests/require-otel-span` (layout-agnostic globs, e.g. `**/application/**`, `**/use-cases/**`).
+**Check:** Declarative `no-restricted-syntax` (presence:require) — synthesizer-generated from recipe `next-r8-require-otel-span` (A1+A2 union selector covers FunctionDeclaration + arrow/FunctionExpression). Handwritten `require-otel-span.ts` migrated and deleted; parity test guards behavior.
 
 **Opt-in (cih-s3 F7):** deferred by default — R8 needs an OpenTelemetry tracer a fresh skeleton lacks. The shipped `eslint.config.mjs` enables it only when the environment sets `AIF_STRICT_RUNTIME=1`. Turn it on once a tracer is wired.
 
