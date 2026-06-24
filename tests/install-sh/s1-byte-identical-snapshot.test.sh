@@ -37,7 +37,7 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 STACK="${1:-ts-server}"
 SNAPSHOT_MODE="${SNAPSHOT_MODE:-capture}"   # capture | compare
-BASELINE_DIR="${BASELINE_DIR:-$REPO_ROOT/.ai-factory/s1-snapshots}"
+BASELINE_DIR="${BASELINE_DIR:-$REPO_ROOT/tests/install-sh/baselines}"   # tracked: committed golden baseline so CI compare-mode is a REAL gate (not gitignored .ai-factory)
 
 if [ "$STACK" != "ts-server" ] && [ "$STACK" != "react-next" ]; then
   echo "❌ Unknown stack: $STACK (use ts-server or react-next)"; exit 1
@@ -73,7 +73,7 @@ compute_fingerprint() {
     hash=$(_sha256 "$f")
     printf '%s  %s\n' "$hash" "$rel" >> "$out"
     count=$((count + 1))
-  done < <(find "$dst" -type f | sort)
+  done < <(find "$dst" -type f -not -path '*/.git/*' -not -path '*/node_modules/*' | sort)
   _FINGERPRINT_COUNT=$count
   echo "[DEBUG] fingerprint: $count files → $out"
 }

@@ -45,6 +45,10 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     if [ -z "$AIF_ARCH_TARGET" ]; then
       if [ -d "$PROJECT_ROOT/src" ]; then AIF_ARCH_TARGET="src"; else AIF_ARCH_TARGET="."; fi
     fi
+    # PARK[S2+] (kickoff §4c): the test:integration line below uses bare single-quotes inside
+    # node -e '"'"'...'"'"', which terminate the shell quote and mangle the rendered value. This latent
+    # bug is preserved BYTE-IDENTICAL from install.sh:1303 (S1 = refactor-only, no fix-forward);
+    # it is fixed in S2, NOT here. Do not "correct" the quoting — that breaks the byte-identical gate.
     AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
@@ -59,7 +63,7 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "test": "vitest run",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
-        "test:integration": "vitest run -- --include '\''src/**/*.integration.{ts,tsx}'\''",
+        "test:integration": "vitest run -- --include 'src/**/*.integration.{ts,tsx}'",
         "test:mutation": "stryker run",
         "test:mutation:incremental": "stryker run --incremental",
         "arch:check": "depcruise --config .dependency-cruiser.cjs " + (process.env.AIF_ARCH_TARGET || "src"),

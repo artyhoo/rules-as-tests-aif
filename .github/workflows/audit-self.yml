@@ -326,8 +326,10 @@ jobs:
         run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
       - name: install-sh — S1 lib-helpers (mif modular-install-fullpack — lib.sh helpers unit-testable in isolation; O1 fix proof)
         run: bash tests/install-sh/lib-helpers.test.sh
-      - name: install-sh — S1 byte-identical-snapshot (mif modular-install-fullpack — greenfield + brownfield install runs; compare locally with SNAPSHOT_MODE=compare)
-        run: bash tests/install-sh/s1-byte-identical-snapshot.test.sh ts-server
+      - name: install-sh — S1 byte-identical-snapshot ts-server (mif — modular install == committed monolith baseline, greenfield+brownfield; T-MIF-B real gate)
+        run: SNAPSHOT_MODE=compare bash tests/install-sh/s1-byte-identical-snapshot.test.sh ts-server
+      - name: install-sh — S1 byte-identical-snapshot react-next (mif — modular install == committed monolith baseline, greenfield+brownfield; T-MIF-B real gate)
+        run: SNAPSHOT_MODE=compare bash tests/install-sh/s1-byte-identical-snapshot.test.sh react-next
       - name: install-sh — S1 layer-05-mcp (mif S1 stub sourceable in lib-only mode)
         run: bash tests/install-sh/layer-05-mcp.test.sh
       - name: install-sh — S1 layer-10-skills (mif S1 skills layer sourceable in lib-only mode)

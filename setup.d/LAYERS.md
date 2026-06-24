@@ -103,6 +103,10 @@ These three forks have no determinate best answer on the project's merits. Surfa
 2. **Rollback depth** (fork #3): No undo-stack added (current behavior preserved — same as original install.sh). Alternative: `trap ERR` + LIFO per-layer undo. Note: adding a rollback stack WOULD change behavior and would violate the byte-identical constraint for S1. Must land as a new feature, not a refactor step.
 3. **O4 — `do_refresh()` duplication**: Kept as-is in dispatcher. Alternative: refactor layers to accept `MODE` arg (`copy`|`refresh`) so dispatcher iterates twice. Operator decides — taste/strategy.
 
+### Preserved latent bug (NOT a fork — fix in S2)
+
+`setup.d/70-deps.sh` `test:integration` script value uses **bare** single-quotes inside the `node -e '...'` block, which terminate the shell quote and mangle the rendered value. Preserved **byte-identical verbatim** from `install.sh:1303` per §4c (S1 = refactor-only, **no fix-forward**) — a code comment at the site marks it `PARK[S2+]`. Fix the quoting (and decide `ts` vs `{ts,tsx}` scope) in S2. **The committed byte-identical baselines (`tests/install-sh/baselines/`) encode this current (broken) output, so fixing it in S2 requires regenerating the baselines** (`bash tests/install-sh/s1-byte-identical-snapshot.test.sh <stack>` after the monolith is gone → capture the new expected output).
+
 ---
 
 ## Shellcheck compliance note
