@@ -32,7 +32,7 @@
 
 set -euo pipefail
 
-PKG_ROOT="$(cd "$(dirname "$0")" && pwd)"
+PKG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # BASH_SOURCE (not $0): correct when install.sh is *sourced* (lib-only unit tests), identical to $0 when executed
 PROJECT_ROOT="$(pwd)"
 
 # ─── Source the shared helper library ────────────────────────────────────────
@@ -44,6 +44,15 @@ PROJECT_ROOT="$(pwd)"
 # and all preflight code can call helpers.
 # shellcheck source=setup.d/lib.sh
 source "$PKG_ROOT/setup.d/lib.sh"
+
+# Library-only mode: the helpers are now defined (sourced from lib.sh above). A unit test that
+# does `INSTALL_SH_LIB_ONLY=1; source install.sh` wants the helper functions, NOT the installer
+# body — return before flag parsing / the install run. Restores the pre-S1 monolith's lib-only
+# contract (tests/install-sh/transform-internal-refs.test.sh). No effect on a normal
+# `bash install.sh <stack>` run, where INSTALL_SH_LIB_ONLY is unset → byte-identical output.
+if [ "${INSTALL_SH_LIB_ONLY:-}" = "1" ]; then
+  return 0 2>/dev/null || true
+fi
 
 STACK=""
 FORCE=""
