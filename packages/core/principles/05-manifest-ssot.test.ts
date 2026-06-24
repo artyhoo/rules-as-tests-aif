@@ -23,14 +23,14 @@ import { execSync } from 'node:child_process';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const MANIFEST_PATH = resolve(HERE, '../manifest/rules-manifest.json');
-// Scope note (react-spa install wiring, 2026-06-24): this principle is a manifest↔rendered-doc
+// Scope note (multi-stack install wiring, 2026-06-24): this principle is a manifest↔rendered-doc
 // drift check, so it targets ONLY the manifest-rendered RULES.md. preset-next-15-canonical/RULES.md
 // carries the `Generated from factory/rules-manifest.json by scripts/render-rules.ts` provenance
-// marker → it is in scope. preset-react-spa/RULES.md is a STATIC, hand-authored SPA-tailored doc
-// (no provenance marker, distinct table format, R7/R8 opt-in) → it is NOT manifest-rendered and is
-// therefore OUT of this drift check's scope by construction, not by omission. Folding the new
-// presets into a per-stack manifest-render path is a separate, deliberate decision (issue #646
-// Stage 2), not a silent extension here.
+// marker → it is in scope. preset-react-spa/RULES.md AND preset-react-native/RULES.md are STATIC,
+// hand-authored preset-tailored docs (no provenance marker, distinct table format) → they are NOT
+// manifest-rendered and are therefore OUT of this drift check's scope by construction, not by
+// omission. Folding the new presets into a per-stack manifest-render path is a separate, deliberate
+// decision (issue #646 Stage 2), not a silent extension here.
 const RULES_MD_PATH = resolve(REPO_ROOT, 'packages/preset-next-15-canonical/RULES.md');
 const RENDER_SCRIPT = resolve(HERE, '../render/render-rules.ts');
 

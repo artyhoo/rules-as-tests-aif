@@ -78,7 +78,7 @@ for arg in "$@"; do
     --full)                 FULL="--full" ;;
     --wire-ci)              WIRE_CI="--wire-ci" ;;
     --refresh)              REFRESH="--refresh" ;;
-    ts-server|react-next|react-spa)   STACK="$arg" ;;
+    ts-server|react-next|react-spa|react-native)   STACK="$arg" ;;
     *)                      ;;
   esac
 done
@@ -120,6 +120,9 @@ SHIPPED_DOCS=(
   "packages/preset-react-spa/RULES.md"
   "packages/preset-react-spa/RULES.react-spa.md"
   "packages/preset-react-spa/templates/ARCHITECTURE.react-spa.md"
+  "packages/preset-react-native/RULES.md"
+  "packages/preset-react-native/RULES.react-native.md"
+  "packages/preset-react-native/templates/ARCHITECTURE.react-native.md"
   "packages/core/templates/shared/skill-context/aif-review/SKILL.md"
   "packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md"
   "packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md"
@@ -171,6 +174,9 @@ if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
   if [ -f "$PROJECT_ROOT/.ai-factory/RULES.react-next.md" ] || \
      [ -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-next.md" ]; then
     STACK="react-next"
+  elif [ -f "$PROJECT_ROOT/.ai-factory/RULES.react-native.md" ] || \
+       [ -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-native.md" ]; then
+    STACK="react-native"
   elif [ -f "$PROJECT_ROOT/.ai-factory/RULES.react-spa.md" ] || \
        [ -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-spa.md" ]; then
     STACK="react-spa"
@@ -185,17 +191,19 @@ if [ -z "$STACK" ]; then
   echo "  1) ts-server    — Node.js + Fastify/Hono/Express (server only)"
   echo "  2) react-next   — React 19 + Next.js 15 App Router"
   echo "  3) react-spa    — React 19 + Vite SPA (Feature-Sliced Design)"
-  read -rp "Choose [1/2/3]: " choice
+  echo "  4) react-native — React Native / Expo (Expo or bare-RN baseline)"
+  read -rp "Choose [1/2/3/4]: " choice
   case "$choice" in
     1) STACK="ts-server" ;;
     2) STACK="react-next" ;;
     3) STACK="react-spa" ;;
+    4) STACK="react-native" ;;
     *) echo "❌ Invalid choice"; exit 1 ;;
   esac
 fi
 
-if [ "$STACK" != "ts-server" ] && [ "$STACK" != "react-next" ] && [ "$STACK" != "react-spa" ]; then
-  echo "❌ Unknown stack: $STACK (use ts-server, react-next, or react-spa)"
+if [ "$STACK" != "ts-server" ] && [ "$STACK" != "react-next" ] && [ "$STACK" != "react-spa" ] && [ "$STACK" != "react-native" ]; then
+  echo "❌ Unknown stack: $STACK (use ts-server, react-next, react-spa, or react-native)"
   exit 1
 fi
 
@@ -359,7 +367,7 @@ ignore_shipped_configs() {
   [ -e "$ign" ] || return 0   # no consumer .prettierignore at all → nothing to extend
   # Framework configs that ship at a consumer-ownable path. Each is ignored ONLY if shipped fresh.
   local candidates=(
-    "eslint.config.mjs" "vitest.config.ts" "tsconfig.json" "playwright.config.ts"
+    "eslint.config.mjs" "eslint.config.rn-common.mjs" "vitest.config.ts" "tsconfig.json" "playwright.config.ts"
     ".dependency-cruiser.cjs" "stryker.config.json" ".lintstagedrc.json"
     ".github/workflows/ci.yml" ".github/workflows/workflow-integrity.yml"
   )
@@ -619,6 +627,14 @@ do_refresh() {
       chmod_safe +x "$_rs_dst" 2>/dev/null || true
     fi
   fi
+  if [ "$STACK" = "react-native" ]; then
+    _rnat_src="$PKG_ROOT/packages/preset-react-native/audit-self/audit-ai-docs.react-native.sh"
+    _rnat_dst="$PROJECT_ROOT/scripts/audit-ai-docs.react-native.sh"
+    refresh_safe "$_rnat_src" "$_rnat_dst"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_rnat_dst" ]; then
+      chmod_safe +x "$_rnat_dst" 2>/dev/null || true
+    fi
+  fi
 
   # ── Core hooks (TS pre-push pipeline) ───────────────────
   echo "▶ Core hooks (TS) → packages/core/hooks/"
@@ -793,11 +809,13 @@ mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.template.md"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md"
 # Base RULES.md is the stack's primary rule doc. ts-server/react-next share the manifest-rendered
-# multi-stack preset-next RULES.md (Stack column carries per-stack applicability); react-spa ships
-# its own standalone SPA-tailored RULES.md (no Stack column, R3 via eslint-plugin-boundaries). The
-# `else` keeps the ts-server/react-next output byte-identical to before this branch existed.
+# multi-stack preset-next RULES.md (Stack column carries per-stack applicability); react-spa and
+# react-native each ship their own standalone preset-tailored RULES.md (no Stack column). The
+# `else` keeps the ts-server/react-next output byte-identical to before these branches existed.
 if [ "$STACK" = "react-spa" ]; then
   copy_safe "$PKG_ROOT/packages/preset-react-spa/RULES.md" "$PROJECT_ROOT/.ai-factory/RULES.md"
+elif [ "$STACK" = "react-native" ]; then
+  copy_safe "$PKG_ROOT/packages/preset-react-native/RULES.md" "$PROJECT_ROOT/.ai-factory/RULES.md"
 else
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.md" "$PROJECT_ROOT/.ai-factory/RULES.md"
 fi
@@ -834,6 +852,10 @@ fi
 if [ "$STACK" = "react-spa" ]; then
   copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/ARCHITECTURE.react-spa.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-spa.md"
   copy_safe "$PKG_ROOT/packages/preset-react-spa/RULES.react-spa.md" "$PROJECT_ROOT/.ai-factory/RULES.react-spa.md"
+fi
+if [ "$STACK" = "react-native" ]; then
+  copy_safe "$PKG_ROOT/packages/preset-react-native/templates/ARCHITECTURE.react-native.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-native.md"
+  copy_safe "$PKG_ROOT/packages/preset-react-native/RULES.react-native.md" "$PROJECT_ROOT/.ai-factory/RULES.react-native.md"
 fi
 
 # ── aif-handoff integration note ─────────────────────────
@@ -885,6 +907,10 @@ fi
 if [ "$STACK" = "react-spa" ]; then
   copy_safe "$PKG_ROOT/packages/preset-react-spa/audit-self/audit-ai-docs.react-spa.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.react-spa.sh"
   chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.react-spa.sh" 2>/dev/null || true
+fi
+if [ "$STACK" = "react-native" ]; then
+  copy_safe "$PKG_ROOT/packages/preset-react-native/audit-self/audit-ai-docs.react-native.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.react-native.sh"
+  chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.react-native.sh" 2>/dev/null || true
 fi
 
 # ─── 5. Shared templates ────────────────────────────────
@@ -1071,6 +1097,27 @@ elif [ "$STACK" = "react-spa" ]; then
   copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
   patch_stryker_package_manager
   copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
+  # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
+  copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
+elif [ "$STACK" = "react-native" ]; then
+  # RN ships TWO baselines (Expo vs bare-RN) + a shared base BOTH import. Pick the baseline by
+  # detecting the consumer's deps (`"expo"` present → Expo baseline; else bare-RN), then ALWAYS land
+  # the shared eslint.config.rn-common.mjs — both baselines `import './eslint.config.rn-common.mjs'`,
+  # so omitting it would dangle the import and crash the consumer's ESLint on config load.
+  if grep -qE '"expo"[[:space:]]*:' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+    _rn_eslint="eslint.config.expo.mjs"
+  else
+    _rn_eslint="eslint.config.bare-rn.mjs"
+  fi
+  copy_safe "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$PROJECT_ROOT/eslint.config.mjs"
+  copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$PROJECT_ROOT/eslint.config.rn-common.mjs"
+  copy_safe "$PKG_ROOT/packages/preset-react-native/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+  # RN is native / web-less → NO playwright (E2E is Detox/Maestro, not wired by install).
+  # Ship the arch config (stack-agnostic ts-server base: no-circular/no-orphans).
+  copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
+  copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+  patch_stryker_package_manager
+  copy_safe "$PKG_ROOT/packages/preset-react-native/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
   # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
   copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
 fi
@@ -1425,9 +1472,18 @@ REACT_SPA_DEVDEPS=(
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test
 )
+# react-native (Expo / bare-RN): native, no web/DOM toolchain (vitest env=node, no jsdom/playwright).
+# Just the RN ESLint toolchain — eslint-config-expo (Expo baseline), @react-native/eslint-config +
+# @eslint/eslintrc (bare-RN baseline via FlatCompat), and the RN lint plugins. Ship BOTH baselines'
+# deps so a consumer can switch Expo↔bare without a reinstall.
+REACT_NATIVE_DEVDEPS=(
+  eslint-config-expo @react-native/eslint-config @eslint/eslintrc
+  eslint-plugin-react-native eslint-plugin-react-native-a11y
+)
 DEVDEPS=( "${CORE_DEVDEPS[@]}" )
 [ "$STACK" = "react-next" ] && DEVDEPS+=( "${REACT_DEVDEPS[@]}" )
 [ "$STACK" = "react-spa" ] && DEVDEPS+=( "${REACT_SPA_DEVDEPS[@]}" )
+[ "$STACK" = "react-native" ] && DEVDEPS+=( "${REACT_NATIVE_DEVDEPS[@]}" )
 
 DEPS_INSTALLED=""
 _do_dep_install=""
