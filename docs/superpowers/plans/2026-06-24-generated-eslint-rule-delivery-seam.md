@@ -1,5 +1,7 @@
 # Generated declarative-rule delivery seam — Implementation Plan
 
+> **⚠ SUPERSEDED (2026-06-24).** This plan implements the seam in the now-superseded [spec](../specs/2026-06-24-generated-eslint-rule-delivery-seam-design.md). The delivery mechanism already existed on staging (`restricted-syntax-audit-exempt` + principle 25); the real residual gap (hand-inline selector drift) shipped as [`packages/core/principles/26-template-selector-sync.test.ts`](../../../packages/core/principles/26-template-selector-sync.test.ts) (PR #716) instead. **Do not execute this plan.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the synthesizer's generated declarative ESLint rules (`.ai-factory/synthesizer-output/eslint-rules-snippet.json`) actually enforce in a fresh-skeleton consumer's running `eslint.config.mjs`, via a load-time helper that merges them into the template's own rule arrays — plus a guard test that every shipped-template `rules-as-tests/<id>` ref resolves to a barrel rule.
