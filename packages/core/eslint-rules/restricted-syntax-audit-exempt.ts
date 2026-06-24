@@ -61,7 +61,8 @@ export const restrictedSyntaxAuditExempt = createRule<Options, MessageIds>({
     for (const entry of context.options) {
       const { selector } = entry;
       const message =
-        entry.message ?? `Using '${selector}' is restricted (audit:exempt to override).`;
+        entry.message ??
+        `Using '${selector}' is restricted (audit:exempt to override).`;
 
       const handler = (node: TSESTree.Node): void => {
         // Mirror the handwritten rules: suppress when the violation's line is exempt.
