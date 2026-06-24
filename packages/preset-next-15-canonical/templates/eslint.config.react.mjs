@@ -242,7 +242,8 @@ export default defineConfig(
       // and suppresses a report on any line carrying `// audit:exempt` (the built-in
       // no-restricted-syntax is comment-blind). Selectors are the SSOT recipe selectors —
       // packages/core/synthesizer/recipes/next-r14-* and next-r20-*; keep them in sync
-      // (guarded by eslint-config-wiring.test.ts).
+      // (drift from those recipe selectors is caught by
+      //  packages/core/principles/26-template-selector-sync.test.ts).
       'rules-as-tests/restricted-syntax-audit-exempt': [
         'error',
         {
