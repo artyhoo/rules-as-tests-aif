@@ -13,12 +13,18 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   runRuleLiveness,
   runGuardLivenessCheck,
   getChangedEslintRuleIds,
   type ManifestRule,
 } from './guard-liveness.ts';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REAL_MANIFEST_PATH = resolve(HERE, '../../manifest/rules-manifest.json');
 
 // A rule with a working liveness test using a known plugin rule (R12)
 const R12_RULE: ManifestRule = {
@@ -210,4 +216,47 @@ describe('runGuardLivenessCheck', () => {
     expect(report.noData).toContain('R99');
     expect(report.failures.some((f) => f.ruleId === 'R_BROKEN')).toBe(true);
   });
+});
+
+describe('real-manifest liveness — selector-family rules R18/R13 [GLV-R18]', () => {
+  /**
+   * Regression lock for the R18 callback-vs-call false positive surfaced by the
+   * full-sweep during PR #711 (2026-06-24). R18.examples.good validates with a
+   * point-free `.then(OrderSchema.parse)` — a parse REFERENCE passed as a `.then`
+   * callback, NOT a `parse(...)` CallExpression. The original selector matched only
+   * `CallExpression[callee.property.name=/^(parse|safeParse)$/]`, so `:not(:has(...))`
+   * fired on the compliant good example. The fix broadens the inner match to
+   * `MemberExpression[property.name=/^(parse|safeParse)$/]`; a direct `Schema.parse(x)`
+   * call contains that MemberExpression as its callee, so BOTH the call and the
+   * point-free reference are accepted, while a queryFn with no `.parse`/`.safeParse`
+   * member at all (the negative-test input) still trips.
+   *
+   * This runs the REAL shipped manifest (not a synthetic fixture), so it locks the
+   * actual rule the consumer receives. `runRuleLiveness` returns 'pass' only when
+   * every negative-test input violates AND examples.good is clean — so 'pass'
+   * simultaneously proves no false positive (good) and no false negative (negative-test).
+   *
+   * Paired-negative contract:
+   *   ❌ narrow CallExpression-only selector → examples.good false-positives → status 'fail'
+   *   ✅ broadened MemberExpression selector → good clean, negative-test trips → status 'pass'
+   */
+  const manifest = JSON.parse(readFileSync(REAL_MANIFEST_PATH, 'utf8')) as Record<string, ManifestRule>;
+
+  it(
+    'R18: point-free `.then(Schema.parse)` good example does not false-positive; negative-test still trips → pass [GLV-R18]',
+    () => {
+      const result = runRuleLiveness('R18', manifest.R18);
+      expect(result.status, JSON.stringify(result.failures)).toBe('pass');
+    },
+    10_000,
+  );
+
+  it(
+    'R13: same no-restricted-syntax selector family — no analogous callback-vs-call gap → pass [GLV-R18]',
+    () => {
+      const result = runRuleLiveness('R13', manifest.R13);
+      expect(result.status, JSON.stringify(result.failures)).toBe('pass');
+    },
+    10_000,
+  );
 });

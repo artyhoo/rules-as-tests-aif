@@ -64,6 +64,15 @@ describe('R18 usequery-require-parse declarative parity (selector from next-r18-
       expect(check(code)).toHaveLength(0);
     });
 
+    it('queryFn validates point-free via `.then(Schema.parse)` (regression lock: a parse REFERENCE passed as a callback, not a parse() call)', () => {
+      // Locks the broadened selector (MemberExpression, not CallExpression-only).
+      // Under the original narrow selector this idiomatic compliant form was a
+      // false positive — the guard-liveness inconsistency surfaced by PR #711.
+      expect(
+        check(`useQuery({ queryFn: () => fetch('/api/orders').then(r => r.json()).then(OrderSchema.parse) })`),
+      ).toHaveLength(0);
+    });
+
     it('non-queryFn arrow function is not flagged', () => {
       expect(check(`const fn = () => fetchData();`)).toHaveLength(0);
     });

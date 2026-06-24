@@ -8,8 +8,8 @@
     "check": {
       "type": "declarative",
       "engine": "eslint-restricted",
-      "selector": "Property[key.name='queryFn'] > :function:not(:has(CallExpression[callee.property.name=/^(parse|safeParse)$/]))",
-      "message": "queryFn must call .parse() or .safeParse() on the response — R18.",
+      "selector": "Property[key.name='queryFn'] > :function:not(:has(MemberExpression[property.name=/^(parse|safeParse)$/]))",
+      "message": "queryFn must validate the response with .parse() or .safeParse() — direct call or point-free `.then(Schema.parse)` — R18.",
       "presence": "require"
     },
     "examples": {
