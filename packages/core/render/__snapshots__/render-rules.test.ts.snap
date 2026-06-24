@@ -10,7 +10,7 @@ exports[`render-rules > renders a stable snapshot from the committed manifest 1`
 | **R5 Async correctness** | ts-server, react-next | ESLint \`@typescript-eslint/no-floating-promises\` |
 | **R6 Errors** | ts-server, react-next | ESLint \`no-throw-literal\` |
 | **R7 Time, randomness, IO** | ts-server, react-next | ESLint \`rules-as-tests/no-direct-time-randomness\` |
-| **R8 Observability** | ts-server, react-next | ESLint \`no-restricted-syntax\` |
+| **R8 Observability** | ts-server, react-next | ESLint \`rules-as-tests/require-otel-span\` |
 | **R9 Imports / dependencies** | ts-server, react-next | ESLint \`no-restricted-imports\` |
 | **R10 Naming** | ts-server, react-next | Manual review — Naming conventions are too project-specific to formalize reliably; sidecar runs ad-hoc grep on the diff. |
 | **R11 CI integrity** | ts-server, react-next | \`ci.yml (lint/typecheck/architecture/test/security/audit-ai-docs → ci-success aggregate) + workflow-integrity.yml (branch-protection-assertion)\` |

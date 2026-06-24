@@ -160,7 +160,7 @@
     "auto-skip-if-missing": true,
     "check": {
       "type": "eslint",
-      "rule": "no-restricted-syntax"
+      "rule": "rules-as-tests/require-otel-span"
     },
     "examples": {
       "bad": "export async function placeOrder(o) { return await save(o); }",
@@ -171,14 +171,7 @@
       "input": [
         "export async function placeOrder(o) { return await save(o); }"
       ],
-      "expect-violation": "no-restricted-syntax",
-      "eslintRuleConfig": [
-        "error",
-        {
-          "selector": "ExportNamedDeclaration > FunctionDeclaration[async=true]:not(:has(CallExpression[callee.property.name='startActiveSpan'])):not(:has(CallExpression[callee.name='withSpan'])), ExportNamedDeclaration > VariableDeclaration > VariableDeclarator > :function[async=true]:not(:has(CallExpression[callee.property.name='startActiveSpan'])):not(:has(CallExpression[callee.name='withSpan']))",
-          "message": "Exported async function must open an OTel span (tracer.startActiveSpan / withSpan) — R8."
-        }
-      ]
+      "expect-violation": "rules-as-tests/require-otel-span"
     }
   },
   "R9": {
