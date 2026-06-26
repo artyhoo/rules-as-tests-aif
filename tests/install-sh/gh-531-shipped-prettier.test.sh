@@ -47,14 +47,23 @@ for p in 'eslint.config.mjs' 'vitest.config.ts' 'tsconfig.json' 'playwright.conf
 done
 
 # ── Arm 1c (GH #531 reopen): install.sh ignores shipped CONFIGS conditionally — only the ones it
-# actually shipped fresh (NOT in SKIPPED), never a copy_safe-kept consumer-authored one. ──
-grep -q 'ignore_shipped_configs()' "$REPO_ROOT/install.sh" \
+# actually shipped fresh (NOT in SKIPPED), never a copy_safe-kept consumer-authored one.
+# S1 migration: ignore_shipped_configs() moved to setup.d/lib.sh; call site moved to setup.d/99-finalize.sh ──
+_LIB="$REPO_ROOT/setup.d/lib.sh"
+_FINALIZE="$REPO_ROOT/setup.d/99-finalize.sh"
+# Prefer lib.sh when present (modular layout), fall back to monolithic install.sh
+_ignore_src="${_LIB:-$REPO_ROOT/install.sh}"
+[ -f "$_LIB" ] || _ignore_src="$REPO_ROOT/install.sh"
+grep -q 'ignore_shipped_configs()' "$_ignore_src" \
   && ok "install.sh defines ignore_shipped_configs (conditional config ignore)" \
   || bad "install.sh missing ignore_shipped_configs (shipped configs never ignored → #531 stays open)"
-grep -qF '_prettierignore_in_skipped "$PROJECT_ROOT/$rel" && continue' "$REPO_ROOT/install.sh" \
+grep -qF '_prettierignore_in_skipped "$PROJECT_ROOT/$rel" && continue' "$_ignore_src" \
   && ok "ignore_shipped_configs skips consumer-owned configs (in SKIPPED → kept format-checked)" \
   || bad "ignore_shipped_configs does not guard on SKIPPED (would hide consumer-authored configs)"
-grep -qE '^[[:space:]]*ignore_shipped_configs[[:space:]]*$' "$REPO_ROOT/install.sh" \
+# Call site: either 99-finalize.sh (modular) or install.sh (monolith)
+_call_src="$REPO_ROOT/install.sh"
+[ -f "$_FINALIZE" ] && _call_src="$_FINALIZE"
+grep -qE '^[[:space:]]*ignore_shipped_configs[[:space:]]*$' "$_call_src" \
   && ok "ignore_shipped_configs is invoked in the install flow (not dead code)" \
   || bad "ignore_shipped_configs defined but never called (dead code → configs not ignored)"
 
@@ -62,11 +71,23 @@ grep -qE '^[[:space:]]*ignore_shipped_configs[[:space:]]*$' "$REPO_ROOT/install.
 # to a consumer-ownable root or .github/workflows path (except the consumer's own .prettierrc.json)
 # MUST appear in ignore_shipped_configs' candidates[]. Otherwise a freshly-shipped config — formatted
 # to OUR Prettier style — escapes the conditional ignore and re-breaks #531 (this is exactly how the
-# react-next-only playwright.config.ts was missed). Structural guard against future drift. ──
-cand_block=$(sed -n '/local candidates=(/,/)/p' "$REPO_ROOT/install.sh")
-shipped_root=$(grep -oE 'copy_safe [^|]*"\$PROJECT_ROOT/[^"/]+\.(ts|tsx|mjs|cjs|js|json|yml|yaml)"' "$REPO_ROOT/install.sh" \
+# react-next-only playwright.config.ts was missed). Structural guard against future drift.
+# S1 migration: candidates[] is now in setup.d/lib.sh; copy_safe calls are spread across setup.d/ layers. ──
+# Search candidates in lib.sh (modular) or install.sh (monolith):
+_cand_src="$REPO_ROOT/install.sh"
+[ -f "$REPO_ROOT/setup.d/lib.sh" ] && _cand_src="$REPO_ROOT/setup.d/lib.sh"
+cand_block=$(sed -n '/local candidates=(/,/)/p' "$_cand_src")
+# Search copy_safe calls across all layer files (setup.d/) + install.sh fallback:
+if [ -d "$REPO_ROOT/setup.d" ]; then
+  _search_files="$REPO_ROOT/install.sh $REPO_ROOT/setup.d/"*.sh
+else
+  _search_files="$REPO_ROOT/install.sh"
+fi
+shipped_root=$(grep -ohE 'copy_safe [^|]*"\$PROJECT_ROOT/[^"/]+\.(ts|tsx|mjs|cjs|js|json|yml|yaml)"' \
+  $REPO_ROOT/install.sh $REPO_ROOT/setup.d/*.sh 2>/dev/null \
   | sed -E 's#.*"\$PROJECT_ROOT/([^"]+)".*#\1#' | grep -vx '.prettierrc.json' | sort -u)
-shipped_wf=$(grep -oE 'copy_safe [^|]*"\$PROJECT_ROOT/\.github/workflows/[^"]+\.ya?ml"' "$REPO_ROOT/install.sh" \
+shipped_wf=$(grep -ohE 'copy_safe [^|]*"\$PROJECT_ROOT/\.github/workflows/[^"]+\.ya?ml"' \
+  $REPO_ROOT/install.sh $REPO_ROOT/setup.d/*.sh 2>/dev/null \
   | sed -E 's#.*"\$PROJECT_ROOT/([^"]+)".*#\1#' | sort -u)
 cand_miss=""
 for c in $shipped_root $shipped_wf; do
@@ -86,10 +107,13 @@ done
   || bad "neg: completeness guard stayed green with eslint.config.mjs removed → VACUOUS"
 
 # ── Arm 2: stryker packageManager patch preserves formatting (in-place value replace) ──
-grep -q 'replace(/("packageManager"' "$REPO_ROOT/install.sh" \
+# S1 migration: patch_stryker_package_manager() is now in setup.d/lib.sh
+_stryker_src="$REPO_ROOT/install.sh"
+[ -f "$REPO_ROOT/setup.d/lib.sh" ] && _stryker_src="$REPO_ROOT/setup.d/lib.sh"
+grep -q 'replace(/("packageManager"' "$_stryker_src" \
   && ok "stryker patch swaps the packageManager VALUE in place (preserves prettier formatting)" \
   || bad "stryker patch is not an in-place value replace (#531 regression risk)"
-if grep -A6 'patch_stryker_package_manager' "$REPO_ROOT/install.sh" | grep -q 'JSON.stringify(cfg'; then
+if grep -A6 'patch_stryker_package_manager' "$_stryker_src" | grep -q 'JSON.stringify(cfg'; then
   bad "neg: stryker patch still uses JSON.stringify (re-expands prettier-collapsed arrays → re-breaks consumer)"
 else
   ok "neg: stryker patch no longer JSON.stringify-re-serializes the whole config"
@@ -100,15 +124,18 @@ fi
 # format:check non-deterministic across re-installs. Both the shipped dev-dep and the framework's
 # own dogfood script must pin the SAME exact version. `prettier@[0-9.]+` extracts the pin and does
 # NOT mis-match `eslint-config-prettier` (no @version on that token).
-# (a) install.sh CORE_DEVDEPS pins prettier@3.8.3 EXACT.
-INSTALL_PIN=$(grep -oE 'prettier@[0-9.]+' "$REPO_ROOT/install.sh" | head -1)
+# (a) install.sh / setup.d/70-deps.sh pins prettier@3.8.3 EXACT.
+# S1 migration: CORE_DEVDEPS moved to setup.d/70-deps.sh
+_deps_src="$REPO_ROOT/install.sh"
+[ -f "$REPO_ROOT/setup.d/70-deps.sh" ] && _deps_src="$REPO_ROOT/setup.d/70-deps.sh"
+INSTALL_PIN=$(grep -oE 'prettier@[0-9.]+' "$_deps_src" | head -1)
 [ "$INSTALL_PIN" = "prettier@3.8.3" ] \
   && ok "install.sh CORE_DEVDEPS pins prettier EXACT ($INSTALL_PIN)" \
   || bad "install.sh CORE_DEVDEPS does not pin prettier@3.8.3 exact (got: '${INSTALL_PIN:-none}')"
 # neg (LOAD-BEARING): a copy where the token is bare `prettier` or caret `prettier@^3` must FLIP
 # the exact-pin grep to miss prettier@3.8.3.
 TMP_NEG=$(mktemp)
-sed 's/prettier@3\.8\.3/prettier/' "$REPO_ROOT/install.sh" > "$TMP_NEG"
+sed 's/prettier@3\.8\.3/prettier/' "$_deps_src" > "$TMP_NEG"
 NEG_PIN=$(grep -oE 'prettier@[0-9.]+' "$TMP_NEG" | head -1)
 if [ "$NEG_PIN" = "prettier@3.8.3" ]; then
   bad "neg: stripping the pin still matched prettier@3.8.3 → VACUOUS"
@@ -142,7 +169,7 @@ FMT_PIN=$(grep -oE 'prettier@[0-9.]+' "$FMT" | head -1)
 if [ -n "$INSTALL_PIN" ] && [ "$INSTALL_PIN" = "$FMT_PIN" ]; then
   ok "drift-guard: install.sh and format-shipped.sh pin the SAME prettier ($INSTALL_PIN == $FMT_PIN)"
 else
-  bad "drift-guard: pin mismatch — install.sh='$INSTALL_PIN' vs format-shipped.sh='$FMT_PIN'"
+  bad "drift-guard: pin mismatch — install.sh='${INSTALL_PIN:-}' vs format-shipped.sh='$FMT_PIN'"
 fi
 # neg (LOAD-BEARING): mutate ONE site's version → the drift-guard equality MUST flip to fail.
 TMP_NEG=$(mktemp)

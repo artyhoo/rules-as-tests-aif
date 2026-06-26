@@ -328,6 +328,20 @@ jobs:
         run: bash tests/install-sh/f16-stryker-live-mutants.test.sh
       - name: install-sh — f17 lint rules planted-violation (post-install liveness smoke Check3 Arm ii)
         run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
+      - name: "install-sh — byte-identical snapshot compare: all 4 stacks × {greenfield,brownfield} (modular-install-fullpack S1)"
+        run: SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh
+      - name: install-sh — lib-helpers unit test (O1 guard regression + all helpers exposed)
+        run: bash tests/install-sh/lib-helpers.test.sh
+      - name: install-sh — layer-units (per-layer sourcing + structural integrity checks)
+        run: bash tests/install-sh/layer-units.test.sh
+      - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh (pinned 0.9.0)"
+        run: |
+          if command -v shellcheck >/dev/null 2>&1; then
+            shellcheck --version | grep -E '^version:' || true
+            shellcheck setup.d/*.sh install.sh
+          else
+            echo "⊝ shellcheck not available in CI runner — skipping (install shellcheck >= 0.9.0 to enable)"
+          fi
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
       - name: Run agnosticism harness self-test (Umbrella-1 anti-theatre gate — harness must fail on a seeded CC-break)
