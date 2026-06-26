@@ -75,7 +75,7 @@ e2bad837ee42f3c61cdbe440461721477d4761c6bfae24209b1504d3e673998f  .claude/skills
 20fa73731f967aed19cc5be75e10c3eb50ad9e9f16986d5848a85c9d3d27688a  .claude/skills/rules-as-tests/references/self-testing-docs.md
 c640d363f655ec0f262bbd1ecd6605fbf4edfc0644f9c91603e4bc3834937d20  .claude/skills/template-audit/SKILL.md
 5e6b0ef8592298f302c55be3ba5e6f08b3bde16796498851c3dbbfa49181d434  .claude/skills/tool-bootstrapping/SKILL.md
-17942b9bb4891a716fcf1dde714b213ad83e95b53b9079b439d8450c35fadd03  .claude/skills/tool-bootstrapping/references/decision-format.md
+18971ed38cd6a928cd9965ea202cb8fd0981d753aad6e57092603b33308d57bc  .claude/skills/tool-bootstrapping/references/decision-format.md
 0c30698c40b5aa2426d52565b046c974597b82310bbf035927df47982858caa3  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template
 a3033105e982514a1a0fccc386ce163dd2fe5f9a59d6c9a1cf0e979bdf561e14  .dependency-cruiser.cjs
 f393f468f99fb7dba01e6f93394863177b83360276f0eaa3cebc09953395bf45  .github/workflows/ci.yml

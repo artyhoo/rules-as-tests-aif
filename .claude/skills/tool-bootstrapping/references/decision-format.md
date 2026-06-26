@@ -23,7 +23,7 @@ The `deps-hash` field is the rule 5 incrementality trigger. The UserPromptSubmit
 
 ### `## Accepted` section
 
-Markdown table with columns: `Tool | Type | Accepted | Rationale`. `Type` is `MCP` or `Skill`. `Accepted` is ISO date or `auto` for `setup.sh`-installed baseline tools (e.g. `context7`).
+Markdown table with columns: `Tool | Type | Accepted | Rationale`. `Type` is `MCP` or `Skill`. `Accepted` is an ISO date or a short status string (e.g. `recommended`).
 
 ### `## Rejected` section
 
@@ -44,16 +44,16 @@ aif-version: 2.1.0
 
 ## Accepted
 
-| Tool | Type | Accepted | Rationale |
-|---|---|---|---|
-| context7 | MCP | auto | setup.sh baseline — recursive bootstrap stage 1 |
-| github-mcp | MCP | 2026-05-11 | GitHub Issues + PRs in active use by workflow |
+| Tool       | Type | Accepted    | Rationale                                               |
+| ---------- | ---- | ----------- | ------------------------------------------------------- |
+| context7   | MCP  | recommended | strongly recommended for doc lookup; NOT auto-installed |
+| github-mcp | MCP  | 2026-05-11  | GitHub Issues + PRs in active use by workflow           |
 
 ## Rejected
 
-| Tool | Type | Rejected | Reason | Re-eval trigger |
-|---|---|---|---|---|
-| postgres-mcp | MCP | 2026-05-11 | Project uses SQLite, not Postgres | Stack migrates to Postgres |
+| Tool         | Type | Rejected   | Reason                            | Re-eval trigger            |
+| ------------ | ---- | ---------- | --------------------------------- | -------------------------- |
+| postgres-mcp | MCP  | 2026-05-11 | Project uses SQLite, not Postgres | Stack migrates to Postgres |
 
 ## Pending review
 

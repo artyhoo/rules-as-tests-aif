@@ -60,31 +60,9 @@ else
   bad "lib.sh sourcing or helper exposure failed (exit $rc)"
 fi
 
-# ── 2. Stub layers: 15-companions-stack (05-mcp promoted to content in S2) ───
-
-echo ""; echo "  ── stub layers (15-companions-stack) ──"
-for stub in "15-companions-stack.sh"; do
-  layer="$REPO_ROOT/setup.d/$stub"
-  [ -f "$layer" ] || { bad "$stub: file not found"; continue; }
-
-  # Must source cleanly with no side effects in a dry-run dispatcher scope
-  result=$(
-    _setup_dispatcher_scope
-    # shellcheck source=/dev/null
-    source "$REPO_ROOT/setup.d/lib.sh"
-    # shellcheck source=/dev/null
-    source "$layer"
-    echo "SOURCED_OK"
-  )
-  [ "$result" = "SOURCED_OK" ] \
-    && ok "$stub: sources cleanly (no side effects in dry-run scope)" \
-    || bad "$stub: source failed or produced unexpected output: $result"
-
-  # Must contain @stub marker
-  grep -q '@stub' "$layer" \
-    && ok "$stub: contains @stub marker (deferred-content annotation)" \
-    || bad "$stub: missing @stub marker"
-done
+# ── 2. Stub layers: NONE REMAIN ──────────────────────────────────────────────
+# Both former stubs (05-mcp, 15-companions-stack) were promoted to content layers
+# (S2 + S3 of modular-install-fullpack). They are now verified by section 3 below.
 
 # ── 3. Content layers: source cleanly under --dry-run ────────────────────────
 
@@ -92,6 +70,7 @@ echo ""; echo "  ── content layers (dry-run sourcing) ──"
 CONTENT_LAYERS=(
   "05-mcp.sh"
   "10-skills.sh"
+  "15-companions-stack.sh"
   "20-agents.sh"
   "30-templates.sh"
   "40-configs.sh"

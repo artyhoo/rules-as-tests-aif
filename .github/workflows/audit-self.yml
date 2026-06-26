@@ -336,6 +336,8 @@ jobs:
         run: bash tests/install-sh/layer-units.test.sh
       - name: "install-sh — mcp-layer empirical test (S2: .mcp.json shape + kind=mcp + D2 gate)"
         run: bash tests/install-sh/mcp-layer.test.sh
+      - name: "install-sh — tool-decisions seed integration (S3: deps-hash loop fires on seeded state)"
+        run: bash tests/install-sh/tool-decisions-seed-integration.test.sh
       - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh (pinned 0.9.0)"
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
