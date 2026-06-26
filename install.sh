@@ -318,15 +318,36 @@ do_refresh() {
   fi
 
   # ── Core hooks (TS pre-push pipeline) ───────────────────
+  # Ships the COMPLETE import graph of pre-push.ts: static imports (lines 30-32)
+  # AND dynamic await import() targets (lines 405/469). Missing entries crash the
+  # hook with ERR_MODULE_NOT_FOUND before any gate runs. (#735)
   echo "▶ Core hooks (TS) → packages/core/hooks/"
   for _ts in \
     pre-push.ts \
     utils/run-check.ts \
     utils/git.ts \
     checks/prior-art.ts \
-    checks/s17.ts; do
+    checks/s17.ts \
+    checks/unpinned-tool-install.ts \
+    checks/guard-liveness.ts \
+    checks/cmd-script-liveness.ts; do
     refresh_safe "$PKG_ROOT/packages/core/hooks/$_ts" "$PROJECT_ROOT/packages/core/hooks/$_ts"
   done
+  # ── Core ESLint rules (transitive dep of guard-liveness.ts) ─────────────────
+  # guard-liveness.ts imports ../../eslint-rules/index.ts (relative, not node_modules).
+  # Without this group, guard-liveness.ts dies on load even after the 3 checks ship.
+  # Destination: packages/core/eslint-rules/ on the consumer (same relative path). (#735)
+  echo "▶ Core ESLint rules → packages/core/eslint-rules/"
+  for _esl in \
+    index.ts \
+    no-unsafe-zod-parse.ts \
+    no-direct-time-randomness.ts \
+    require-otel-span.ts \
+    restricted-syntax-audit-exempt.ts; do
+    refresh_safe "$PKG_ROOT/packages/core/eslint-rules/$_esl" \
+                 "$PROJECT_ROOT/packages/core/eslint-rules/$_esl"
+  done
+
   _fb_src="$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh"
   _fb_dst="$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh"
   refresh_safe "$_fb_src" "$_fb_dst"
