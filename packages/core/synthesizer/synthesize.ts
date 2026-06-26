@@ -8,6 +8,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Ajv } from 'ajv';
 import type { ResearchPlan } from '../research/types.ts';
+import {
+  ESLINT_RESTRICTED_RULE_NAME,
+  compileDeclarativeMd,
+  declarativeRestrictedConfigEntry,
+} from './compile-declarative-md.ts';
 import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
 import type { SynthesisPlan, SynthesizedRule } from './types.ts';
 
@@ -16,11 +21,11 @@ const RECIPES_ROOT = resolve(HERE, 'recipes');
 const SCHEMA_PATH = resolve(HERE, 'synthesis-plan.schema.json');
 const RECIPE_SCHEMA_PATH = resolve(HERE, 'recipe.schema.json');
 
-interface Recipe {
+export interface Recipe {
   patternId: string;
   appliesTo: string[];
   rule: Omit<SynthesizedRule, 'id' | 'research'>;
-  rulesMdTemplate: string;
+  rulesMdTemplate?: string;
   eslintRuleConfig: Record<string, unknown>;
 }
 
@@ -49,7 +54,7 @@ export class RecipeError extends Error {
   }
 }
 
-function loadRecipe(patternId: string): Recipe | null {
+export function loadRecipe(patternId: string): Recipe | null {
   const path = resolve(RECIPES_ROOT, `${patternId}.json`);
   if (!existsSync(path)) return null;
   const raw = JSON.parse(readFileSync(path, 'utf8'));
@@ -79,13 +84,31 @@ export function synthesize(plan: ResearchPlan): SynthesisPlan {
       research: { entryId: entry.id, provenance: entry.provenance },
     };
     rules.push(rule);
-    mdFragments.push(recipe.rulesMdTemplate.replace(/\{\{id\}\}/g, id));
+    if (rule.check.type === 'declarative') {
+      mdFragments.push(compileDeclarativeMd(rule));
+    } else {
+      mdFragments.push((recipe.rulesMdTemplate ?? '').replace(/\{\{id\}\}/g, id));
+    }
     mergeEslintRuleConfig(
       mergedEslintConfig,
       recipe.eslintRuleConfig,
       recipe.patternId,
       ruleSources,
     );
+    // For declarative+eslint-restricted: compile selector+message into no-restricted-syntax entry
+    if (
+      rule.check.type === 'declarative' &&
+      (!rule.check.engine || rule.check.engine === 'eslint-restricted')
+    ) {
+      mergeEslintRuleConfig(
+        mergedEslintConfig,
+        {
+          [ESLINT_RESTRICTED_RULE_NAME]: declarativeRestrictedConfigEntry(rule.check),
+        } as Record<string, unknown>,
+        recipe.patternId,
+        ruleSources,
+      );
+    }
   }
 
   const result: SynthesisPlan = {

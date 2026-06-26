@@ -1,0 +1,21 @@
+{
+  "patternId": "next-r18-usequery-require-parse",
+  "appliesTo": ["next"],
+  "rule": {
+    "title": "useQuery queryFn must call .parse() or .safeParse() — R18",
+    "stack": ["react-next"],
+    "applies-to": ["src/**/*.{ts,tsx}"],
+    "check": {
+      "type": "declarative",
+      "engine": "eslint-restricted",
+      "selector": "Property[key.name='queryFn'] > :function:not(:has(MemberExpression[property.name=/^(parse|safeParse)$/]))",
+      "message": "queryFn must validate the response with .parse() or .safeParse() — direct call or point-free `.then(Schema.parse)` — R18.",
+      "presence": "require"
+    },
+    "examples": {
+      "bad": "useQuery({ queryFn: () => fetchData() })",
+      "good": "useQuery({ queryFn: () => schema.parse(fetchData()) })"
+    }
+  },
+  "eslintRuleConfig": {}
+}

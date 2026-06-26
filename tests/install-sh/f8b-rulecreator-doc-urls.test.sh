@@ -29,9 +29,11 @@ DEAD='factory/RULES'   # the dead path prefix — matches both RULES.md and RULE
 
 # ── SOURCE ARM: the canonical files in this repo must not reference the dead path ──
 SRC=(
-  "$REPO_ROOT/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.ts"
+  # R14 (require-form-safe-parse) + R20 (require-use-server-directive) migrated to the
+  # declarative tier and were deleted; only no-server-imports-in-client remains as a preset
+  # RuleCreator source. The wrapper rules-as-tests/restricted-syntax-audit-exempt uses a
+  # github blob URL (no factory/RULES path), so it needs no doc-URL repoint check here.
   "$REPO_ROOT/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts"
-  "$REPO_ROOT/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.ts"
   "$REPO_ROOT/packages/core/manifest/rules-manifest.json"
   "$REPO_ROOT/.github/workflows/workflow-integrity.yml"
 )
@@ -40,17 +42,18 @@ for f in "${SRC[@]}"; do [ -f "$f" ] || bad "source file missing: ${f#"$REPO_ROO
 # pos-source: no dead `factory/RULES` ref in any in-scope source file
 out=$(grep -rnE "$DEAD" "${SRC[@]}" 2>/dev/null)
 [ -z "$out" ] \
-  && ok "source pos: no 'factory/RULES' ref in the 5 in-scope source surfaces" \
+  && ok "source pos: no 'factory/RULES' ref in the in-scope source surfaces" \
   || bad "source pos: dead 'factory/RULES' ref still present:"$'\n'"$out"
 
-# pos-source-B: the 3 preset eslint rules were RE-POINTED (not merely deleted) to the real path
+# pos-source-B: the surviving preset eslint rule (only no-server-imports-in-client; R14/R20
+# migrated to the declarative tier and were deleted) was RE-POINTED to the real path.
 GOOD_REACT='packages/preset-next-15-canonical/RULES.react-next.md'
 miss=""
-for f in "${SRC[0]}" "${SRC[1]}" "${SRC[2]}"; do
+for f in "${SRC[0]}"; do
   grep -qF "$GOOD_REACT" "$f" || miss="$miss ${f#"$REPO_ROOT"/}"
 done
 [ -z "$miss" ] \
-  && ok "source pos-B: 3 preset eslint rules repoint to the real RULES.react-next.md path" \
+  && ok "source pos-B: preset eslint rule repoints to the real RULES.react-next.md path" \
   || bad "source pos-B: preset eslint rule(s) lack the corrected path (deleted, not repointed?):$miss"
 
 # neg-source (LOAD-BEARING): re-inject the dead path into a temp COPY → grep MUST bite

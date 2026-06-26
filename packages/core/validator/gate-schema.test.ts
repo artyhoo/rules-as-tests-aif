@@ -109,4 +109,36 @@ describe('L4 gate 1 — schema check', () => {
     const result = runSchemaGate(synthPlan);
     expect(result.status).toBe('pass');
   });
+
+  it('fails when a declarative-checked rule has no negative-test (semantic check)', () => {
+    const malformed: SynthesisPlan = {
+      framework: 'next',
+      version: '16.0.0',
+      rules: [
+        {
+          id: 'G1',
+          title: 'Forbid .only in tests',
+          stack: ['react-next'],
+          check: {
+            type: 'declarative',
+            engine: 'eslint-restricted',
+            selector: "CallExpression[callee.property.name='only']",
+            message: 'remove .only',
+            presence: 'forbid',
+          } as never,
+          examples: {
+            bad: "it.only('t', () => {})",
+            good: "it('t', () => {})",
+          },
+          research: { entryId: 'test-only-forbid', provenance: [] },
+        },
+      ],
+      rulesMd: '',
+      eslintConfigSnippet: '{}',
+    };
+    const result = runSchemaGate(malformed);
+    expect(result.status).toBe('fail');
+    expect(result.failures[0].ruleId).toBe('G1');
+    expect(result.failures[0].reason).toMatch(/negative-test/);
+  });
 });

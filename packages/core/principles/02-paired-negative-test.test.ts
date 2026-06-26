@@ -720,11 +720,12 @@ describe('Principle 2 — Liveness pressure-scenario well-formedness (manual rul
       }
     }
     // Population sentinel (T10): a manifest with zero/too-few manual rules would
-    // pass this loop vacuously. The known manual rules are R10/R13/R18/IR5/IR6.
+    // pass this loop vacuously. The known manual rules are R10/IR5/IR6.
+    // (R13 and R18 were moved from manual to eslint/no-restricted-syntax in S4.)
     expect(
       manualCount,
-      'expected ≥5 manual rules in manifest (R10/R13/R18/IR5/IR6) — guards against a vacuous pass',
-    ).toBeGreaterThanOrEqual(5);
+      'expected ≥3 manual rules in manifest (R10/IR5/IR6) — guards against a vacuous pass',
+    ).toBeGreaterThanOrEqual(3);
     expect(violations, `Violations:\n${violations.join('\n')}`).toHaveLength(0);
   });
 

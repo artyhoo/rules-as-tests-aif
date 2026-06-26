@@ -1,0 +1,44 @@
+{
+  "ok": false,
+  "gates": {
+    "schema": {
+      "status": "pass",
+      "failures": []
+    },
+    "ruleTester": {
+      "status": "pass",
+      "failures": []
+    },
+    "tautology": {
+      "status": "n/a",
+      "failures": []
+    },
+    "conflict": {
+      "status": "pass",
+      "failures": []
+    },
+    "singleTokenDiff": {
+      "status": "fail",
+      "failures": [
+        {
+          "ruleId": "G91",
+          "reason": "single-token-diff: examples.bad and examples.good differ by 22 tokens (threshold 5) \u2014 pair does not isolate the forbidden construct; reduce to a minimal \u22481 token / 1 AST-node difference"
+        }
+      ]
+    },
+    "messageIdCoverage": {
+      "status": "pass",
+      "failures": []
+    },
+    "autofixClean": {
+      "status": "n/a",
+      "failures": []
+    },
+    "requireVacuity": {
+      "status": "n/a",
+      "failures": []
+    }
+  },
+  "manualCount": 0,
+  "manualRuleIds": []
+}

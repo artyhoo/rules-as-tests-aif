@@ -22,5 +22,13 @@ export interface ValidationReport {
     ruleTester: GateOutcome;
     tautology: GateOutcome;
     conflict: GateOutcome;
+    singleTokenDiff: GateOutcome;
+    messageIdCoverage: GateOutcome;
+    autofixClean: GateOutcome;
+    requireVacuity: GateOutcome;
   };
+  /** Count of rules emitted as check.type:'manual' (L4 cannot roundtrip them — surfaced, not failed). */
+  manualCount: number;
+  /** ids of the manual-checked rules — makes the silent manual-bypass visible without changing `ok`. */
+  manualRuleIds: string[];
 }

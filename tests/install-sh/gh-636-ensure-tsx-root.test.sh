@@ -181,7 +181,10 @@ printf '%s' "$OUT" | grep -q 'npm i -D tsx' \
   || bad "E2: npm warn missing 'npm i -D tsx'"
 
 # ════ Consistency — install.sh reuses the SAME tsx probe expression as the #638 dispatcher ════
-grep -q 'node --import tsx/esm -e' "$REPO_ROOT/install.sh" \
+# S1 migration: tsx probe (_tsx_resolves) moved to setup.d/70-deps.sh; check there first.
+_tsx_src="$REPO_ROOT/install.sh"
+[ -f "$REPO_ROOT/setup.d/70-deps.sh" ] && _tsx_src="$REPO_ROOT/setup.d/70-deps.sh"
+grep -q 'node --import tsx/esm -e' "$_tsx_src" \
   && ok "consistency: install.sh uses the dispatcher's 'node --import tsx/esm -e' probe (#638 parity)" \
   || bad "consistency: install.sh tsx probe expression drifted from the #638 dispatcher"
 

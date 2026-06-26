@@ -1,0 +1,44 @@
+{
+  "ok": false,
+  "gates": {
+    "schema": {
+      "status": "pass",
+      "failures": []
+    },
+    "ruleTester": {
+      "status": "pass",
+      "failures": []
+    },
+    "tautology": {
+      "status": "pass",
+      "failures": []
+    },
+    "conflict": {
+      "status": "pass",
+      "failures": []
+    },
+    "singleTokenDiff": {
+      "status": "n/a",
+      "failures": []
+    },
+    "messageIdCoverage": {
+      "status": "n/a",
+      "failures": []
+    },
+    "autofixClean": {
+      "status": "fail",
+      "failures": [
+        {
+          "ruleId": "G87",
+          "reason": "autofix-clean: fixer for 'no-extra-parens' left 1 violation(s) in fixed output \u2014 fix is incomplete or introduces new same-rule violations"
+        }
+      ]
+    },
+    "requireVacuity": {
+      "status": "n/a",
+      "failures": []
+    }
+  },
+  "manualCount": 0,
+  "manualRuleIds": []
+}

@@ -4,6 +4,7 @@
 
 import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { canonicalRuleHash } from './canonical-rule-hash.ts';
 import type { SynthesisPlan } from './types.ts';
 
 export class EmitError extends Error {
@@ -39,5 +40,31 @@ export function emit(plan: SynthesisPlan, outputDir: string): void {
   writeFileSync(
     resolve(dir, 'eslint-rules-snippet.json'),
     plan.eslintConfigSnippet + '\n',
+  );
+
+  // S4: provenance header — generated-marker + per-rule source + content-hash.
+  // The generator is the sole writer; S5's anti-hand-edit gate recomputes
+  // canonicalRuleHash and rejects a manual edit of an emitted rule file.
+  const provenanceRules: Record<string, unknown> = {};
+  for (const rule of plan.rules) {
+    provenanceRules[rule.id] = {
+      source: {
+        entryId: rule.research.entryId,
+        provenance: rule.research.provenance,
+      },
+      contentHash: canonicalRuleHash(rule),
+    };
+  }
+  writeFileSync(
+    resolve(dir, 'provenance.json'),
+    JSON.stringify(
+      {
+        generatedBy: 'rules-as-tests-synth',
+        note: 'GENERATED — do not edit emitted rule files by hand; regenerate via the synthesizer. S5 enforces this mechanically.',
+        rules: provenanceRules,
+      },
+      null,
+      2,
+    ) + '\n',
   );
 }

@@ -9,12 +9,12 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": [
-    "**/*.ts"
-  ],
+  "include": ["**/*.ts"],
   "exclude": [
     "node_modules",
     "probes",
-    "install"
+    "install",
+    "synthesizer/pilot/*.bad.ts",
+    "synthesizer/pilot/*.good.ts"
   ]
 }

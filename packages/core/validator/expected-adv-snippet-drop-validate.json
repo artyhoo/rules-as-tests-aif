@@ -21,6 +21,24 @@
           "reason": "synthesized rule references 'no-debugger' but eslintConfigSnippet has no entry for it (B1 merge may have dropped the rule, or recipe.eslintRuleConfig is empty)"
         }
       ]
+    },
+    "singleTokenDiff": {
+      "status": "n/a",
+      "failures": []
+    },
+    "messageIdCoverage": {
+      "status": "n/a",
+      "failures": []
+    },
+    "autofixClean": {
+      "status": "n/a",
+      "failures": []
+    },
+    "requireVacuity": {
+      "status": "n/a",
+      "failures": []
     }
-  }
+  },
+  "manualCount": 0,
+  "manualRuleIds": []
 }

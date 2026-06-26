@@ -43,7 +43,7 @@ export function Counter() {
 - Никаких `fetch()` напрямую в Client Component без обёртки `useQuery`/`useSWR`.
 - Suspense boundaries вокруг async-границ; `loading.tsx` для маршрутов.
 
-**Check:** R13 — manual review only (AST grep на использование TanStack Query / SWR).
+**Check:** ESLint `no-restricted-syntax` — selector flags bare `fetch()` inside a `useEffect` callback (R13 narrow: fetch-in-useEffect). Broad TanStack/SWR-without-validation coverage = future follow-up. Recipe: `packages/core/synthesizer/recipes/next-r13-no-fetch-in-useeffect.json`.
 
 ### Examples
 
@@ -73,7 +73,7 @@ export function Orders() {
 - `revalidatePath()` / `revalidateTag()` после мутаций, изменяющих кеш.
 
 **Check:** ESLint `rules-as-tests/require-form-safe-parse` (любая функция с параметром
-`FormData` обязана вызывать `.safeParse(...)` в теле).
+`FormData` обязана вызывать `.safeParse(...)` в теле). Known gap: per-parameter `/* audit:exempt */` exemption is comment-based (inexpressible in esquery) — handwritten rule retained; declarative migration deferred.
 
 ### Examples
 
@@ -178,7 +178,7 @@ export const Default: Story = { args: { label: 'Submit' } };
 - В `onError` — реакция (toast, log в Sentry), не молчание.
 - Никаких `useEffect(() => fetch(...))` для read-операций.
 
-**Check:** AST grep на `useQuery` без `.parse()` в `queryFn` (project-specific probe).
+**Check:** ESLint `no-restricted-syntax` — selector flags `queryFn` whose function body lacks `.parse()` or `.safeParse()` (R18 require). Recipe: `packages/core/synthesizer/recipes/next-r18-usequery-require-parse.json`.
 
 ### Examples
 
@@ -231,7 +231,7 @@ import { cn } from '@/lib/utils';
 - Server Actions защищены auth-проверкой (если требуется): первая строка функции — `requireUser()` или эквивалент.
 
 **Check:** ESLint `rules-as-tests/require-use-server-directive` (`export async function`
-требует `'use server'` директивы в начале файла) + project-specific probe для auth.
+требует `'use server'` директивы в начале файла) + project-specific probe для auth. Known gap: per-line `// audit:exempt` exemption is comment-based (inexpressible in esquery) — handwritten rule retained; declarative migration deferred.
 
 ### Examples
 

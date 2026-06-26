@@ -133,4 +133,76 @@ describe('mergeEslintRuleConfig — B1 closure for synthesizer recipe merge', ()
       mergeEslintRuleConfig(acc, { 'some-rule': 'warn' }, 'recipe-b', sources),
     ).toThrow(/recipe-a, recipe-b/);
   });
+
+  // M2: no-restricted-syntax is the declarative-forbid-tier carrier — a second
+  // declarative recipe MUST merge (concat selector entries), not throw.
+  it('merges no-restricted-syntax selector entries across two declarative recipes (no throw)', () => {
+    const acc: Record<string, unknown> = {};
+    const sources = new Map<string, string[]>();
+    mergeEslintRuleConfig(
+      acc,
+      { 'no-restricted-syntax': ['error', { selector: 'CallExpression[x]', message: 'a' }] },
+      'recipe-a',
+      sources,
+    );
+    mergeEslintRuleConfig(
+      acc,
+      { 'no-restricted-syntax': ['error', { selector: 'CallExpression[y]', message: 'b' }] },
+      'recipe-b',
+      sources,
+    );
+    const merged = acc['no-restricted-syntax'] as [string, ...{ selector: string }[]];
+    expect(merged[0]).toBe('error');
+    expect(
+      merged.slice(1).map((e) => (e as { selector: string }).selector).sort(),
+    ).toEqual(['CallExpression[x]', 'CallExpression[y]']);
+    expect(sources.get('no-restricted-syntax')).toEqual(['recipe-a', 'recipe-b']);
+  });
+
+  it('dedupes no-restricted-syntax entries by selector (first wins)', () => {
+    const acc: Record<string, unknown> = {};
+    const sources = new Map<string, string[]>();
+    mergeEslintRuleConfig(
+      acc,
+      { 'no-restricted-syntax': ['error', { selector: 'CallExpression[z]', message: 'first' }] },
+      'recipe-a',
+      sources,
+    );
+    mergeEslintRuleConfig(
+      acc,
+      {
+        'no-restricted-syntax': [
+          'error',
+          { selector: 'CallExpression[z]', message: 'second (would shadow)' },
+        ],
+      },
+      'recipe-b',
+      sources,
+    );
+    const merged = acc['no-restricted-syntax'] as [
+      string,
+      ...{ selector: string; message: string }[],
+    ];
+    expect(merged.slice(1)).toHaveLength(1);
+    expect((merged[1] as { message: string }).message).toBe('first');
+  });
+
+  it('upgrades no-restricted-syntax severity to error when either side is error', () => {
+    const acc: Record<string, unknown> = {};
+    const sources = new Map<string, string[]>();
+    mergeEslintRuleConfig(
+      acc,
+      { 'no-restricted-syntax': ['warn', { selector: 'A' }] },
+      'recipe-a',
+      sources,
+    );
+    mergeEslintRuleConfig(
+      acc,
+      { 'no-restricted-syntax': ['error', { selector: 'B' }] },
+      'recipe-b',
+      sources,
+    );
+    const merged = acc['no-restricted-syntax'] as [string, ...unknown[]];
+    expect(merged[0]).toBe('error');
+  });
 });

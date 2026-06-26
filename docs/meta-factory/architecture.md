@@ -12,7 +12,7 @@
 
 ### 2.1 Шесть слоёв
 
-```
+```text
 Layer 0 — Invariant Core (никогда не генерится)
 Layer 1 — Stack Detector
 Layer 2 — Research Agent
@@ -147,6 +147,17 @@ Layer 5 — Installer
 **Это и есть применение собственных принципов пакета к LLM-output.**
 
 > **v1 deterministic stance (2026-05-08):** Validator ships **gates 1, 2, 4, 6 REQUIRED** in Phase 7. Gate 3 (mutation testing via Stryker) is a v2 trigger per [open-questions.md §13.10 entry #5](open-questions.md) — only mutates AST, so nothing to mutate in Path A; activates with Path B (Phase 9+). Gate 5 (two-AI review) is a v2 trigger per §13.10 entry #4 — maps to AIF `review-sidecar` (`model: opus`); cost-scope decision deferred to Phase 8. See [retros/phase-7.md L4 6-gate triage table](retros/phase-7.md) for v1 lock state. v2 expansion is strict-superset over v1 REQUIRED gates.
+
+**Anti-vacuity cluster (S3, generator-forbid-mvp):** Three additional gates added in `packages/core/validator/` to catch example pairs that are correct but non-informative. All three are engine-agnostic; `eslint-restricted` implementation ships now; `ast-grep` yields an explicit deferred-marker per decision (i). These gates return `n/a` when no applicable rules are present and never re-implement gate 2 (firing check) or gate 4 (corpus-firing check).
+
+> **Runtime status (honest, S3):** these three gates are **forward-protection**. Until S4 makes `synthesize` emit `declarative` forbid rules (carrying `message`) into real plans, **no rule in the live `detectStack → research → synthesize` pipeline reaches gates 7–9** — they resolve to `n/a` on the self/fixture snapshots and are exercised only by their paired adversarial fixtures. This is spec-sanctioned (S3 is a stage *before* S4's compilation), not theatre — but "9 gates" must not be read as "9 active defenses on real output today." Gates 7–8 activate on real output at S4; gate 9 activates when a fixable rule (S4/G3b codegen) is emitted.
+
+7. **single-token-diff** — `examples.good` and `examples.bad` must differ by ≤5 whitespace-token edits (Levenshtein). A larger distance means the pair may not isolate the targeted construct. Applies to `declarative` rules only. The `≤5` is a **conservative interim bound**: it rejects grossly non-minimal pairs (the gate's own adversarial BAD fixture is 22 edits); the *ideal* is a single targeted construct (≈1 token / 1 AST-node — the umbrella §S3 intent). The exact minimality threshold is **calibrated at S4** against the first real emitted forbid pairs (none exists to calibrate against yet).
+8. **messageId-coverage** — for `declarative` rules that declare `check.message` or `check.messageId`, verifies the declared value IS the one actually emitted when linting `examples.bad`. Closes the gate-2 loose ruleId-fallback gap.
+9. **autofix-clean** — for `eslint`/`declarative` rules, applies one pass of ESLint fix patches from `examples.bad` and re-verifies: (a) fixed output parses, (b) same-rule violation is gone, (c) no new same-rule violation introduced. Returns `n/a` for fixer-less rules (e.g. `no-restricted-syntax`). Forward-protects S4/G3b emit.
+10. **require-vacuity** — for `declarative` rules with `presence:'require'`, checks TWO vacuity directions that the forbid tautology gate (gate 4) cannot catch (T-RCT-B): **(A)** selector must fire on `examples.bad` (required construct absent → must flag; never-fires = vacuous); **(B)** selector must NOT fire on `examples.good` (required construct present → must not flag; always-fires = vacuous). Returns `n/a` when no require rules are present. `ast-grep` require rules yield an explicit deferred-marker (same as gates 7–9). Ships in S2 (`generator-require-composite-tier`). **Why gate 4 can't be reused:** the empty/unrelated negative corpus has no host node — a broken require selector that never matches trivially "passes" gate 4 (direction A false green). The require gate uses the rule's own examples instead.
+
+> **Require semantics (S2):** `presence:'require'` declarative rules fire when the required construct is **absent**. The selector is authored as `:not(:has(...))` — matching nodes that LACK a required descendant. The `synthesize.ts` bridge (lines 94–107) wires any `eslint-restricted` declarative selector into `no-restricted-syntax` regardless of `presence` — a require selector therefore reddens on absence with **zero wiring change** (require is a semantic extension, not a code-path fork). The `compile-declarative-md.ts` engine dispatch uses a `switch` over the engine enum with a `// G3b: codegen engine slots here` marker + no-op `default` arm — the seam for future codegen engine registration.
 
 ### 2.7 Layer 5 — Installer
 

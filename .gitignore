@@ -23,6 +23,13 @@ packages/*/node_modules
 # keeps this PR atomic — migration-ast Stages 1-3 stay local (surfaced as a separate
 # observation, not bundled drive-by, per CLAUDE.md «PR strategy»).
 !.claude/orchestrator-prompts/migration-ast/stage-4-install-ast-config-wiring.md
+# Stage dispatch chain for the modular-install-fullpack umbrella (S0 boundary
+# blueprint + S1-S5 dispatch inputs). Same durable-committed-design-doc class as
+# kickoff.md; tracked so kickoff-s0.md reaches `staging` for aif/S1 to read from
+# the container base (.claude/rules/kickoff-staging-placement.md §1), and s1-s5
+# stay portable across sessions/worktrees (SSOT #116). Per-umbrella glob (not the
+# migration-ast per-file form) because this chain has five dispatch stages, not one.
+!.claude/orchestrator-prompts/modular-install-fullpack/kickoff-s*.md
 *.log
 .DS_Store
 *.tgz

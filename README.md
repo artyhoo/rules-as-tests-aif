@@ -1,6 +1,6 @@
 # rules-as-tests-aif
 
-[![License: Proprietary](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE.md)
+[![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue.svg)](LICENSE.md)
 [![Discipline Self-Check](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/discipline-self-check.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/discipline-self-check.yml)
 [![Audit Self](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml)
 [![Workflow Integrity](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml)
@@ -315,10 +315,14 @@ ai-factory extension update rules-as-tests-aif      # Path A
 
 ## License
 
-Proprietary — All Rights Reserved. See [LICENSE.md](LICENSE.md) for full terms.
+Licensed under the [Functional Source License, Version 1.1, Apache 2.0 Future License](LICENSE.md)
+(FSL-1.1-ALv2). Use, copy, modification, and redistribution are permitted for any
+**Permitted Purpose** — internal use, non-commercial education, and non-commercial
+research — but **Competing Use** (offering a product or service that substitutes for or
+provides substantially the same functionality as this software) is not.
 
-Internal use and non-commercial research are permitted. Commercial use that competes
-with or substitutes this software requires a commercial license — contact the author.
+Each version automatically converts to [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+on the **second anniversary** of its release. See [LICENSE.md](LICENSE.md) for full terms.
 
 ## Inspirations & sources
 

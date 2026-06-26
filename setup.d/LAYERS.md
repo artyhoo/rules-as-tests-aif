@@ -1,0 +1,106 @@
+# `setup.d/` Layer Registry
+
+> **Authoritative for:** S1 layer list (number · file · purpose · depends-on), `lib.sh` public API surface, stub layers awaiting S2/S3.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../README.md#why-this-exists). Layer *content* for `05-mcp` / `15-companions-stack` — those are defined in S2/S3.
+>
+> **Origin:** modular-install-fullpack Stage S1 (`feature/modular-install-fullpack-73b048`). This file is the concrete predecessor-output that S2/S3/S4 consume, parallel to how S1 consumed `kickoff-s0.md`. See `.claude/orchestrator-prompts/modular-install-fullpack/kickoff-s1.md §3 deliverable 5`.
+>
+> **Byte-identical invariant:** all layers collectively produce a filesystem tree byte-identical to the monolithic `install.sh` for all 4 stacks (`ts-server`, `react-next`, `react-spa`, `react-native`), greenfield **and** brownfield. Proven by `tests/install-sh/byte-identical.test.sh` (golden baselines under `tests/install-sh/baselines/<stack>/`).
+
+---
+
+## Layer List
+
+Layers execute in lexicographic order — `install.sh` sources them via `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`.
+
+All layers are **sourced** (not exec'd) into the dispatcher shell so mutations to shared globals (`SKIPPED`, `_r2_verdict`, `DEPS_INSTALLED`, `DEVDEPS`) persist across layers.
+
+| # | File | Purpose | Depends on | Status |
+|---|------|---------|-----------|--------|
+| 05 | `05-mcp.sh` | MCP companion install | lib.sh (in scope) | **Stub** — content deferred to S2 |
+| 10 | `10-skills.sh` | §1 Skills (`skills/` → `.claude/skills/`) + §1b deps-hash-check CC hook | (none — first content layer) | Done |
+| 15 | `15-companions-stack.sh` | Stack-specific companion installs | lib.sh (in scope) | **Stub** — content deferred to S3 |
+| 20 | `20-agents.sh` | §2 Sub-agents (`agents/` → `.claude/agents/`) + §3c skill-context overrides | `SHIPPED_DOCS` global (set in dispatcher) | Done |
+| 30 | `30-templates.sh` | §3a AI Factory templates + §3b `tool-decisions.md` seed + §3d stack-specific templates + §5b `AGENTS.md` | `SHIPPED_DOCS` global | Done |
+| 40 | `40-configs.sh` | §4 enforcement scripts + §5a shared templates + §5b' ESLint rules + barrel-gen + §6a stack configs | 30-templates (`.ai-factory/` exists) | Done |
+| 50 | `50-hooks.sh` | §5c `.husky/` hooks cluster + `core.hooksPath` activation | 40-configs (`tsconfig.json` etc. written) | Done |
+| 60 | `60-ci.sh` | §6b `.nvmrc`↔CI drift WARN + §6b-bis R2 auto-wire L1 (sets `_r2_verdict`) + §6c CI-orphan WARN + yq auto-wire | 40-configs (`eslint.config.mjs` + `.github/workflows/` written) | Done |
+| 70 | `70-deps.sh` | §7 `package.json` scripts merge + §8 dev-dep install (sets `DEPS_INSTALLED`, `DEVDEPS`) + §8b tsx-at-root | 60-ci (`eslint.config.mjs`, `detect-r2-boundary` etc. written) | Done |
+| 99 | `99-finalize.sh` | §6b-bis-L2 R2 AST-wire (ts-morph) + V2 otel-arming WARN + `ignore_shipped_configs` CALL + Done banner | 70-deps (ts-morph installed; `DEPS_INSTALLED`/`DEVDEPS` set), 60-ci (`_r2_verdict` set), **ALL prior** (`SKIPPED` fully accumulated) | Done |
+
+### Shared globals (set by dispatcher before sourcing layers)
+
+All layers share the dispatcher shell scope. These globals are initialised in `install.sh` entry and mutated by layers:
+
+| Global | Set by | Read by |
+|--------|--------|---------|
+| `PKG_ROOT` | dispatcher | all layers, lib.sh |
+| `PROJECT_ROOT` | dispatcher | all layers |
+| `FORCE` | dispatcher (flag parse) | lib helpers |
+| `DRY_RUN` | dispatcher (flag parse) | lib helpers |
+| `SKIPPED` | dispatcher (`SKIPPED=()`) | 10, 20, 30, 40, 50, 60, 70, 99-finalize (`SKIPPED` fully accumulated at finalize time) |
+| `STACK` | dispatcher (stack pick) | 30, 40, 60, 70, 99 |
+| `SHIPPED_DOCS` | dispatcher (SHIPPED_DOCS array set before loop) | 20, 30, 40 |
+| `_r2_verdict` | 60-ci | 99-finalize (R2 L2 AST-wire) |
+| `DEPS_INSTALLED` | 70-deps | 99-finalize (Next-steps) |
+| `DEVDEPS` | 70-deps | 99-finalize (Next-steps) |
+| `UPSTREAM_BLOB_URL` | lib.sh | lib helpers (`transform_internal_refs`) |
+
+---
+
+## `lib.sh` Public API
+
+`setup.d/lib.sh` is the helper SSOT (`dual-implementation-discipline.md §7` — one logic, no copy-paste into layers). All helpers are available in dispatcher scope after `source "$PKG_ROOT/setup.d/lib.sh"`.
+
+### Functions
+
+| Helper | Signature | Purpose |
+|--------|-----------|---------|
+| `transform_internal_refs` | `<file>` | Rewrites `](../../../{docs,packages}/…)` + `](../../../README.md…)` links in-place to `$UPSTREAM_BLOB_URL/…` GitHub blob URLs. Leaves consumer-resolvable refs intact. |
+| `copy_safe` | `<src> <dst>` | Copies `<src>` to `<dst>` unless `<dst>` already exists (skip if exists, unless `--force`). Appends to `SKIPPED` on skip. Respects `--dry-run`. |
+| `refresh_safe` | `<src> <dst>` | Overwrites `<dst>` unless a sibling `<dst%.md>.override.md` exists (Layer-3 consumer ownership signal). Used by `--refresh` path. |
+| `merge_prettierignore` | `<src> <dst>` | Non-destructive `.prettierignore` merge (GH #531): greenfield → copy; existing file → append marker-delimited block of missing AIF entries; idempotent. |
+| `_prettierignore_in_skipped` | `<needle>` | Returns 0 if `<needle>` is already in the consumer's `.prettierignore` (used by `merge_prettierignore`). |
+| `ignore_shipped_configs` | (none) | Appends AIF-generated file patterns (`RULES.md`, `RULES.*.md`, `.claude/settings.json`, barrel paths) to `.prettierignore` that aren't already excluded. Called **once** by `99-finalize.sh` after `SKIPPED` is fully accumulated. |
+| `mkdir_safe` | `<dir>` | `mkdir -p <dir>` respecting `--dry-run`. |
+| `chmod_safe` | `<mode> <file…>` | `chmod <mode> <file…>` respecting `--dry-run`. |
+| `detect_pm` | (none) | Prints `npm`, `pnpm`, or `yarn` based on lockfile detection in `$PROJECT_ROOT`. |
+| `patch_stryker_package_manager` | (none) | Patches `stryker.config.mjs` `packageManager` field to match detected PM (idempotent). |
+| `copy_skill_with_transform` | `<slug>` | `copy_safe` of `.claude/skills/<slug>/` then `transform_internal_refs` on each copied file. |
+| `refresh_skill_with_transform` | `<slug>` | `refresh_safe` of `.claude/skills/<slug>/` then `transform_internal_refs` on each refreshed file. |
+
+### Constants (set by lib.sh, used by helpers)
+
+| Constant | Value / Source | Purpose |
+|----------|---------------|---------|
+| `UPSTREAM_BLOB_URL` | `${UPSTREAM_BLOB_URL:-https://github.com/Yhooi2/rules-as-tests-aif/blob/main}` | Base URL for `transform_internal_refs` rewrites |
+| `PRETTIERIGNORE_BEGIN_MARKER` | `# --- BEGIN aif-managed ---` | Idempotency fence for `.prettierignore` merge |
+| `PRETTIERIGNORE_END_MARKER` | `# --- END aif-managed ---` | Idempotency fence for `.prettierignore` merge |
+
+---
+
+## Stub layers (content deferred)
+
+| Layer | Stub file | Populated in | Description |
+|-------|-----------|-------------|-------------|
+| `05-mcp.sh` | `setup.d/05-mcp.sh` | S2 | MCP companion integrations (Claude MCP server, etc.) |
+| `15-companions-stack.sh` | `setup.d/15-companions-stack.sh` | S3 | Stack-specific companion installs |
+
+Both stubs are safely `source`-able by the dispatcher: no-op body, no side effects, `exit 0`.
+
+---
+
+## Known deferred items
+
+- **`PARK[S2+]`** — `test:integration` quoting: the `node -e` package.json-scripts merge in `70-deps.sh` keeps the monolith's bare single-quotes (`--include 'src/**/*.integration.{ts,tsx}'`) verbatim. Escaping would change rendered output → byte-identical violation. Fix deferred to S2+.
+- **`do_refresh` sync-risk** — `do_refresh()` lives in `install.sh` entry (O4-b decision: keep separate, byte-faithful). A `# @sync-with-layers` marker in `install.sh` notes the hand-sync risk for a later stage.
+
+---
+
+## See also
+
+- [`.claude/orchestrator-prompts/modular-install-fullpack/kickoff-s0.md`](../.claude/orchestrator-prompts/modular-install-fullpack/kickoff-s0.md) — authoritative step→layer cut mapping (S0 boundary table).
+- [`.claude/orchestrator-prompts/modular-install-fullpack/kickoff-s1.md`](../.claude/orchestrator-prompts/modular-install-fullpack/kickoff-s1.md) — S1 stage kickoff.
+- [`tests/install-sh/byte-identical.test.sh`](../tests/install-sh/byte-identical.test.sh) — 4-stack × {greenfield,brownfield} byte-identical proof.
+- [`tests/install-sh/lib-helpers.test.sh`](../tests/install-sh/lib-helpers.test.sh) — `lib.sh` unit test (O1 regression guard).
+- [`install.sh`](../install.sh) — thin dispatcher that sources this layer set.

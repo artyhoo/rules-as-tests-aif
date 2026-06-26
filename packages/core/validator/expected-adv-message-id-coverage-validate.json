@@ -1,0 +1,44 @@
+{
+  "ok": false,
+  "gates": {
+    "schema": {
+      "status": "pass",
+      "failures": []
+    },
+    "ruleTester": {
+      "status": "pass",
+      "failures": []
+    },
+    "tautology": {
+      "status": "n/a",
+      "failures": []
+    },
+    "conflict": {
+      "status": "pass",
+      "failures": []
+    },
+    "singleTokenDiff": {
+      "status": "pass",
+      "failures": []
+    },
+    "messageIdCoverage": {
+      "status": "fail",
+      "failures": [
+        {
+          "ruleId": "G89",
+          "reason": "messageId-coverage: declared check.message 'Do not use generators' not found in emitted message 'No generators!' \u2014 declared message is unreachable"
+        }
+      ]
+    },
+    "autofixClean": {
+      "status": "n/a",
+      "failures": []
+    },
+    "requireVacuity": {
+      "status": "n/a",
+      "failures": []
+    }
+  },
+  "manualCount": 0,
+  "manualRuleIds": []
+}

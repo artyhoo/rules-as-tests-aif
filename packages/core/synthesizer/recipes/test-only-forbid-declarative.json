@@ -1,0 +1,27 @@
+{
+  "patternId": "test-only-forbid-declarative",
+  "appliesTo": ["next"],
+  "rule": {
+    "title": "Forbid `.only` in test calls (declarative — S2-A pilot)",
+    "stack": ["react-next"],
+    "check": {
+      "type": "declarative",
+      "engine": "eslint-restricted",
+      "selector": "CallExpression[callee.object.name=/^(describe|it|test)$/][callee.property.name='only']",
+      "message": "remove .only — it silently disables sibling tests",
+      "presence": "forbid"
+    },
+    "examples": {
+      "bad": "it.only('should work', () => { expect(1).toBe(1); });",
+      "good": "it('should work', () => { expect(1).toBe(1); });"
+    },
+    "negative-test": {
+      "input": [
+        "it.only('should work', () => { expect(1).toBe(1); });",
+        "describe.only('suite', () => { it('test', () => {}); });"
+      ],
+      "expect-violation": "no-restricted-syntax"
+    }
+  },
+  "eslintRuleConfig": {}
+}

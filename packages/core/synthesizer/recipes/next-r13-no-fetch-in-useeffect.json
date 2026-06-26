@@ -1,0 +1,28 @@
+{
+  "patternId": "next-r13-no-fetch-in-useeffect",
+  "appliesTo": ["next"],
+  "rule": {
+    "title": "Bare fetch() inside useEffect is forbidden — use useQuery instead (R13 narrow)",
+    "stack": ["react-next"],
+    "applies-to": ["src/**/*.{ts,tsx}"],
+    "check": {
+      "type": "declarative",
+      "engine": "eslint-restricted",
+      "selector": "CallExpression[callee.name='useEffect'] :function CallExpression[callee.name='fetch']",
+      "message": "Bare fetch() inside useEffect is forbidden — use useQuery instead (R13 narrow: fetch-in-useEffect). Broad TanStack/SWR-without-validation coverage = future follow-up.",
+      "presence": "forbid"
+    },
+    "examples": {
+      "bad": "useEffect(() => { fetch(url); }, []);",
+      "good": "useEffect(() => { loadData(); }, []);"
+    },
+    "negative-test": {
+      "input": [
+        "useEffect(() => { fetch(url); }, []);",
+        "useEffect(function() { fetch('/api/data'); }, []);"
+      ],
+      "expect-violation": "no-restricted-syntax"
+    }
+  },
+  "eslintRuleConfig": {}
+}

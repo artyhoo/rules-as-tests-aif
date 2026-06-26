@@ -1,0 +1,20 @@
+{
+  "patternId": "test-only-require-declarative",
+  "appliesTo": ["next"],
+  "rule": {
+    "title": "Async functions must include 'use server' directive (test-only require — S2)",
+    "stack": ["react-next"],
+    "check": {
+      "type": "declarative",
+      "engine": "eslint-restricted",
+      "selector": "FunctionDeclaration[async=true]:not(:has(Literal[value='use server']))",
+      "message": "async function exports must start with 'use server' directive",
+      "presence": "require"
+    },
+    "examples": {
+      "bad": "async function action() { return 1; }",
+      "good": "async function action() { 'use server'; return 1; }"
+    }
+  },
+  "eslintRuleConfig": {}
+}

@@ -1,0 +1,21 @@
+{
+  "patternId": "next-r8-require-otel-span",
+  "appliesTo": ["next"],
+  "rule": {
+    "title": "Exported async functions must open an OTel span (R8)",
+    "stack": ["ts-server", "react-next"],
+    "applies-to": ["src/application/**"],
+    "check": {
+      "type": "declarative",
+      "engine": "eslint-restricted",
+      "selector": "ExportNamedDeclaration > FunctionDeclaration[async=true]:not(:has(CallExpression[callee.property.name='startActiveSpan'])):not(:has(CallExpression[callee.name='withSpan'])), ExportNamedDeclaration > VariableDeclaration > VariableDeclarator > :function[async=true]:not(:has(CallExpression[callee.property.name='startActiveSpan'])):not(:has(CallExpression[callee.name='withSpan']))",
+      "message": "Exported async function must open an OTel span (tracer.startActiveSpan / withSpan) — R8.",
+      "presence": "require"
+    },
+    "examples": {
+      "bad": "export async function action() { return { ok: true }; }",
+      "good": "export async function action() { return tracer.startActiveSpan('action', async (span) => { span.end(); return { ok: true }; }); }"
+    }
+  },
+  "eslintRuleConfig": {}
+}

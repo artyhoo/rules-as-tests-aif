@@ -1,0 +1,25 @@
+{
+  "framework": "next",
+  "version": "16.0.0",
+  "patterns": [
+    {
+      "id": "test-only-forbid-declarative",
+      "summary": "Forbid .only in test calls — it silently disables sibling tests in the file/suite.",
+      "bestPractices": [
+        "Remove .only before commit; use --testNamePattern for focused local runs."
+      ],
+      "antiPatterns": [
+        "Committing it.only/describe.only — CI passes while most tests are skipped."
+      ],
+      "provenance": [
+        {
+          "url": "https://nextjs.org/docs/app",
+          "allowlistKey": "next.official",
+          "fetchedAt": "2026-05-08"
+        }
+      ]
+    }
+  ],
+  "missing": [],
+  "drift": null
+}

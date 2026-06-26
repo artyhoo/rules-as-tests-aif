@@ -20,10 +20,13 @@ export function runSchemaGate(plan: unknown): GateOutcome {
   const typed = plan as SynthesisPlan;
   const failures = [];
   for (const rule of typed.rules) {
-    if (rule.check.type === 'eslint' && !rule['negative-test']) {
+    if (
+      (rule.check.type === 'eslint' || rule.check.type === 'declarative') &&
+      !rule['negative-test']
+    ) {
       failures.push({
         ruleId: rule.id,
-        reason: `eslint-checked rule has no negative-test (required by L4 gate 2 — rule-tester roundtrip)`,
+        reason: `${rule.check.type}-checked rule has no negative-test (required by L4 gate 2 — rule-tester roundtrip)`,
       });
     }
   }

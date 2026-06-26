@@ -1,6 +1,6 @@
 // packages/runtime-bridge/test/harvest.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { harvestTask } from '../src/harvest.js';
+import { harvestTask, scanParkSignals } from '../src/harvest.js';
 import type { HarvestDeps } from '../src/harvest.js';
 
 /** A deps double that records call order; each fn resolves successfully by default.
@@ -69,7 +69,7 @@ describe('harvestTask — rework-commit gap (dirty tree disambiguated by commits
   //     the work uncommitted, branch == base HEAD). Harvest commits it (ZERO LLM).
   //   • ≥1 commit ahead of base → STALE RESIDUE (aif already committed the deliverable;
   //     the dirty tree is out-of-scope base-state churn). Harvest must NOT `add -A` it.
-  it('dirty tree + 0 commits ahead (true rework) → commits (templated, no LLM) BEFORE push; committed:true', async () => {
+  it('dirty tree + 0 commits ahead (true rework) + confirmRework → commits (templated, no LLM) BEFORE push; committed:true', async () => {
     const { deps, calls } = makeDeps({
       hasUncommittedChanges: vi.fn(async (b: string) => {
         calls.push(`dirty?:${b}`);
@@ -77,7 +77,10 @@ describe('harvestTask — rework-commit gap (dirty tree disambiguated by commits
       }),
       // default commitsAhead → 0 (branch == base HEAD)
     });
-    const res = await harvestTask(DONE_TASK, { baseBranch: 'staging', body: 'B', autoMerge: true }, deps);
+    // Design A (2026-06-23): the 0-ahead auto-commit path is now OPT-IN behind
+    // confirmRework — without it the ambiguous shape is surfaced (needsConfirm), not
+    // silently committed. This test exercises the confirmed (legit-rework) path.
+    const res = await harvestTask(DONE_TASK, { baseBranch: 'staging', body: 'B', autoMerge: true, confirmRework: true }, deps);
     expect(res.committed).toBe(true);
     expect(res.dirtyTreeLeftBehind).toBe(false);
     // ahead-check disambiguates AFTER the dirty-check; commit lands BEFORE the push.
@@ -138,7 +141,7 @@ describe('harvestTask — rework-commit gap (dirty tree disambiguated by commits
       }),
     });
     await expect(
-      harvestTask(DONE_TASK, { baseBranch: 'staging', body: 'B', autoMerge: true }, deps),
+      harvestTask(DONE_TASK, { baseBranch: 'staging', body: 'B', autoMerge: true, confirmRework: true }, deps),
     ).rejects.toThrow(/git commit failed/);
     expect(deps.pushBranch).not.toHaveBeenCalled();
     expect(deps.createPr).not.toHaveBeenCalled();
@@ -173,5 +176,68 @@ describe('harvestTask — paired-negative (must NOT push/PR on bad input)', () =
       /gh pr create failed/,
     );
     expect(deps.enableAutoMerge).not.toHaveBeenCalled();
+  });
+});
+
+describe('harvestTask — false-done / internal-park guard (Design A, 2026-06-23)', () => {
+  // The ambiguous shape: done + 0-commits-ahead + dirty tree. Mechanically identical to a
+  // legit rework leg, but can equally be aif PARKED/PARTIAL work (live incident eb610df4:
+  // the agent parked T2-T6, left T1 uncommitted, status still went to `done`). The
+  // auto-commit path (#370/#457) is now OPT-IN behind confirmRework; the default surfaces.
+  it('0 commits ahead + dirty + NO confirmRework → needsConfirm; does NOT commit/push/PR', async () => {
+    const { deps } = makeDeps({ hasUncommittedChanges: vi.fn(async () => true) }); // default commitsAhead → 0
+    const res = await harvestTask(DONE_TASK, { baseBranch: 'staging', body: 'B', autoMerge: true }, deps);
+    expect(res.needsConfirm).toBe(true);
+    expect(res.pushed).toBe(false);
+    expect(deps.commitAll).not.toHaveBeenCalled();
+    expect(deps.pushBranch).not.toHaveBeenCalled();
+    expect(deps.createPr).not.toHaveBeenCalled();
+    expect(deps.enableAutoMerge).not.toHaveBeenCalled();
+  });
+
+  it('0 commits ahead + dirty + confirmRework:true → commits + pushes (the #370/#457 path, now opt-in)', async () => {
+    const { deps } = makeDeps({ hasUncommittedChanges: vi.fn(async () => true) });
+    const res = await harvestTask(DONE_TASK, { baseBranch: 'staging', body: 'B', autoMerge: true, confirmRework: true }, deps);
+    expect(res.committed).toBe(true);
+    expect(res.needsConfirm).toBeFalsy();
+    expect(deps.commitAll).toHaveBeenCalledOnce();
+    expect(deps.pushBranch).toHaveBeenCalledOnce();
+  });
+
+  it('needsConfirm surface carries park signals from the task log (informational, not load-bearing)', async () => {
+    const { deps } = makeDeps({ hasUncommittedChanges: vi.fn(async () => true) });
+    const parked = { ...DONE_TASK, implementationLog: 'Implemented T1. Parking T2-T6 on the documented schema fork.' };
+    const res = await harvestTask(parked, { baseBranch: 'staging', body: 'B', autoMerge: true }, deps);
+    expect(res.needsConfirm).toBe(true);
+    expect(res.parkSignals?.length).toBeGreaterThan(0);
+  });
+
+  it('clean tree is unaffected by the guard (no needsConfirm; pushes as today)', async () => {
+    const { deps } = makeDeps(); // clean
+    const res = await harvestTask(DONE_TASK, { baseBranch: 'staging', body: 'B', autoMerge: false }, deps);
+    expect(res.needsConfirm).toBeFalsy();
+    expect(res.pushed).toBe(true);
+  });
+});
+
+describe('scanParkSignals — pure park-marker detector (informational only)', () => {
+  it('positive: implementationLog narrating a park → returns ≥1 marker', () => {
+    expect(scanParkSignals({ implementationLog: 'T1 done. Parking T2-T6 (park-candidate 3).' }).length).toBeGreaterThan(0);
+  });
+
+  it('positive: an OPEN QUESTION anchor in the plan → returns ≥1 marker', () => {
+    expect(scanParkSignals({ plan: 'tasks...\n\n## ⏸ OPEN QUESTION (awaiting operator)\n\nA vs B?' }).length).toBeGreaterThan(0);
+  });
+
+  it('positive: a manualReviewRequired / blocked_external mention → returns ≥1 marker', () => {
+    expect(scanParkSignals({ reviewComments: 'set manualReviewRequired; blocked_external pending answer' }).length).toBeGreaterThan(0);
+  });
+
+  it('paired-negative: a clean log with no park language → empty array', () => {
+    expect(scanParkSignals({ implementationLog: 'Implemented all tasks; full suite passes; ready to ship.' })).toEqual([]);
+  });
+
+  it('paired-negative: all-empty input → empty array', () => {
+    expect(scanParkSignals({})).toEqual([]);
   });
 });

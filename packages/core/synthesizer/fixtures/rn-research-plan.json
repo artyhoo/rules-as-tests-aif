@@ -1,0 +1,100 @@
+{
+  "framework": "react-native",
+  "version": null,
+  "patterns": [
+    {
+      "id": "rn-web-globals",
+      "summary": "React Native apps must not use web-only browser globals (window, document, localStorage, sessionStorage, navigator, XMLHttpRequest) — they are unavailable in the RN JS runtime and will silently fail or crash.",
+      "bestPractices": [
+        "Use Platform.OS for platform detection instead of navigator",
+        "Use @react-native-async-storage/async-storage instead of localStorage/sessionStorage",
+        "Use fetch() instead of XMLHttpRequest",
+        "Use React Native Dimensions API instead of window.innerWidth"
+      ],
+      "antiPatterns": [
+        "Using window global in RN component",
+        "Using document global in RN component",
+        "Using localStorage.getItem/setItem in RN code",
+        "Using sessionStorage in RN code",
+        "Using navigator.userAgent or navigator.geolocation directly"
+      ],
+      "provenance": [
+        {
+          "url": "https://reactnative.dev/docs/platform-specific-code",
+          "allowlistKey": "reactnative.dev",
+          "fetchedAt": "2026-06-23T00:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "rn-styles",
+      "summary": "React Native components must use StyleSheet.create() instead of inline style objects; no hardcoded color literals; no unused stylesheet entries. Enforced by eslint-plugin-react-native.",
+      "bestPractices": [
+        "Use StyleSheet.create({}) for all style definitions",
+        "Use theme tokens or StyleSheet.hairlineWidth instead of hardcoded color literals",
+        "Remove unused StyleSheet entries to reduce bundle size"
+      ],
+      "antiPatterns": [
+        "Inline style objects: style={{ flex: 1 }}",
+        "Hardcoded color literals: backgroundColor: '#fff'",
+        "Unused StyleSheet entries causing dead code"
+      ],
+      "provenance": [
+        {
+          "url": "https://reactnative.dev/docs/stylesheet",
+          "allowlistKey": "reactnative.dev",
+          "fetchedAt": "2026-06-23T00:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "rn-a11y",
+      "summary": "React Native components must follow mobile accessibility conventions: touchable elements need accessibilityRole; nested touchables cause gesture conflicts. Use eslint-plugin-react-native-a11y (not jsx-a11y which targets web ARIA/DOM).",
+      "bestPractices": [
+        "Set accessibilityRole on all touchable elements",
+        "Add accessibilityLabel on user-facing touchable elements",
+        "Avoid nested Touchable elements",
+        "Use eslint-plugin-react-native-a11y rules (not jsx-a11y)"
+      ],
+      "antiPatterns": [
+        "TouchableOpacity without accessibilityRole",
+        "Using jsx-a11y instead of react-native-a11y for RN projects (wrong problem-class — web ARIA vs mobile a11y)",
+        "Nested Touchable elements causing gesture conflicts"
+      ],
+      "provenance": [
+        {
+          "url": "https://github.com/FormidableLabs/eslint-plugin-react-native-a11y",
+          "allowlistKey": "github.com",
+          "fetchedAt": "2026-06-23T00:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "rn-list-perf",
+      "summary": "FlatList causes performance issues on large lists in React Native due to full DOM reconciliation; FlashList (@shopify/flash-list) is a drop-in replacement with recycled views. No upstream ESLint rule enforces this migration — the only automated gate is a commented no-restricted-imports snippet in eslint.config.rn-common.mjs.",
+      "bestPractices": [
+        "Use FlashList from @shopify/flash-list instead of FlatList for large datasets",
+        "Add no-restricted-imports rule to enforce FlashList adoption after project migrates",
+        "Provide estimatedItemSize prop to FlashList for optimal rendering"
+      ],
+      "antiPatterns": [
+        "Using FlatList from react-native for large (>100 item) lists",
+        "No performance optimization on list components with remote data"
+      ],
+      "provenance": [
+        {
+          "url": "https://shopify.github.io/flash-list/docs/",
+          "allowlistKey": "shopify.github.io",
+          "fetchedAt": "2026-06-23T00:00:00.000Z"
+        },
+        {
+          "url": "https://reactnative.dev/docs/optimizing-flatlist-configuration",
+          "allowlistKey": "reactnative.dev",
+          "fetchedAt": "2026-06-23T00:00:00.000Z"
+        }
+      ]
+    }
+  ],
+  "missing": [],
+  "drift": null
+}

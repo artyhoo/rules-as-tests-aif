@@ -20,14 +20,27 @@ import { Linter } from 'eslint';
 // only failed on that case, which is why the fixture tests never tripped.
 import * as tseslintParser from '@typescript-eslint/parser';
 import presetPlugin from '@rules-as-tests/preset-next-15-canonical/eslint-rules';
+import corePlugin from '../eslint-rules/index.ts';
+import {
+  ESLINT_RESTRICTED_RULE_NAME,
+  declarativeRestrictedConfigEntry,
+  extractDeclarativeRuleConfigFromSnippet,
+} from '../synthesizer/compile-declarative-md.ts';
 import type { SynthesisPlan, SynthesizedRule } from '../synthesizer/types.ts';
 import type { GateFailure, GateOutcome } from './types.ts';
 
 // `plugins` and `parser` types in ESLint 10's flat config are stricter than
 // what @typescript-eslint/utils RuleModule and @typescript-eslint/parser
 // statically produce. Both are runtime-compatible — cast at the seam.
+//
+// The `rules-as-tests` namespace unions the core plugin (the exempt-aware wrapper
+// the declarative tier emits) with the preset plugin (handwritten rules). A consumer
+// receives both under one barrel (install.sh copies core + preset into
+// eslint-rules-local), so the gate must resolve the same union.
 const KNOWN_PLUGINS: Record<string, unknown> = {
-  'rules-as-tests': presetPlugin,
+  'rules-as-tests': {
+    rules: { ...corePlugin.rules, ...presetPlugin.rules },
+  },
 };
 
 function buildSingleRuleConfig(
@@ -66,7 +79,19 @@ function runEslintRoundtrip(
   rule: SynthesizedRule,
   parsedSnippet: Record<string, unknown>,
 ): GateFailure[] {
-  if (rule.check.type !== 'eslint') return [];
+  if (rule.check.type !== 'eslint' && rule.check.type !== 'declarative') return [];
+
+  // ast-grep engine is reserved but not wired in S2 — explicit deferred-marker per decision (i)
+  if (rule.check.type === 'declarative' && rule.check.engine === 'ast-grep') {
+    return [
+      {
+        ruleId: rule.id,
+        reason:
+          'ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)',
+      },
+    ];
+  }
+
   const negativeTest = rule['negative-test'];
   if (!negativeTest) {
     return [
@@ -77,8 +102,23 @@ function runEslintRoundtrip(
       },
     ];
   }
-  const ruleName = rule.check.rule;
-  const ruleConfig = parsedSnippet[ruleName] ?? 'error';
+  // eslint type uses check.rule; declarative+eslint-restricted derives the
+  // exempt-aware wrapper the synthesizer emits (not the built-in no-restricted-syntax).
+  const ruleName =
+    rule.check.type === 'eslint'
+      ? rule.check.rule
+      : ESLINT_RESTRICTED_RULE_NAME;
+  // Declarative rules are tested in ISOLATION against their OWN emitted entry (matched by
+  // selector in the merged snippet) — never the whole merged set — so a sibling rule's
+  // selector cannot fire on this rule's examples (e.g. R14's good code lacks 'use server',
+  // which R20 would flag). Fall back to the spec entry if the rule is not in the snippet.
+  const ruleConfig =
+    rule.check.type === 'declarative'
+      ? (extractDeclarativeRuleConfigFromSnippet(
+          parsedSnippet,
+          rule.check.selector,
+        ) ?? declarativeRestrictedConfigEntry(rule.check))
+      : (parsedSnippet[ruleName] ?? 'error');
   const config = buildSingleRuleConfig(ruleName, ruleConfig);
   const linter = new Linter();
   const failures: GateFailure[] = [];
@@ -115,7 +155,9 @@ function runEslintRoundtrip(
 }
 
 export function runRuleTesterGate(plan: SynthesisPlan): GateOutcome {
-  const eslintRules = plan.rules.filter((r) => r.check.type === 'eslint');
+  const eslintRules = plan.rules.filter(
+    (r) => r.check.type === 'eslint' || r.check.type === 'declarative',
+  );
   if (eslintRules.length === 0) {
     return { status: 'n/a', failures: [] };
   }

@@ -3,7 +3,7 @@
  *
  * Usage:
  *   tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> \
- *     [--base <branch>] [--body-file <path>] [--no-auto-merge] [--container <name>]
+ *     [--base <branch>] [--body-file <path>] [--no-auto-merge] [--container <name>] [--confirm-rework]
  *
  * aif-handoff ends a task at "committed on a local feature branch" — it has no
  * push and no PR-creation in its autonomous path (verified 2026-06-01). This
@@ -31,9 +31,18 @@
  * is unavailable, harvest prints the exact manual git+gh commands and exits non-zero
  * rather than guessing — graceful degradation, no silent half-egress.
  *
- * Exit codes: 0 = branch pushed + PR opened; 1 = guard failed / push or PR error
- * (the operator runs the printed fallback commands). A foreground operator command,
- * so a real exit code is useful in scripts (distinct from dispatch.ts always-0).
+ * False-done guard (2026-06-23): aif can mark a task `done` while its agent internally
+ * PARKED subtasks and left the work uncommitted (the Finding-F gap, `park.ts:139`). That
+ * lands as the SAME shape as a legit rework leg — dirty tree + 0 commits ahead of base.
+ * Harvest no longer auto-commits that shape silently: it HOLDS (exit 2), surfaces the
+ * ambiguity + any park markers from the task log, and ships only when the operator re-runs
+ * with `--confirm-rework` (confirming it is a genuine COMPLETE rework). The ≥1-commit and
+ * clean paths are unchanged — full autopilot.
+ *
+ * Exit codes: 0 = branch pushed + PR opened; 1 = guard failed / push or PR error (the
+ * operator runs the printed fallback commands); 2 = HELD on the ambiguous done+0-ahead+dirty
+ * shape (nothing pushed — inspect, then re-run with --confirm-rework if it is a real rework).
+ * A foreground operator command, so a real exit code is useful in scripts.
  *
  * @cc-only-rationale: pure TS over git/gh/docker CLIs — no CC-only primitive, no
  *   paid LLM. Operator-side internal tooling (talks to the operator's own aif), so
@@ -54,6 +63,7 @@ interface ParsedArgs {
   bodyFile?: string;
   autoMerge: boolean;
   container: string;
+  confirmRework: boolean;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -68,6 +78,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     bodyFile: flag('--body-file'),
     autoMerge: !argv.includes('--no-auto-merge'),
     container: flag('--container') ?? process.env['RUNTIME_BRIDGE_AIF_CONTAINER'] ?? 'aif-handoff-agent-1',
+    confirmRework: argv.includes('--confirm-rework'),
   };
 }
 
@@ -167,9 +178,26 @@ async function main(): Promise<void> {
   try {
     const res = await harvestTask(
       task,
-      { baseBranch: args.base, body, autoMerge: args.autoMerge },
+      { baseBranch: args.base, body, autoMerge: args.autoMerge, confirmRework: args.confirmRework },
       realDeps(args.container),
     );
+    if (res.needsConfirm) {
+      // Ambiguous done+0-ahead+dirty shape: a legit COMPLETE rework OR aif partial/parked
+      // work (the Finding-F false-done). Held deliberately — nothing committed or pushed.
+      // Surface it; the operator inspects and re-runs with --confirm-rework ONLY if it is a
+      // genuine complete rework. (False-done guard, 2026-06-23.)
+      process.stderr.write(
+        `[harvest] HELD: task '${args.taskId}' is DONE but branch '${res.branch}' is 0 commits ahead of ` +
+          `'${args.base}' with a DIRTY tree — ambiguous (a complete rework leg OR aif partial/parked work, ` +
+          `the Finding-F false-done). Nothing committed or pushed.\n` +
+          (res.parkSignals && res.parkSignals.length > 0
+            ? `[harvest]   park signals in the task log: ${res.parkSignals.join(', ')} → likely INCOMPLETE; inspect before shipping.\n`
+            : `[harvest]   no park markers in the log, but 0-ahead+dirty is still ambiguous — inspect the diff.\n`) +
+          `[harvest]   inspect:  docker exec ${args.container} git -C ${AIF_REPO_PATH} diff\n` +
+          `[harvest]   ship only if it IS a complete rework:  tsx packages/runtime-bridge/src/cli/harvest.ts ${args.taskId} --confirm-rework\n`,
+      );
+      process.exit(2);
+    }
     if (res.dirtyTreeLeftBehind) {
       // Surfaced, not silent: the branch already carried commits, so harvest pushed
       // those and deliberately left the dirty tree behind (it is stale base-state

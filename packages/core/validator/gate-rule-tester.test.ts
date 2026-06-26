@@ -4,6 +4,46 @@ import { synthesize } from '../synthesizer/synthesize.ts';
 import type { ResearchEntry, ResearchPlan } from '../research/types.ts';
 import type { SynthesisPlan } from '../synthesizer/types.ts';
 
+const DECLARATIVE_ESLINT_RESTRICTED_PLAN: SynthesisPlan = {
+  framework: 'next',
+  version: '16.0.0',
+  rules: [
+    {
+      id: 'G1',
+      title: 'Forbid .only in tests (declarative)',
+      stack: ['react-next'],
+      check: {
+        type: 'declarative',
+        engine: 'eslint-restricted',
+        selector:
+          "CallExpression[callee.object.name=/^(describe|it|test)$/][callee.property.name='only']",
+        message: 'remove .only — it silently disables sibling tests',
+        presence: 'forbid',
+      } as never,
+      examples: {
+        bad: "it.only('test', () => {})",
+        good: "it('test', () => {})",
+      },
+      'negative-test': {
+        input: ["it.only('test', () => {})"],
+        'expect-violation': 'rules-as-tests/restricted-syntax-audit-exempt',
+      },
+      research: { entryId: 'test-only-forbid', provenance: [] },
+    },
+  ],
+  rulesMd: '',
+  eslintConfigSnippet: JSON.stringify({
+    'rules-as-tests/restricted-syntax-audit-exempt': [
+      'error',
+      {
+        selector:
+          "CallExpression[callee.object.name=/^(describe|it|test)$/][callee.property.name='only']",
+        message: 'remove .only — it silently disables sibling tests',
+      },
+    ],
+  }),
+};
+
 const provenance = {
   url: 'https://nextjs.org/docs/app',
   allowlistKey: 'next.official',
@@ -123,5 +163,55 @@ describe('L4 gate 2 — rule-tester roundtrip', () => {
     const result = runRuleTesterGate(broken);
     expect(result.status).toBe('fail');
     expect(result.failures[0].reason).toMatch(/no negative-test/);
+  });
+});
+
+describe('L4 gate 2 — declarative check type (S2-A)', () => {
+  it('runs declarative+eslint-restricted rule: bad reddens, good greens (pass)', () => {
+    const result = runRuleTesterGate(DECLARATIVE_ESLINT_RESTRICTED_PLAN);
+    expect(result.failures).toEqual([]);
+    expect(result.status).toBe('pass');
+  });
+
+  it('emits explicit deferred-marker for declarative+ast-grep (not silent n/a)', () => {
+    const astGrepPlan: SynthesisPlan = {
+      framework: 'next',
+      version: '16.0.0',
+      rules: [
+        {
+          id: 'G1',
+          title: 'Forbid self-compare (ast-grep — deferred)',
+          stack: ['react-next'],
+          check: {
+            type: 'declarative',
+            engine: 'ast-grep',
+            selector: '$A === $A',
+            message: 'self-compare is always true',
+            presence: 'forbid',
+          } as never,
+          examples: { bad: 'if (x === x) {}', good: 'if (x === y) {}' },
+          'negative-test': {
+            input: ['if (x === x) {}'],
+            'expect-violation': 'no-restricted-syntax',
+          },
+          research: { entryId: 'self-compare-forbid', provenance: [] },
+        },
+      ],
+      rulesMd: '',
+      eslintConfigSnippet: '{}',
+    };
+    const result = runRuleTesterGate(astGrepPlan);
+    expect(result.status).toBe('fail');
+    expect(result.failures[0].reason).toMatch(
+      /ast-grep engine reserved but not wired/,
+    );
+  });
+
+  it('marks n/a when plan has only declarative rules with no engine match (non-declarative/non-eslint)', () => {
+    // manual rule should still be n/a — declarative admission must not break the n/a path
+    const synthPlan = synthesize(plan({ patterns: [entry('nextjs-pages-router')] }));
+    expect(synthPlan.rules[0].check.type).toBe('manual');
+    const result = runRuleTesterGate(synthPlan);
+    expect(result.status).toBe('n/a');
   });
 });

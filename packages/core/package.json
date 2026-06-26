@@ -2,7 +2,7 @@
   "name": "@rules-as-tests/core",
   "version": "0.1.0",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "FSL-1.1-ALv2",
   "type": "module",
   "main": "./manifest/rules-manifest.json",
   "bin": {
@@ -10,7 +10,8 @@
     "rules-as-tests-research": "./research/cli.ts",
     "rules-as-tests-synth": "./synthesizer/cli.ts",
     "rules-as-tests-validate": "./validator/cli.ts",
-    "rules-as-tests-install": "./installer/cli.ts"
+    "rules-as-tests-install": "./installer/cli.ts",
+    "rules-as-tests-verify-provenance": "./synthesizer/verify-provenance-cli.ts"
   },
   "exports": {
     "./manifest": "./manifest/rules-manifest.json",
@@ -26,6 +27,7 @@
     "test": "vitest run --reporter=default",
     "test:principles": "vitest run principles/",
     "test:hooks": "vitest run hooks/",
+    "test:render": "vitest run render/",
     "test:template-render": "vitest run audit-self/template-render.audit.ts",
     "guard-liveness:fullsweep": "tsx hooks/checks/guard-liveness-fullsweep.ts",
     "typecheck": "tsc --noEmit",
@@ -35,6 +37,7 @@
     "detect:install-rules": "tsx detector-v0/detect-applicable-rules.ts",
     "research": "tsx research/cli.ts",
     "synth": "tsx synthesizer/cli.ts",
+    "verify:provenance": "tsx synthesizer/verify-provenance-cli.ts",
     "validate": "tsx validator/cli.ts",
     "install:synth": "tsx installer/cli.ts"
   },

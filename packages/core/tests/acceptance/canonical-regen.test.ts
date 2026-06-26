@@ -52,10 +52,11 @@ describe('Phase 8 acceptance: canonical Next 15 preset regen', () => {
     const regen = regenerateCanonicalV15();
     expect(regen.rules.length).toBe(3);
     const snippet = JSON.parse(regen.eslintConfigSnippet) as Record<string, unknown>;
+    // R12 stays a named eslint rule; R14 + R20 are now declarative and merge their
+    // selectors under the single exempt-aware wrapper key (audit:exempt migration).
     expect(Object.keys(snippet)).toEqual([
       'rules-as-tests/no-server-imports-in-client',
-      'rules-as-tests/require-form-safe-parse',
-      'rules-as-tests/require-use-server-directive',
+      'rules-as-tests/restricted-syntax-audit-exempt',
     ]);
   });
 

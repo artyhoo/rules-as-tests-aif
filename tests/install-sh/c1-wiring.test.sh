@@ -28,7 +28,7 @@ n=$(find "$T/.ai-factory/skill-context" -name SKILL.md 2>/dev/null | wc -l | tr 
 grep -q 'export default plugin' "$T/eslint-rules-local/index.ts" 2>/dev/null && ok "W1: barrel exports a plugin" || bad "W1: barrel malformed"
 nf=$(find "$T"/eslint-rules-local -maxdepth 1 -name '*.ts' ! -name index.ts | wc -l | tr -d ' ')
 ni=$(grep -c '^import ' "$T/eslint-rules-local/index.ts")
-[ "$nf" = "$ni" ] && [ "$nf" -ge 3 ] && ok "W1: barrel covers all $nf rule files" || bad "W1: barrel $ni imports vs $nf rule files"
+[ "$nf" = "$ni" ] && [ "$nf" -ge 4 ] && ok "W1: barrel covers all $nf rule files" || bad "W1: barrel $ni imports vs $nf rule files"
 
 # W2 — arch config lands so arch:check has something to run against
 [ -f "$T/.dependency-cruiser.cjs" ] && ok "W2: .dependency-cruiser.cjs landed" || bad "W2: .dependency-cruiser.cjs missing"

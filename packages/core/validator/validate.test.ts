@@ -1,8 +1,21 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { validate } from './validate.ts';
 import { synthesize } from '../synthesizer/synthesize.ts';
+import { synthesizeGenerate } from '../synthesizer/generate.ts';
+import { stubGenerateRN } from '../synthesizer/generate-stubs.ts';
 import type { ResearchEntry, ResearchPlan } from '../research/types.ts';
 import type { SynthesisPlan } from '../synthesizer/types.ts';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const rnPlan: ResearchPlan = JSON.parse(
+  readFileSync(
+    resolve(HERE, '..', 'synthesizer', 'fixtures', 'rn-research-plan.json'),
+    'utf8',
+  ),
+) as ResearchPlan;
 
 const provenance = {
   url: 'https://nextjs.org/docs/app',
@@ -81,5 +94,19 @@ describe('validate — pure aggregator over 4 REQUIRED gates', () => {
     expect(report.ok).toBe(false);
     expect(report.gates.schema.status).toBe('pass');
     expect(report.gates.ruleTester.status).toBe('fail');
+  });
+});
+
+describe('validate — manual-rule visibility (seam i-2 Task 5)', () => {
+  // Reuse the proven generate-path plan: stubGenerateRN emits G1/G4 as eslint and
+  // G2 (rn-styles) + G3 (rn-a11y) as manual (generate-stubs.ts). generate.test.ts (a)
+  // proves validate().ok===true on this plan — manual rules do NOT flip ok. This makes
+  // them visible (manualCount/manualRuleIds) without a hand-built, schema-invalid plan.
+  it('reports manual rule count without failing ok', async () => {
+    const plan = await synthesizeGenerate(rnPlan, stubGenerateRN);
+    const report = validate(plan);
+    expect(report.ok).toBe(true);
+    expect(report.manualCount).toBe(2);
+    expect(report.manualRuleIds).toEqual(['G2', 'G3']);
   });
 });

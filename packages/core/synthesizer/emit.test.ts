@@ -84,6 +84,19 @@ describe('emit — side-effect filesystem writer', () => {
     expect(before.equals(after)).toBe(true);
   });
 
+  it('writes a provenance header for declarative rules (generated-marker + hash)', () => {
+    const synthPlan = synthesize(
+      plan({ patterns: [entry('test-only-forbid-declarative')] }),
+    );
+    emit(synthPlan, dir);
+    const prov = JSON.parse(
+      readFileSync(resolve(dir, 'provenance.json'), 'utf8'),
+    );
+    expect(prov.generatedBy).toBe('rules-as-tests-synth');
+    expect(prov.rules.G1.contentHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(prov.rules.G1.source.entryId).toBe('test-only-forbid-declarative');
+  });
+
   it('throws EmitError when output directory does not exist', () => {
     const synthPlan = synthesize(plan({ framework: null }));
     expect(() => emit(synthPlan, '/no/such/directory/xyz')).toThrow(EmitError);

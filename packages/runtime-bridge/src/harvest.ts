@@ -28,6 +28,43 @@
 /** Terminal aif statuses whose work is committed and safe to harvest. */
 const TERMINAL_STATUSES = new Set(['done', 'verified']);
 
+/**
+ * Park markers an aif agent leaves in its task record when it internally PARKS a subtask
+ * but the task still reaches `done` — the "Finding-F" false-done gap (`park.ts:139` refuses
+ * a review-stage park, so the park narration never reaches the task status). INFORMATIONAL
+ * ONLY: the {@link harvestTask} guard surfaces on the 0-commits-ahead shape regardless, so a
+ * missed/oddly-phrased marker never causes a silent ship — these signals only make the
+ * surfaced message actionable ("the log shows a park → likely incomplete").
+ */
+const PARK_MARKERS: ReadonlyArray<readonly [string, RegExp]> = [
+  ['park', /\bpark(ed|ing|-candidate)?\b/i],
+  ['manualReviewRequired', /manualReviewRequired/i],
+  ['blocked_external', /blocked[_-]external/i],
+  ['not-mine-to-override', /not mine to override/i],
+  ['open-question-anchor', /##\s*⏸\s*OPEN QUESTION/i],
+];
+
+/** The free-text fields of an aif task that {@link scanParkSignals} inspects. */
+export interface ParkScanInput {
+  implementationLog?: string | null;
+  reviewComments?: string | null;
+  blockedReason?: string | null;
+  plan?: string | null;
+}
+
+/**
+ * Return the names of any park markers present in the task's free-text fields. Pure,
+ * deterministic, ZERO LLM. An empty result is NOT a guarantee of completeness — it only
+ * means no known marker was found (the guard does not rely on this; see {@link PARK_MARKERS}).
+ */
+export function scanParkSignals(task: ParkScanInput): string[] {
+  const haystack = [task.implementationLog, task.reviewComments, task.blockedReason, task.plan]
+    .filter((s): s is string => typeof s === 'string' && s.length > 0)
+    .join('\n');
+  if (!haystack) return [];
+  return PARK_MARKERS.filter(([, re]) => re.test(haystack)).map(([name]) => name);
+}
+
 /** The injected side-effects harvest performs, in order. */
 export interface HarvestDeps {
   /**
@@ -72,6 +109,11 @@ export interface HarvestOpts {
   body: string;
   /** Arm GitHub auto-merge after opening the PR. */
   autoMerge: boolean;
+  /** Explicit operator confirmation that a dirty + 0-commits-ahead tree is a genuine
+   *  COMPLETE rework leg to commit-and-ship — NOT aif partial/parked work. Without it that
+   *  ambiguous shape is surfaced ({@link HarvestResult.needsConfirm}) instead of silently
+   *  auto-committed (false-done guard, 2026-06-23). The ≥1-commit and clean paths ignore it. */
+  confirmRework?: boolean;
 }
 
 export interface HarvestResult {
@@ -87,6 +129,15 @@ export interface HarvestResult {
    *  is the deliverable and the dirty tree is stale base-state residue that must not
    *  be `add -A`'d into the PR. Operator-visible so the CLI can warn. */
   dirtyTreeLeftBehind: boolean;
+  /** True when harvest STOPPED on the ambiguous `done + 0-commits-ahead + dirty` shape
+   *  (a legit rework OR aif partial/parked work — mechanically indistinguishable) and did
+   *  NOT commit/push/PR. The operator inspects, then re-runs with `confirmRework` to ship a
+   *  genuine rework. Mutually exclusive with `pushed`. Absent on every non-ambiguous path. */
+  needsConfirm?: boolean;
+  /** Informational park markers found in the task log when `needsConfirm` (see
+   *  {@link scanParkSignals}). Surfaced to make the operator's call actionable; an empty
+   *  list does NOT mean "definitely complete". */
+  parkSignals?: string[];
 }
 
 /** The subset of an aif task harvest reads. */
@@ -95,6 +146,12 @@ export interface HarvestableTask {
   title: string;
   status: string;
   branchName?: string | null;
+  /** Free-text task fields the false-done guard scans for park signals (informational).
+   *  Optional — the CLI passes them from the fetched task; unit tests may omit them. */
+  implementationLog?: string | null;
+  reviewComments?: string | null;
+  blockedReason?: string | null;
+  plan?: string | null;
 }
 
 /**
@@ -142,6 +199,22 @@ export async function harvestTask(
   let dirtyTreeLeftBehind = false;
   if (await deps.hasUncommittedChanges(branch)) {
     if ((await deps.commitsAhead(branch, opts.baseBranch)) === 0) {
+      // Ambiguous shape: dirty + 0 ahead = a legit COMPLETE rework leg OR aif partial/parked
+      // work that still reached `done` (the Finding-F false-done; live incident eb610df4 left
+      // T1 uncommitted after parking T2-T6). Do NOT silently `add -A` + push — surface for the
+      // operator unless they explicitly confirmed this is a rework (false-done guard, Design A).
+      if (!opts.confirmRework) {
+        return {
+          prUrl: '',
+          branch,
+          pushed: false,
+          autoMerge: false,
+          committed: false,
+          dirtyTreeLeftBehind: false,
+          needsConfirm: true,
+          parkSignals: scanParkSignals(task),
+        };
+      }
       await deps.commitAll(branch, `chore(harvest): commit reworked aif task ${task.id} — ${task.title}`);
       committed = true;
     } else {

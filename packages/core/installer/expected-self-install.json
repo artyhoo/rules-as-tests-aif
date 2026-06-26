@@ -32,8 +32,26 @@
       "conflict": {
         "status": "pass",
         "failures": []
+      },
+      "singleTokenDiff": {
+        "status": "n/a",
+        "failures": []
+      },
+      "messageIdCoverage": {
+        "status": "n/a",
+        "failures": []
+      },
+      "autofixClean": {
+        "status": "n/a",
+        "failures": []
+      },
+      "requireVacuity": {
+        "status": "n/a",
+        "failures": []
       }
-    }
+    },
+    "manualCount": 0,
+    "manualRuleIds": []
   },
   "postValidation": {
     "ok": true,
@@ -53,7 +71,25 @@
       "conflict": {
         "status": "pass",
         "failures": []
+      },
+      "singleTokenDiff": {
+        "status": "n/a",
+        "failures": []
+      },
+      "messageIdCoverage": {
+        "status": "n/a",
+        "failures": []
+      },
+      "autofixClean": {
+        "status": "n/a",
+        "failures": []
+      },
+      "requireVacuity": {
+        "status": "n/a",
+        "failures": []
       }
-    }
+    },
+    "manualCount": 0,
+    "manualRuleIds": []
   }
 }

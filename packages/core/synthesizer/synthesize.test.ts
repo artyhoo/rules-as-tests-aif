@@ -108,4 +108,70 @@ describe('synthesize — pure recipe lookup + composition', () => {
     expect(merged).toHaveProperty('no-restricted-imports');
     expect(merged).toHaveProperty('rules-as-tests/no-server-imports-in-client');
   });
+
+  // M1: the declarative+eslint-restricted bridge in synthesize() (selector+message
+  // → no-restricted-syntax entry) was previously exercised by no test — the gate
+  // happy-path built the config by hand. This drives a real declarative recipe
+  // through synthesize() end-to-end, which also revives the recipe file.
+  it('compiles a declarative+eslint-restricted recipe into a restricted-syntax-audit-exempt config via synthesize() (bridge end-to-end)', () => {
+    const result = synthesize(
+      plan({ patterns: [entry('test-only-forbid-declarative')] }),
+    );
+    expect(result.rules).toHaveLength(1);
+    expect(result.rules[0].check.type).toBe('declarative');
+    const merged = JSON.parse(result.eslintConfigSnippet);
+    // Declarative tier emits the exempt-aware wrapper, not the built-in
+    // no-restricted-syntax (which cannot honour per-line audit:exempt).
+    expect(merged).toHaveProperty('rules-as-tests/restricted-syntax-audit-exempt');
+    expect(merged).not.toHaveProperty('no-restricted-syntax');
+    const [severity, ...entries] = merged[
+      'rules-as-tests/restricted-syntax-audit-exempt'
+    ] as [string, ...{ selector: string }[]];
+    expect(severity).toBe('error');
+    expect(entries.some((e) => e.selector.includes("property.name='only'"))).toBe(
+      true,
+    );
+  });
+
+  it('loads a declarative recipe that omits rulesMdTemplate (data-only)', () => {
+    const result = synthesize(
+      plan({ patterns: [entry('test-only-forbid-declarative')] }),
+    );
+    expect(result.rules).toHaveLength(1);
+    expect(result.rules[0].check.type).toBe('declarative');
+  });
+
+  it('generates rulesMd for a declarative forbid from spec, not from a template', () => {
+    const result = synthesize(
+      plan({ patterns: [entry('test-only-forbid-declarative')] }),
+    );
+    expect(result.rulesMd).toContain('## G1 — Forbid `.only` in test calls');
+    expect(result.rulesMd).toContain('no-restricted-syntax');
+  });
+
+  // S2: presence:'require' end-to-end — recipe → synthesize → eslintConfigSnippet + rulesMd
+  it('compiles a declarative+require recipe into restricted-syntax-audit-exempt config (S2 end-to-end)', () => {
+    const result = synthesize(
+      plan({ patterns: [entry('test-only-require-declarative')] }),
+    );
+    expect(result.rules).toHaveLength(1);
+    expect(result.rules[0].check.type).toBe('declarative');
+    expect((result.rules[0].check as { presence: string }).presence).toBe('require');
+    const merged = JSON.parse(result.eslintConfigSnippet);
+    expect(merged).toHaveProperty('rules-as-tests/restricted-syntax-audit-exempt');
+    const [severity, ...entries] = merged[
+      'rules-as-tests/restricted-syntax-audit-exempt'
+    ] as [string, ...{ selector: string }[]];
+    expect(severity).toBe('error');
+    expect(entries.some((e) => e.selector.includes(':not(:has('))).toBe(true);
+  });
+
+  it('generates rulesMd with "require" wording for presence:require declarative recipe', () => {
+    const result = synthesize(
+      plan({ patterns: [entry('test-only-require-declarative')] }),
+    );
+    expect(result.rulesMd).toContain('require');
+    expect(result.rulesMd).toContain('no-restricted-syntax');
+    expect(result.rulesMd).not.toContain('forbid');
+  });
 });

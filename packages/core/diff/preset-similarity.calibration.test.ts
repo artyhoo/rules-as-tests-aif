@@ -90,9 +90,11 @@ describe('A8 — preset-similarity calibration corpus (5 mutants from canonical-
     JSON.parse(canonical.eslintConfigSnippet) as Record<string, unknown>,
   ).length;
 
-  it('sanity: canonical-v15 has N=3 rules and K=3 ESLint keys', () => {
+  it('sanity: canonical-v15 has N=3 rules and K=2 ESLint keys', () => {
     expect(N).toBe(3);
-    expect(K).toBe(3);
+    // R14 + R20 migrated to declarative and merge under one wrapper key, so the
+    // canonical preset now emits 2 ESLint keys (no-server-imports + the wrapper).
+    expect(K).toBe(2);
   });
 
   it('mutant 1 — identity → similarity 1.0', () => {

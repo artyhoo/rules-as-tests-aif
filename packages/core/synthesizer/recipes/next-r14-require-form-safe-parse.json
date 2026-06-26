@@ -6,8 +6,11 @@
     "stack": ["react-next"],
     "applies-to": ["src/app/**/*.ts", "src/lib/actions/**/*.ts"],
     "check": {
-      "type": "eslint",
-      "rule": "rules-as-tests/require-form-safe-parse"
+      "type": "declarative",
+      "engine": "eslint-restricted",
+      "selector": ":function:not(:has(CallExpression[callee.property.name='safeParse'])):has(Identifier[typeAnnotation.typeAnnotation.typeName.name='FormData'], Identifier[typeAnnotation.typeAnnotation.typeName.right.name='FormData'])",
+      "message": "Function accepts FormData but does not call .safeParse(...). Validate the form input with a Zod schema (R14).",
+      "presence": "require"
     },
     "examples": {
       "bad": "export async function action(formData: FormData) {\n        return formData.get('name');\n      }",
@@ -15,11 +18,8 @@
     },
     "negative-test": {
       "input": ["export async function action(formData: FormData) {\n        return formData.get('name');\n      }"],
-      "expect-violation": "rules-as-tests/require-form-safe-parse"
+      "expect-violation": "rules-as-tests/restricted-syntax-audit-exempt"
     }
   },
-  "rulesMdTemplate": "<!-- from preset-next-15-canonical/eslint-rules/require-form-safe-parse.ts -->\n## {{id}} — Validate `FormData` parameters via `.safeParse(...)` (R14)\n\n**Stack:** react-next  \n**Check:** ESLint `rules-as-tests/require-form-safe-parse` (preset plugin rule)  \n**Why:** Server Actions and form handlers that accept `FormData` are the trust boundary; unvalidated `formData.get('name')` is the most common Server Action footgun. Validate via a Zod schema's `.safeParse(Object.fromEntries(formData))` before reading values.\n",
-  "eslintRuleConfig": {
-    "rules-as-tests/require-form-safe-parse": "error"
-  }
+  "eslintRuleConfig": {}
 }

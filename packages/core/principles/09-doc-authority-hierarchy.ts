@@ -95,6 +95,12 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'packages/preset-next-15-canonical/RULES.md',
   'packages/preset-next-15-canonical/RULES.react-next.md',
   'packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md',
+  'packages/preset-react-spa/RULES.md',
+  'packages/preset-react-spa/RULES.react-spa.md',
+  'packages/preset-react-spa/templates/ARCHITECTURE.react-spa.md',
+  'packages/preset-react-native/RULES.md',
+  'packages/preset-react-native/RULES.react-native.md',
+  'packages/preset-react-native/templates/ARCHITECTURE.react-native.md',
 
   // skill-context overrides shipped to consumer .ai-factory/skill-context/ (C-1 follow-up,
   // SSOT #50): AIF-native delivery of our review + rules-check content without colliding slots.

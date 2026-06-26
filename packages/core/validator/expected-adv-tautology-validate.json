@@ -14,13 +14,31 @@
       "failures": [
         {
           "ruleId": "G99",
-          "reason": "tautology — rule 'no-restricted-imports' fires on negative-corpus/unrelated.tsx: 'react' import is restricted from being used. tautology-test"
+          "reason": "tautology \u2014 rule 'no-restricted-imports' fires on negative-corpus/unrelated.tsx: 'react' import is restricted from being used. tautology-test"
         }
       ]
     },
     "conflict": {
       "status": "pass",
       "failures": []
+    },
+    "singleTokenDiff": {
+      "status": "n/a",
+      "failures": []
+    },
+    "messageIdCoverage": {
+      "status": "n/a",
+      "failures": []
+    },
+    "autofixClean": {
+      "status": "n/a",
+      "failures": []
+    },
+    "requireVacuity": {
+      "status": "n/a",
+      "failures": []
     }
-  }
+  },
+  "manualCount": 0,
+  "manualRuleIds": []
 }

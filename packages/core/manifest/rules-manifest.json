@@ -281,12 +281,25 @@
     "requires-package": "next",
     "auto-skip-if-missing": true,
     "check": {
-      "type": "manual",
-      "rationale": "AST grep on TanStack Query / SWR usage; no ESLint rule today."
+      "type": "eslint",
+      "rule": "no-restricted-syntax"
     },
     "examples": {
       "bad": "'use client';\nexport function Orders() {\n  useEffect(() => { fetch('/api/orders').then(r => r.json()).then(setData); }, []);\n}",
       "good": "'use client';\nexport function Orders() {\n  const { data } = useQuery({ queryKey: ['orders'], queryFn: fetchOrders });\n}"
+    },
+    "negative-test": {
+      "input": [
+        "useEffect(() => { fetch('/api/orders'); }, []);"
+      ],
+      "expect-violation": "no-restricted-syntax",
+      "eslintRuleConfig": [
+        "error",
+        {
+          "selector": "CallExpression[callee.name='useEffect'] :function CallExpression[callee.name='fetch']",
+          "message": "Bare fetch() inside useEffect is forbidden — use useQuery instead (R13 narrow: fetch-in-useEffect). Broad TanStack/SWR-without-validation coverage = future follow-up."
+        }
+      ]
     },
     "policy": "Server Components: direct async/await. Client reads: TanStack Query / SWR with Zod-typed response. Writes: Server Actions. No raw `fetch()` in Client Components without useQuery/useSWR wrapper.",
     "pressure-scenario": {
@@ -308,7 +321,7 @@
     "auto-skip-if-missing": true,
     "check": {
       "type": "eslint",
-      "rule": "rules-as-tests/require-form-safe-parse"
+      "rule": "no-restricted-syntax"
     },
     "examples": {
       "bad": "'use server';\nexport async function submit(fd: FormData) {\n  await save(fd.get('name') as string); // no safeParse\n}",
@@ -319,7 +332,14 @@
       "input": [
         "'use server';\nexport async function submit(fd: FormData) {\n  await save(fd.get('name') as string);\n}"
       ],
-      "expect-violation": "rules-as-tests/require-form-safe-parse"
+      "expect-violation": "no-restricted-syntax",
+      "eslintRuleConfig": [
+        "error",
+        {
+          "selector": ":function:not(:has(CallExpression[callee.property.name='safeParse'])):has(Identifier[typeAnnotation.typeAnnotation.typeName.name='FormData'], Identifier[typeAnnotation.typeAnnotation.typeName.right.name='FormData'])",
+          "message": "Function accepts FormData but does not call .safeParse(...). Validate the form input with a Zod schema (R14)."
+        }
+      ]
     }
   },
   "R15": {
@@ -394,12 +414,25 @@
     "requires-package": "@tanstack/react-query",
     "auto-skip-if-missing": true,
     "check": {
-      "type": "manual",
-      "rationale": "AST grep on `useQuery` without `.parse()` in `queryFn` (project-specific)."
+      "type": "eslint",
+      "rule": "no-restricted-syntax"
     },
     "examples": {
       "bad": "const { data } = useQuery({\n  queryKey: ['orders'],\n  queryFn: () => fetch('/api/orders').then(r => r.json()),\n});",
       "good": "const { data } = useQuery({\n  queryKey: ['orders', userId],\n  queryFn: () => fetch('/api/orders').then(r => r.json()).then(OrderSchema.parse),\n  staleTime: 60_000,\n});"
+    },
+    "negative-test": {
+      "input": [
+        "useQuery({ queryFn: () => fetchData() });"
+      ],
+      "expect-violation": "no-restricted-syntax",
+      "eslintRuleConfig": [
+        "error",
+        {
+          "selector": "Property[key.name='queryFn'] > :function:not(:has(MemberExpression[property.name=/^(parse|safeParse)$/]))",
+          "message": "queryFn must validate the response with .parse() or .safeParse() — direct call or point-free `.then(Schema.parse)` — R18."
+        }
+      ]
     },
     "policy": "`useQuery`/`useSWR` has typed response via Zod (`.parse()` or `.safeParse()` in `queryFn`). `queryKey` includes all params. `staleTime`/`gcTime` set explicitly. `onError` reacts (toast/Sentry). No `useEffect(() => fetch(...))` for reads.",
     "pressure-scenario": {
@@ -439,7 +472,7 @@
     "auto-skip-if-missing": true,
     "check": {
       "type": "eslint",
-      "rule": "rules-as-tests/require-use-server-directive"
+      "rule": "no-restricted-syntax"
     },
     "examples": {
       "bad": "export async function deleteItem(id: string) {\n  await db.delete(id); // no 'use server'\n}",
@@ -450,7 +483,14 @@
       "input": [
         "export async function deleteItem(id: string) {\n  await db.delete(id);\n}"
       ],
-      "expect-violation": "rules-as-tests/require-use-server-directive"
+      "expect-violation": "no-restricted-syntax",
+      "eslintRuleConfig": [
+        "error",
+        {
+          "selector": "Program:not(Program:has(ExpressionStatement:first-child > Literal[value='use server'])) ExportNamedDeclaration > FunctionDeclaration[async=true], Program:not(Program:has(ExpressionStatement:first-child > Literal[value='use server'])) ExportDefaultDeclaration > FunctionDeclaration[async=true]",
+          "message": "Server Action file must start with 'use server' directive at the top of the file (R20)."
+        }
+      ]
     }
   },
   "IR1": {

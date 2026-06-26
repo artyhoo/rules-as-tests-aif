@@ -1,67 +1,105 @@
-# Proprietary License — All Rights Reserved
+# Functional Source License, Version 1.1, ALv2 Future License
 
-Copyright (c) 2026 Art. All rights reserved.
+## Abbreviation
 
-## No license granted
+FSL-1.1-ALv2
 
-This repository and all of its contents — source code, documentation, configuration,
-templates, scripts, schemas, and any other files (collectively, the "Software") —
-are proprietary and confidential.
+## Notice
 
-No license, express or implied, is granted to any party by the publication of this
-Software in a public repository. In particular, no person or entity is permitted to:
+Copyright 2026 Art
 
-1. use the Software, in whole or in part, for any purpose, commercial or
-   non-commercial, internal or external;
-2. copy, reproduce, or store the Software, in whole or in part, in any medium;
-3. modify, adapt, translate, or create derivative works based on the Software;
-4. distribute, publish, sublicense, sell, lease, or otherwise transfer the
-   Software, in whole or in part, to any third party;
-5. perform, display, or make the Software available to others;
-6. remove, alter, or obscure any copyright, trademark, or other proprietary
-   notice contained in the Software;
+## Terms and Conditions
 
-without the prior, express, written permission of the copyright holder.
+### Licensor ("We")
 
-## Viewing is not licensing
+The party offering the Software under these Terms and Conditions.
 
-Public availability of this repository on a code hosting platform (such as GitHub)
-does not, by itself, grant any license or right to use the Software. Any rights
-granted by the hosting platform's terms of service (for example, the right to fork
-a repository within the platform for the purpose of contributing a pull request)
-are limited to that platform's mechanics and do not extend to use, modification,
-or redistribution of the Software outside the platform.
+### The Software
 
-## Contributions
+The "Software" is each version of the software that we make available under
+these Terms and Conditions, as indicated by our inclusion of these Terms and
+Conditions with the Software.
 
-By submitting any contribution (including pull requests, patches, or suggestions)
-to this repository, the contributor irrevocably assigns to the copyright holder all
-right, title, and interest in the contribution, including all copyright and related
-rights, worldwide and in perpetuity, to the maximum extent permitted by applicable
-law. If full assignment is not permitted in the contributor's jurisdiction, the
-contributor grants the copyright holder a worldwide, perpetual, irrevocable,
-royalty-free, exclusive license to use, modify, sublicense, and relicense the
-contribution under any terms the copyright holder chooses.
+### License Grant
 
-## Commercial licensing
+Subject to your compliance with this License Grant and the Patents,
+Redistribution and Trademark clauses below, we hereby grant you the right to
+use, copy, modify, create derivative works, publicly perform, publicly display
+and redistribute the Software for any Permitted Purpose identified below.
 
-To inquire about a commercial license, evaluation license, or other use of the
-Software, contact the copyright holder.
+### Permitted Purpose
 
-## Disclaimer of warranty
+A Permitted Purpose is any purpose other than a Competing Use. A Competing Use
+means making the Software available to others in a commercial product or
+service that:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
-COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+1. substitutes for the Software;
 
-## Reservation of rights
+2. substitutes for any other product or service we offer using the Software
+   that exists as of the date we make the Software available; or
 
-All rights not expressly granted herein are reserved by the copyright holder.
-The copyright holder reserves the right, at its sole discretion, to relicense
-the Software (in whole or in part) under different terms at any future date.
-Any such future relicense shall apply only to the version(s) of the Software
-expressly designated by the copyright holder; this proprietary license shall
-continue to apply to all prior versions unless explicitly stated otherwise.
+3. offers the same or substantially similar functionality as the Software.
+
+Permitted Purposes specifically include using the Software:
+
+1. for your internal use and access;
+
+2. for non-commercial education;
+
+3. for non-commercial research; and
+
+4. in connection with professional services that you provide to a licensee
+   using the Software in accordance with these Terms and Conditions.
+
+### Patents
+
+To the extent your use for a Permitted Purpose would necessarily infringe our
+patents, the license grant above includes a license under our patents. If you
+make a claim against any party that the Software infringes or contributes to
+the infringement of any patent, then your patent license to the Software ends
+immediately.
+
+### Redistribution
+
+The Terms and Conditions apply to all copies, modifications and derivatives of
+the Software.
+
+If you redistribute any copies, modifications or derivatives of the Software,
+you must include a copy of or a link to these Terms and Conditions and not
+remove any copyright notices provided in or with the Software.
+
+### Disclaimer
+
+THE SOFTWARE IS PROVIDED "AS IS" AND WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING WITHOUT LIMITATION WARRANTIES OF FITNESS FOR A PARTICULAR
+PURPOSE, MERCHANTABILITY, TITLE OR NON-INFRINGEMENT.
+
+IN NO EVENT WILL WE HAVE ANY LIABILITY TO YOU ARISING OUT OF OR RELATED TO THE
+SOFTWARE, INCLUDING INDIRECT, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES,
+EVEN IF WE HAVE BEEN INFORMED OF THEIR POSSIBILITY IN ADVANCE.
+
+### Trademarks
+
+Except for displaying the License Details and identifying us as the origin of
+the Software, you have no right under these Terms and Conditions to use our
+trademarks, trade names, service marks or product names.
+
+## Grant of Future License
+
+We hereby irrevocably grant you an additional license to use the Software under
+the Apache License, Version 2.0 that is effective on the second anniversary of
+the date we make the Software available. On or after that date, you may use the
+Software under the Apache License, Version 2.0, in which case the following
+will apply:
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License.
+
+You may obtain a copy of the License at
+
+<http://www.apache.org/licenses/LICENSE-2.0>
+
+Unless required by applicable law or agreed to in writing, software distributed
+under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied. See the License for the
+specific language governing permissions and limitations under the License.
