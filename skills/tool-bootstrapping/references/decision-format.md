@@ -23,7 +23,7 @@ The `deps-hash` field drives rule 5 incrementality. The UserPromptSubmit hook re
 
 ### `## Accepted` section
 
-Markdown table: `Tool | Type | Accepted | Rationale`. `Type` is `MCP` or `Skill`. `Accepted` is ISO date or `auto` for `setup.sh`-installed tools (e.g. `context7`).
+Markdown table: `Tool | Type | Accepted | Rationale`. `Type` is `MCP` or `Skill`. `Accepted` is an ISO date or a short status string (e.g. `recommended`).
 
 ### `## Rejected` section
 
@@ -46,7 +46,7 @@ aif-version: 2.1.0
 
 | Tool       | Type | Accepted   | Rationale                                       |
 | ---------- | ---- | ---------- | ----------------------------------------------- |
-| context7   | MCP  | auto       | setup.sh baseline — recursive bootstrap stage 1 |
+| context7   | MCP  | recommended | strongly recommended for doc lookup; NOT auto-installed |
 | github-mcp | MCP  | 2026-05-11 | GitHub Issues + PRs in active use by workflow   |
 
 ## Rejected

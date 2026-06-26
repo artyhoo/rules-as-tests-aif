@@ -24,10 +24,11 @@ bash "$HERE/install.sh" ${STACK:+$STACK} ${DRY:+$DRY}
 echo "▶ Companions"
 source "$HERE/setup.d/engine.sh"
 emode="$MODE"; [ "$MODE" = "all" ] && emode="yes"
-# manifest is TAB-delimited, single tab, no padding — format contract lives in
+# manifest is TAB-delimited, 5 fields (S3: added stacks column) — format contract lives in
 # setup.d/companions.manifest header (S3 parser contract); inner pipes in
 # detect_cmd are preserved because IFS splits on tab only.
-while IFS=$'\t' read -r name detect install kind; do
+# stacks field is read but ignored here; stack-aware selection lives in 15-companions-stack.sh.
+while IFS=$'\t' read -r name detect install kind stacks; do
   case "$name" in ''|\#*) continue ;; esac
   [ "$kind" = "external-service" ] && continue   # handled in bridge step
   [ "$kind" = "mcp" ] && continue                # D5/I1: processed by 05-mcp layer inside install.sh (before 70-deps), never post-install

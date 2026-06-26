@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Test: setup.d/companions.manifest parses as a TAB-delimited 4-field table.
+# Test: setup.d/companions.manifest parses as a TAB-delimited 5-field table (S3: stacks column added).
 # Tab (not pipe) per kickoff §4 T-OCI-A: detect_cmd rows contain inner pipes,
-# so -F'|' splitting contradicts the manifest's own rows (NF=5 on superpowers).
+# so -F'|' splitting contradicts the manifest's own rows.
+# Fields: name<TAB>detect_cmd<TAB>install_cmd<TAB>kind<TAB>stacks
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 MANIFEST="$REPO_ROOT/setup.d/companions.manifest"
@@ -10,8 +11,8 @@ ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 [ -f "$MANIFEST" ] && ok "manifest exists" || bad "manifest missing"
-# Every non-comment line has exactly 4 TAB-delimited fields
-awk -F'\t' '!/^#/ && NF && NF!=4 {bad=1} END{exit bad}' "$MANIFEST" && ok "all rows have 4 fields" || bad "a row does not have 4 fields"
+# Every non-comment line has exactly 5 TAB-delimited fields (S3 schema: 5th = stacks)
+awk -F'\t' '!/^#/ && NF && NF!=5 {bad=1} END{exit bad}' "$MANIFEST" && ok "all rows have 5 fields" || bad "a row does not have 5 fields"
 # Superpowers row present (portable: GNU grep treats \t in -E pattern as literal 't')
 awk -F'\t' '$1=="superpowers"{f=1} END{exit !f}' "$MANIFEST" && ok "superpowers row present" || bad "no superpowers row"
 # No version pins (no '@x.y.z' style) in install commands

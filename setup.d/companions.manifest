@@ -1,4 +1,4 @@
-# Companion manifest — TAB-delimited: name<TAB>detect_cmd<TAB>install_cmd<TAB>kind
+# Companion manifest — TAB-delimited: name<TAB>detect_cmd<TAB>install_cmd<TAB>kind<TAB>stacks
 # Fields are separated by a SINGLE tab, NO padding spaces around fields (this is the S3 parser contract).
 # Tab (not pipe) delimiter: detect_cmd may contain inner pipes (per kickoff §4 T-OCI-A).
 # Companions install via THEIR official installer, detect-first, no version pin.
@@ -8,6 +8,10 @@
 # kind=mcp              → detect-first `claude mcp add`; processed by the 05-mcp layer INSIDE install.sh
 #                         (before 70-deps); NEVER processed by the post-install wrapper loop (D5/I1 ordering).
 #                         No version pin in install_cmd. Requires claude CLI (graceful skip if absent).
-superpowers	claude plugin list 2>/dev/null | grep -q superpowers	claude plugin install superpowers@claude-plugins-official --scope user	cc-plugin
-runtime-bridge	curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"	(bridge)	external-service
-deepwiki	claude mcp list --scope user 2>/dev/null | grep -q deepwiki	claude mcp add --scope user --transport http deepwiki https://mcp.deepwiki.com/mcp	mcp
+#
+# stacks=* → relevant for all stacks; comma-separated list for stack-specific (e.g. react-next,ts-server).
+# The stacks column is consumed by 15-companions-stack.sh for static stack-aware selection.
+# The setup wrapper reads but ignores stacks (handles all companions universally).
+superpowers	claude plugin list 2>/dev/null | grep -q superpowers	claude plugin install superpowers@claude-plugins-official --scope user	cc-plugin	*
+runtime-bridge	curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"	(bridge)	external-service	*
+deepwiki	claude mcp list --scope user 2>/dev/null | grep -q deepwiki	claude mcp add --scope user --transport http deepwiki https://mcp.deepwiki.com/mcp	mcp	*
