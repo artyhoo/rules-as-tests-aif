@@ -19,7 +19,7 @@ f6159ab2c6b5c23b937b439f181a7a5489973f51dc8267f4304d128c48eee567  .claude/settin
 76153b5303795a01386afcb3b681a910d5963fcd03fe48ea4b9ae53ff0d61809  .claude/skills/aif-doctor/SKILL.md
 a61194b1eb8ea92372cee7ad053b797d08f36d6d62f51c992aac015f4f97181b  .claude/skills/aif-doctor/helpers/heal.sh
 feb8117af8ed47e7651475cc8174fc49705538274c7c9fa200dda45d95616235  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
-a528408b06040a8293962623c69d19afd09f53abd98dd7d857ff88e024bcda1c  .claude/skills/dispatcher/SKILL.md
+e3c6086efb6dbafaac285132c61c3da1f17ada581d1efe84986c1589ed1b905a  .claude/skills/dispatcher/SKILL.md
 32171fb8f224dfed23e9985a70d7c4e566ff44ff15258a31d33013bb3224ff9a  .claude/skills/dispatcher/helpers/harvest-via-api.sh
 f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66  .claude/skills/dispatcher/helpers/monitor-classify.sh
 e1784c032fb6366007c76da0dcbba0f9db6a6816e4d3d9d27e0128554838d0a0  .claude/skills/dispatcher/helpers/notify-gate.sh
