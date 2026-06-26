@@ -20,6 +20,7 @@ import { Linter } from 'eslint';
 // only failed on that case, which is why the fixture tests never tripped.
 import * as tseslintParser from '@typescript-eslint/parser';
 import presetPlugin from '@rules-as-tests/preset-next-15-canonical/eslint-rules';
+import spaPlugin from '@rules-as-tests/preset-react-spa/eslint-rules';
 import corePlugin from '../eslint-rules/index.ts';
 import {
   ESLINT_RESTRICTED_RULE_NAME,
@@ -34,12 +35,14 @@ import type { GateFailure, GateOutcome } from './types.ts';
 // statically produce. Both are runtime-compatible — cast at the seam.
 //
 // The `rules-as-tests` namespace unions the core plugin (the exempt-aware wrapper
-// the declarative tier emits) with the preset plugin (handwritten rules). A consumer
-// receives both under one barrel (install.sh copies core + preset into
-// eslint-rules-local), so the gate must resolve the same union.
+// the declarative tier emits) with the preset-next-15-canonical plugin (handwritten
+// rules for Next.js), and the preset-react-spa plugin (handwritten rules for React SPA,
+// including require-error-boundary). A consumer receives all under one barrel
+// (install.sh copies core + preset into eslint-rules-local), so the gate must resolve
+// the same union. Recipe expansion (Phase 8 R12/14/20) will add entries here.
 const KNOWN_PLUGINS: Record<string, unknown> = {
   'rules-as-tests': {
-    rules: { ...corePlugin.rules, ...presetPlugin.rules },
+    rules: { ...corePlugin.rules, ...presetPlugin.rules, ...spaPlugin.rules },
   },
 };
 

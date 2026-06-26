@@ -1,0 +1,76 @@
+{
+  "framework": "react-spa",
+  "version": null,
+  "patterns": [
+    {
+      "id": "spa-error-boundary",
+      "summary": "Vite SPA apps must wrap their render tree in an ErrorBoundary JSX element at the app root. Unlike Next.js (which provides error.tsx at route level), Vite SPA has no framework-level boundary — a missing one causes a blank screen on any unhandled render error.",
+      "bestPractices": [
+        "Wrap App content in <ErrorBoundary> or <Sentry.ErrorBoundary> at the root level",
+        "Use react-error-boundary package or a custom ErrorBoundary class component",
+        "Name the boundary component with 'ErrorBoundary' in the name so the rule can detect it",
+        "Provide a fallback prop that renders a user-friendly error UI"
+      ],
+      "antiPatterns": [
+        "App component with JSX but no ErrorBoundary ancestor in the JSX tree",
+        "Importing ErrorBoundary but never mounting it in the JSX (T-MS-A: string grep misses this, AST check catches it)",
+        "Relying on React's default unhandled error behaviour (blank screen)"
+      ],
+      "provenance": [
+        {
+          "url": "https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary",
+          "allowlistKey": "react.dev",
+          "fetchedAt": "2026-06-26T00:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "spa-a11y",
+      "summary": "React SPA components must follow web accessibility conventions enforced by eslint-plugin-jsx-a11y: interactive elements need accessible names and roles, images need alt attributes, and ARIA props must be valid.",
+      "bestPractices": [
+        "Add alt attributes to all <img> elements",
+        "Use semantic HTML elements instead of divs with click handlers",
+        "Add accessible names to interactive elements (aria-label, aria-labelledby, or visible text)",
+        "Ensure form fields have associated labels"
+      ],
+      "antiPatterns": [
+        "<img> elements without alt attribute",
+        "onClick on non-interactive elements without role and tabIndex",
+        "Invalid ARIA attributes or roles",
+        "Missing label for form controls"
+      ],
+      "provenance": [
+        {
+          "url": "https://github.com/jsx-eslint/eslint-plugin-jsx-a11y",
+          "allowlistKey": "github.com",
+          "fetchedAt": "2026-06-26T00:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "spa-hooks",
+      "summary": "React SPA components must follow the Rules of Hooks enforced by eslint-plugin-react-hooks: hooks must be called at the top level of React functions, not inside conditions, loops, or nested functions.",
+      "bestPractices": [
+        "Call hooks only at the top level, never inside conditions or loops",
+        "Call hooks only from React function components or custom hooks",
+        "Name custom hooks with the 'use' prefix so the linter can identify them",
+        "Ensure all hook dependencies are declared in the exhaustive-deps rule"
+      ],
+      "antiPatterns": [
+        "Calling hooks inside if/else conditions",
+        "Calling hooks inside loops or nested functions",
+        "Calling hooks from non-hook, non-component functions",
+        "Missing dependencies in useEffect/useCallback/useMemo dependency arrays"
+      ],
+      "provenance": [
+        {
+          "url": "https://react.dev/warnings/invalid-hook-call-warning",
+          "allowlistKey": "react.dev",
+          "fetchedAt": "2026-06-26T00:00:00.000Z"
+        }
+      ]
+    }
+  ],
+  "missing": [],
+  "drift": null
+}
