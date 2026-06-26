@@ -66,7 +66,7 @@ const x = data as unknown as User;
 
 ## R2 — Validation at boundaries
 
-**Policy:** `.parse() is forbidden` in HTTP boundary code. Use `.safeParse()` and branch on `.success`.
+**Policy:** Zod schema `.parse()` is forbidden in HTTP boundary code. Use `.safeParse()` and branch on `.success`. Stdlib `.parse()` (`JSON.parse`, `Date.parse`, `path.parse`) is **not** flagged — the rule targets Zod schema `.parse()` only.
 
 **Path-scoped enforcement:** the ESLint rule `rules-as-tests/no-unsafe-zod-parse` is enabled only for these globs (configured in `eslint.config.mjs`):
 - `src/web/handlers/**`

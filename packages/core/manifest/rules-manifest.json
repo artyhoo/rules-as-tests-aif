@@ -37,7 +37,7 @@
       "bad": "const body = OrderSchema.parse(req.body);",
       "good": "const r = OrderSchema.safeParse(req.body); if (!r.success) return reply.code(400).send(r.error.flatten());"
     },
-    "policy": "`.parse()` is forbidden in HTTP boundary code. Use `.safeParse()` and branch on `.success`. Outside the path-scoped globs, `.parse()` is allowed (e.g. `src/config/env.ts` startup). Escape hatch: `// audit:exempt` on the same line. See packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries.",
+    "policy": "Zod schema `.parse()` is forbidden in HTTP boundary code. Use `.safeParse()` and branch on `.success`. Stdlib `.parse()` (`JSON.parse`, `Date.parse`, `path.parse`) is not flagged — the rule targets Zod schema `.parse()` only. Outside the path-scoped globs, `.parse()` is allowed (e.g. `src/config/env.ts` startup). Escape hatch: `// audit:exempt` on the same line. See packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries.",
     "negative-test": {
       "input": [
         "const body = OrderSchema.parse(req.body);"
