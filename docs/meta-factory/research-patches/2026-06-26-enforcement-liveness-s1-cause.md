@@ -157,6 +157,22 @@ Either way, the **fix direction (variant A) stands**; what needs a maintainer ca
 
 ---
 
+## §1.7 self-review (research-only form)
+
+**Forward-check applied.** This finding complies with the disciplines in scope:
+
+- `no-paid-llm-in-ci.md` — reproduction used only local commands (`node`, `eslint`, `bash`); zero API-billed calls.
+- `ai-laziness-traps.md` — T3 (every claim carries command + verbatim output: probe A / RUN 2 / RUN 3 / RUN 4 / f17), T5 (research only, no source edits), T16 (loader presence verified by running the raw path, not assumed by name).
+- `reviewer-discipline.md §2` — the premise/severity contradiction is surfaced as a parked fork with both options, not decided here.
+
+**Backward-check applied.** Sweep of existing artefacts under this finding's scope:
+
+- `enforcement-liveness-fix/kickoff.md §2.1/§8` — this finding contradicts its Node-version polarity premise; flagged as a park trigger, **NOT** rewritten (Artifact Ownership: the kickoff's fixed-decisions block is maintainer-owned).
+- `#636 / #642 / #644` — same `.ts`-loader failure class; this finding isolates the precise version-gating mechanism (native type-stripping) behind them.
+- **T15 self-application** — the fix this finding points to (variant A) must itself pass on this repo's own shipped templates; noted as input to S5's gate design.
+
+---
+
 ## Tags
 
 `#enforcement-liveness` `#ts-loader` `#node-type-stripping` `#raw-vs-tsx-channel` `#park-premise-inversion`
