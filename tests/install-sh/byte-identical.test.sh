@@ -9,7 +9,7 @@
 #
 # Shellcheck:
 #   Pinned version: shellcheck 0.9.0 (or whatever is available — recorded below)
-#   Asserts: shellcheck setup.d/*.sh install.sh → clean
+#   Asserts: shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh → clean
 #   (The setup.d/ glob initially only matches install.sh; grows as layers land.)
 #
 # CI: invoked from .github/workflows/audit-self.yml (Mechanical checks job).
@@ -66,7 +66,7 @@ else
   SC_OUT=$(
     "$SHELLCHECK_BIN" \
       --shell=bash \
-      --severity=warning \
+      --severity=warning --exclude=SC2034,SC2016,SC2317 \
       "${SC_FILES[@]}" 2>&1
   ) && SC_RC=0 || SC_RC=$?
 

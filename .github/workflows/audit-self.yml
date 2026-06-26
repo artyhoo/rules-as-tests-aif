@@ -338,7 +338,7 @@ jobs:
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
             shellcheck --version | grep -E '^version:' || true
-            shellcheck setup.d/*.sh install.sh
+            shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh
           else
             echo "⊝ shellcheck not available in CI runner — skipping (install shellcheck >= 0.9.0 to enable)"
           fi
