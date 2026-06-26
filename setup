@@ -30,6 +30,7 @@ emode="$MODE"; [ "$MODE" = "all" ] && emode="yes"
 while IFS=$'\t' read -r name detect install kind; do
   case "$name" in ''|\#*) continue ;; esac
   [ "$kind" = "external-service" ] && continue   # handled in bridge step
+  [ "$kind" = "mcp" ] && continue                # D5/I1: processed by 05-mcp layer inside install.sh (before 70-deps), never post-install
   companion_step "$name" "$detect" "$install" "$kind" "$emode"
 done < "$HERE/setup.d/companions.manifest"
 
