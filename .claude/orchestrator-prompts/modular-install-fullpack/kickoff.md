@@ -54,7 +54,9 @@
 
 ### §3.2 Общий стратегический форк L1 (review-finding I2 — один владелец, не двойной парк)
 
-Форк «propose-only vs opt-in авто-установка инструментов/MCP для личного профиля» (L1) встаёт **и в S2, и в S3** (параллельные). Он **genuinely стратегический** — конфликтует с `tool-bootstrapping` Rule 3 («никогда не ставить MCP/skill без явного подтверждения; no env/config bypass»). Поэтому: **решается ОДИН раз оператором ПЕРЕД диспатчем S2/S3**, фиксируется здесь, и обе стадии ссылаются на это решение — **не паркуют независимо** (двойной парк → риск разнесённых дефолтов). Рабочая гипотеза к подтверждению оператором: под `-y` → авто-установка предложенного набора (consistent с §2.3 «yes ставит всё»); без `-y` → propose-only (текущее поведение скилла, не нарушает Rule 3). Оператор подтверждает/меняет до S2/S3.
+Форк «propose-only vs opt-in авто-установка инструментов/MCP для личного профиля» (L1) встаёт **и в S2, и в S3** (параллельные). Он **genuinely стратегический** — конфликтует с `tool-bootstrapping` Rule 3 («никогда не ставить MCP/skill без явного подтверждения; no env/config bypass»). Поэтому: **решается ОДИН раз оператором ПЕРЕД диспатчем S2/S3**, фиксируется здесь, и обе стадии ссылаются на это решение — **не паркуют независимо** (двойной парк → риск разнесённых дефолтов).
+
+**L1 RESOLVED → A-curated (operator, 2026-06-24).** Under `-y`, stack-variable MCP/tools auto-install WITHOUT the per-item Y/n, but ONLY the AI-curated set: tool-bootstrapping Rules 1/2/4/6 (analyse → propose → token-economy DROP of low-value/skill-coverable → record rationale) run unchanged even under `-y`. `-y` removes ONLY Rule 3's interactive Y/n, NOT the research/evaluation. S2 (MCP) = full Rules 1/2/4 curation (may net to "nothing beyond fixed context7/DeepWiki"). S3 (companions) = static stack-column match. Honest Rule 3 carve-out required at implement time: "interactive `-y` = blanket-confirmation; ban stays on SILENT env/config bypass" — this is S2/S3's implementation detail, NOT auto-install-everything.
 
 ## §4 S0 — детальная задача (это go сейчас)
 
