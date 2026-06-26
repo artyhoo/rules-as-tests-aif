@@ -6,7 +6,8 @@
 #   ./install.sh react-next --force             # overwrite existing files
 #   ./install.sh react-next --dry-run           # preview without writing
 #   ./install.sh react-next --dry-run --force   # preview overwrite plan
-#   ./install.sh ts-server --full               # also auto-install dev-deps (no prompts)
+#   ./install.sh ts-server --full               # also auto-install dev-deps (no prompts; stack required)
+#   ./setup -y ts-server                        # recommended one-shot path (wrapper: --full + companions)
 #   ./install.sh ts-server --wire-ci            # also auto-wire missing CI gates via yq (opt-in, detect-first)
 #
 # What it does:
@@ -172,6 +173,11 @@ fi
 
 # Pick stack interactively if not provided
 if [ -z "$STACK" ]; then
+  if [ -n "$FULL" ]; then
+    echo "❌ --yes / --full requires an explicit stack: ts-server | react-next | react-spa | react-native"
+    echo "   Example: ./setup -y ts-server"
+    exit 1
+  fi
   echo "What stack does this project use?"
   echo "  1) ts-server    — Node.js + Fastify/Hono/Express (server only)"
   echo "  2) react-next   — React 19 + Next.js 15 App Router"

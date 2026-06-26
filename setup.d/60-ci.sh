@@ -176,7 +176,7 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
   if [ "${#_aif_missing[@]}" -gt 0 ]; then
     _aif_wire="no"
     if [ -n "$WIRE_CI" ]; then _aif_wire="yes"
-    elif [ -t 0 ]; then
+    elif [ -z "${FULL:-}" ] && [ -t 0 ]; then
       printf "▶ Auto-wire %s missing CI gate(s) into your workflow via yq (edits the file in place)? [y/N] " "${#_aif_missing[@]}"
       read -r _ans || _ans=""
       case "$_ans" in [yY]|[yY][eE][sS]) _aif_wire="yes" ;; esac

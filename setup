@@ -1,15 +1,28 @@
 #!/usr/bin/env bash
 # setup — one-click orchestrator: framework (install.sh) + companions (manifest) + runtime-bridge.
+#
+# Usage:
+#   ./setup ts-server               # interactive install; companions optional
+#   ./setup -y ts-server            # non-interactive full install (all layers + dev-deps auto)
+#   ./setup --yes ts-server         # alias for -y
+#   ./setup --all ts-server         # alias for -y
+#   ./setup --full ts-server        # alias for -y (wrapper alias; forwards --full to install.sh)
+#   ./setup --dry-run ts-server     # preview without writing
+#
+# Stack: ts-server | react-next | react-spa | react-native
+# On the yes-path (-y/--yes/--all/--full) an explicit stack is required; the dispatcher
+# fails loud rather than blocking on an interactive prompt.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-MODE="interactive"; DRY=""; STACK=""
+MODE="interactive"; DRY=""; STACK=""; FULL=""
 for a in "$@"; do
   case "$a" in
-    --yes)      MODE="yes" ;;
-    --all)      MODE="all" ;;
+    -y|--yes)   MODE="yes"; FULL="--full" ;;
+    --all)      MODE="all"; FULL="--full" ;;
+    --full)     MODE="yes"; FULL="--full" ;;
     --dry-run)  DRY="--dry-run"; MODE="dry-run" ;;
-    ts-server|react-next) STACK="$a" ;;
+    ts-server|react-next|react-spa|react-native) STACK="$a" ;;
   esac
 done
 
@@ -19,7 +32,7 @@ for tool in bash git python3 curl; do
 done
 
 echo "▶ Framework (install.sh)"
-bash "$HERE/install.sh" ${STACK:+$STACK} ${DRY:+$DRY}
+bash "$HERE/install.sh" ${STACK:+$STACK} ${DRY:+$DRY} ${FULL:+$FULL}
 
 echo "▶ Companions"
 source "$HERE/setup.d/engine.sh"
