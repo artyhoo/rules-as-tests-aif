@@ -51,11 +51,14 @@ cd /path/to/your-project
 # 3. Initialize AI Factory (if not already done)
 ai-factory init --agents claude
 
-# 4. Run the installer
-/path/to/rules-as-tests-aif/install.sh
-# Or non-interactively:
-/path/to/rules-as-tests-aif/install.sh ts-server     # for server TS
-/path/to/rules-as-tests-aif/install.sh react-next    # for React/Next
+# 4. Run the installer (one-shot recommended):
+/path/to/rules-as-tests-aif/setup -y ts-server       # non-interactive: all layers + dev-deps + companions
+/path/to/rules-as-tests-aif/setup -y react-next      # for React/Next
+/path/to/rules-as-tests-aif/setup -y react-spa       # for React + Vite SPA
+/path/to/rules-as-tests-aif/setup -y react-native    # for React Native / Expo
+
+# Or framework-only (install.sh, interactive stack picker):
+/path/to/rules-as-tests-aif/install.sh ts-server
 
 # To overwrite existing files:
 /path/to/rules-as-tests-aif/install.sh react-next --force

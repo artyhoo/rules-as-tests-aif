@@ -21,7 +21,7 @@ cd /tmp/rules-as-tests-aif
 ## Permissions for the AI agent installing this package
 
 **ALWAYS — proceed without asking the user:**
-- Run `bash install.sh <stack>` and `bash setup.sh <stack>`.
+- Run `bash setup -y <stack>` (preferred one-shot: all layers + dev-deps + companions) or `bash install.sh <stack>` (framework-only).
 - Fill `<PLACEHOLDER>` markers in `DESCRIPTION.template.md` and `ARCHITECTURE.ts-server.md`.
 - Run `npm run validate` (or the project's equivalent) and `bash scripts/audit-ai-docs.sh`.
 
