@@ -19,7 +19,7 @@
 - ✅ Генератор forbid-MVP (декларативный ярус + анти-пустышка + forbid-компиляция + provenance + live-LLM путь).
 - ✅ Модуляризация install в `setup.d/` слои (byte-identical, 4 стека).
 - ✅ Плагин наполнен (агенты/команда/hooks.json/скиллы/мост).
-- ✅ Принцип-тесты слотов 01–26 (28 файлов; слоты 20/21 раздвоены), 4 стека (все пресеты на main: ts-server, react-next, react-spa, react-native), агностичность (тест 21).
+- ✅ Принцип-тесты слотов 01–26 (28 файлов; слоты 20/21 раздвоены), 4 стека на main — 3 preset-пакета (react-next, react-spa, react-native) + ts-server из shared `templates/` (не preset-пакет), агностичность (тест 21).
 
 ## §1 Принцип очередности
 
@@ -84,7 +84,7 @@
 | U13 money-demand-gate | signal | operator | traction | — | ⏸ operator-решение | — |
 | U14 exit-prep-and-deal | signal | operator | traction | — | ⏸ operator-решение | — |
 | U15 living-docs-layer | гориз. | build | U9 | U16 | drift-слой шипится | L |
-| U16 stacks-react-spa-native | гориз. | build (пресеты на main) | — | U15 | оба стека зелёные e2e | M |
+| U16 stacks-react-spa-native | гориз. | build (пресеты на main) | U1 S3 (precondition: подтверждает пробелы) | U15 | оба стека зелёные e2e | M |
 | U17 core-1.0 | гориз. | release | U9 (R3) | — | публичный API заморожен | S |
 
 ---
