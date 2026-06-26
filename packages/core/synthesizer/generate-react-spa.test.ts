@@ -65,7 +65,7 @@ describe('synthesizeGenerate — Stage 4 recipe-less generate-path (React SPA)',
         plugins: { 'rules-as-tests': spaPlugin },
         rules: { [ruleName]: 'error' },
       },
-    ] as Linter.Config[];
+    ] as unknown as Linter.Config[];
     const linter = new Linter();
 
     // Bad: no ErrorBoundary in JSX tree — rule must fire
