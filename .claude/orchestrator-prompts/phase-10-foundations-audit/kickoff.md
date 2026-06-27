@@ -1,12 +1,12 @@
 # Phase 10 — project foundations audit & re-evaluation (umbrella kickoff)
 
-> **Status:** SCAFFOLD — pre-trigger draft. NOT YET DISPATCHABLE.
+> **Status:** DISPATCHED (full autopilot) — maintainer GO + «на автопилоте проведи все» 2026-06-27 via `/pipeline phase-10-foundations-audit`. All 6 streams A1-A6 launched in parallel (background research agents); umbrella summary (§7b) gated on all 6 completing. Soft A1→A2/A4 dependency handled per T-Phase10-F (surface reframes in summary, NOT silent re-scope). Maintainer authorised parallel pacing explicitly.
 >
 > **Trigger spec (per [open-questions.md §13.32](../../../docs/meta-factory/open-questions.md)):** Wave 9 closes AND maintainer commits to Phase 10 scope incl. possibility of foundational refactor.
 >
-> **Trigger state (as of 2026-05-17):** half-fired. Wave 9 closed [PR #51](https://github.com/Yhooi2/rules-as-tests-aif/pull/51) merged 2026-05-13T10:02:48Z (`gh pr list --search "wave-9" --state merged`). Maintainer commitment to Phase 10 scope — **NOT YET CONFIRMED** (observable when maintainer explicitly opens a Phase 10 session referencing this kickoff).
+> **Trigger state (as of 2026-06-27):** FIRED. Wave 9 closed [PR #51](https://github.com/Yhooi2/rules-as-tests-aif/pull/51) merged 2026-05-13T10:02:48Z (`gh pr list --search "wave-9" --state merged`, re-verified MERGED 2026-06-27). Maintainer commitment to Phase 10 scope — **CONFIRMED** 2026-06-27 (maintainer instruction «актуален → го»).
 >
-> **Do not dispatch until maintainer commitment is explicit.** Until then, this scaffold sits as preparatory artefact only.
+> **§11.3 dispatch-refresh (2026-06-27, supersedes 2026-05-17 scaffold-authoring snapshots below for dispatch):** principle slots **28** (30 `.test.ts` files incl. paired-negative variants) ⟵ was 11; `.claude/hooks/*.sh` **14** ⟵ was 4; `agents/*.md` **8** ⟵ was 4; `.claude/skills/*/` **9** ⟵ was 3; `.claude/rules/*.md` **15**. A2 §population enumeration commands below remain valid — re-run them at A2 dispatch; the inline "at scaffold authoring" counts in §3-A2 are historical, not current.
 
 ---
 
