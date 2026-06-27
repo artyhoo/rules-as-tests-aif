@@ -705,6 +705,45 @@ async function main(): Promise<void> {
     emit(r);
   }
 
+  // ── 3f. Synth-bundle drift + functional smoke test (#755) ───────────────────
+  // synth-and-wire.ts is precompiled into a zero-runtime-dep .mjs (esbuild); the
+  // committed bundle must stay in sync with the .ts source. Same family as 3b
+  // (skill drift) and section 4 (manifest render drift).
+  // exit 2 = esbuild absent (NODE_ENV=production skips devDeps) → skip, not fail.
+  // exit 1 = real drift → fail.
+  if (existsSync(resolve(REPO_ROOT, 'scripts/build-synth-bundle.sh'))) {
+    const r = run('bash', ['scripts/build-synth-bundle.sh', '--check']);
+    if (r.exitCode === 2) {
+      process.stderr.write(
+        '⚠️  synth-bundle drift gate skipped — esbuild not installed' +
+        ' (run: NODE_ENV=development npm install --include=dev)\n',
+      );
+    } else if (r.exitCode !== 0) {
+      die('❌ synth-bundle drift detected — run: bash scripts/build-synth-bundle.sh', r);
+    } else {
+      emit(r);
+      // Functional smoke test: run the bundle zero-dep to prove it synthesizes real
+      // rules (not just that bytes match a rebuilt-but-still-broken source).
+      // AIF_SYNTH_PKG_ROOT overrides the four import.meta.url anchors that break
+      // when esbuild collapses all modules into a single file (#755 anchor fix).
+      const bundlePath = resolve(REPO_ROOT, 'packages/core/install/synth-and-wire.bundle.mjs');
+      if (existsSync(bundlePath)) {
+        const smoke = runCheck(
+          'node',
+          [bundlePath, '--stack', 'react-next', '--path', '/tmp/no-eslint-config-smoke.mjs', '--dry-run'],
+          { cwd: REPO_ROOT, env: { ...process.env, AIF_SYNTH_PKG_ROOT: resolve(REPO_ROOT, 'packages/core') } },
+        );
+        if (smoke.exitCode !== 0) {
+          die('❌ synth-bundle smoke test failed — bundle crashed (anchor break or runtime error)', smoke);
+        }
+        if (smoke.stdout.includes('emitted no rules')) {
+          die('❌ synth-bundle smoke test: synthesis emitted no rules — anchor break still present', smoke);
+        }
+        emit(smoke);
+      }
+    }
+  }
+
   // ── 4. Manifest render drift ──────────────────────────────────────────────────
   {
     const r = run('npx', [

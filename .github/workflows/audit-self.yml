@@ -222,6 +222,34 @@ jobs:
       # — the executable guard that keeps "ship pre-compiled" honest. Root tsc hoisted above.
       - name: shipped-rule compiled-artifact drift gate (#752)
         run: bash scripts/build-shipped-eslint-rules.sh --check
+      # #755 fix: synth-and-wire.ts is precompiled into a zero-runtime-dep .mjs bundle
+      # (ajv+semver inlined via esbuild). This gate fails if the committed bundle drifts
+      # from a fresh esbuild rebuild — the executable guard for the precompiled artifact.
+      - name: synth-bundle drift gate (#755)
+        run: NODE_ENV=development bash scripts/build-synth-bundle.sh --check
+      # #755 functional smoke test: runs the committed bundle zero-dep (no tsx, no ajv/semver
+      # in PATH) against the real recipes + schemas to prove function, not just byte-equality.
+      # AIF_SYNTH_PKG_ROOT overrides the four import.meta.url anchors that break when esbuild
+      # collapses all modules to a single file (the bundle anchor fix). Verifies:
+      #   (a) bundle loads without ENOENT crash (anchor #4 — internal-validators.ts),
+      #   (b) loadEntries finds research entries (anchor #1 — load.ts STORE_ROOT),
+      #   (c) synthesize produces rules (anchors #2/#3 — synthesize.ts RECIPES_ROOT/SCHEMA_PATH).
+      - name: synth-bundle functional smoke test — proves anchor fixes + synthesis (#755)
+        run: |
+          set -euo pipefail
+          export AIF_SYNTH_PKG_ROOT="${GITHUB_WORKSPACE}/packages/core"
+          out=$(node packages/core/install/synth-and-wire.bundle.mjs \
+            --stack react-next --path /tmp/no-eslint-config-smoke.mjs --dry-run 2>&1) || {
+            echo "SMOKE FAIL: bundle exited non-zero (likely ENOENT anchor crash)"
+            echo "$out"
+            exit 1
+          }
+          echo "$out"
+          if echo "$out" | grep -q 'emitted no rules'; then
+            echo "SMOKE FAIL: synthesis emitted no rules — anchor break still present (STORE_ROOT or RECIPES_ROOT not resolving)"
+            exit 1
+          fi
+          echo "✓ synth-bundle smoke test passed: bundle loaded and synthesized rules for react-next"
       # CI-gap option C sibling (render-suite-rot): the packages/core/render/ vitest
       # suite was never gated — only principles/ and hooks/ were — which is how a real
       # snapshot drift (R11 audit-self.yml → ci.yml: the manifest R11 row was updated in

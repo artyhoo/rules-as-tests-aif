@@ -16,7 +16,11 @@ import { errorsText, validateEntry } from './internal-validators.ts';
 import type { ResearchEntry } from './types.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const STORE_ROOT = resolve(HERE, 'store');
+// AIF_SYNTH_PKG_ROOT: bundle anchor fix — see internal-validators.ts for rationale.
+const _pkgCore = process.env['AIF_SYNTH_PKG_ROOT'];
+const STORE_ROOT = _pkgCore
+  ? resolve(_pkgCore, 'research', 'store')
+  : resolve(HERE, 'store');
 
 export class ResearchEntryError extends Error {
   constructor(
