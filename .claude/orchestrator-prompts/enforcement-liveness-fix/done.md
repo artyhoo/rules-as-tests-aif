@@ -1,9 +1,12 @@
 # enforcement-liveness-fix — DONE
-- Final PR: (pending — branch feature/enforcement-liveness-fix-feef69 ready to PR)
+- Final PR: #745
 - Closed: 2026-06-26
-- Summary: Barrel TS→JS compilation fix (Variant A) — eslint.config.mjs now imports compiled index.js; f17 passes on Node 22; REDUCED WARN visible in pre-push fallback; CI matrix adds Node 20+22.
+- Summary: Barrel TS→JS compilation fix (Variant A) — eslint.config.mjs now imports compiled index.mjs (unambiguous ESM extension — pins module format independently of consumer package.json "type"); f17 passes on Node 22; REDUCED WARN visible in pre-push fallback; CI matrix adds Node 20+22.
 
 ## Evidence: f17 passes on Node 22
+
+> **Note (accuracy):** the inline command samples below were captured during an earlier `.js`-barrel iteration. The final shipped barrel is **`index.mjs`** (generator `setup.d/40-configs.sh` + all three templates import `./eslint-rules-local/index.mjs`). Authoritative proof the shipped `.mjs` version passes the planted-violation gate on **Node 20 AND 22**: PR #745 CI (`f17 lint-rules planted-violation (Node 20)` + `(Node 22)` both green).
+
 
 Node version: v22.22.3
 
