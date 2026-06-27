@@ -13,20 +13,39 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-push.sh" "$PROJECT
 # Wave 10.5: also install the bash critical-only fallback so the dispatcher can find it.
 # The runtime dispatcher (husky-pre-push.sh) selects between TS-core and fallback at each push.
 copy_safe "$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh" "$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh"
-# cih-s1 F1: also ship the TS-core hook + its bounded static import closure so the
+# cih-s1 F1: also ship the TS-core hook + its COMPLETE import graph so the
 # dispatcher's Node≥20 arm is reachable (without these, husky-pre-push.sh always
 # falls to the presence-only bash fallback). The relative layout under
 # packages/core/hooks/ is preserved so the dispatcher resolves $REPO_ROOT/packages/
-# core/hooks/pre-push.ts. Closure (static, re-derived to fixpoint): pre-push.ts →
-# {utils/run-check.ts, utils/git.ts, checks/prior-art.ts, checks/s17.ts}. NOT shipped:
-# checks/guard-liveness.ts is dynamically import()ed and degrades gracefully when absent.
+# core/hooks/pre-push.ts. Complete graph: pre-push.ts → static imports
+# {utils/run-check.ts, utils/git.ts, checks/prior-art.ts, checks/s17.ts,
+# checks/unpinned-tool-install.ts} + dynamic await-import() targets
+# {checks/guard-liveness.ts, checks/cmd-script-liveness.ts} — these die()/push-block
+# when absent (pre-push.ts:406-407 → process.exit(1)); NOT graceful degradation.
+# The transitive eslint-rules barrel is shipped separately below. (#735)
 for ts_hook in \
   pre-push.ts \
   utils/run-check.ts \
   utils/git.ts \
   checks/prior-art.ts \
-  checks/s17.ts; do
+  checks/s17.ts \
+  checks/unpinned-tool-install.ts \
+  checks/guard-liveness.ts \
+  checks/cmd-script-liveness.ts; do
   copy_safe "$PKG_ROOT/packages/core/hooks/$ts_hook" "$PROJECT_ROOT/packages/core/hooks/$ts_hook"
+done
+# cih-s1 F1b: ship the eslint-rules barrel (transitive dep of guard-liveness.ts via
+# ../../eslint-rules/index.ts). Without this group, guard-liveness.ts die()/push-blocks
+# on load even after the 3 checks above ship. Destination: packages/core/eslint-rules/
+# (same relative path as in the framework repo). (#735)
+echo "▶ Core ESLint rules → packages/core/eslint-rules/"
+for esl_hook in \
+  index.ts \
+  no-unsafe-zod-parse.ts \
+  no-direct-time-randomness.ts \
+  require-otel-span.ts \
+  restricted-syntax-audit-exempt.ts; do
+  copy_safe "$PKG_ROOT/packages/core/eslint-rules/$esl_hook" "$PROJECT_ROOT/packages/core/eslint-rules/$esl_hook"
 done
 # GH #532: the shipped pre-push.ts is authored as an ES module, but its module-type is decided by
 # the NEAREST package.json. In THIS repo packages/core/package.json declares "type":"module" (so the

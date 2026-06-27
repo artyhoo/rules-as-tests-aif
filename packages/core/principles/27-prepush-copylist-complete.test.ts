@@ -37,8 +37,12 @@ const REPO_ROOT = resolve(HERE, '../../../');
 // ── Source file paths ──────────────────────────────────────────────────────────
 
 const INSTALL_SH = resolve(REPO_ROOT, 'install.sh');
+const SETUP_HOOKS_SH = resolve(REPO_ROOT, 'setup.d/50-hooks.sh');
 const PRE_PUSH_TS = resolve(REPO_ROOT, 'packages/core/hooks/pre-push.ts');
-const GUARD_LIVENESS_TS = resolve(REPO_ROOT, 'packages/core/hooks/checks/guard-liveness.ts');
+const GUARD_LIVENESS_TS = resolve(
+  REPO_ROOT,
+  'packages/core/hooks/checks/guard-liveness.ts',
+);
 const ESL_INDEX_TS = resolve(REPO_ROOT, 'packages/core/eslint-rules/index.ts');
 
 // ── Parsing helpers ────────────────────────────────────────────────────────────
@@ -78,7 +82,9 @@ export function relativeImports(source: string): string[] {
   // Dynamic: `import('./checks/...')` or `import('../...')`
   // Also matches the TypeScript type form `typeof import('...')` — both share
   // the same specifier and the file must exist either way.
-  for (const m of source.matchAll(/\bimport\s*\(\s*['"](\.[^'"]+\.ts)['"]\s*\)/g)) {
+  for (const m of source.matchAll(
+    /\bimport\s*\(\s*['"](\.[^'"]+\.ts)['"]\s*\)/g,
+  )) {
     if (m[1].startsWith('.')) seen.add(m[1]);
   }
   return [...seen].sort();
@@ -88,7 +94,10 @@ export function relativeImports(source: string): string[] {
  * Check that every `needed` path is present in `available` (the install.sh loop).
  * Returns the missing entries (empty → fully covered).
  */
-export function missingEntries(needed: string[], available: Set<string>): string[] {
+export function missingEntries(
+  needed: string[],
+  available: Set<string>,
+): string[] {
   return needed.filter((e) => !available.has(e));
 }
 
@@ -97,8 +106,14 @@ export function missingEntries(needed: string[], available: Set<string>): string
 describe('Principle 27 — pre-push copy-list completeness drift guard (closes #735)', () => {
   // ── Arm (a): real-tree hooks — import graph ⊆ _ts loop ──────────────────────
   it('(a) real-tree: every relative import from pre-push.ts is in the install.sh _ts loop', () => {
-    expect(existsSync(INSTALL_SH), `install.sh must exist at ${INSTALL_SH}`).toBe(true);
-    expect(existsSync(PRE_PUSH_TS), `pre-push.ts must exist at ${PRE_PUSH_TS}`).toBe(true);
+    expect(
+      existsSync(INSTALL_SH),
+      `install.sh must exist at ${INSTALL_SH}`,
+    ).toBe(true);
+    expect(
+      existsSync(PRE_PUSH_TS),
+      `pre-push.ts must exist at ${PRE_PUSH_TS}`,
+    ).toBe(true);
 
     const installSh = readFileSync(INSTALL_SH, 'utf8');
     const prePushTs = readFileSync(PRE_PUSH_TS, 'utf8');
@@ -107,7 +122,10 @@ describe('Principle 27 — pre-push copy-list completeness drift guard (closes #
 
     // Non-vacuity (T15): the loop must actually have entries; ≥8 = the known
     // required set. Removing any entry causes at least one assertion below to fail.
-    expect(tsLoop.size, `_ts loop must have ≥8 entries; got ${tsLoop.size}`).toBeGreaterThanOrEqual(8);
+    expect(
+      tsLoop.size,
+      `_ts loop must have ≥8 entries; got ${tsLoop.size}`,
+    ).toBeGreaterThanOrEqual(8);
 
     // pre-push.ts is the entry point — not imported by itself, but MUST be shipped.
     expect(
@@ -117,7 +135,9 @@ describe('Principle 27 — pre-push copy-list completeness drift guard (closes #
 
     // Every relative import from pre-push.ts must also be in the loop.
     // Normalize: strip leading `./` → `checks/xyz.ts` or `utils/xyz.ts`.
-    const imports = relativeImports(prePushTs).map((s) => s.replace(/^\.\//, ''));
+    const imports = relativeImports(prePushTs).map((s) =>
+      s.replace(/^\.\//, ''),
+    );
     const missing = missingEntries(imports, tsLoop);
     expect(
       missing,
@@ -129,8 +149,14 @@ describe('Principle 27 — pre-push copy-list completeness drift guard (closes #
 
   // ── Arm (b): real-tree eslint-rules — transitive dep ⊆ _esl loop ────────────
   it('(b) real-tree: eslint-rules/index.ts and its imports are in the install.sh _esl loop', () => {
-    expect(existsSync(INSTALL_SH), `install.sh must exist at ${INSTALL_SH}`).toBe(true);
-    expect(existsSync(ESL_INDEX_TS), `eslint-rules/index.ts must exist at ${ESL_INDEX_TS}`).toBe(true);
+    expect(
+      existsSync(INSTALL_SH),
+      `install.sh must exist at ${INSTALL_SH}`,
+    ).toBe(true);
+    expect(
+      existsSync(ESL_INDEX_TS),
+      `eslint-rules/index.ts must exist at ${ESL_INDEX_TS}`,
+    ).toBe(true);
 
     const installSh = readFileSync(INSTALL_SH, 'utf8');
     const eslIndex = readFileSync(ESL_INDEX_TS, 'utf8');
@@ -138,7 +164,10 @@ describe('Principle 27 — pre-push copy-list completeness drift guard (closes #
     const eslLoop = new Set(parseLoopEntries(installSh, '_esl'));
 
     // Non-vacuity (T15): the loop must have entries; ≥5 = the known required set.
-    expect(eslLoop.size, `_esl loop must have ≥5 entries; got ${eslLoop.size}`).toBeGreaterThanOrEqual(5);
+    expect(
+      eslLoop.size,
+      `_esl loop must have ≥5 entries; got ${eslLoop.size}`,
+    ).toBeGreaterThanOrEqual(5);
 
     // guard-liveness.ts imports ../../eslint-rules/index.ts directly — so
     // index.ts itself MUST be in the _esl loop (the barrel entry point).
@@ -180,7 +209,9 @@ describe('Principle 27 — pre-push copy-list completeness drift guard (closes #
     );
 
     // Confirm full set finds no missing entries.
-    expect(missingEntries(['checks/guard-liveness.ts'], fullTsLoop)).toHaveLength(0);
+    expect(
+      missingEntries(['checks/guard-liveness.ts'], fullTsLoop),
+    ).toHaveLength(0);
 
     // Confirm truncated set correctly reports the missing entry as RED.
     const missing = missingEntries(['checks/guard-liveness.ts'], truncatedLoop);
@@ -200,7 +231,9 @@ describe('Principle 27 — pre-push copy-list completeness drift guard (closes #
 
     // An entry absent from the loop is detected.
     const loop = new Set(parseLoopEntries(synthetic, '_ts'));
-    expect(missingEntries(['alpha.ts', 'gamma.ts'], loop)).toEqual(['gamma.ts']);
+    expect(missingEntries(['alpha.ts', 'gamma.ts'], loop)).toEqual([
+      'gamma.ts',
+    ]);
   });
 
   // ── Arm (e): T15 self-application ───────────────────────────────────────────
@@ -221,5 +254,119 @@ describe('Principle 27 — pre-push copy-list completeness drift guard (closes #
       tsLoop.length,
       '_ts loop must have ≥8 entries (entry point + 7 imports)',
     ).toBeGreaterThanOrEqual(8);
+  });
+
+  // ── Arm (a2): fresh-install path — import graph ⊆ ts_hook loop ──────────────
+  it('(a2) fresh-install: every relative import from pre-push.ts is in setup.d/50-hooks.sh ts_hook loop', () => {
+    expect(
+      existsSync(SETUP_HOOKS_SH),
+      `setup.d/50-hooks.sh must exist at ${SETUP_HOOKS_SH}`,
+    ).toBe(true);
+    expect(
+      existsSync(PRE_PUSH_TS),
+      `pre-push.ts must exist at ${PRE_PUSH_TS}`,
+    ).toBe(true);
+
+    const setupHooksSh = readFileSync(SETUP_HOOKS_SH, 'utf8');
+    const prePushTs = readFileSync(PRE_PUSH_TS, 'utf8');
+
+    const tsLoop = new Set(parseLoopEntries(setupHooksSh, 'ts_hook'));
+
+    // Non-vacuity (T15): the loop must have ≥8 entries.
+    expect(
+      tsLoop.size,
+      `ts_hook loop must have ≥8 entries; got ${tsLoop.size}`,
+    ).toBeGreaterThanOrEqual(8);
+
+    // pre-push.ts is the entry point — MUST be shipped on fresh install.
+    expect(
+      tsLoop.has('pre-push.ts'),
+      'pre-push.ts (the entry point) must be in the ts_hook copy loop',
+    ).toBe(true);
+
+    // Every relative import from pre-push.ts must also be in the loop.
+    // Normalize: strip leading `./` → `checks/xyz.ts` or `utils/xyz.ts`.
+    const imports = relativeImports(prePushTs).map((s) =>
+      s.replace(/^\.\//, ''),
+    );
+    const missing = missingEntries(imports, tsLoop);
+    expect(
+      missing,
+      `Relative imports from pre-push.ts not found in setup.d/50-hooks.sh ts_hook loop\n` +
+        `(→ ERR_MODULE_NOT_FOUND on a fresh install via ./setup -y — the gap #747 missed):\n` +
+        missing.map((m) => `  ${m}`).join('\n'),
+    ).toHaveLength(0);
+  });
+
+  // ── Arm (b2): fresh-install eslint-rules — transitive dep ⊆ esl_hook loop ───
+  it('(b2) fresh-install: eslint-rules/index.ts and its imports are in setup.d/50-hooks.sh esl_hook loop', () => {
+    expect(
+      existsSync(SETUP_HOOKS_SH),
+      `setup.d/50-hooks.sh must exist at ${SETUP_HOOKS_SH}`,
+    ).toBe(true);
+    expect(
+      existsSync(ESL_INDEX_TS),
+      `eslint-rules/index.ts must exist at ${ESL_INDEX_TS}`,
+    ).toBe(true);
+
+    const setupHooksSh = readFileSync(SETUP_HOOKS_SH, 'utf8');
+    const eslIndex = readFileSync(ESL_INDEX_TS, 'utf8');
+
+    const eslLoop = new Set(parseLoopEntries(setupHooksSh, 'esl_hook'));
+
+    // Non-vacuity (T15): the loop must have ≥5 entries.
+    expect(
+      eslLoop.size,
+      `esl_hook loop must have ≥5 entries; got ${eslLoop.size}`,
+    ).toBeGreaterThanOrEqual(5);
+
+    // index.ts (the eslint-rules barrel, required by guard-liveness.ts) MUST be shipped.
+    expect(
+      eslLoop.has('index.ts'),
+      'index.ts (the eslint-rules barrel, imported by guard-liveness.ts) must be in the esl_hook loop',
+    ).toBe(true);
+
+    // eslint-rules/index.ts re-exports 4 rule files via relative imports.
+    // Each must be shipped so the barrel does not die on load.
+    const ruleImports = relativeImports(eslIndex).map((s) => basename(s));
+    const missing = missingEntries(ruleImports, eslLoop);
+    expect(
+      missing,
+      `Relative imports from eslint-rules/index.ts not found in setup.d/50-hooks.sh esl_hook loop\n` +
+        `(→ guard-liveness.ts die()/push-block on fresh install even after the 3 checks ship):\n` +
+        missing.map((m) => `  ${m}`).join('\n'),
+    ).toHaveLength(0);
+  });
+
+  // ── Arm (f): paired-negative — fresh-install coverage detects missing entry ──
+  it('(f) paired-negative (fresh-install): missingEntries() returns RED when an entry is absent from 50-hooks.sh loop', () => {
+    // Simulate a ts_hook loop missing checks/guard-liveness.ts.
+    // T15 self-application proof for the fresh-install path: if someone removes
+    // that line from setup.d/50-hooks.sh, arm (a2) goes RED via exactly this logic.
+    const fullFreshLoop = new Set([
+      'pre-push.ts',
+      'utils/run-check.ts',
+      'utils/git.ts',
+      'checks/prior-art.ts',
+      'checks/s17.ts',
+      'checks/unpinned-tool-install.ts',
+      'checks/guard-liveness.ts',
+      'checks/cmd-script-liveness.ts',
+    ]);
+    const truncatedFreshLoop = new Set(
+      [...fullFreshLoop].filter((e) => e !== 'checks/guard-liveness.ts'),
+    );
+
+    // Confirm full set finds no missing entries.
+    expect(
+      missingEntries(['checks/guard-liveness.ts'], fullFreshLoop),
+    ).toHaveLength(0);
+
+    // Confirm truncated set correctly reports the missing entry as RED.
+    const missing = missingEntries(
+      ['checks/guard-liveness.ts'],
+      truncatedFreshLoop,
+    );
+    expect(missing).toEqual(['checks/guard-liveness.ts']);
   });
 });
