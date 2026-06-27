@@ -42,6 +42,7 @@ while IFS= read -r f; do
     *RULES.md | *RULES.*.md) continue ;; # rendered SSOT tables (ship under .prettierignore)
     *.template) continue ;;              # handled below, parsed as markdown
     *.test.ts | *.test.tsx) continue ;;  # framework-internal tests do not ship
+    */eslint-rules/*.mjs | */eslint-rules/*.d.ts) continue ;; # compiled rule artifacts (raw tsc output, baseline-identical, generated — ship as-is, #752 Variant A)
     *.md | *.mjs | *.cjs | *.json | *.yml | *.yaml | *.ts | *.tsx) FILES+=("$f") ;;
   esac
 done < <(git ls-files -- "${PATHSPECS[@]}")

@@ -67,6 +67,29 @@ else
   bad "Check3 Arm(i): eslint-rules-local/index.mjs MISSING — barrel generation broken (RED: rule unreachable from eslint.config.mjs; Node 22 fix S2)"
 fi
 
+# ── Arm (iii) RAW-CHANNEL load (premise-aware, S1 #744 / fix #752) ─────────────
+# The barrel + its sibling rule files must load via a RAW `node` import — NO tsx, NO
+# NODE_OPTIONS — the exact path that CRASHED with the old `.ts` barrel
+# (`ERR_UNKNOWN_FILE_EXTENSION ".ts"`) on a Node without native type-stripping: Node 20.x
+# (the consumer's own .nvmrc = 20.19.0) and Node 22.0–22.17. This is the REAL consumer
+# exposure — raw pre-commit/lint-staged + manual `npx eslint` — distinct from Arm (ii)'s
+# tsx Linter-API path which always worked and so never proved the fix (S1 #744). Under the
+# CI Node 20+22 matrix (audit-self.yml f17-node-compat) this arm is the honest "green stops
+# lying" gate. Variant A (#752): rule `.mjs` are PRE-COMPILED + shipped, so this loads with
+# no tsc — directly disproving #745's compile-at-install green-lie.
+raw_out=$(cd "$E" && node --input-type=module -e \
+  "import('./eslint-rules-local/index.mjs').then(m => { const ok = m && m.default && m.default.rules && Object.keys(m.default.rules).length > 0; process.exit(ok ? 0 : 3); }).catch(e => { console.error(String((e && e.message) || (e && e.code) || e)); process.exit(4); })" 2>&1)
+raw_rc=$?
+if [ "$raw_rc" -eq 0 ]; then
+  ok "Check3 Arm(iii): barrel + rules load via RAW node import — NO tsx — on Node $(node -p 'process.versions.node') (raw pre-commit/npx-eslint channel; #752 fix proof)"
+elif echo "$raw_out" | grep -qiE "cannot find package|cannot find package 'eslint'|ERR_MODULE_NOT_FOUND.*@typescript-eslint"; then
+  skip "Check3 Arm(iii) SKIP — runtime dep (@typescript-eslint/utils / eslint) not resolvable in this harness ($(echo "$raw_out" | head -1 | tr -d '\n')); the .mjs barrel itself is present (Arm i). CI Node-matrix job resolves deps."
+elif echo "$raw_out" | grep -qiE "unknown file extension|cannot find module '\./"; then
+  bad "Check3 Arm(iii): RAW barrel load FAILED on Node $(node -p 'process.versions.node') ($(echo "$raw_out" | head -1 | tr -d '\n')) — the .ts-loader / missing-sibling-.mjs regression is NOT fixed on the raw channel (#752 / S1 class)"
+else
+  skip "Check3 Arm(iii) SKIP — inconclusive raw-load (rc=$raw_rc; $(echo "$raw_out" | head -1 | tr -d '\n'))"
+fi
+
 # ── Arm (ii) runtime signal: tsx + ESLint Linter API ─────────────────────────
 # Locate tsx binary (hoisted by root workspace npm install; also in packages/core)
 TSX_BIN=""
