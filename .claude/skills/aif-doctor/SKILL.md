@@ -134,7 +134,7 @@ Three modes `bridge-health.sh` does **not** cover (confirmed by reading its sour
   1. **Stop the recurrence:** ensure the container base carries #759 (`bash .claude/skills/aif-doctor/helpers/refresh-aif-base.sh staging` → §3.4), so the fixed `link-coordination.sh` no longer re-adopts tracked files.
   2. **Repair the live primary checkout:** restore each wrongly-symlinked tracked file to a real file — `docker exec <agent> sh -c 'cd <repo>; rm -f <path>'` then restore content from `git show origin/<branch>:<path>` (host) `| docker exec -i <agent> sh -c "cat > <repo>/<path>"`. **Reversibility:** content is in git; non-destructive to task records.
 - **Do NOT** try to delete the dup from `/home/node/.claude-coordination/` inside the container — it is a **read-only host bind-mount** (`mount | grep claude-coordination` → `ro`); the source lives on the host (`~/.claude-coordination/…`) but removing it there is futile while the unfixed `link-coordination.sh` re-seeds it. The durable fix is #759, not pruning CANON.
-- **Pairs with — stale-base contamination (§3.4):** tasks dispatched before the base carried #758/#759 produce diffs that *revert* recent staging — re-dispatch them from a refreshed base, do not harvest the stale-base commit.
+- **Pairs with — stale-base contamination (§3.4):** tasks dispatched before the base carried #758/#759 produce diffs that _revert_ recent staging — re-dispatch them from a refreshed base, do not harvest the stale-base commit.
 
 ---
 
