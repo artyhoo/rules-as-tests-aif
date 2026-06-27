@@ -83,7 +83,15 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'skills/tool-bootstrapping/SKILL.md',
   'skills/tool-bootstrapping/references/decision-format.md',
 
-  // .claude/skills/ — project-internal skill primary + cold references (Wave 5.1)
+  // .claude/skills/ — project-internal skill primary + cold references (Wave 5.1 + DN-M1)
+  '.claude/skills/ai-doc/SKILL.md',
+  '.claude/skills/aif-doctor/SKILL.md',
+  '.claude/skills/dispatcher/SKILL.md',
+  '.claude/skills/harvest/SKILL.md',
+  '.claude/skills/pipeline/SKILL.md',
+  '.claude/skills/self-reflection/SKILL.md',
+  '.claude/skills/story/SKILL.md',
+  '.claude/skills/template-audit/SKILL.md',
   '.claude/skills/tool-bootstrapping/SKILL.md',
   '.claude/skills/tool-bootstrapping/references/decision-format.md',
 

@@ -10,7 +10,13 @@ import { fileURLToPath } from 'node:url';
 import { Ajv, type ValidateFunction } from 'ajv';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SCHEMA_PATH = resolve(HERE, 'research-plan.schema.json');
+// AIF_SYNTH_PKG_ROOT: when running as a precompiled bundle, import.meta.url points
+// to the bundle file (install/ dir), not the original source. Set this env var to
+// the packages/core directory so all four fs anchors resolve to the real data files.
+const _pkgCore = process.env['AIF_SYNTH_PKG_ROOT'];
+const SCHEMA_PATH = _pkgCore
+  ? resolve(_pkgCore, 'research', 'research-plan.schema.json')
+  : resolve(HERE, 'research-plan.schema.json');
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 const schemaDoc = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));

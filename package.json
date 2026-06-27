@@ -9,10 +9,13 @@
     "check:skill-drift": "bash scripts/check-skill-drift.sh",
     "format": "bash scripts/format-shipped.sh --write",
     "format:check": "bash scripts/format-shipped.sh --check",
+    "build:synth-bundle": "bash scripts/build-synth-bundle.sh",
+    "build:synth-bundle:check": "bash scripts/build-synth-bundle.sh --check",
     "test": "npm test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
+    "esbuild": "0.28.1",
     "markdownlint-cli2": "^0.22.1"
   }
 }

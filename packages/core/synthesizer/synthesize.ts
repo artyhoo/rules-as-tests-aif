@@ -17,9 +17,17 @@ import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
 import type { SynthesisPlan, SynthesizedRule } from './types.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const RECIPES_ROOT = resolve(HERE, 'recipes');
-const SCHEMA_PATH = resolve(HERE, 'synthesis-plan.schema.json');
-const RECIPE_SCHEMA_PATH = resolve(HERE, 'recipe.schema.json');
+// AIF_SYNTH_PKG_ROOT: bundle anchor fix — see research/internal-validators.ts for rationale.
+const _pkgCore = process.env['AIF_SYNTH_PKG_ROOT'];
+const RECIPES_ROOT = _pkgCore
+  ? resolve(_pkgCore, 'synthesizer', 'recipes')
+  : resolve(HERE, 'recipes');
+const SCHEMA_PATH = _pkgCore
+  ? resolve(_pkgCore, 'synthesizer', 'synthesis-plan.schema.json')
+  : resolve(HERE, 'synthesis-plan.schema.json');
+const RECIPE_SCHEMA_PATH = _pkgCore
+  ? resolve(_pkgCore, 'synthesizer', 'recipe.schema.json')
+  : resolve(HERE, 'recipe.schema.json');
 
 export interface Recipe {
   patternId: string;

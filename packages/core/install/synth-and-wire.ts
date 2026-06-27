@@ -72,6 +72,21 @@ async function main(): Promise<void> {
   const configPath = resolve(pathIdx >= 0 ? argv[pathIdx + 1] : './eslint.config.mjs');
   const dryRun = argv.includes('--dry-run');
 
+  // Unknown-flag guard: catch mis-wired flags early rather than silently ignoring them
+  // (the CLI's argv.indexOf approach swallows unrecognised flags — a mis-wired --store-root
+  // would produce a silent green-lie no-op; this guard makes mis-wiring loud).
+  const KNOWN_FLAGS = new Set(['--help', '-h', '--stack', '--path', '--dry-run']);
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i].startsWith('--') || argv[i].startsWith('-')) {
+      if (!KNOWN_FLAGS.has(argv[i])) {
+        console.error(`  · synth-and-wire: unrecognised flag '${argv[i]}' — aborting (known: ${[...KNOWN_FLAGS].join(', ')})`);
+        process.exit(0); // rc=0 — install must not abort
+      }
+      // skip the next arg if this flag consumes a value
+      if (argv[i] === '--stack' || argv[i] === '--path') i++;
+    }
+  }
+
   // Unknown stack → no declared patterns → synthesizer would emit {} → skip early
   const stackDef = STACK_PATTERNS[stack];
   if (!stackDef) {
@@ -149,7 +164,11 @@ async function main(): Promise<void> {
 }
 
 // Only run as CLI; when imported as a module, skip main() (allows unit-testing imports)
-if (process.argv[1] && process.argv[1].endsWith('synth-and-wire.ts')) {
+// Matches both the .ts source (tsx invocation) and the .bundle.mjs precompiled artifact.
+if (
+  process.argv[1] &&
+  (process.argv[1].endsWith('synth-and-wire.ts') || process.argv[1].endsWith('synth-and-wire.bundle.mjs'))
+) {
   main().catch((err) => {
     console.error('synth-and-wire fatal:', err);
     process.exit(0); // rc=0 — install must not abort
