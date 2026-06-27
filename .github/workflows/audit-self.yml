@@ -217,6 +217,11 @@ jobs:
         run: npm install --silent
       - name: Run packages/core/hooks/ suite (CI-gap option C — gate the hooks suite)
         run: npm --prefix packages/core run test:hooks
+      # #752 fix (Variant A): rule .mjs/.d.ts are pre-compiled + committed (install copies them,
+      # consumer needs no tsc). This gate fails if a committed artifact drifts from its .ts source
+      # — the executable guard that keeps "ship pre-compiled" honest. Root tsc hoisted above.
+      - name: shipped-rule compiled-artifact drift gate (#752)
+        run: bash scripts/build-shipped-eslint-rules.sh --check
       # CI-gap option C sibling (render-suite-rot): the packages/core/render/ vitest
       # suite was never gated — only principles/ and hooks/ were — which is how a real
       # snapshot drift (R11 audit-self.yml → ci.yml: the manifest R11 row was updated in

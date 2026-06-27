@@ -96,22 +96,37 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/tsconfig.json" "$PROJECT_ROO
 # O9: copy rule files THEN generate barrel (intra-layer order).
 echo "▶ Custom ESLint rules → eslint-rules-local/"
 mkdir_safe "$PROJECT_ROOT/eslint-rules-local"
-# Generic rules (core): no-direct-time-randomness, no-unsafe-zod-parse, require-otel-span
+# Ship a rule as PRE-COMPILED artifacts (Variant A / fix #752): copy the committed
+# `.mjs` (runtime, ESM-by-extension — loads on every Node, no TS loader) + `.d.ts`
+# (types) + `.ts` (authoring source, kept for reference). The consumer needs NO `tsc`
+# at install — compilation happened at framework build (scripts/build-shipped-eslint-rules.sh).
+# This replaces #745's compile-at-install, which silently broke when the consumer lacked
+# `tsc` (wrong search paths + typescript not in dev-deps) → "green lies" (#752).
+_copy_rule() {  # $1 = source .ts path
+  local src="$1" stem bn
+  stem="${src%.ts}"; bn="$(basename "$stem")"
+  copy_safe "$src" "$PROJECT_ROOT/eslint-rules-local/$bn.ts"
+  [ -f "$stem.mjs" ]  && copy_safe "$stem.mjs"  "$PROJECT_ROOT/eslint-rules-local/$bn.mjs"
+  [ -f "$stem.d.ts" ] && copy_safe "$stem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$bn.d.ts"
+}
+# Generic rules (core): no-direct-time-randomness, no-unsafe-zod-parse, require-otel-span, restricted-syntax-audit-exempt
 for f in "$PKG_ROOT"/packages/core/eslint-rules/*.ts; do
   case "$f" in
     *.test.ts) continue ;;
+    *.d.ts) continue ;;
     */index.ts) continue ;;
   esac
-  copy_safe "$f" "$PROJECT_ROOT/eslint-rules-local/$(basename "$f")"
+  _copy_rule "$f"
 done
 if [ "$STACK" = "react-next" ]; then
   # Stack-specific rules (preset): no-server-imports-in-client, require-form-safe-parse, require-use-server-directive
   for f in "$PKG_ROOT"/packages/preset-next-15-canonical/eslint-rules/*.ts; do
     case "$f" in
       *.test.ts) continue ;;
+      *.d.ts) continue ;;
       */index.ts) continue ;;
     esac
-    copy_safe "$f" "$PROJECT_ROOT/eslint-rules-local/$(basename "$f")"
+    _copy_rule "$f"
   done
 fi
 if [ "$STACK" = "react-spa" ]; then
@@ -119,61 +134,27 @@ if [ "$STACK" = "react-spa" ]; then
   for f in "$PKG_ROOT"/packages/preset-react-spa/eslint-rules/*.ts; do
     case "$f" in
       *.test.ts) continue ;;
+      *.d.ts) continue ;;
       */index.ts) continue ;;
     esac
-    copy_safe "$f" "$PROJECT_ROOT/eslint-rules-local/$(basename "$f")"
+    _copy_rule "$f"
   done
 fi
 
-# Generate the compiled ESM barrel that eslint.config.mjs imports (`./eslint-rules-local/index.mjs`).
-# enforcement-liveness-fix S2 (Variant A): barrel is now compiled JavaScript, not TypeScript —
-# eslint.config.mjs can import index.mjs (unambiguous ESM extension) on any Node version without a
-# TS loader (fixes Node 22). Using .mjs pins the module format independently of package.json "type".
-# Step A: compile each copied .ts rule file → .mjs via tsc (strip types, emit ESM, rename output).
-# Step B: generate index.mjs barrel importing .mjs rule files.
+# Generate the index.mjs barrel that eslint.config.mjs imports (`./eslint-rules-local/index.mjs`).
+# Variant A / fix #752: the rule `.mjs` + `.d.ts` are ALREADY pre-compiled at framework build
+# (scripts/build-shipped-eslint-rules.sh) and shipped above by `_copy_rule` — install does NO
+# compilation, so the consumer needs NO `tsc`. This is the fix for #745's compile-at-install,
+# which silently broke when the consumer lacked tsc (wrong search paths + typescript not in
+# dev-deps) → barrel imported non-existent `.mjs` → enforcement dead while CI stayed green.
 #
 # FQA S1-A W1: install copied the rule FILES but the copy loop skips `*/index.ts`, so the
 # barrel never landed → eslint hit a missing-module error on config load → ALL custom rules
 # (and all linting) died. Generated from whatever rule files landed above, so it always matches
-# the shipped set (ts-server: 3 core; react-next: 3 core + 3 preset) with zero template-drift.
-# Convention (holds for all 6 rules): file `foo-bar.ts` exports `fooBar`; rule key = `foo-bar`.
+# the shipped set with zero template-drift.
+# Convention (holds for all rules): file `foo-bar.ts` exports `fooBar`; rule key = `foo-bar`.
 
-# Step A: find tsc and compile .ts rule files → .mjs (Variant A — no TS loader needed at runtime).
-_tsc=""
-for _t in \
-  "$PKG_ROOT/packages/core/node_modules/.bin/tsc" \
-  "$PKG_ROOT/node_modules/.bin/tsc" \
-  "/app/node_modules/.bin/tsc"; do
-  [ -x "$_t" ] && _tsc="$_t" && break
-done
-
-if [ -n "$DRY_RUN" ]; then
-  echo "  [dry-run] would compile rule .ts → .mjs (tsc ESM) and generate: eslint-rules-local/index.mjs"
-elif [ -n "$_tsc" ]; then
-  _compiled=0
-  for _rf in "$PROJECT_ROOT"/eslint-rules-local/*.ts; do
-    case "$_rf" in *.d.ts) continue ;; esac  # skip already-compiled declarations on re-install
-    _b=$(basename "$_rf" .ts); [ "$_b" = "index" ] && continue
-    "$_tsc" "$_rf" \
-      --module ES2022 --target ES2022 \
-      --moduleResolution bundler \
-      --skipLibCheck \
-      --noEmitOnError false \
-      --declaration 2>/dev/null || true
-    # tsc always emits .js; rename to .mjs so Node loads it as ESM unconditionally
-    # regardless of whether the consumer's package.json has "type":"module".
-    if [ -f "${_rf%.ts}.js" ]; then
-      mv "${_rf%.ts}.js" "${_rf%.ts}.mjs"
-      _compiled=$((_compiled + 1))
-    fi
-  done
-  echo "  ✓ compiled $_compiled rule(s) .ts → .mjs (tsc ESM, --skipLibCheck)"
-else
-  echo "  ⚠  tsc not found (checked $PKG_ROOT/packages/core/node_modules/.bin, $PKG_ROOT/node_modules/.bin, /app/node_modules/.bin)" >&2
-  echo "  ⚠  Rule .ts files NOT compiled — enforcement will fail on all Node versions. Run: npm ci --prefix packages/core" >&2
-fi
-
-# Step B: generate index.mjs barrel (unambiguous ESM — no TS loader, no package.json "type" dep).
+# Generate index.mjs barrel (unambiguous ESM — no TS loader, no package.json "type" dep).
 # Iterate over .ts sources only (skip .d.ts type declarations generated by tsc).
 if [ -z "$DRY_RUN" ]; then
   _barrel="$PROJECT_ROOT/eslint-rules-local/index.mjs"
