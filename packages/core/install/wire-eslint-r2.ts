@@ -193,6 +193,221 @@ export async function wireConfigSource(source: string, opts: TransformOpts = {})
   return { status: 'wired', original: source, modified, variant };
 }
 
+// ─── N-rule synthesizer-driven wirer ──────────────────────────────────────────
+// Ingests a parsed eslintConfigSnippet from synthesize() and AST-merges missing
+// rules into the consumer's flat-config. Idempotent, non-destructive, degrade-safe.
+// Prior-art: #120 (install auto-wires R2 → same pattern for N rules), #131 (ts-morph REUSE).
+
+const WRAPPER_RULE_KEY = 'rules-as-tests/restricted-syntax-audit-exempt';
+
+/** Pick the best JS quote style for a string (avoids escaping CSS-selector single quotes). */
+function jsString(s: string): string {
+  if (!s.includes('"')) return `"${s}"`;
+  if (!s.includes("'")) return `'${s}'`;
+  return `"${s.replace(/"/g, '\\"')}"`;
+}
+
+function simpleRulePresent(source: string, ruleName: string): boolean {
+  return source.includes(`'${ruleName}'`) || source.includes(`"${ruleName}"`);
+}
+
+function wrapperSelectorsPresent(source: string, arrValue: unknown[]): boolean {
+  const entries = arrValue.slice(1) as Array<{ selector?: string }>;
+  return entries.every((e) => {
+    const sel = typeof e === 'object' && e !== null ? e.selector : undefined;
+    return sel != null && source.includes(sel);
+  });
+}
+
+function buildRuleConfigElement(ruleName: string, value: unknown): string {
+  if (typeof value === 'string') {
+    return `{ rules: { '${ruleName}': ${jsString(value)} } }`;
+  }
+  if (Array.isArray(value)) {
+    const severity = typeof value[0] === 'string' ? value[0] : 'error';
+    const entries = (value.slice(1) as Array<{ selector?: string; message?: string }>)
+      .filter((e) => typeof e === 'object' && e !== null && e.selector)
+      .map((e) => {
+        const parts = [`selector: ${jsString(e.selector!)}`];
+        if (e.message) parts.push(`message: ${jsString(e.message)}`);
+        return `{ ${parts.join(', ')} }`;
+      });
+    return `{ rules: { '${ruleName}': [${jsString(severity)}, ${entries.join(', ')}] } }`;
+  }
+  return `{ rules: { '${ruleName}': ${JSON.stringify(value)} } }`;
+}
+
+/**
+ * ts-morph PropertyAssignment.getName() for string literal keys (e.g. 'foo/bar')
+ * returns the text WITH surrounding quotes. Strip them for comparison.
+ */
+function normPropName(name: unknown): string {
+  if (typeof name !== 'string') return '';
+  return name.replace(/^['"`]|['"`]$/g, '');
+}
+
+/**
+ * Locates the existing wrapper array in the AST and adds each missing selector entry.
+ * Returns true if the wrapper was found and updated, false if not found.
+ * Accepts a pre-extracted elements list (array elements OR call args) so it works for
+ * both `export default [...]` and `export default defineConfig(obj, …)` shapes.
+ */
+function mergeSelectorsIntoExistingWrapper(
+  elements: any[],
+  SyntaxKind: any,
+  missingSels: Array<{ selector: string; message?: string }>,
+): boolean {
+  for (const el of elements) {
+    if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const prop of el.getProperties?.() ?? []) {
+      let propName: string;
+      try { propName = normPropName(prop.getName?.()); } catch { continue; }
+      if (propName !== 'rules') continue;
+      const rulesInit = prop.getInitializer?.();
+      if (!rulesInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+      for (const rp of rulesInit.getProperties?.() ?? []) {
+        let rpName: string;
+        try { rpName = normPropName(rp.getName?.()); } catch { continue; }
+        if (rpName !== WRAPPER_RULE_KEY) continue;
+        const wrapperArr = rp.getInitializer?.();
+        if (!wrapperArr?.isKind?.(SyntaxKind.ArrayLiteralExpression)) continue;
+        for (const e of missingSels) {
+          const parts = [`selector: ${jsString(e.selector)}`];
+          if (e.message) parts.push(`message: ${jsString(e.message)}`);
+          wrapperArr.addElement(`{ ${parts.join(', ')} }`);
+        }
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * N-rule synthesizer-driven wirer. Pure function over file source text — no I/O.
+ *
+ * Ingests the parsed eslintConfigSnippet from synthesize() and AST-merges missing rules
+ * into the consumer's ESLint flat-config:
+ *  - Simple string-valued rules (e.g. 'error'): appended as { rules: { 'name': 'error' } }
+ *  - Array-valued rules (restricted-syntax-audit-exempt): selectors merged INTO the existing
+ *    wrapper array when found, or a new config block added when absent. Never clobbers an
+ *    existing wrapper (flat-config last-wins — a sibling would shadow the existing selectors).
+ *
+ * Idempotent: all rules/selectors already in source → status='already-wired', byte-identical.
+ * Degrades gracefully when ts-morph is unavailable (status='degrade').
+ */
+export async function wireNRules(
+  source: string,
+  synthRules: Record<string, unknown>,
+  // opts reserved for future use (variant, customRulesImportPath)
+  _opts: TransformOpts = {},
+): Promise<WireResult> {
+  const ruleEntries = Object.entries(synthRules);
+  if (ruleEntries.length === 0) {
+    return { status: 'already-wired', original: source, modified: source };
+  }
+
+  // Idempotency check — string-search only, no ts-morph needed
+  const missing: Array<{ key: string; value: unknown }> = [];
+  for (const [key, value] of ruleEntries) {
+    if (Array.isArray(value)) {
+      if (!wrapperSelectorsPresent(source, value)) missing.push({ key, value });
+    } else {
+      if (!simpleRulePresent(source, key)) missing.push({ key, value });
+    }
+  }
+  if (missing.length === 0) {
+    return { status: 'already-wired', original: source, modified: source };
+  }
+
+  // Load ts-morph from consumer cwd (same GH #642 fix as wireConfigSource)
+  console.debug(`  [synth-wire] DEBUG: ${missing.length} rule(s) to wire: ${missing.map((m) => m.key).join(', ')}`);
+  let Project: any;
+  let SyntaxKind: any;
+  try {
+    const requireFromCwd = createRequire(resolve(process.cwd(), 'package.json'));
+    const tsMorphPath = requireFromCwd.resolve('ts-morph');
+    const mod = await import(pathToFileURL(tsMorphPath).href);
+    Project = mod.Project;
+    SyntaxKind = mod.SyntaxKind;
+  } catch {
+    console.debug('  [synth-wire] DEBUG: ts-morph unavailable → degrade');
+    return { status: 'degrade', original: source, modified: source, degradeReason: 'ts-morph import failed' };
+  }
+
+  const project = new Project({
+    useInMemoryFileSystem: true,
+    compilerOptions: { allowJs: true, target: 99, module: 99 },
+    skipFileDependencyResolution: true,
+    skipLoadingLibFiles: true,
+  });
+  const sf = project.createSourceFile('eslint.config.mjs', source, { overwrite: true });
+
+  const exportAssignment = sf.getExportAssignment((ea: any) => !ea.isExportEquals());
+  if (!exportAssignment) {
+    return { status: 'unrecognised', original: source, modified: source };
+  }
+
+  let exportArr: any = exportAssignment.getExpression();
+  // isCallExprMode: true when the export is defineConfig(obj, obj, …) — each arg is a
+  // flat-config element, not nested inside an array. callExprNode holds the CallExpression.
+  let isCallExprMode = false;
+  let callExprNode: any = null;
+
+  if (exportArr.isKind(SyntaxKind.CallExpression)) {
+    const args = exportArr.getArguments();
+    if (args.length > 0 && args[0].isKind(SyntaxKind.ArrayLiteralExpression)) {
+      // defineConfig([...]) — single array arg; unwrap to the array
+      exportArr = args[0];
+    } else {
+      // defineConfig(obj, obj, …) — each arg is a flat-config element (the real shipped shape)
+      isCallExprMode = true;
+      callExprNode = exportArr;
+    }
+  } else if (exportArr.isKind(SyntaxKind.Identifier)) {
+    exportAssignment.setExpression(`[...${exportArr.getText()}]`);
+    exportArr = exportAssignment.getExpression();
+  }
+
+  if (!isCallExprMode && !exportArr.isKind(SyntaxKind.ArrayLiteralExpression)) {
+    return { status: 'unrecognised', original: source, modified: source };
+  }
+
+  // configElements: the individual flat-config objects to search for the wrapper rule.
+  const configElements: any[] = isCallExprMode
+    ? callExprNode.getArguments()
+    : exportArr.getElements?.() ?? [];
+
+  for (const { key, value } of missing) {
+    if (Array.isArray(value)) {
+      const missingSels = (value.slice(1) as Array<{ selector?: string; message?: string }>).filter(
+        (e) => typeof e === 'object' && e !== null && e.selector && !source.includes(e.selector),
+      ) as Array<{ selector: string; message?: string }>;
+      const merged = mergeSelectorsIntoExistingWrapper(configElements, SyntaxKind, missingSels);
+      if (!merged) {
+        console.debug(`  [synth-wire] DEBUG: adding new wrapper block for '${key}'`);
+        if (isCallExprMode) {
+          callExprNode.addArgument(buildRuleConfigElement(key, value));
+        } else {
+          exportArr.addElement(buildRuleConfigElement(key, value));
+        }
+      } else {
+        console.debug(`  [synth-wire] DEBUG: merged ${missingSels.length} selector(s) into existing '${key}' block`);
+      }
+    } else {
+      console.debug(`  [synth-wire] DEBUG: appending simple rule block for '${key}'`);
+      if (isCallExprMode) {
+        callExprNode.addArgument(buildRuleConfigElement(key, value));
+      } else {
+        exportArr.addElement(buildRuleConfigElement(key, value));
+      }
+    }
+  }
+
+  const modified = sf.getFullText();
+  return { status: 'wired', original: source, modified };
+}
+
 // ─── Probe-driven resolution (try-bare → escalate → degrade) ────────────────────
 
 export type ProbeVerdict = 'ok' | 'could-not-find-plugin' | 'unavailable' | 'other-error';

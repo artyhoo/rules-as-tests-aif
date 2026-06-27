@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup.d/99-finalize.sh — §6b-bis-L2 R2 AST-wire + V2 otel WARN + ignore_shipped_configs CALL + Done.
+# setup.d/99-finalize.sh — synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done.
 #
 # Sources: lib.sh (already in dispatcher scope)
 # S0 rows: R2-L2 (install.sh:1597-1641), otel (install.sh:1643-1657),
@@ -9,6 +9,44 @@
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 # O3: HIGHEST-RISK ordering item — must run AFTER 70-deps (ts-morph) and LAST (SKIPPED complete)
 # O2: reads _r2_verdict (from 60-ci) + DEPS_INSTALLED + DEVDEPS (from 70-deps)
+
+# ─── synth-wire: deterministic synthesizer → root eslint.config.mjs ─────────────
+# Runs synthesize() for the detected stack and AST-merges emitted rules-as-tests rules
+# (R12/R14/R20 for react-next) into the consumer's root eslint.config.mjs.  Idempotent:
+# the preset template already hand-inlines these rules (principle 26 guarantees sync),
+# so this is a fast string-check no-op for a freshly-installed consumer.  Its value is
+# architectural: the synthesizer is now the declared source of truth; future recipe
+# additions will wire into the config without template edits.
+#
+# Runs regardless of _r2_verdict (R12/R14/R20 are not boundary-gated like R2) and
+# honours --dry-run (writes nothing, prints what would change).
+# rc=0 on every branch — install must not abort on wirer failure.
+if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+  _synth_wirer="$PKG_ROOT/packages/core/install/synth-and-wire.ts"
+  if [ ! -f "$_synth_wirer" ]; then
+    echo "  · synth-and-wire: script not found at $_synth_wirer — skipped"
+  else
+    # variant-2: run the synthesizer when its runtime resolves; otherwise SKIP gracefully.
+    # A lite install must NOT install deps without consent (the consumer-install-completeness
+    # S3 «B neg» discipline: "PM not invoked without consent"), so we do NOT impose
+    # tsx/ajv/semver. The rules still ship via the p26-verified preset — principle 26 keeps
+    # the template's selectors in sync with what the synthesizer generates, so the lite
+    # consumer gets the same (verified) rules. The full source-of-truth run happens under
+    # --full, where §8 dev-dep install lands the runtime. ts-morph is not needed on the
+    # idempotent path. Path-3 (#755) makes the synthesizer a zero-dep bundle so it runs
+    # everywhere WITHOUT this skip. rc=0 on every branch; honours --dry-run.
+    if ! ( cd "$PROJECT_ROOT" && node -e "require.resolve('tsx');require.resolve('ajv');require.resolve('semver')" ) >/dev/null 2>&1; then
+      echo "  · synth-wire: skipped — synthesizer runtime (tsx/ajv/semver) absent in this lite install; rules ship via the p26-verified preset (run with --full to drive the synthesizer)"
+    else
+      echo "▶ synth-wire: confirming synthesized rules-as-tests slice in eslint.config.mjs"
+      # Run from PROJECT_ROOT so module resolution (ts-morph, ajv) finds consumer node_modules
+      ( cd "$PROJECT_ROOT" && npx --no-install tsx "$_synth_wirer" \
+          --stack "${STACK:-ts-server}" \
+          --path "$PROJECT_ROOT/eslint.config.mjs" \
+          ${DRY_RUN:+--dry-run} 2>&1 ) || true
+    fi
+  fi
+fi
 
 # ─── 6b-bis-L2. GH #547 Layer 2: AST-wire R2 into consumer per-package configs ─
 # Runs AFTER §8 dep-install so ts-morph is resolvable when --full is set.

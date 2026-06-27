@@ -26,7 +26,7 @@ All layers are **sourced** (not exec'd) into the dispatcher shell so mutations t
 | 50 | `50-hooks.sh` | §5c `.husky/` hooks cluster + `core.hooksPath` activation | 40-configs (`tsconfig.json` etc. written) | Done |
 | 60 | `60-ci.sh` | §6b `.nvmrc`↔CI drift WARN + §6b-bis R2 auto-wire L1 (sets `_r2_verdict`) + §6c CI-orphan WARN + yq auto-wire | 40-configs (`eslint.config.mjs` + `.github/workflows/` written) | Done |
 | 70 | `70-deps.sh` | §7 `package.json` scripts merge + §8 dev-dep install (sets `DEPS_INSTALLED`, `DEVDEPS`) + §8b tsx-at-root | 60-ci (`eslint.config.mjs`, `detect-r2-boundary` etc. written) | Done |
-| 99 | `99-finalize.sh` | §6b-bis-L2 R2 AST-wire (ts-morph) + V2 otel-arming WARN + `ignore_shipped_configs` CALL + Done banner | 70-deps (ts-morph installed; `DEPS_INSTALLED`/`DEVDEPS` set), 60-ci (`_r2_verdict` set), **ALL prior** (`SKIPPED` fully accumulated) | Done |
+| 99 | `99-finalize.sh` | **synth-wire** (synthesizer → root `eslint.config.mjs`; idempotent) + §6b-bis-L2 R2 AST-wire (ts-morph, per-package) + V2 otel-arming WARN + `ignore_shipped_configs` CALL + Done banner | 70-deps (ts-morph installed; `DEPS_INSTALLED`/`DEVDEPS` set), 60-ci (`_r2_verdict` set), **ALL prior** (`SKIPPED` fully accumulated) | Done |
 
 ### `kind=mcp` manifest contract (S2)
 

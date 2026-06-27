@@ -349,6 +349,8 @@ jobs:
         run: bash tests/install-sh/tool-decisions-seed-integration.test.sh
       - name: "install-sh — setup -y yes-path (S4: forward --full, fail-loud no-hang, 4-stack, no self/consumer branch)"
         run: bash tests/install-sh/setup-yes-path.test.sh
+      - name: install-sh — t6-synth-wire-planted-violation (generator-install-wiring T-GIW-A liveness test)
+        run: bash tests/install-sh/t6-synth-wire-planted-violation.test.sh
       - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh (pinned 0.9.0)"
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
