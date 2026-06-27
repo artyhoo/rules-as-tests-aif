@@ -195,25 +195,25 @@ describe('transform variants (#644)', () => {
   it.skipIf(!TS_MORPH_AVAILABLE)('self-contained: plugins+rules element + injected customRules import', async () => {
     const r = await wireConfigSource(base, {
       variant: 'self-contained',
-      customRulesImportPath: '../../eslint-rules-local/index.ts',
+      customRulesImportPath: '../../eslint-rules-local/index.mjs',
     });
     expect(r.status).toBe('wired');
     expect(r.variant).toBe('self-contained');
     expect(r.modified).toContain(`plugins: { 'rules-as-tests': customRules }`);
     expect(r.modified).toContain(`'${R2_RULE_ID}': 'error'`);
-    expect(r.modified).toMatch(/import customRules from ['"]\.\.\/\.\.\/eslint-rules-local\/index\.ts['"]/);
+    expect(r.modified).toMatch(/import customRules from ['"]\.\.\/\.\.\/eslint-rules-local\/index\.mjs['"]/);
   });
 });
 
 describe('customRulesImportSpecifier (#644)', () => {
   it('computes the relative path from a per-package config to <root>/eslint-rules-local', () => {
     expect(customRulesImportSpecifier('/repo/apps/api/eslint.config.mjs', '/repo')).toBe(
-      '../../eslint-rules-local/index.ts',
+      '../../eslint-rules-local/index.mjs',
     );
   });
   it('prefixes ./ when the config is at the consumer root', () => {
     expect(customRulesImportSpecifier('/repo/eslint.config.mjs', '/repo')).toBe(
-      './eslint-rules-local/index.ts',
+      './eslint-rules-local/index.mjs',
     );
   });
 });

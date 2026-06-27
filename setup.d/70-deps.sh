@@ -48,8 +48,8 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
       pkg.scripts = pkg.scripts || {};
       const want = {
-        "lint": "NODE_OPTIONS=\"--import tsx\" eslint . --max-warnings=0",
-        "lint:fix": "NODE_OPTIONS=\"--import tsx\" eslint . --fix",
+        "lint": "eslint . --max-warnings=0",
+        "lint:fix": "eslint . --fix",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "typecheck": "tsc --noEmit",

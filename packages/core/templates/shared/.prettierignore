@@ -10,7 +10,8 @@
 # `prettier --write` would churn them and a `--check` would fail on output prettier did not
 # produce. Same class as the rendered RULES.md above. (GH #531)
 .claude/settings.json
-eslint-rules-local/index.ts
+eslint-rules-local/index.mjs
+eslint-rules-local/*.mjs
 
 # Vendored framework SOURCE — install.sh always ships these framework-namespace files fresh; a
 # consumer never authors `eslint-rules-local/`, `packages/core/hooks/`, or `scripts/audit-r4.ts`.

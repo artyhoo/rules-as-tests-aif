@@ -154,16 +154,14 @@ _rc_L=0
 rm -rf "$T_L"
 
 # ── W3 loadability gate (GH #644): the WIRED config must LOAD in ESLint ───────
-# _mk_consumer: type:module (so the .ts plugin import loads — the same precondition Layer-1 needs),
-# a local eslint-rules-local barrel, and the engines the wirer resolves from cwd (eslint@9 + ts-morph).
+# _mk_consumer: type:module; a local eslint-rules-local compiled ESM barrel (S2: index.mjs, unambiguous ESM),
+# and the engines the wirer resolves from cwd (eslint@9 + ts-morph). No tsx loader needed (S2 fix).
 _mk_consumer() { # $1=dir
   ( cd "$1" && git init -q && npm init -y >/dev/null 2>&1 )
   node -e "const f=process.argv[1],fs=require('fs');const p=JSON.parse(fs.readFileSync(f));p.type='module';fs.writeFileSync(f,JSON.stringify(p,null,2))" "$1/package.json"
-  # tsx: the shipped .nvmrc is Node 20 (no native .ts strip) → eslint loads the .ts plugin barrel via
-  # the tsx loader (NODE_OPTIONS=--import tsx), both in the wirer's probe and the consumer's own lint.
-  ( cd "$1" && npm i -D eslint@9 ts-morph@24 tsx --prefer-offline --no-audit --no-fund >/dev/null 2>&1 )
+  ( cd "$1" && npm i -D eslint@9 ts-morph@24 --prefer-offline --no-audit --no-fund >/dev/null 2>&1 )
   mkdir -p "$1/eslint-rules-local" "$1/apps/api/src"
-  printf "export default { rules: { 'no-unsafe-zod-parse': { create: () => ({}) } } };\n" > "$1/eslint-rules-local/index.ts"
+  printf "export default { rules: { 'no-unsafe-zod-parse': { create: () => ({}) } } };\n" > "$1/eslint-rules-local/index.mjs"
   printf 'export const x = 1;\n' > "$1/apps/api/src/h.ts"
 }
 
@@ -176,7 +174,7 @@ if [ -z "$RUN_WIRER_TSX" ] || ! command -v node >/dev/null 2>&1; then ok "P1: sk
   grep -q "plugins: { 'rules-as-tests'" "$T_P1/apps/api/eslint.config.mjs" \
     && ok "P1: wirer escalated to self-contained (probe resolved eslint + saw plugin-less base)" \
     || bad "P1: wirer did NOT escalate — probe degraded (broken eslint resolve? the #535 trap)"
-  if ( cd "$T_P1/apps/api" && NODE_OPTIONS='--import tsx' "$T_P1/node_modules/.bin/eslint" --print-config src/h.ts >/tmp/p1.out 2>/tmp/p1.err ); then
+  if ( cd "$T_P1/apps/api" && "$T_P1/node_modules/.bin/eslint" --print-config src/h.ts >/tmp/p1.out 2>/tmp/p1.err ); then
     grep -q 'rules-as-tests/no-unsafe-zod-parse' /tmp/p1.out && ok "P1: LOADS (rc 0) + R2 applied" || bad "P1: loads but R2 absent"
   else bad "P1: FAILS to load: $(head -c 160 /tmp/p1.err | tr '\n' ' ')"; fi
 fi
@@ -185,11 +183,11 @@ fi
 echo "Fixture P2: plugin-registering base → no double-registration crash"
 if [ -z "$RUN_WIRER_TSX" ] || ! command -v node >/dev/null 2>&1; then ok "P2: skipped (tsx/node absent)"; else
   T_P2=$(mktemp -d); _mk_consumer "$T_P2"
-  printf "import customRules from '../../eslint-rules-local/index.ts';\nconst base = [{ files: ['**/*.ts'], plugins: { 'rules-as-tests': customRules }, rules: {} }];\nexport default [...base];\n" > "$T_P2/apps/api/eslint.config.mjs"
+  printf "import customRules from '../../eslint-rules-local/index.mjs';\nconst base = [{ files: ['**/*.ts'], plugins: { 'rules-as-tests': customRules }, rules: {} }];\nexport default [...base];\n" > "$T_P2/apps/api/eslint.config.mjs"
   ( cd "$T_P2" && "$RUN_WIRER_TSX" "$WIRER" --path apps/api/eslint.config.mjs --yes >/dev/null 2>&1 ) || true
   _n2=$(grep -c "plugins: { 'rules-as-tests'" "$T_P2/apps/api/eslint.config.mjs")
   [ "$_n2" = "1" ] && ok "P2: plugin registered once (base only) — kept bare, no duplicate" || bad "P2: $_n2 'rules-as-tests' registrations (want 1) — wirer double-registered"
-  ( cd "$T_P2/apps/api" && NODE_OPTIONS='--import tsx' "$T_P2/node_modules/.bin/eslint" --print-config src/h.ts >/dev/null 2>/tmp/p2.err ) && ok "P2: loads rc 0 (no Cannot redefine)" || bad "P2: failed: $(head -c 160 /tmp/p2.err | tr '\n' ' ')"
+  ( cd "$T_P2/apps/api" && "$T_P2/node_modules/.bin/eslint" --print-config src/h.ts >/dev/null 2>/tmp/p2.err ) && ok "P2: loads rc 0 (no Cannot redefine)" || bad "P2: failed: $(head -c 160 /tmp/p2.err | tr '\n' ' ')"
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────

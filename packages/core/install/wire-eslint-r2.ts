@@ -46,11 +46,11 @@ function r2Element(variant: TransformVariant): string {
 
 /**
  * Relative import specifier from a per-package config to the consumer-root
- * eslint-rules-local barrel (install.sh ships it at <root>/eslint-rules-local/index.ts).
+ * eslint-rules-local barrel (install.sh ships it at <root>/eslint-rules-local/index.mjs).
  * Computed per config depth — never hardcoded.
  */
 export function customRulesImportSpecifier(configPath: string, cwd: string): string {
-  const target = resolve(cwd, 'eslint-rules-local/index.ts');
+  const target = resolve(cwd, 'eslint-rules-local/index.mjs');
   let rel = relative(dirname(resolve(configPath)), target);
   if (!rel.startsWith('.')) rel = `./${rel}`;
   return rel;
@@ -74,7 +74,7 @@ export function generateDegradedSnippet(configPath: string): string {
   return [
     `· R2 not auto-wired: AST editor unavailable (Node or ts-morph not present).`,
     `  Add to ${configPath} (adjust the relative path to your eslint-rules-local/):`,
-    `    import customRules from './eslint-rules-local/index.ts';`,
+    `    import customRules from './eslint-rules-local/index.mjs';`,
     `    export default [...base, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`,
     `  (or run ./install.sh ts-server --full to install dev-deps and auto-wire)`,
   ].join('\n');
@@ -348,7 +348,7 @@ async function main(): Promise<void> {
       console.log([
         `· R2 not auto-wired: ${configPath} uses an unrecognised export shape.`,
         `  Add manually (adjust the relative path to your eslint-rules-local/):`,
-        `    import customRules from './eslint-rules-local/index.ts';`,
+        `    import customRules from './eslint-rules-local/index.mjs';`,
         `    export default [...yourConfig, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`,
       ].join('\n'));
       process.exit(0);

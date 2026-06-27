@@ -12,7 +12,7 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
 import boundaries from 'eslint-plugin-boundaries';
 import globals from 'globals';
 import { defineConfig } from 'eslint/config';
-import customRules from './eslint-rules-local/index.ts';
+import customRules from './eslint-rules-local/index.mjs';
 
 // ─── AIF rule-scope globs ────────────────────────────────
 // Layout-agnostic globs for SPA (Vite) projects.

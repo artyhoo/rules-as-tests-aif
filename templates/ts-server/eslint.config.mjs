@@ -9,7 +9,7 @@ import vitestPlugin from '@vitest/eslint-plugin';
 import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
 import { defineConfig } from 'eslint/config';
-import customRules from './eslint-rules-local/index.ts';
+import customRules from './eslint-rules-local/index.mjs';
 
 // ─── AIF rule-scope globs (F3) ──────────────────────────
 // Custom-rule `files` globs default to LAYOUT-AGNOSTIC patterns so the shields fire on

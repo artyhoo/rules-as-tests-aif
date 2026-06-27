@@ -47,8 +47,8 @@ fi
 [ -f "$T/eslint-rules-local/require-error-boundary.ts" ] && ok "A3: require-error-boundary.ts landed in eslint-rules-local/" \
                                                           || bad "A3: require-error-boundary.ts missing from eslint-rules-local/"
 
-# A4 — generated barrel exports the preset rule under its rule key
-BARREL="$T/eslint-rules-local/index.ts"
+# A4 — generated JS barrel exports the preset rule under its rule key
+BARREL="$T/eslint-rules-local/index.mjs"
 if [ -f "$BARREL" ] && grep -q "'require-error-boundary':" "$BARREL"; then
   ok "A4: generated barrel exports 'require-error-boundary'"
 else
