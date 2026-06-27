@@ -187,6 +187,12 @@ module.exports = {
 
   options: {
     doNotFollow: { path: 'node_modules' },
+    // GH #779: the vendored framework namespace is shipped by install (pre-push import
+    // graph), not consumer architecture. Drop the ~21 vendored packages/core/** modules
+    // from the cruise so guard-liveness.ts's `import { Linter } from 'eslint'` no longer
+    // trips no-non-package-json on a fresh install. The monorepo-boundary rules and
+    // check:arch-boundaries stay intact.
+    exclude: { path: '(?:^|/)packages/core/' },
     tsConfig: { fileName: 'tsconfig.json' },
     enhancedResolveOptions: {
       exportsFields: ['exports'],
