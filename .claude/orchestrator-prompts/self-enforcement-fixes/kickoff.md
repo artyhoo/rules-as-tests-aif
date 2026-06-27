@@ -46,6 +46,20 @@
 
 **Находка:** есть `paths:` (CC-native), нет портируемого `globs:` → для не-CC хорнесса edit-time напоминание отсутствует. Добавить `<!-- globs: -->`-сиблинг, зеркалящий существующие `paths:` (`docs/meta-factory/phase-*-research.md` не в подмножестве — точные/prefix формы только; использовать `docs/meta-factory/** ` префиксом ИЛИ оставить как осознанный native-only, если приоритет низкий — зафиксировать выбор). Низкий приоритет; если мейнтейнер решает оставить native-only — это валидный NOT-SCOPED-BY-DESIGN, задача закрывается записью.
 
+## §4c aif autonomous-dispatch contract (park-don't-guess)
+
+> Added 2026-06-27 to make this kickoff safe for autonomous aif-handoff dispatch. Does NOT alter the Phase -1 GO substance (§1-§10 findings/tasks/traps/gates unchanged) — it only tells the aif agent how to behave on the §5 S3 forks: park, never guess.
+
+**aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity (two defensible implementations, an undecided design choice, a missing spec detail that changes behaviour) — **do NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the unambiguous parts. Guessing a fork to "keep moving" is the failure this loop exists to prevent.
+
+**Pre-identified forks in this kickoff — park them, do not decide:** §5 S3 carries two maintainer-owned DECISION-NEEDED choices that the aif agent MUST park, not resolve: (1) **living-docs-auditor source self-application** — «Option A → add a source-variant audit of the framework's own `AGENTS.md`/code-vs-docs (+coverage, +maintenance)» vs «Option B → document explicit acceptance (source ≠ consumer; logic is unit-tested) (0 code, self-application gap remains)»; (2) **standing trigger for judgment-agents** (compliance-verifier / review-sidecar in source) — «Option A → a cheap inject-nudge on a path trigger» vs «Option B → accept as inherent (a judgment rule cannot be gated)». Implement the unambiguous mechanical stages (S1, S2), and **park both S3 forks as questions** with both options stated. Do NOT silently wire one branch.
+
+**S4 (settings.json MultiEdit matcher) is NOT an aif task:** `.claude/settings.json` is deny-listed for agent edits (harness gate). Do NOT attempt to edit it. Per §7 S4 gate, valid closure = the manual maintainer step is surfaced in the dispatch report — leave it to the human.
+
+**Conservative config (set on bridge env before dispatch):** `AGENT_MAX_REVIEW_ITERATIONS=1` (not converged in 1 pass → hand to human, don't keep guessing), `AGENT_AUTO_REVIEW_STRATEGY=closure_first`, `AGENT_SKIP_REVIEW=false`.
+
+**Egress (mandatory after `status=done`):** aif does NOT push or open PRs by design — run `npx tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging` to push the branch from the container + open the PR.
+
 ## §5 S3 — DECISION-NEEDED (surface, не решать)
 
 - **DECISION-NEEDED: living-docs-auditor source self-application.** Фреймворк не аудирует собственные `AGENTS.md`/code-vs-docs (нет source-варианта `audit-ai-docs.sh`).
