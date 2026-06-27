@@ -26,6 +26,24 @@ if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; 
   if [ ! -f "$_synth_wirer" ]; then
     echo "  · synth-and-wire: script not found at $_synth_wirer — skipped"
   else
+    # variant-1: ensure the synthesizer runtime so the generator RUNS in any install mode
+    # (not only --full). Blockers verified by import-trace: tsx (runs the .ts), ajv
+    # (synthesize.ts + internal-validators.ts), semver (load.ts). ts-morph is NOT needed
+    # here — the idempotent path is string-search and ts-morph degrades gracefully.
+    # Honours --dry-run (installs nothing); rc=0 on every branch (install never aborts).
+    if [ "$DRY_RUN" != "--dry-run" ] \
+       && ! ( cd "$PROJECT_ROOT" && node -e "require.resolve('tsx');require.resolve('ajv');require.resolve('semver')" ) >/dev/null 2>&1; then
+      _pm=$(detect_pm)
+      case "$_pm" in
+        pnpm) if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then _synth_argv=(pnpm add -D -w tsx ajv semver); else _synth_argv=(pnpm add -D tsx ajv semver); fi ;;
+        yarn) _synth_argv=(yarn add -D tsx ajv semver) ;;
+        *)    _synth_argv=(npm i -D tsx ajv semver) ;;
+      esac
+      if command -v "$_pm" >/dev/null 2>&1; then
+        echo "▶ synth-wire: installing synthesizer runtime (tsx ajv semver) so the generator runs in this install"
+        ( cd "$PROJECT_ROOT" && "${_synth_argv[@]}" ) >/dev/null 2>&1 || echo "  ⚠ synth runtime install failed — synth-wire will degrade (rules still ship via the p26-verified preset)"
+      fi
+    fi
     echo "▶ synth-wire: confirming synthesized rules-as-tests slice in eslint.config.mjs"
     # Run from PROJECT_ROOT so module resolution (ts-morph, ajv) finds consumer node_modules
     ( cd "$PROJECT_ROOT" && npx --no-install tsx "$_synth_wirer" \
