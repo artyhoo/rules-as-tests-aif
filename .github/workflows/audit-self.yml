@@ -302,6 +302,8 @@ jobs:
         run: bash tests/install-sh/gh-534-arch-boundaries.test.sh
       - name: Run install-sh rule-enforced print-config test (GH #535 — was present-but-unwired)
         run: bash tests/install-sh/gh-535-rule-enforced.test.sh
+      - name: Run install-sh R2 zod-scope test (gh-730)
+        run: bash tests/install-sh/gh-730-r2-zod-scope.test.sh
       - name: Run install-sh C1 skill-context wiring test (was present-but-unwired)
         run: bash tests/install-sh/c1-wiring.test.sh
       - name: Run install-sh react-spa eslint-rules wiring test (PR #708 cold-review gap)
