@@ -1,7 +1,7 @@
 5f2c26c6be572f933b450b7543e23080a06a5584e5ab5ca8b4affcea22168d5c  .ai-factory/ARCHITECTURE.react-next.md
 5662fbfb893bd30b2cef1ae5d4be77193f4139a9633c60c5db791f22e85a4781  .ai-factory/ARCHITECTURE.ts-server.md
 4d84d024cd89bbe08b57273a965c6e72b37ff34651c032101131e62c02346621  .ai-factory/DESCRIPTION.template.md
-856b0277bddf4871e96c10ad4b27017bdcaa4e0614c05953c515b61688db3a06  .ai-factory/RULES.md
+2e244cda6b4692cbfb77b16ca04e727aa469d6e63b664523ba4848bd2232efcb  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
 e9562da75056ca6bc8ddc0ccacf15405ad3b5c3de9a79021029e9a28118760d5  .ai-factory/rules/integration-rules.md
 7a0a04091d03f039d9f025b8278bac98966e5a9b5ae51a7b636e42e31f9cba57  .ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md
@@ -96,7 +96,7 @@ b15d3a4e0c0770a5a13fe03af325f433324080e7f7b8ab9b7d00cc16b2a3800c  eslint-rules-l
 8047032d560cc33b06fddb7ecb4dced3ad60366a86e751527f532bdf2f0b2723  eslint-rules-local/no-server-imports-in-client.ts
 7753f59628dd5065af6054791589635da49507214d70c9c212d52b499cabb408  eslint-rules-local/no-unsafe-zod-parse.d.ts
 64e9c109d6dcc00a787f54cda90b42b57d6ee8823cc4b0d760f093d05d3f285f  eslint-rules-local/no-unsafe-zod-parse.mjs
-d221d1c0c3e5b637507114343c1237d572eec3e412cbe6954ccd5c0b94af2e98  eslint-rules-local/no-unsafe-zod-parse.ts
+a268b470f008a07685d919d94d3f84c5c24f4c20c1b9977a023dbff57c6bf1fd  eslint-rules-local/no-unsafe-zod-parse.ts
 23f35b3122e26e1e24b8abd13a6694460f7104966dc92fa7bff194d467f3a7b0  eslint-rules-local/require-otel-span.d.ts
 e10756bf6768a1a83ded9120167088a46c0538359b9ed4613fd95984d4577ffa  eslint-rules-local/require-otel-span.mjs
 bd734930bc2ec59c19fdb55a99fa8c19e4d4ebc6a2eb0a9ae3522b2c35e7b485  eslint-rules-local/require-otel-span.ts

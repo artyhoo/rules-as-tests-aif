@@ -93,7 +93,7 @@ d37f3e8265f40120a35329d589512251d9b5a4411ef74237ae18e9203257fb3b  eslint-rules-l
 4966ee76fe6db315f3fa4680eda22f939686974bf1c1ac99dbc08f046550c75c  eslint-rules-local/no-direct-time-randomness.ts
 7753f59628dd5065af6054791589635da49507214d70c9c212d52b499cabb408  eslint-rules-local/no-unsafe-zod-parse.d.ts
 64e9c109d6dcc00a787f54cda90b42b57d6ee8823cc4b0d760f093d05d3f285f  eslint-rules-local/no-unsafe-zod-parse.mjs
-d221d1c0c3e5b637507114343c1237d572eec3e412cbe6954ccd5c0b94af2e98  eslint-rules-local/no-unsafe-zod-parse.ts
+a268b470f008a07685d919d94d3f84c5c24f4c20c1b9977a023dbff57c6bf1fd  eslint-rules-local/no-unsafe-zod-parse.ts
 0f68247eec155627b3834c9c3853902a2762c8b9b7cb9a5016b82aa36296e21c  eslint-rules-local/require-error-boundary.d.ts
 dcf63f5757d9afce5b224da834c893cc7beab4e6a8e585f8dcf1e28b6e7c1c0f  eslint-rules-local/require-error-boundary.mjs
 3d194ef4f2a013d1d53e9029b0bbaa542d8b824421882d163a00284c443e697e  eslint-rules-local/require-error-boundary.ts
