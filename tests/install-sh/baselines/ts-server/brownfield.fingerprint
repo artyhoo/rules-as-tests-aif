@@ -14,7 +14,7 @@ e9562da75056ca6bc8ddc0ccacf15405ad3b5c3de9a79021029e9a28118760d5  .ai-factory/ru
 69f3259d89f153fecdd70754b7e5728f0e285fd15dd7b6d6a3b4df473e058a8c  .claude/agents/review-sidecar.md
 2d9259521f752780d0a7fe6df7fc089d35907f3080280af8c264e5e61b96fec8  .claude/hooks/deps-hash-check.sh
 d069eb1cabf8a67875ee885b180c6cced2e5787b96e32a19cdef5cf0dde2a7ec  .claude/settings.json
-76153b5303795a01386afcb3b681a910d5963fcd03fe48ea4b9ae53ff0d61809  .claude/skills/aif-doctor/SKILL.md
+87eadd049880a934542008fea927e6436d8de1e0a648182b02b0b39b74663ce7  .claude/skills/aif-doctor/SKILL.md
 a61194b1eb8ea92372cee7ad053b797d08f36d6d62f51c992aac015f4f97181b  .claude/skills/aif-doctor/helpers/heal.sh
 feb8117af8ed47e7651475cc8174fc49705538274c7c9fa200dda45d95616235  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
 e3c6086efb6dbafaac285132c61c3da1f17ada581d1efe84986c1589ed1b905a  .claude/skills/dispatcher/SKILL.md
