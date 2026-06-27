@@ -39,7 +39,15 @@ CFG="${ESLINT_CONFIG:-eslint.config.mjs}"
 # shellcheck source=/dev/null
 . "$(dirname "$0")/r2-na-marker.sh"
 
-PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git )
+# `packages/core` is the framework's VENDORED install target (install.sh ships hooks/,
+# eslint-rules/, audit-self/, principles/ there). Post-#735 the shipped
+# packages/core/eslint-rules/index.ts matches the install-injected `**/eslint-rules/**`
+# boundary glob — counting vendored framework code toward USER R2 coverage is exactly the
+# FALSE-GREEN this gate exists to prevent (see the shadow-package rationale below). Prune it
+# so the gate measures the consumer's OWN boundary coverage, not the framework it vendored.
+# Mirrors detect-r2-boundary.sh's existing `eslint-rules-local` exclusion. (GH #777 — this gate
+# runs consumer-side only; the framework repo does not invoke it.)
+PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git -o -path '*/packages/core' )
 
 # ── #507 (reopen #2): per-package ESLint flat configs SHADOW the root ──────────
 # ESLint flat-config resolution is NEAREST-config: a sub-package shipping its own

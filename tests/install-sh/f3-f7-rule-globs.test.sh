@@ -81,6 +81,9 @@ mkdir -p "$T2/apps/api/src/handlers"; echo 'export const x = 1;' > "$T2/apps/api
   || bad "F3 behavioral (monorepo): R2 globs do NOT reach a monorepo handler"
 
 # ── F3 NEG (load-bearing): source present but no boundary dir → V-gate alarms ──
+# (GH #777) check-rule-globs.sh now PRUNES the vendored framework packages/core/ from the
+# user-coverage scan, so the shipped eslint-rules/ no longer masks this arm: a consumer with
+# src/index.ts but no handlers/routes/... boundary dir → R2 matches zero USER source → alarms.
 T3=$(mktemp -d); install_into "$T3" ts-server
 mkdir -p "$T3/src"; echo 'export const x = 1;' > "$T3/src/index.ts"
 if ( cd "$T3" && ESLINT_CONFIG="$T3/eslint.config.mjs" bash "$T3/scripts/check-rule-globs.sh" ) >/dev/null 2>&1; then
