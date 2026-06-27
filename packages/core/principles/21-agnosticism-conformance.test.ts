@@ -39,7 +39,7 @@
  * project-specific probe structure — BUILD verdict for the wrapper is self-evident.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -64,6 +64,124 @@ export function nonPortableFindings(tsv: string): string[] {
       const verdict = fields[fields.length - 1]?.trim() ?? '';
       return verdict !== 'PORTABLE';
     });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shipped-agent tools-frontmatter portability probe (DN-M1 Task 2 / A3 N2 / DN-A3-1)
+//
+// WHY this exists — the gap the bash-harness arm above does NOT reach:
+//   `bash run-audit.sh` (the arm above) probes substrate / hooks / configs /
+//   doc-claims / rules-autoload — it has ZERO rows for `agents/*.md` `tools:`
+//   frontmatter, the one surface where genuine Claude-Code coupling lives. A3 §5
+//   live run reported 8/8 PORTABLE while `agents/manual-rule-liveness-prober.md:4`
+//   and `agents/shipped-agent-liveness-prober.md:4` carry `tools: ... Agent`. The
+//   gate was GREEN on a coverage set that EXCLUDED the only finding (umbrella-summary
+//   §2.3 pattern P-3 — "deterministic check passes because its coverage set is drawn
+//   narrower than the surface it claims to govern").
+//
+// WHAT it checks (policy DN-M1 Option C — operator decision 2026-06-27):
+//   every SHIPPED agent (those install.sh actually copies) must carry ONLY
+//   harness-universal tools. The authoring-only probers are EXEMPT — they never ship
+//   (setup.d/20-agents.sh skip-loop + install.sh --refresh skip), and their `Agent`
+//   use is correct by design (their whole methodology IS sub-agent dispatch). The
+//   exemption is MECHANICAL, not a hand-picked name-list: it is DERIVED from the
+//   installer skip-loop (the ship-boundary SSOT) and drift-guarded against install.sh.
+//
+// RELATION to 21-shipped-agent-tools-valid.test.ts (M1 gate, #551): that sibling
+//   parses the SAME `tools:` field but answers a DIFFERENT question — "is each name a
+//   real CC tool?" (name-validity). Its `CC_CANONICAL_TOOLS` set INCLUDES `Agent`, so a
+//   shipped agent loaded with `Agent` PASSES M1 yet is non-portable. This probe is the
+//   portability complement, not a duplicate. We deliberately do NOT import M1's helpers:
+//   they live in a `.test.ts`, and importing it would re-register its vitest suite
+//   (double-run). The frontmatter parse below is intentionally minimal — agent `tools:`
+//   is always the inline-comma form (verified across all 8 agents/*.md, 2026-06-27).
+//   FOLLOW-UP (parked, not this PR): extract the shared frontmatter/tools parser to a
+//   `.ts` lib (the principle-09 `.ts` / `.test.ts` split pattern) so both arms share one
+//   source instead of two minimal parsers.
+//
+// T16 (pattern-matching-on-name — verify the mechanism, not the label):
+//   CC-specific primitive: `Agent` / `Task` (sub-agent dispatch).
+//   Portable equivalent:   OpenCode `@mention` syntax (.opencode/INSTALL.md:59);
+//                          Codex `import_subagents` (A3 §6 C3); NONE for Aider-class
+//                          single-session harnesses. File / search / shell / web
+//                          primitives (Read/Glob/Grep/Bash/Write/Edit/WebFetch/
+//                          WebSearch) ARE universal across all four → the allow-set below.
+
+/**
+ * Harness-universal tool primitives — present in every AI coding harness this project
+ * targets (Claude Code, OpenCode, Codex, Aider). Grounded in the `.opencode/INSTALL.md`
+ * tool mapping + A3 §4.1 (the 6 reporting-only shipped agents use only these).
+ * FAIL-CLOSED: any tool NOT in this set, on a shipped agent, is treated as non-portable
+ * (so a future CC-only tool is caught loudly, not silently passed). Extend ONLY with a
+ * documented portable-equivalent rationale — widening it from memory silently weakens
+ * the gate (the same discipline `CC_CANONICAL_TOOLS` carries in the M1 sibling).
+ */
+export const PORTABLE_TOOLS: ReadonlySet<string> = new Set([
+  'Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'WebFetch', 'WebSearch',
+]);
+
+/**
+ * Parse an agent's `tools:` frontmatter into trimmed base tool names. Agent `tools:`
+ * is always the inline-comma form (`tools: Read, Glob, Grep, Agent`) — verified across
+ * all 8 agents/*.md (2026-06-27). Returns [] when there is no frontmatter or no `tools:`
+ * key (an agent declaring no tools declares no coupling → trivially portable).
+ * Minimal by design — see the RELATION note above for why M1's richer parser is not reused.
+ */
+export function parseAgentTools(fileContent: string): string[] {
+  const fm = fileContent.match(/^---\n([\s\S]*?)\n---/);
+  if (!fm) return [];
+  const line = fm[1].split('\n').find((l) => /^tools:\s*/.test(l));
+  if (!line) return [];
+  return line
+    .replace(/^tools:\s*/, '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => t !== '');
+}
+
+/**
+ * Derive the operator-only (authoring-only, never-shipped) agent set from the installer
+ * skip-loop — the ship-boundary SSOT. Matches `<name>.md) continue ;;` lines in
+ * setup.d/20-agents.sh. This is WHY the exemption is mechanical rather than a hand-picked
+ * allow-list: change the skip-loop and the exemption changes with it.
+ */
+export function parseOperatorOnlyAgents(setupShContent: string): Set<string> {
+  const out = new Set<string>();
+  const re = /^\s*([\w.-]+\.md)\)\s*continue\s*;;/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(setupShContent)) !== null) out.add(m[1]);
+  return out;
+}
+
+export interface AgentToolsInfo {
+  /** basename, e.g. "compliance-verifier.md" */
+  file: string;
+  tools: string[];
+}
+
+export interface PortabilityViolation {
+  file: string;
+  /** the non-portable tools found on a SHIPPED agent */
+  offending: string[];
+}
+
+/**
+ * The gate: a SHIPPED agent (one NOT in `operatorOnly`) carrying any tool outside
+ * `portable` is a violation. Operator-only agents are exempt by design. Pure → unit-
+ * testable with the synthetic paired-negatives below (principle 02).
+ */
+export function nonPortableShippedAgents(
+  agents: AgentToolsInfo[],
+  operatorOnly: Set<string>,
+  portable: ReadonlySet<string> = PORTABLE_TOOLS,
+): PortabilityViolation[] {
+  const out: PortabilityViolation[] = [];
+  for (const a of agents) {
+    if (operatorOnly.has(a.file)) continue; // authoring-only → exempt by design
+    const offending = a.tools.filter((t) => !portable.has(t));
+    if (offending.length > 0) out.push({ file: a.file, offending });
+  }
+  return out;
 }
 
 describe('Principle 21 — agnosticism conformance', () => {
@@ -125,5 +243,124 @@ describe('Principle 21 — agnosticism conformance', () => {
       'substrate\tconfig-cc-coupling\tgrep CLAUDE_\t0\tPORTABLE',
     ].join('\n');
     expect(nonPortableFindings(tsv)).toEqual([]);
+  });
+});
+
+describe('Principle 21 — shipped-agent tools-frontmatter portability (DN-M1 Option C)', () => {
+  const AGENTS_DIR = resolve(REPO_ROOT, 'agents');
+  const SETUP_AGENTS_SH = resolve(REPO_ROOT, 'setup.d/20-agents.sh');
+  const INSTALL_SH = resolve(REPO_ROOT, 'install.sh');
+
+  /** Read the real agents/*.md tree into {file, tools} records. */
+  function realAgents(): AgentToolsInfo[] {
+    return readdirSync(AGENTS_DIR)
+      .filter((f) => f.endsWith('.md'))
+      .sort()
+      .map((f) => ({
+        file: f,
+        tools: parseAgentTools(readFileSync(resolve(AGENTS_DIR, f), 'utf8')),
+      }));
+  }
+
+  // ── The gate (real-tree) ────────────────────────────────────────────────────
+  it('every SHIPPED agents/*.md carries only harness-universal tools (probers exempt)', () => {
+    const agents = realAgents();
+    // Non-vacuity (T1/T10): the shipped surface must actually be scanned.
+    expect(agents.length, 'expected ≥6 agents/*.md to scan').toBeGreaterThanOrEqual(6);
+
+    const operatorOnly = parseOperatorOnlyAgents(readFileSync(SETUP_AGENTS_SH, 'utf8'));
+    const violations = nonPortableShippedAgents(agents, operatorOnly);
+    expect(
+      violations,
+      `Shipped agent(s) carry non-portable (Claude-Code-only) tools — they would silently ` +
+        `under-deliver on OpenCode / Codex / Aider:\n` +
+        violations
+          .map(
+            (v) =>
+              `  ${v.file}: ${v.offending.join(', ')} ` +
+              `(CC-specific; portable equivalent: OpenCode @mention / Codex import / none — .opencode/INSTALL.md:59)`,
+          )
+          .join('\n') +
+        `\nFix: use only [${[...PORTABLE_TOOLS].join(', ')}], OR add the agent to the ` +
+        `setup.d/20-agents.sh skip-loop if it is authoring-only (never shipped).`,
+    ).toEqual([]);
+  });
+
+  // ── Non-vacuity tied to reality — the exemption is actually exercised ────────
+  it('non-vacuity: ≥1 real agent carries a non-portable tool, and every such carrier is operator-only', () => {
+    const agents = realAgents();
+    const carriers = agents.filter((a) => a.tools.some((t) => !PORTABLE_TOOLS.has(t)));
+    // If nothing carried a non-portable tool, the operator-only exemption would be
+    // untested against reality — a green-but-vacuous gate. Today the 2 probers carry `Agent`.
+    expect(
+      carriers.length,
+      'expected ≥1 agent carrying a non-portable tool (the probers) — guards a vacuous gate',
+    ).toBeGreaterThanOrEqual(1);
+
+    const operatorOnly = parseOperatorOnlyAgents(readFileSync(SETUP_AGENTS_SH, 'utf8'));
+    for (const c of carriers) {
+      expect(
+        operatorOnly.has(c.file),
+        `${c.file} carries non-portable tool(s) [${c.tools.filter((t) => !PORTABLE_TOOLS.has(t)).join(', ')}] ` +
+          `but is NOT in the setup.d/20-agents.sh skip-loop — a shipped agent must be portable`,
+      ).toBe(true);
+    }
+  });
+
+  // ── Drift-guard — the exemption is real + the two installers agree ──────────
+  it('drift-guard: every operator-only exemption is a real agent file AND is skipped by install.sh too', () => {
+    const agentFiles = new Set(realAgents().map((a) => a.file));
+    const operatorOnly = parseOperatorOnlyAgents(readFileSync(SETUP_AGENTS_SH, 'utf8'));
+    expect(operatorOnly.size, 'skip-loop parse matched nothing — regex drift').toBeGreaterThanOrEqual(1);
+
+    const installSh = readFileSync(INSTALL_SH, 'utf8');
+    for (const name of operatorOnly) {
+      expect(agentFiles.has(name), `skip-loop names ${name} but agents/${name} does not exist`).toBe(true);
+      const skipRe = new RegExp(`${name.replace(/\./g, '\\.')}\\)\\s*continue`);
+      expect(
+        skipRe.test(installSh),
+        `${name} is skipped in setup.d/20-agents.sh but NOT in install.sh --refresh — the two installers would drift`,
+      ).toBe(true);
+    }
+  });
+
+  // ── Paired-negative (principle 02): prove the gate CATCHES real violations ───
+  it('paired-negative: a SHIPPED agent carrying Agent is flagged', () => {
+    const agents: AgentToolsInfo[] = [{ file: 'new-shipped.md', tools: ['Read', 'Agent'] }];
+    expect(nonPortableShippedAgents(agents, new Set())).toEqual([
+      { file: 'new-shipped.md', offending: ['Agent'] },
+    ]);
+  });
+
+  it('paired-negative: an OPERATOR-ONLY agent carrying Agent is exempt (no violation)', () => {
+    const agents: AgentToolsInfo[] = [
+      { file: 'manual-rule-liveness-prober.md', tools: ['Read', 'Glob', 'Grep', 'Agent'] },
+    ];
+    const operatorOnly = new Set(['manual-rule-liveness-prober.md']);
+    expect(nonPortableShippedAgents(agents, operatorOnly)).toEqual([]);
+  });
+
+  it('paired-negative: a SHIPPED agent with only universal tools is clean (no false-positive)', () => {
+    const agents: AgentToolsInfo[] = [{ file: 'compliance-verifier.md', tools: ['Read', 'Glob', 'Grep'] }];
+    expect(nonPortableShippedAgents(agents, new Set())).toEqual([]);
+  });
+
+  it('paired-negative: parseAgentTools reads the inline-comma form and tolerates a no-tools agent', () => {
+    expect(parseAgentTools('---\nname: x\ntools: Read, Glob, Grep, Agent\n---\n# body')).toEqual([
+      'Read', 'Glob', 'Grep', 'Agent',
+    ]);
+    expect(parseAgentTools('---\nname: x\n---\n# body')).toEqual([]);
+  });
+
+  it('paired-negative: parseOperatorOnlyAgents extracts the skip-loop names', () => {
+    const sh =
+      '  case "$(basename "$f")" in\n' +
+      '    manual-rule-liveness-prober.md) continue ;;\n' +
+      '    shipped-agent-liveness-prober.md) continue ;;\n' +
+      '  esac';
+    expect([...parseOperatorOnlyAgents(sh)].sort()).toEqual([
+      'manual-rule-liveness-prober.md',
+      'shipped-agent-liveness-prober.md',
+    ]);
   });
 });
