@@ -25,10 +25,10 @@ bare-RN consumers need `@react-native/eslint-config`. Both are served from one s
 
 ## Baseline selection criteria
 
-| Baseline | Config | Pick when |
-|---|---|---|
-| **Expo** | `eslint.config.expo.mjs` | Using Expo SDK (Expo Router, expo-\*, EAS Build, `npx create-expo-app`) |
-| **Bare RN** | `eslint.config.bare-rn.mjs` | Using React Native CLI (`npx react-native init`), no Expo runtime |
+| Baseline    | Config                      | Pick when                                                               |
+| ----------- | --------------------------- | ----------------------------------------------------------------------- |
+| **Expo**    | `eslint.config.expo.mjs`    | Using Expo SDK (Expo Router, expo-\*, EAS Build, `npx create-expo-app`) |
+| **Bare RN** | `eslint.config.bare-rn.mjs` | Using React Native CLI (`npx react-native init`), no Expo runtime       |
 
 Selection is automated by `install.sh` at install time (detects Expo deps in `package.json`).
 Manual selection: copy the appropriate config file to your project root as `eslint.config.mjs`.
@@ -40,8 +40,9 @@ This **whitelists** `window`, `document`, `localStorage` — it does NOT forbid 
 
 The `no-restricted-globals` denylist in `eslint.config.rn-common.mjs` **fires additively**
 as a separate ESLint rule key. The two mechanisms are independent:
+
 - `globals.browser` spread → tells ESLint "these globals exist" (no lint error)
-- `no-restricted-globals` → fires an error when the global is *referenced in code*
+- `no-restricted-globals` → fires an error when the global is _referenced in code_
 
 Both must be present for correct behavior. Removing the denylist from `rn-common` while keeping
 the Expo baseline would silently allow DOM globals to leak into RN code (T-MS-B trap).
@@ -61,6 +62,7 @@ to `@callstack/eslint-config` (see §@callstack note below).
 ### eslint-plugin-react-native-a11y (mobile a11y, #145)
 
 ADOPT verdict. Nearform's accessibility plugin for React Native. Covers:
+
 - `has-accessibility-props` — touchable elements must have accessible props
 - `no-nested-touchables` — gesture conflicts
 - `has-valid-accessibility-role` — valid ARIA-equivalent role values
@@ -84,7 +86,10 @@ dependency of ESLint v9 — no additional package install required in consumer p
 
 ```js
 import { FlatCompat } from '@eslint/eslintrc';
-const compat = new FlatCompat({ baseDirectory: __dirname, resolvePluginsRelativeTo: __dirname });
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+  resolvePluginsRelativeTo: __dirname,
+});
 const bareRNBase = compat.extends('@react-native');
 ```
 
@@ -95,15 +100,20 @@ The R-phase surfaced `@callstack/eslint-config` as a more actively maintained al
 via FlatCompat.
 
 **When to swap to @callstack:**
+
 - FlatCompat wrapper becomes unmaintainable (unlikely — it's part of ESLint's own toolchain)
 - `eslint-plugin-react-native@^5` breaks → `@callstack/eslint-config` bundles the plugin
 - Consumer's project already depends on `@callstack/eslint-config`
 
 **How to swap:** in `eslint.config.bare-rn.mjs`, remove the FlatCompat imports and replace:
+
 ```js
 import callstackConfig from '@callstack/eslint-config';
-const bareRNBase = Array.isArray(callstackConfig) ? callstackConfig : [callstackConfig];
+const bareRNBase = Array.isArray(callstackConfig)
+  ? callstackConfig
+  : [callstackConfig];
 ```
+
 The `rn-common` shared layer remains unchanged (it doesn't depend on the baseline).
 
 ## No custom eslint-rules/ directory (zero BUILD)
@@ -119,6 +129,7 @@ If `eslint-rules/` appears empty or absent — that is correct, not a defect.
 ## No Playwright
 
 Playwright is web-only. React Native UI testing uses:
+
 - **Detox** (end-to-end, gray-box) — for device/simulator tests
 - **Maestro** (YAML-based, black-box) — simpler E2E flows
 
@@ -146,11 +157,11 @@ src/                              (or app/ for Expo Router)
 
 ## Where rules are enforced
 
-| Rule | Enforced by |
-|---|---|
-| Web-globals (#146) | ESLint `no-restricted-globals` in `rn-common` (both baselines) |
-| Inline styles (#144/#147) | ESLint `react-native/no-inline-styles` in `rn-common` |
-| Mobile a11y (#145) | ESLint `react-native-a11y/*` in `rn-common` |
-| TypeScript hygiene (R1) | ESLint via baseline + `tsc --noEmit` |
-| CI integrity (R11) | `github-actions-ci-ui.yml` aggregate `ci-success` job |
-| Docs consistency | `audit-ai-docs.react-native.sh` |
+| Rule                      | Enforced by                                                    |
+| ------------------------- | -------------------------------------------------------------- |
+| Web-globals (#146)        | ESLint `no-restricted-globals` in `rn-common` (both baselines) |
+| Inline styles (#144/#147) | ESLint `react-native/no-inline-styles` in `rn-common`          |
+| Mobile a11y (#145)        | ESLint `react-native-a11y/*` in `rn-common`                    |
+| TypeScript hygiene (R1)   | ESLint via baseline + `tsc --noEmit`                           |
+| CI integrity (R11)        | `github-actions-ci-ui.yml` aggregate `ci-success` job          |
+| Docs consistency          | `audit-ai-docs.react-native.sh`                                |
