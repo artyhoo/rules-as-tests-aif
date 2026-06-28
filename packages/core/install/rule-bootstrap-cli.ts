@@ -29,11 +29,19 @@
 
 import process from 'node:process';
 import { runRuleBootstrap } from '../synthesizer/rule-bootstrap.ts';
+import {
+  FileResearchClient,
+  FileGenerateClient,
+  withManualDrop,
+} from '../synthesizer/file-clients.ts';
+import { ResearchPlanError } from '../research/validate-plan.ts';
 
 interface Args {
   consumerRoot: string;
   force: boolean;
   strict: boolean;
+  fromResearch?: string;
+  fromSelection?: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -43,9 +51,11 @@ function parseArgs(argv: string[]): Args {
     if (a === '--consumer-root') args.consumerRoot = argv[++i] ?? args.consumerRoot;
     else if (a === '--no-force') args.force = false;
     else if (a === '--strict') args.strict = true;
+    else if (a === '--from-research') args.fromResearch = argv[++i];
+    else if (a === '--from-selection') args.fromSelection = argv[++i];
     else if (a === '-h' || a === '--help') {
       process.stdout.write(
-        'Usage: rule-bootstrap-cli [--consumer-root <path>] [--no-force] [--strict]\n',
+        'Usage: rule-bootstrap-cli [--consumer-root <path>] [--from-research <plan.json>] [--from-selection <sel.json>] [--no-force] [--strict]\n',
       );
       process.exit(0);
     } else if (!a.startsWith('-')) args.consumerRoot = a;
@@ -55,14 +65,44 @@ function parseArgs(argv: string[]): Args {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const result = await runRuleBootstrap({
-    consumerRoot: args.consumerRoot,
-    force: args.force,
-  });
-  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
-  if (args.strict) {
-    const ok = result.mode === 'synthesis' && result.install.ok;
-    if (!ok) process.exit(1);
+
+  // Live path requires BOTH files; one-only is an authoring error.
+  const oneOnly = Boolean(args.fromResearch) !== Boolean(args.fromSelection);
+  if (oneOnly) {
+    process.stderr.write(
+      'rule-bootstrap-cli: --from-research and --from-selection must be passed together\n',
+    );
+    process.exit(args.strict ? 1 : 0);
+  }
+
+  const live = Boolean(args.fromResearch && args.fromSelection);
+  const clients = live
+    ? {
+        researchClient: new FileResearchClient(args.fromResearch as string),
+        generateClient: withManualDrop(new FileGenerateClient(args.fromSelection as string)),
+      }
+    : {};
+
+  try {
+    const result = await runRuleBootstrap({
+      consumerRoot: args.consumerRoot,
+      force: args.force,
+      ...clients,
+    });
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    if (args.strict) {
+      const ok = result.mode === 'synthesis' && result.install.ok;
+      if (!ok) process.exit(1);
+    }
+  } catch (err) {
+    // Decision B: a malformed/unreadable live artefact degrades with guidance, never a bad rule.
+    const why = err instanceof ResearchPlanError ? err.message : (err as Error).message;
+    process.stderr.write(
+      `[rule-bootstrap] live research artefact invalid or unreadable — ${why}\n` +
+        `[rule-bootstrap] run the rule-research protocol (agents/rule-researcher.md or the ` +
+        `rule-research skill) to (re)author the two files, then re-run ./setup --full.\n`,
+    );
+    process.exit(args.strict ? 1 : 0); // rc=0: never abort install (the bash gate also || true's)
   }
 }
 
