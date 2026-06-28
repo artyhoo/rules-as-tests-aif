@@ -90,6 +90,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   '.claude/skills/dispatcher/SKILL.md',
   '.claude/skills/harvest/SKILL.md',
   '.claude/skills/pipeline/SKILL.md',
+  '.claude/skills/rule-research/SKILL.md',
   '.claude/skills/self-reflection/SKILL.md',
   '.claude/skills/story/SKILL.md',
   '.claude/skills/template-audit/SKILL.md',
@@ -127,6 +128,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'agents/memory-codification-auditor.md',
   'agents/orchestrator-worker-discipline.md',
   'agents/aif-init.md',
+  'agents/rule-researcher.md',
 ];
 
 /**
