@@ -1,0 +1,75 @@
+#!/usr/bin/env -S npx tsx
+/**
+ * rule-bootstrap-cli.ts — install-time entry for the rule-bootstrapping SKELETON spike.
+ *
+ * Invoked behind the `--full` carrier (session-bound, NEVER the CI self-install path)
+ * to run: stub-research → generate.ts factory → install() → rules-lock.json, on the
+ * react-next stack. Deterministic — no network, no LLM (principle 17, $0-in-CI).
+ *
+ * SHARED ENTRY: this CLI is what an install-time gate calls. The EXACT gate placement
+ * (a standalone `setup.d/NN-*.sh` step vs a guarded branch in `setup.d/99-finalize.sh`)
+ * is a PARKED design fork — see the kickoff §6. This CLI is the unambiguous dependency
+ * of BOTH placements, so it is built here without deciding the fork. A FULL-gated,
+ * node-present, degrade-on-absence shell block is sketched in the README banner below.
+ *
+ *   # --- ready-to-wire shell block (placement PARKED — do not enable without GO) ---
+ *   if [ -n "${FULL:-}" ] && [ "$DRY_RUN" != "--dry-run" ] && command -v node >/dev/null 2>&1; then
+ *     _rb="$PKG_ROOT/packages/core/install/rule-bootstrap-cli.ts"
+ *     [ -f "$_rb" ] && ( cd "$PROJECT_ROOT" && npx --no-install tsx "$_rb" \
+ *         --consumer-root "$PROJECT_ROOT" 2>&1 ) || true   # rc=0: never abort install
+ *   fi
+ *   # -------------------------------------------------------------------------------
+ *
+ * @cc-only-rationale: install-time orchestration script run in consumer context after
+ *   --full dep-install; the bash gate is the primary gatekeeper, this CLI is the payload.
+ *
+ * Prior-art: prior-art-evaluations.md#183 (rule-research→rule-factory bridge BUILD;
+ *   #798 §11). Re-grep the next-free id at commit time per kickoff §4.
+ */
+
+import process from 'node:process';
+import { runRuleBootstrap } from '../synthesizer/rule-bootstrap.ts';
+
+interface Args {
+  consumerRoot: string;
+  force: boolean;
+  strict: boolean;
+}
+
+function parseArgs(argv: string[]): Args {
+  const args: Args = { consumerRoot: process.cwd(), force: true, strict: false };
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === '--consumer-root') args.consumerRoot = argv[++i] ?? args.consumerRoot;
+    else if (a === '--no-force') args.force = false;
+    else if (a === '--strict') args.strict = true;
+    else if (a === '-h' || a === '--help') {
+      process.stdout.write(
+        'Usage: rule-bootstrap-cli [--consumer-root <path>] [--no-force] [--strict]\n',
+      );
+      process.exit(0);
+    } else if (!a.startsWith('-')) args.consumerRoot = a;
+  }
+  return args;
+}
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  const result = await runRuleBootstrap({
+    consumerRoot: args.consumerRoot,
+    force: args.force,
+  });
+  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  if (args.strict) {
+    const ok = result.mode === 'synthesis' && result.install.ok;
+    if (!ok) process.exit(1);
+  }
+}
+
+// Run only when executed directly (not when imported by a test).
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((err) => {
+    process.stderr.write(`rule-bootstrap-cli failed: ${(err as Error).message}\n`);
+    process.exit(1);
+  });
+}
