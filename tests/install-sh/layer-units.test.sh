@@ -105,6 +105,7 @@ echo ""; echo "  ── structural: no copy-pasted helper bodies in layers ─�
 # Use -E patterns and match function-definition syntax: name() { OR name () {
 SSOT_FUNS=("copy_safe" "refresh_safe" "mkdir_safe" "chmod_safe" \
            "transform_internal_refs" "detect_pm" "_detect_stack_from_pkg" \
+           "_workspace_pkg_dirs" "_detect_stacks_per_workspace" \
            "patch_stryker_package_manager" \
            "copy_skill_with_transform" "refresh_skill_with_transform" \
            "merge_prettierignore" "ignore_shipped_configs")

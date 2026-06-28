@@ -20,6 +20,8 @@
 #   chmod_safe <mode> <file...>
 #   detect_pm
 #   _detect_stack_from_pkg
+#   _workspace_pkg_dirs
+#   _detect_stacks_per_workspace
 #   patch_stryker_package_manager
 #   copy_skill_with_transform <slug>
 #   refresh_skill_with_transform <slug>
@@ -290,16 +292,63 @@ detect_pm() {
 # consumer package.json this is equal-or-more-inclusive and never the #780 "silent wrong install"
 # failure (an app peer-depending on next is next-related); the install path fail-louds only on
 # `unknown`, never on a mis-detect.
-# Reads $PROJECT_ROOT/package.json. Echoes exactly one of:
+# Reads <target>/package.json (target defaults to $PROJECT_ROOT). Echoes exactly one of:
 #   react-native | react-next | react-spa | ts-server | unknown
+# I-2 (§13.5): the optional <target> arg lets the per-workspace walk (_detect_stacks_per_workspace)
+# classify each workspace dir; the no-arg form is unchanged (back-compat — the I-1 install stack-pick
+# and 15-companions-stack.sh both call it no-arg → $PROJECT_ROOT).
 _detect_stack_from_pkg() {
-  local pkg="$PROJECT_ROOT/package.json"
+  local target="${1:-$PROJECT_ROOT}"
+  local pkg="$target/package.json"
   [ -f "$pkg" ] || { echo "unknown"; return; }
   if   grep -qE '"react-native"[[:space:]]*:' "$pkg"; then echo "react-native"
   elif grep -qE '"next"[[:space:]]*:'         "$pkg"; then echo "react-next"
   elif grep -qE '"react"[[:space:]]*:'        "$pkg"; then echo "react-spa"
   elif grep -qE '"typescript"[[:space:]]*:'   "$pkg"; then echo "ts-server"
   else echo "unknown"; fi
+}
+
+# _workspace_pkg_dirs [root] — enumerate workspace package directories (those that contain a
+# package.json) for the multi-stack monorepo case (§13.5, I-2 Layer 1). NODE-FREE, no yq/pnpm/turbo
+# dependency: install runs BEFORE the consumer's `pnpm install`, so this must not depend on a package
+# manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
+# Convention: expand the immediate children of the 5 conventional workspace container roots —
+# apps packages services libs modules — the SAME set as the arch:check target resolver in
+# setup.d/70-deps.sh:37, so the two never drift. Keeps only children that carry a package.json (a
+# workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
+# Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
+# single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
+# $PROJECT_ROOT). Echoes each workspace dir RELATIVE to $root, one per line (so Layer 2 can scope
+# `applies-to <dir>/**`); echoes nothing for a flat / single-root repo (no conventional workspace).
+_workspace_pkg_dirs() {
+  local root="${1:-$PROJECT_ROOT}" container path name
+  for container in apps packages services libs modules; do
+    [ -d "$root/$container" ] || continue
+    for path in "$root/$container"/*/; do
+      [ -d "$path" ] || continue                 # no glob match → literal '*/', skip
+      [ -f "${path}package.json" ] || continue   # workspace package := dir WITH a package.json
+      name=$(basename "$path")
+      printf '%s/%s\n' "$container" "$name"
+    done
+  done
+  return 0
+}
+
+# _detect_stacks_per_workspace [root] — the §13.5 Layer-1 deliverable: walk each workspace package
+# dir (_workspace_pkg_dirs) × per-dir _detect_stack_from_pkg → echo `dir<TAB>stack` per workspace,
+# one line each (mirrors the single-root DETECTED_STACK echo in 15-companions-stack.sh). A
+# per-workspace `unknown` (a workspace whose package.json matches no stack signal) is KEPT in the map
+# as a re-checkable marker — never dropped, never `exit 1` (the §13.5 fork-2 default; persisting that
+# marker on disk is Layer 2, out of scope here). Echoes nothing for a flat / single-root repo (no
+# workspace dirs) — the caller falls back to the single-root _detect_stack_from_pkg (the I-1 path).
+_detect_stacks_per_workspace() {
+  local root="${1:-$PROJECT_ROOT}" reldir stack
+  while IFS= read -r reldir; do
+    [ -n "$reldir" ] || continue
+    stack=$(_detect_stack_from_pkg "$root/$reldir")
+    printf '%s\t%s\n' "$reldir" "$stack"
+  done < <(_workspace_pkg_dirs "$root")
+  return 0
 }
 
 # The shipped stryker.config.json hardcodes "packageManager": "npm" (the template can't
