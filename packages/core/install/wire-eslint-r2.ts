@@ -36,12 +36,18 @@ export type TransformVariant = 'bare' | 'self-contained';
 export interface TransformOpts {
   variant?: TransformVariant;
   customRulesImportPath?: string; // required when variant === 'self-contained'
+  /** When provided, emits `{ files: [...], rules: {...} }` — workspace-scoped block. */
+  scope?: { files: string[] };
 }
 
-function r2Element(variant: TransformVariant): string {
+function r2Element(variant: TransformVariant, scope?: { files: string[] }): string {
+  // SSOT #182: files: scoped emission — when scope provided, emit workspace-scoped block.
+  // Scope source = install-time dir→stack map, NOT recipe appliesTo (T-MS-A).
+  // jsString() prevents code-injection when glob contains a single quote (T-MSA-sec).
+  const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(', ')}], ` : '';
   return variant === 'self-contained'
-    ? `{ plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }`
-    : `{ rules: { '${R2_RULE_ID}': 'error' } }`;
+    ? `{ ${filesPart}plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }`
+    : `{ ${filesPart}rules: { '${R2_RULE_ID}': 'error' } }`;
 }
 
 /**
@@ -154,7 +160,10 @@ export async function wireConfigSource(source: string, opts: TransformOpts = {})
   const expr = exportAssignment.getExpression();
 
   const variant = opts.variant ?? 'bare';
-  const element = r2Element(variant);
+  const element = r2Element(variant, opts.scope);
+  if (opts.scope) {
+    console.log(`  [wire:R2] scoping R2 to files=${opts.scope.files.join(', ')}`);
+  }
 
   if (expr.isKind(SyntaxKind.ArrayLiteralExpression)) {
     // export default [...] or export default [...base, {...}]
@@ -219,9 +228,13 @@ function wrapperSelectorsPresent(source: string, arrValue: unknown[]): boolean {
   });
 }
 
-function buildRuleConfigElement(ruleName: string, value: unknown): string {
+function buildRuleConfigElement(ruleName: string, value: unknown, scope?: { files: string[] }): string {
+  // SSOT #182: files: scoped emission — when scope provided, emit workspace-scoped block.
+  // Scope source = install-time dir→stack map, NOT recipe appliesTo (T-MS-A).
+  // jsString() prevents code-injection when glob contains a single quote (T-MSA-sec).
+  const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(', ')}], ` : '';
   if (typeof value === 'string') {
-    return `{ rules: { '${ruleName}': ${jsString(value)} } }`;
+    return `{ ${filesPart}rules: { '${ruleName}': ${jsString(value)} } }`;
   }
   if (Array.isArray(value)) {
     const severity = typeof value[0] === 'string' ? value[0] : 'error';
@@ -232,9 +245,9 @@ function buildRuleConfigElement(ruleName: string, value: unknown): string {
         if (e.message) parts.push(`message: ${jsString(e.message)}`);
         return `{ ${parts.join(', ')} }`;
       });
-    return `{ rules: { '${ruleName}': [${jsString(severity)}, ${entries.join(', ')}] } }`;
+    return `{ ${filesPart}rules: { '${ruleName}': [${jsString(severity)}, ${entries.join(', ')}] } }`;
   }
-  return `{ rules: { '${ruleName}': ${JSON.stringify(value)} } }`;
+  return `{ ${filesPart}rules: { '${ruleName}': ${JSON.stringify(value)} } }`;
 }
 
 /**
@@ -379,6 +392,9 @@ export async function wireNRules(
     : exportArr.getElements?.() ?? [];
 
   for (const { key, value } of missing) {
+    if (_opts.scope) {
+      console.log(`  [wire:N-rule] scoping ${key} to files=${_opts.scope.files.join(', ')}`);
+    }
     if (Array.isArray(value)) {
       const missingSels = (value.slice(1) as Array<{ selector?: string; message?: string }>).filter(
         (e) => typeof e === 'object' && e !== null && e.selector && !source.includes(e.selector),
@@ -387,9 +403,9 @@ export async function wireNRules(
       if (!merged) {
         console.debug(`  [synth-wire] DEBUG: adding new wrapper block for '${key}'`);
         if (isCallExprMode) {
-          callExprNode.addArgument(buildRuleConfigElement(key, value));
+          callExprNode.addArgument(buildRuleConfigElement(key, value, _opts.scope));
         } else {
-          exportArr.addElement(buildRuleConfigElement(key, value));
+          exportArr.addElement(buildRuleConfigElement(key, value, _opts.scope));
         }
       } else {
         console.debug(`  [synth-wire] DEBUG: merged ${missingSels.length} selector(s) into existing '${key}' block`);
@@ -397,9 +413,9 @@ export async function wireNRules(
     } else {
       console.debug(`  [synth-wire] DEBUG: appending simple rule block for '${key}'`);
       if (isCallExprMode) {
-        callExprNode.addArgument(buildRuleConfigElement(key, value));
+        callExprNode.addArgument(buildRuleConfigElement(key, value, _opts.scope));
       } else {
-        exportArr.addElement(buildRuleConfigElement(key, value));
+        exportArr.addElement(buildRuleConfigElement(key, value, _opts.scope));
       }
     }
   }
@@ -416,11 +432,15 @@ export interface ResolveWireArgs {
   configPath: string;
   cwd: string;
   runProbe: (configPath: string, cwd: string) => Promise<ProbeVerdict>;
+  /** Workspace scope for scoped emission (SSOT #182). When set, emits { files: [...], rules: {...} }. */
+  scope?: { files: string[] };
 }
 
 function synthProbeTarget(configDir: string): string {
-  // ALWAYS synthesize (deterministic). The bare element is global (no `files`), so the verdict
-  // depends only on whether the plugin is registered anywhere, not on which file we probe.
+  // ALWAYS synthesize in configDir (deterministic). For scoped elements (files: ['<dir>/**']),
+  // the probe file must be inside the scope dir so ESLint matches the files: glob. configDir is
+  // the workspace dir (e.g. apps/api/) when the config is placed per-workspace, so the probe file
+  // naturally lands inside the scope glob when ESLint is run from project root (see probeViaEslint).
   const p = resolve(configDir, '__aif_r2_probe__.ts');
   writeFileSync(p, 'export const __aif_probe = 1;\n', 'utf8');
   return p;
@@ -454,6 +474,10 @@ export async function probeViaEslint(configPath: string, cwd: string): Promise<P
   }
   const dir = dirname(resolve(configPath));
   const target = synthProbeTarget(dir);
+  // Run probe from the config's own directory (dir) so ESLint discovers the workspace-local
+  // config by walking up from the probe file. Running from project root in multi-stack mode
+  // (where no root config exists) causes ESLint to fail to load the config → 'other-error' →
+  // degrade. Global elements (no files: filter) are unaffected by cwd choice.
   try {
     execFileSync(process.execPath, [...nodeArgs, eslintBin, '--print-config', target], { cwd: dir, stdio: 'pipe' });
     return 'ok';
@@ -479,14 +503,18 @@ export async function probeViaEslint(configPath: string, cwd: string): Promise<P
  * terminal verdict restores the original (no half-edit). GH #644.
  */
 export async function resolveAndWire(args: ResolveWireArgs): Promise<WireResult> {
-  const { configPath, cwd, runProbe } = args;
+  const { configPath, cwd, runProbe, scope } = args;
   const original = readFileSync(configPath, 'utf8');
   if (original.includes(R2_RULE_ID)) {
     return { status: 'already-wired', original, modified: original };
   }
 
+  if (scope) {
+    console.log(`  [wire:R2] scoped probe target=${configPath} glob=${scope.files.join(', ')}`);
+  }
+
   // 1. bare
-  const bare = await wireConfigSource(original, { variant: 'bare' });
+  const bare = await wireConfigSource(original, { variant: 'bare', scope });
   if (bare.status !== 'wired') return bare; // unrecognised / degrade — nothing written
   writeFileSync(configPath, bare.modified, 'utf8');
 
@@ -497,7 +525,7 @@ export async function resolveAndWire(args: ResolveWireArgs): Promise<WireResult>
   // 3. escalate: self-contained (only when the base registers the plugin nowhere)
   if (v1 === 'could-not-find-plugin') {
     const spec = customRulesImportSpecifier(configPath, cwd);
-    const sc = await wireConfigSource(original, { variant: 'self-contained', customRulesImportPath: spec });
+    const sc = await wireConfigSource(original, { variant: 'self-contained', customRulesImportPath: spec, scope });
     if (sc.status === 'wired') {
       writeFileSync(configPath, sc.modified, 'utf8');
       const v2 = await runProbe(configPath, cwd);
@@ -521,6 +549,7 @@ async function main(): Promise<void> {
       '',
       'Usage: npx tsx wire-eslint-r2.ts [options]',
       '  --path <file>   Config to wire (default: ./eslint.config.mjs)',
+      '  --scope <glob>  Workspace scope glob (e.g. apps/api/**) — emits { files: [glob], rules: {...} }',
       '  --yes           Auto-apply without confirmation',
       '  --dry-run       Print what would change, no write',
       '  --diff          Print diff and exit (no write, no prompt)',
@@ -530,6 +559,9 @@ async function main(): Promise<void> {
 
   const pathIdx = argv.indexOf('--path');
   const configPath = resolve(pathIdx >= 0 ? argv[pathIdx + 1] : './eslint.config.mjs');
+  const scopeIdx = argv.indexOf('--scope');
+  const scopeStr = scopeIdx >= 0 ? argv[scopeIdx + 1] : undefined;
+  const scope = scopeStr ? { files: [scopeStr] } : undefined;
   const assumeYes = argv.includes('--yes');
   const dryRun = argv.includes('--dry-run');
   const diffOnly = argv.includes('--diff');
@@ -600,7 +632,7 @@ async function main(): Promise<void> {
       }
 
       // Apply through the probe loop: bare → escalate to self-contained → degrade.
-      const wired = await resolveAndWire({ configPath, cwd: process.cwd(), runProbe: probeViaEslint });
+      const wired = await resolveAndWire({ configPath, cwd: process.cwd(), runProbe: probeViaEslint, scope });
       if (wired.status === 'wired') {
         console.log(`  ✓ R2 wired into ${configPath} (${wired.variant})`);
       } else if (wired.status === 'already-wired') {

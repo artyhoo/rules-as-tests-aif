@@ -15,7 +15,7 @@
 | Entry | Status |
 |---|---|
 | [§13.4 Обработка legacy кодовой базы](#134-обработка-legacy-кодовой-базы) | open, armed |
-| [§13.5 Multi-stack monorepos](#135-multi-stack-monorepos) | open, armed |
+| [§13.5 Multi-stack monorepos](#135-multi-stack-monorepos) | open, I-2 L1+L2 shipped (generation-live-delivery = hypothesis-realization) |
 | [§13.6 Relationship с AIF core](#136-relationship-с-aif-core) | hypothesis verified; operationalization deferred |
 | [§13.7 Operationalization L2 semantic drift detection](#137-operationalization-l2-semantic-drift-detection) | partial (symbolic v1 closed Phase 5; behavioral + embedding open) |
 | [§13.8 Decision matrix expansion rule](#138-decision-matrix-expansion-rule) | open, running mechanism trigger |
@@ -61,6 +61,16 @@
 Это требует более продвинутого Layer 1 ([architecture.md](architecture.md) §2.3), который понимает workspace structure.
 
 **Trigger:** first consumer is multi-stack monorepo (e.g. `apps/web` + `apps/api` + `packages/shared`), OR Phase 11 AIF integration entry research kicks off — workspace scoping in ESLint flat config is a primary Phase 11 entry-question (formalized 2026-05-13 via D8 resolution).
+
+**Status 2026-06-28 — I-2 L1 + L2 shipped:**
+- **I-1** (#790): fresh `-y` single-root stack auto-detect.
+- **I-2 Layer 1** (#793): `_detect_stacks_per_workspace` / `_workspace_pkg_dirs` in `setup.d/lib.sh` — per-workspace detection map (`dir<TAB>stack`), node-free, tested.
+- **I-2 Layer 2** (this branch, PR TBD): per-workspace scoping primitive + preset delivery.
+  - `files:` emission seam added to both rule emitters: `buildRuleConfigElement` (N-rule / synth path) and `r2Element` (R2 path) in `packages/core/install/wire-eslint-r2.ts` — SSOT #182 (ESLint flat-config native `files:` scoping, REFERENCE).
+  - `setup.d/40-configs.sh` converted from single-`$STACK` chain → per-workspace loop: each workspace dir receives its stack's recipe-synced preset `eslint.config.mjs` + `eslint-rules-local/index.mjs` stub (3-level re-export, workspace is always `container/name` deep).
+  - `setup.d/99-finalize.sh`: R2 scoped to `apps/api/**` for ts-server workspaces; react-native workspace gets its preset; `unknown` workspace emits re-checkable marker.
+  - Tests: `packages/core/install/wire-eslint-r2.test.ts` (scoped emission proof), `tests/install-sh/multi-stack-monorepo.test.sh` (timeliner acceptance + no-regression).
+- **Remaining open (hypothesis-realization = sibling umbrella `generation-live-delivery`):** making the synthesizer the LIVE delivery for ts-server/react-native (the deep generation-coverage work — out of scope for L2, which builds only the scoping brick).
 
 ### 13.6 Relationship с AIF core
 

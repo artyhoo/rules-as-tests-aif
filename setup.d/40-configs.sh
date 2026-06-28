@@ -187,64 +187,115 @@ fi
 
 # ─── 6. Stack-specific templates ────────────────────────
 # O9: stryker copy THEN patch (intra-layer order).
-echo "▶ Stack-specific templates ($STACK) → project root"
 mkdir_safe "$PROJECT_ROOT/.github/workflows"
 
-if [ "$STACK" = "ts-server" ]; then
-  copy_safe "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$PROJECT_ROOT/eslint.config.mjs"
-  copy_safe "$PKG_ROOT/templates/ts-server/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
-  # Ship the arch config directly (FQA S1-A W2: deferring to legacy setup.sh left arch:check
-  # with no config on the ./setup path — the template exists, just copy it).
-  copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
-  copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
-  patch_stryker_package_manager
-  copy_safe "$PKG_ROOT/templates/ts-server/github-actions-ci.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
-  # R11 branch-protection self-assertion (the executable arm RULES.md#r11 names alongside ci-success).
-  copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
-elif [ "$STACK" = "react-next" ]; then
-  copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
-  copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
-  copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
-  # Ship the arch config (FQA S1-A W2). The ts-server base (no-circular/no-orphans) is
-  # stack-agnostic; a react-tailored layering config is a follow-up (residual R-1).
-  copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
-  copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
-  patch_stryker_package_manager
-  copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
-  # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
-  copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
-elif [ "$STACK" = "react-spa" ]; then
-  copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
-  copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
-  copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
-  # Ship the arch config (FQA S1-A W2). The ts-server base (no-circular/no-orphans) is
-  # stack-agnostic; SPA layering (Feature-Sliced Design) is enforced by eslint-plugin-boundaries
-  # in the shipped eslint.config, so dependency-cruiser stays the universal base here.
-  copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
-  copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
-  patch_stryker_package_manager
-  copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
-  # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
-  copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
-elif [ "$STACK" = "react-native" ]; then
-  # RN ships TWO baselines (Expo vs bare-RN) + a shared base BOTH import. Pick the baseline by
-  # detecting the consumer's deps (`"expo"` present → Expo baseline; else bare-RN), then ALWAYS land
-  # the shared eslint.config.rn-common.mjs — both baselines `import './eslint.config.rn-common.mjs'`,
-  # so omitting it would dangle the import and crash the consumer's ESLint on config load.
-  if grep -qE '"expo"[[:space:]]*:' "$PROJECT_ROOT/package.json" 2>/dev/null; then
-    _rn_eslint="eslint.config.expo.mjs"
-  else
-    _rn_eslint="eslint.config.bare-rn.mjs"
+# §13.5 I-2 L2: per-workspace eslint.config.mjs placement (SSOT #182).
+# _detect_stacks_per_workspace (lib.sh) echoes "dir<TAB>stack" per workspace dir and nothing for
+# flat / single-root repos — the empty-output case falls through to the single-root path below,
+# preserving the original single-stack behavior unchanged (no regression).
+_ws_lines=$(_detect_stacks_per_workspace "$PROJECT_ROOT")
+if [ -n "$_ws_lines" ]; then
+  # ── Multi-stack monorepo: place per-workspace eslint configs + eslint-rules-local stubs ──────
+  echo "▶ Multi-stack monorepo: placing per-workspace ESLint configs"
+  while IFS=$'\t' read -r _ws_dir _ws_stack; do
+    [ -n "$_ws_dir" ] || continue
+    _ws_abs="$PROJECT_ROOT/$_ws_dir"
+    echo "▶ Per-workspace config: $_ws_dir → $_ws_stack preset"
+    mkdir_safe "$_ws_abs"
+    case "$_ws_stack" in
+      ts-server)
+        copy_safe "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$_ws_abs/eslint.config.mjs"
+        ;;
+      react-next)
+        copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
+        ;;
+      react-spa)
+        copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
+        ;;
+      react-native)
+        # RN ships TWO baselines + a shared base; detect Expo vs bare-RN per workspace package.json.
+        if grep -qE '"expo"[[:space:]]*:' "$_ws_abs/package.json" 2>/dev/null; then
+          _rn_eslint="eslint.config.expo.mjs"
+        else
+          _rn_eslint="eslint.config.bare-rn.mjs"
+        fi
+        copy_safe "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$_ws_abs/eslint.config.mjs"
+        copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$_ws_abs/eslint.config.rn-common.mjs"
+        ;;
+      unknown)
+        echo "  ⚠ $_ws_dir: unknown stack — no eslint config placed (re-checkable marker; not exit 1)"
+        continue
+        ;;
+    esac
+    # Per-workspace eslint-rules-local stub: preset templates import './eslint-rules-local/index.mjs'
+    # relative to the config's dir. Workspaces are always 2 levels deep (container/name, enforced by
+    # _workspace_pkg_dirs) → 3 levels of '../' reliably reach the project root's eslint-rules-local/.
+    mkdir_safe "$_ws_abs/eslint-rules-local"
+    if [ -z "$DRY_RUN" ]; then
+      printf '// Auto-generated by install.sh — re-exports the root eslint-rules-local plugin.\n// Workspace is always container/name (2 levels deep) so 3 "../" reaches project root.\nexport { default, rules } from '"'"'../../../eslint-rules-local/index.mjs'"'"';\n' \
+        > "$_ws_abs/eslint-rules-local/index.mjs"
+      echo "  ✓ $_ws_dir/eslint-rules-local/index.mjs stub → root"
+    fi
+  done <<< "$_ws_lines"
+else
+  # ── Flat / single-root repo: original single-stack behavior unchanged ──────────────────────────
+  echo "▶ Stack-specific templates ($STACK) → project root"
+  if [ "$STACK" = "ts-server" ]; then
+    copy_safe "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$PROJECT_ROOT/eslint.config.mjs"
+    copy_safe "$PKG_ROOT/templates/ts-server/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+    # Ship the arch config directly (FQA S1-A W2: deferring to legacy setup.sh left arch:check
+    # with no config on the ./setup path — the template exists, just copy it).
+    copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
+    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+    patch_stryker_package_manager
+    copy_safe "$PKG_ROOT/templates/ts-server/github-actions-ci.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
+    # R11 branch-protection self-assertion (the executable arm RULES.md#r11 names alongside ci-success).
+    copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
+  elif [ "$STACK" = "react-next" ]; then
+    copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
+    copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+    copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
+    # Ship the arch config (FQA S1-A W2). The ts-server base (no-circular/no-orphans) is
+    # stack-agnostic; a react-tailored layering config is a follow-up (residual R-1).
+    copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
+    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+    patch_stryker_package_manager
+    copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
+    # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
+    copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
+  elif [ "$STACK" = "react-spa" ]; then
+    copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
+    copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+    copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
+    # Ship the arch config (FQA S1-A W2). The ts-server base (no-circular/no-orphans) is
+    # stack-agnostic; SPA layering (Feature-Sliced Design) is enforced by eslint-plugin-boundaries
+    # in the shipped eslint.config, so dependency-cruiser stays the universal base here.
+    copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
+    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+    patch_stryker_package_manager
+    copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
+    # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
+    copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
+  elif [ "$STACK" = "react-native" ]; then
+    # RN ships TWO baselines (Expo vs bare-RN) + a shared base BOTH import. Pick the baseline by
+    # detecting the consumer's deps (`"expo"` present → Expo baseline; else bare-RN), then ALWAYS land
+    # the shared eslint.config.rn-common.mjs — both baselines `import './eslint.config.rn-common.mjs'`,
+    # so omitting it would dangle the import and crash the consumer's ESLint on config load.
+    if grep -qE '"expo"[[:space:]]*:' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+      _rn_eslint="eslint.config.expo.mjs"
+    else
+      _rn_eslint="eslint.config.bare-rn.mjs"
+    fi
+    copy_safe "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$PROJECT_ROOT/eslint.config.mjs"
+    copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$PROJECT_ROOT/eslint.config.rn-common.mjs"
+    copy_safe "$PKG_ROOT/packages/preset-react-native/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+    # RN is native / web-less → NO playwright (E2E is Detox/Maestro, not wired by install).
+    # Ship the arch config (stack-agnostic ts-server base: no-circular/no-orphans).
+    copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
+    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+    patch_stryker_package_manager
+    copy_safe "$PKG_ROOT/packages/preset-react-native/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
+    # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
+    copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
   fi
-  copy_safe "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$PROJECT_ROOT/eslint.config.mjs"
-  copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$PROJECT_ROOT/eslint.config.rn-common.mjs"
-  copy_safe "$PKG_ROOT/packages/preset-react-native/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
-  # RN is native / web-less → NO playwright (E2E is Detox/Maestro, not wired by install).
-  # Ship the arch config (stack-agnostic ts-server base: no-circular/no-orphans).
-  copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
-  copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
-  patch_stryker_package_manager
-  copy_safe "$PKG_ROOT/packages/preset-react-native/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
-  # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
-  copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
 fi

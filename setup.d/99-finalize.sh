@@ -85,6 +85,56 @@ if [ "${_r2_verdict:-}" = "boundary-present" ] && [ "$DRY_RUN" != "--dry-run" ] 
   fi
 fi
 
+# §13.5 I-2 L2: R2 per-workspace wiring for multi-stack monorepos (SSOT #182).
+# The block above gates on root eslint.config.mjs — intentional for flat repos. In a multi-stack
+# monorepo there is NO root config; this block wires R2 into ts-server workspace configs only.
+# No --scope: workspace-local config placement already scopes ESLint to that workspace — a
+# dir-prefixed files: glob inside a workspace-local config is relative to that config's dir,
+# making 'ws/**' resolve to 'ws/ws/**' (nothing). Scoping is by config placement, not files:.
+# Scope source = _detect_stacks_per_workspace detection map, NOT recipe appliesTo (T-MS-A).
+if [ "$DRY_RUN" != "--dry-run" ] && [ ! -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+  _ws_map_r2=$(_detect_stacks_per_workspace "$PROJECT_ROOT")
+  if [ -n "$_ws_map_r2" ]; then
+    if ! command -v node >/dev/null 2>&1 || \
+       [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
+      echo "  · R2 per-workspace: Node/ts-morph not available — add R2 manually to ts-server workspace configs"
+    else
+      _wirer_ws="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
+      if [ ! -f "$_wirer_ws" ]; then
+        echo "  · R2 per-workspace: wirer not found at $_wirer_ws — skipped"
+      else
+        echo "▶ R2 per-workspace: scoped wiring (multi-stack monorepo)"
+        while IFS=$'\t' read -r _ws_dir _ws_stack; do
+          [ -n "$_ws_dir" ] || continue
+          case "$_ws_stack" in
+            ts-server)
+              # Wire R2 into every eslint.config.mjs within this workspace.
+              # No --scope: the config is workspace-local (placed by 40-configs.sh) so ESLint
+              # scoping is already provided by config placement — a dir-prefixed files: glob
+              # inside a workspace-local config would be relative to that config's own dir,
+              # making 'apps/api/**' match 'apps/api/apps/api/**' (nothing). Omit files: here.
+              while IFS= read -r -d '' _ws_cfg; do
+                echo "  · R2 wiring: $_ws_cfg"
+                ( cd "$PROJECT_ROOT" && npx --no-install tsx "$_wirer_ws" \
+                    --path "$_ws_cfg" ${FULL:+--yes} 2>&1 ) || true
+              done < <(find "$PROJECT_ROOT/$_ws_dir" \
+                -name 'eslint.config.mjs' \
+                ! -path '*/node_modules/*' \
+                -print0 2>/dev/null)
+              ;;
+            unknown)
+              echo "  ⚠ $_ws_dir: unknown stack — R2 not wired (re-checkable marker; not exit 1)"
+              ;;
+            *)
+              : # react-native / react-next / react-spa: R2 is a server-boundary rule; not wired per-workspace
+              ;;
+          esac
+        done <<< "$_ws_map_r2"
+      fi
+    fi
+  fi
+fi
+
 # ─── cih-s3 V2: runtime-discipline arming WARN (consumer-side, deps-free) ───
 # R7/R8 (no-direct-time-randomness / require-otel-span) ship DEFERRED behind AIF_STRICT_RUNTIME=1
 # in the eslint config templates. If the consumer already depends on @opentelemetry/* yet has not
