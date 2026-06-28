@@ -238,8 +238,10 @@ cp /tmp/rt/templates/shared/tsconfig.json .
 
 - **`ts-server`** — Node.js 20.19+ server-only (Fastify, Hono, Express, plain HTTP).
 - **`react-next`** — React 19 + Next.js 15 (App Router) + TypeScript.
+- **`react-spa`** — React 19 + Vite SPA (Feature-Sliced Design). _Early — ships the `require-error-boundary` rule; the rule-pack is still growing._
+- **`react-native`** — React Native / Expo (Expo or bare-RN baseline). _Experimental baseline — stack scaffold + templates; a dedicated rule-pack is not yet shipped._
 
-Pass the stack to `./setup` (or `install.sh`) as a positional argument — `ts-server` / `react-next` — or omit it to get an interactive picker. (The legacy `setup.sh` wrapper auto-detected the stack from `next.config.*` / `react` in `package.json`.) Both share base configs (tsconfig, husky, lint-staged, RULES R1-R11). React adds R12-R20 + Storybook + Playwright.
+Pass the stack to `./setup` (or `install.sh`) as a positional argument — `ts-server` / `react-next` / `react-spa` / `react-native` — or omit it to get an interactive picker. (The legacy `setup.sh` wrapper auto-detected the stack from `next.config.*` / `react` in `package.json`.) All share base configs (tsconfig, husky, lint-staged, RULES R1-R11); the React stacks add R12-R20 + Storybook/Playwright where applicable.
 
 ## Forward compatibility note on AIF extensions
 
