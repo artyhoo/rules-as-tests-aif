@@ -1,0 +1,31 @@
+{
+  "rules": [
+    {
+      "entryId": "next-no-head-element",
+      "ruleId": "no-head-element",
+      "title": "Use the Metadata API or next/head <Head> instead of a raw <head> element",
+      "stack": ["react-next"],
+      "presence": "forbid",
+      "selector": "JSXOpeningElement[name.name='head']",
+      "message": "Use the Next.js Metadata API or next/head <Head> instead of a raw <head> element.",
+      "examples": {
+        "bad": "<head />",
+        "good": "<Head />"
+      },
+      "negativeTest": {
+        "input": ["<head />"],
+        "expect-violation": "no-restricted-syntax"
+      }
+    },
+    {
+      "entryId": "next-server-only-boundary",
+      "ruleId": "no-server-only-in-client",
+      "title": "Do not import server-only modules into Client Components",
+      "stack": ["react-next"],
+      "examples": {
+        "bad": "'use client';\nimport { db } from '@/lib/server-db';",
+        "good": "import { db } from '@/lib/server-db'; // used only in a Server Component"
+      }
+    }
+  ]
+}
