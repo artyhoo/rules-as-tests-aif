@@ -171,26 +171,38 @@ if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
   fi
 fi
 
-# Pick stack interactively if not provided
+# Pick stack when none was supplied. An explicit positional STACK (parsed above) always wins.
+# Otherwise auto-detect from the consumer's repo signals (package.json) so a fresh `./setup -y`
+# installs without a hand-typed stack — GH #780. REUSE _detect_stack_from_pkg (lib.sh, SSOT,
+# node-free). Fall back to the interactive menu / `--full` fail-loud ONLY when detection is
+# genuinely `unknown` — never a silent wrong install on doubt.
 if [ -z "$STACK" ]; then
-  if [ -n "$FULL" ]; then
-    echo "❌ --yes / --full requires an explicit stack: ts-server | react-next | react-spa | react-native"
-    echo "   Example: ./setup -y ts-server"
-    exit 1
+  STACK="$(_detect_stack_from_pkg)"
+  if [ "$STACK" = "unknown" ]; then
+    STACK=""   # reset so the interactive menu / --full fail-loud below handles it
+    if [ -n "$FULL" ]; then
+      echo "❌ --yes / --full: could not auto-detect a stack from package.json"
+      echo "   (no react-native / next / react / typescript dependency signal)."
+      echo "   Specify one explicitly: ts-server | react-next | react-spa | react-native"
+      echo "   Example: ./setup -y ts-server"
+      exit 1
+    fi
+    echo "What stack does this project use?"
+    echo "  1) ts-server    — Node.js + Fastify/Hono/Express (server only)"
+    echo "  2) react-next   — React 19 + Next.js 15 App Router"
+    echo "  3) react-spa    — React 19 + Vite SPA (Feature-Sliced Design)"
+    echo "  4) react-native — React Native / Expo (Expo or bare-RN baseline)"
+    read -rp "Choose [1/2/3/4]: " choice
+    case "$choice" in
+      1) STACK="ts-server" ;;
+      2) STACK="react-next" ;;
+      3) STACK="react-spa" ;;
+      4) STACK="react-native" ;;
+      *) echo "❌ Invalid choice"; exit 1 ;;
+    esac
+  else
+    echo "  ▶ Auto-detected stack from package.json: $STACK"
   fi
-  echo "What stack does this project use?"
-  echo "  1) ts-server    — Node.js + Fastify/Hono/Express (server only)"
-  echo "  2) react-next   — React 19 + Next.js 15 App Router"
-  echo "  3) react-spa    — React 19 + Vite SPA (Feature-Sliced Design)"
-  echo "  4) react-native — React Native / Expo (Expo or bare-RN baseline)"
-  read -rp "Choose [1/2/3/4]: " choice
-  case "$choice" in
-    1) STACK="ts-server" ;;
-    2) STACK="react-next" ;;
-    3) STACK="react-spa" ;;
-    4) STACK="react-native" ;;
-    *) echo "❌ Invalid choice"; exit 1 ;;
-  esac
 fi
 
 if [ "$STACK" != "ts-server" ] && [ "$STACK" != "react-next" ] && [ "$STACK" != "react-spa" ] && [ "$STACK" != "react-native" ]; then

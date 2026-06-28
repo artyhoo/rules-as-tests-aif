@@ -2,7 +2,9 @@
 # setup — one-click orchestrator: framework (install.sh) + companions (manifest) + runtime-bridge.
 #
 # Usage:
-#   ./setup ts-server               # interactive install; companions optional
+#   ./setup                         # interactive install; stack auto-detected from package.json
+#   ./setup -y                      # non-interactive full install; stack auto-detected (GH #780)
+#   ./setup ts-server               # interactive install; explicit stack; companions optional
 #   ./setup -y ts-server            # non-interactive full install (all layers + dev-deps auto)
 #   ./setup --yes ts-server         # alias for -y
 #   ./setup --all ts-server         # alias for -y
@@ -10,8 +12,9 @@
 #   ./setup --dry-run ts-server     # preview without writing
 #
 # Stack: ts-server | react-next | react-spa | react-native
-# On the yes-path (-y/--yes/--all/--full) an explicit stack is required; the dispatcher
-# fails loud rather than blocking on an interactive prompt.
+# When omitted, the stack is auto-detected from the consumer's package.json (GH #780). On the
+# yes-path (-y/--yes/--all/--full) the dispatcher fails loud (never an interactive prompt) only
+# when detection is genuinely unknown; an explicit positional stack always wins.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 

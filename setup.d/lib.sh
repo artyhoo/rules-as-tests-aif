@@ -19,6 +19,7 @@
 #   mkdir_safe <dir>
 #   chmod_safe <mode> <file...>
 #   detect_pm
+#   _detect_stack_from_pkg
 #   patch_stryker_package_manager
 #   copy_skill_with_transform <slug>
 #   refresh_skill_with_transform <slug>
@@ -271,6 +272,34 @@ detect_pm() {
     [ -n "$_field" ] && _pm="$_field"
   fi
   printf '%s' "$_pm"
+}
+
+# _detect_stack_from_pkg — classify the consumer's stack from package.json dependency signals.
+# Pure bash + grep, NODE-FREE: install.sh runs BEFORE the consumer installs deps, so this must not
+# depend on `node` being present (node-optional install-time repo-read model — same posture as
+# detect_pm above, packages/core/audit-self/detect-r2-boundary.sh, and the expo-detect in
+# setup.d/40-configs.sh, all of which read package.json with grep, not node).
+# SSOT — this is the single stack detector; both the install.sh stack-pick (fresh `--yes`/`--full`
+# auto-detect, GH #780) and 15-companions-stack.sh consume it, so the signal logic never drifts.
+# Signal order is most-specific-first: react-native → next → react → typescript → unknown.
+# The grep anchor '"<dep>"[[:space:]]*:' matches a package.json dependency KEY exactly (the closing
+# quote excludes prefixes — '"react"' does NOT match '"react-native":' / '"react-dom":', and a
+# string VALUE like "next build" is not matched — there is no '"next":' key there).
+# Trade-off vs a node deps-only parse: grep scans the WHOLE file, so a signal key in
+# peer/optional/overrides (or, rarely, a same-named "scripts" key) also counts. For a realistic
+# consumer package.json this is equal-or-more-inclusive and never the #780 "silent wrong install"
+# failure (an app peer-depending on next is next-related); the install path fail-louds only on
+# `unknown`, never on a mis-detect.
+# Reads $PROJECT_ROOT/package.json. Echoes exactly one of:
+#   react-native | react-next | react-spa | ts-server | unknown
+_detect_stack_from_pkg() {
+  local pkg="$PROJECT_ROOT/package.json"
+  [ -f "$pkg" ] || { echo "unknown"; return; }
+  if   grep -qE '"react-native"[[:space:]]*:' "$pkg"; then echo "react-native"
+  elif grep -qE '"next"[[:space:]]*:'         "$pkg"; then echo "react-next"
+  elif grep -qE '"react"[[:space:]]*:'        "$pkg"; then echo "react-spa"
+  elif grep -qE '"typescript"[[:space:]]*:'   "$pkg"; then echo "ts-server"
+  else echo "unknown"; fi
 }
 
 # The shipped stryker.config.json hardcodes "packageManager": "npm" (the template can't

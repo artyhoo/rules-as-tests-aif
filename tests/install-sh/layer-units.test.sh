@@ -104,7 +104,8 @@ echo ""; echo "  ── structural: no copy-pasted helper bodies in layers ─�
 # These function defs must NOT appear in any layer file (they belong in lib.sh only).
 # Use -E patterns and match function-definition syntax: name() { OR name () {
 SSOT_FUNS=("copy_safe" "refresh_safe" "mkdir_safe" "chmod_safe" \
-           "transform_internal_refs" "detect_pm" "patch_stryker_package_manager" \
+           "transform_internal_refs" "detect_pm" "_detect_stack_from_pkg" \
+           "patch_stryker_package_manager" \
            "copy_skill_with_transform" "refresh_skill_with_transform" \
            "merge_prettierignore" "ignore_shipped_configs")
 found_paste=0

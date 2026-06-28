@@ -20,43 +20,10 @@
 
 MANIFEST="$PKG_ROOT/setup.d/companions.manifest"
 
-# Detect stack from package.json in PROJECT_ROOT
-_detect_stack_from_pkg() {
-  local pkg="$PROJECT_ROOT/package.json"
-  if [ ! -f "$pkg" ]; then
-    echo "unknown"
-    return
-  fi
-  # Check for react-native first (most specific)
-  if node -e "const p=JSON.parse(require('fs').readFileSync('$pkg','utf8')); \
-    const d={...p.dependencies,...p.devDependencies}; \
-    process.exit(d['react-native']?0:1)" 2>/dev/null; then
-    echo "react-native"
-    return
-  fi
-  # next.js → react-next
-  if node -e "const p=JSON.parse(require('fs').readFileSync('$pkg','utf8')); \
-    const d={...p.dependencies,...p.devDependencies}; \
-    process.exit(d['next']?0:1)" 2>/dev/null; then
-    echo "react-next"
-    return
-  fi
-  # react without next → react-spa
-  if node -e "const p=JSON.parse(require('fs').readFileSync('$pkg','utf8')); \
-    const d={...p.dependencies,...p.devDependencies}; \
-    process.exit(d['react']?0:1)" 2>/dev/null; then
-    echo "react-spa"
-    return
-  fi
-  # typescript → ts-server
-  if node -e "const p=JSON.parse(require('fs').readFileSync('$pkg','utf8')); \
-    const d={...p.dependencies,...p.devDependencies}; \
-    process.exit(d['typescript']?0:1)" 2>/dev/null; then
-    echo "ts-server"
-    return
-  fi
-  echo "unknown"
-}
+# Stack detection lives in lib.sh (_detect_stack_from_pkg) — SSOT shared with the install.sh
+# stack-pick (GH #780 fresh-install auto-detect). lib.sh is sourced before this layer (install.sh
+# sources lib.sh at the top, then the numbered layers), so the function is in scope here. The
+# detector is node-free (grep-based) per the install-time node-optional repo-read model.
 
 # _stack_matches <stacks_field> <detected_stack>
 # Returns 0 (true) if the stacks field covers the detected stack.
