@@ -102,10 +102,10 @@ function applyMutations(selector: string): string[] {
 
 function probeSelector(selector: string, code: string): boolean {
   const linter = new Linter();
-  const cfg = [
+  const cfg: Linter.Config[] = [
     {
       rules: {
-        'no-restricted-syntax': ['error' as const, { selector, message: 'mutation-ci-probe' }],
+        'no-restricted-syntax': ['error', { selector, message: 'mutation-ci-probe' }],
       },
       languageOptions: {
         ecmaVersion: 2022 as const,
