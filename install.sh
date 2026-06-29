@@ -118,6 +118,7 @@ SHIPPED_DOCS=(
   "agents/memory-codification-auditor.md"
   "agents/orchestrator-worker-discipline.md"
   "agents/aif-init.md"
+  "agents/rule-researcher.md"
   "skills/tool-bootstrapping/SKILL.md"
   "skills/tool-bootstrapping/references/decision-format.md"
 )
