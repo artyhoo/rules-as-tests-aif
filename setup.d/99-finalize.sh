@@ -39,6 +39,56 @@ if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; 
   fi
 fi
 
+# ─── #827 B3: per-workspace live-research synth-wire for multi-stack monorepos ──
+# The root synth-wire block above wires $PROJECT_ROOT/eslint.config.mjs and is gated on that root
+# config existing — correct for flat repos. A multi-stack monorepo has NO root config, so the
+# live-research snippet (emitted by 80-rule-bootstrap for the install's $STACK) would wire NOWHERE.
+# Mirror the R2 per-workspace loop (§13.5 I-2 L2 below): for each detected workspace whose stack
+# matches the install $STACK, wire the (single, stack-keyed) root snippet into that workspace's
+# eslint.config.mjs.
+#
+# Routing (simplest correct; matches the dogfood layout): research is ROOT-level + stack-keyed
+# ($PROJECT_ROOT/.ai-factory/rules-research/<stack>.{research,selection}.json — the same convention
+# 80-rule-bootstrap reads), and 80-rule-bootstrap emits ONE snippet for the install's $STACK. We
+# route that snippet to workspaces whose DETECTED stack == $STACK. A multi-stack monorepo runs
+# ./setup <stack> --full once per stack (install.sh takes a single --stack arg); each run delivers
+# that stack's live rule into its matching workspaces. Snippet is passed EXPLICITLY (--snippet)
+# because the CLI default derives it from the config's own dir, which a workspace config lacks.
+# Gated on NO root config (mutually exclusive with the root block above — no double-wire).
+# Honours --dry-run; rc=0 on every branch — install must not abort on wirer failure.
+if command -v node >/dev/null 2>&1 && [ "$DRY_RUN" != "--dry-run" ] \
+   && [ ! -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+  _synth_wirer_ws="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
+  _ws_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
+  if [ ! -f "$_synth_wirer_ws" ]; then
+    : # bundle absent — nothing to wire (the root block already echoes this for flat repos)
+  elif [ ! -f "$_ws_snippet" ]; then
+    : # no live snippet emitted (80-rule-bootstrap degraded / not --full) — presets are the fence
+  else
+    _ws_map_synth=$(_detect_stacks_per_workspace "$PROJECT_ROOT")
+    if [ -n "$_ws_map_synth" ]; then
+      echo "▶ synth-wire per-workspace: routing ${STACK:-ts-server} live-research snippet to matching workspace configs"
+      while IFS=$'\t' read -r _sw_dir _sw_stack; do
+        [ -n "$_sw_dir" ] || continue
+        # Only wire the snippet into workspaces matching the install's $STACK — the snippet IS that
+        # stack's live rule. Other-stack workspaces are delivered on their own ./setup <stack> run.
+        [ "$_sw_stack" = "${STACK:-ts-server}" ] || continue
+        while IFS= read -r -d '' _sw_cfg; do
+          echo "  · synth-wire (live): $_sw_cfg"
+          ( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
+              node "$_synth_wirer_ws" \
+                --stack "${STACK:-ts-server}" \
+                --path "$_sw_cfg" \
+                --snippet "$_ws_snippet" 2>&1 ) || true
+        done < <(find "$PROJECT_ROOT/$_sw_dir" \
+          -name 'eslint.config.mjs' \
+          ! -path '*/node_modules/*' \
+          -print0 2>/dev/null)
+      done <<< "$_ws_map_synth"
+    fi
+  fi
+fi
+
 # ─── D3: presets-are-fallback notice (live-research-default-delivery) ───────────
 # Live-research is the DEFAULT stack-rule delivery; presets are the FALLBACK baseline. When the
 # consumer has NOT authored rules-research artefacts for this stack, the live path (80-rule-bootstrap
