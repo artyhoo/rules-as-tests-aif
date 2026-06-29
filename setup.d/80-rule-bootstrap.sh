@@ -59,6 +59,11 @@ if [ -n "${DRY_RUN:-}" ]; then
   return 0 2>/dev/null || true
 fi
 
+# B4 (#827): guarantee the factory's workspace deps (@rules-as-tests/*) resolve from PKG_ROOT
+# before invoking the factory (defined in lib.sh — sourced in dispatcher scope). No-op on the
+# happy path (properly-installed checkout); self-heals a borrowed/dangling worktree node_modules.
+ensure_workspace_pkg_links "$PKG_ROOT"
+
 printf '  [80-rule-bootstrap] LIVE research+selection → generate → buildLock (--full, %s)\n' "${STACK:-ts-server}"
 # Run tsx from PKG_ROOT (the framework — tsx is present there) while targeting the consumer
 # via --consumer-root, so this works even when the consumer has no tsx of its own.
