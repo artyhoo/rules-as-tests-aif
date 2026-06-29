@@ -391,6 +391,63 @@ describe('wireNRules — defineConfig(obj, …) shape (production export shape)'
   );
 });
 
+// ─── Live-wins override (D2: live-research-default-delivery) ─────────────────
+// When a live rule shares a preset rule-id, the live value must OVERRIDE the preset value in
+// the consumer config — but ONLY when the rule-id is in opts.overrideKeys. Without it, the
+// default append-if-missing keeps the preset (presence-only) — the non-vacuity pair.
+describe('wireNRules — live-wins override (overrideKeys)', () => {
+  const R12 = 'rules-as-tests/no-server-imports-in-client';
+  const PRESENT_SIMPLE = `export default [{ rules: { '${R12}': 'error' } }];\n`;
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    'present rule-id + different live value + overrideKeys → wired, value replaced (live wins)',
+    async () => {
+      const result = await wireNRules(PRESENT_SIMPLE, { [R12]: 'warn' }, { overrideKeys: new Set([R12]) });
+      expect(result.status).toBe('wired');
+      expect(result.modified).toMatch(new RegExp(`${R12}'\\s*:\\s*["']warn["']`));
+      expect(result.modified).not.toMatch(new RegExp(`${R12}'\\s*:\\s*["']error["']`));
+    },
+  );
+
+  it(
+    'present rule-id + different live value but NO overrideKeys → already-wired (preset wins; non-vacuity)',
+    async () => {
+      const result = await wireNRules(PRESENT_SIMPLE, { [R12]: 'warn' }, {});
+      expect(result.status).toBe('already-wired');
+      expect(result.modified).toBe(PRESENT_SIMPLE);
+    },
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    'override with SAME value → already-wired byte-identical (idempotent re-run)',
+    async () => {
+      const result = await wireNRules(PRESENT_SIMPLE, { [R12]: 'error' }, { overrideKeys: new Set([R12]) });
+      expect(result.status).toBe('already-wired');
+      expect(result.modified).toBe(PRESENT_SIMPLE);
+    },
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    'override applied once is idempotent on a second override pass',
+    async () => {
+      const first = await wireNRules(PRESENT_SIMPLE, { [R12]: 'warn' }, { overrideKeys: new Set([R12]) });
+      expect(first.status).toBe('wired');
+      const second = await wireNRules(first.modified, { [R12]: 'warn' }, { overrideKeys: new Set([R12]) });
+      expect(second.status).toBe('already-wired');
+      expect(second.modified).toBe(first.modified);
+    },
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    'override of an ABSENT rule-id → appended (falls through to missing-append path)',
+    async () => {
+      const result = await wireNRules(BASE_SOURCE, { [R12]: 'warn' }, { overrideKeys: new Set([R12]) });
+      expect(result.status).toBe('wired');
+      expect(result.modified).toContain(`'${R12}'`);
+    },
+  );
+});
+
 // ─── R2 not in synthRules ────────────────────────────────────────────────────
 describe('wireNRules — R2 exclusion', () => {
   it(
