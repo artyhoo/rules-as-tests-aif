@@ -11,7 +11,7 @@
 #              no-server-imports-in-client (R12).
 #   Class 2 — declarative recipes via restricted-syntax-audit-exempt (R14/R20).
 #
-# ALGORITHM per fixture triple (<name>.bad.ts + <name>.good.ts + <name>.manifest.json):
+# ALGORITHM per fixture triple (<name>.bad.<ext> + <name>.good.<ext> + <name>.manifest.json):
 #   1. Parse rule-id and optional rule-options from manifest.
 #   2. bad.ts → rule MUST fire (probe exits 0 ⇒ PASS; exits 1 ⇒ FAIL "fence silent").
 #   3. good.ts → rule MUST NOT fire (probe exits 0 ⇒ PASS; exits 2 ⇒ FAIL "false-positive").
@@ -169,7 +169,7 @@ _run_fixture() {
 
   # Find bad and good files (support .ts and .tsx)
   local BAD_FILE="" GOOD_FILE=""
-  for _ext in .ts .tsx .js .jsx; do
+  for _ext in .ts .tsx .js .jsx .txt; do
     [ -z "$BAD_FILE"  ] && [ -f "${FIXTURE_BASE}.bad${_ext}"  ] && BAD_FILE="${FIXTURE_BASE}.bad${_ext}"
     [ -z "$GOOD_FILE" ] && [ -f "${FIXTURE_BASE}.good${_ext}" ] && GOOD_FILE="${FIXTURE_BASE}.good${_ext}"
   done

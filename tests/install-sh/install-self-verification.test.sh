@@ -58,12 +58,12 @@ for _fence in "no-unsafe-zod-parse" "no-server-imports-in-client" "require-use-s
   if [ -n "$BAD_FILE" ]; then
     ok "(ii) $_fence bad fixture: $(basename "$BAD_FILE")"
   else
-    bad "(ii) $_fence bad fixture (.bad.ts/.tsx) MISSING"
+    bad "(ii) $_fence bad fixture (.bad.*) MISSING"
   fi
   if [ -n "$GOOD_FILE" ]; then
     ok "(ii) $_fence good fixture: $(basename "$GOOD_FILE")"
   else
-    bad "(ii) $_fence good fixture (.good.ts/.tsx) MISSING"
+    bad "(ii) $_fence good fixture (.good.*) MISSING"
   fi
 done
 
