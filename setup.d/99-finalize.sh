@@ -176,7 +176,7 @@ fi
 echo ""
 echo "Next steps:"
 echo "  1. Edit .ai-factory/DESCRIPTION.template.md → save as .ai-factory/DESCRIPTION.md"
-echo "  2. Edit .ai-factory/ARCHITECTURE.ts-server.md (or ARCHITECTURE.react-next.md) → save as .ai-factory/ARCHITECTURE.md"
+echo "  2. Edit .ai-factory/ARCHITECTURE.${STACK:-ts-server}.md → save as .ai-factory/ARCHITECTURE.md"
 echo "  3. Edit AGENTS.md placeholders to match your project"
 if [ "${DEPS_INSTALLED:-}" = "1" ]; then
   echo "  4. ✓ Dev-dependencies installed into node_modules/ — nothing to do."
