@@ -277,8 +277,8 @@ Self-application — **не отдельный шаг**, а cross-cutting invari
 - **L1 Stack Detector** — авто-детект из `package.json` (`_detect_stack_from_pkg`, node-free) на свежем install (PR #780/#790); **4 стека**: ts-server / react-next / react-spa / react-native (пресеты `packages/preset-react-spa/`, `packages/preset-react-native/`, #646 Stage 1); per-workspace детект для multi-stack монорепо (#793). Остаётся file-based + детерминированным, без LLM.
 - **L2 Research** — больше не только курируемый JSON: live web_search research (port+adapter+provenance-gate, $0-CI, #686) + live-research как дефолт доставки правил augment-first для react-next (#805/#811/#812/#824, 2026-06-29).
 - **L3 Synthesizer** — за пределами Path-A: recipe-less генерация (`generate.ts` + Anthropic-адаптер), декларативный ярус (`compile-declarative-md.ts`), live menu-pick, мутационная проверка сгенерированных правил (`run-generated-rule-mutation`).
-- **L4 Validator** — `packages/core/validator/` с гейтами tautology / single-token-diff (минимальная пара) / autofix-clean / message-id-coverage / rule-tester / require-vacuity / conflict / schema, у каждого adversarial-тест. 31 принцип-тест.
-- **L5 Installer** — install-self-verification (заборы срабатывают, сгенерированные тесты не пустые, PR #823, closes #810); `--yes/--full` + авто-детект (T2b закрыт, #780); пре-компиляция ESLint-правил в `.mjs`+`.d.ts` (снят краш Node 22, `enforcement-liveness-fix` DONE #745/#752); модульный `setup.d/` (00–70).
+- **L4 Validator** — `packages/core/validator/` с гейтами tautology / single-token-diff (минимальная пара) / autofix-clean / message-id-coverage / rule-tester / require-vacuity / conflict / schema, у 6 из 8 — adversarial-тест (conflict/schema — обычный `.test.ts`). 31 принцип-тест.
+- **L5 Installer** — install-self-verification (заборы срабатывают, сгенерированные тесты не пустые, PR #823, closes #810); `--yes/--full` + авто-детект (T2b закрыт, #780); пре-компиляция ESLint-правил в `.mjs`+`.d.ts` (снят краш Node 22, `enforcement-liveness-fix` DONE #745/#752); модульный `setup.d/` (05–99).
 
 **Hard stop-rules from retros (all 4 held through Phase 7):**
 
