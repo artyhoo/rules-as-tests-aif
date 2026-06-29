@@ -343,7 +343,7 @@ describe('scoped emission — §13.5 I-2 L2 primitive (SSOT #182)', () => {
       const r = await wireNRules(base, synthRules, { scope: { files: ['apps/web/**'] } });
       expect(r.status).toBe('wired');
       expect(r.modified).toContain(`files: ["apps/web/**"]`);
-      expect(r.modified).toContain(`'rules-as-tests/no-non-null-assertion': 'error'`);
+      expect(r.modified).toMatch(/['"]rules-as-tests\/no-non-null-assertion['"]\s*:\s*['"]error['"]/);
     }
   );
 

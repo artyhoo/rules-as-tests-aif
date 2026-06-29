@@ -39,6 +39,38 @@ if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; 
   fi
 fi
 
+# ─── D3: presets-are-fallback notice (live-research-default-delivery) ───────────
+# Live-research is the DEFAULT stack-rule delivery; presets are the FALLBACK baseline. When the
+# consumer has NOT authored rules-research artefacts for this stack, the live path (80-rule-bootstrap
+# → synth-wire snippet merge above) produced nothing, so the shipped preset rules are the only
+# stack fence. Surface that + point at the live-research protocol. Deps-free echo; exit stays 0.
+# Mirrors the R7/R8-arming WARN style below; --dry-run-aware.
+_rr_dir="$PROJECT_ROOT/.ai-factory/rules-research"
+_rr_plan="$_rr_dir/${STACK:-ts-server}.research.json"
+_rr_sel="$_rr_dir/${STACK:-ts-server}.selection.json"
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "  [dry-run] would check ${STACK:-ts-server} rules-research artefacts for the presets-are-fallback notice"
+elif [ ! -f "$_rr_plan" ] || [ ! -f "$_rr_sel" ]; then
+  echo ""
+  echo "ℹ  Presets are the FALLBACK baseline — prefer live-research for fresh, stack-specific rules."
+  echo "   No .ai-factory/rules-research/${STACK:-ts-server}.{research,selection}.json found, so the shipped"
+  echo "   preset rules are your only stack fence this install. Run the rule-research protocol"
+  echo "   (agents/rule-researcher.md or the rule-research skill), then re-run ./setup --full to"
+  echo "   deliver live-researched rules into eslint.config.mjs (they augment + override the presets)."
+fi
+
+# ─── D4 (#811): preset staleness guard — frozen-snapshot vs installed-major WARN ───
+# The shipped preset is a frozen Next-15 snapshot (packages/preset-next-15-canonical/preset.meta.json
+# pins). When the consumer's installed framework/tool major differs, WARN + steer to live-research.
+# Deps-free (warn_preset_staleness greps package.json text); scoped to react-next (the preset's stack);
+# --dry-run-aware; exit stays 0.
+_preset_meta="$PKG_ROOT/packages/preset-next-15-canonical/preset.meta.json"
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "  [dry-run] would compare installed tool majors vs $_preset_meta for the #811 staleness WARN"
+elif [ "${STACK:-}" = "react-next" ]; then
+  warn_preset_staleness "$_preset_meta" "$PROJECT_ROOT/package.json"
+fi
+
 # ─── 6b-bis-L2. GH #547 Layer 2: AST-wire R2 into consumer per-package configs ─
 # Runs AFTER §8 dep-install so ts-morph is resolvable when --full is set.
 # Option A (migration-ast Stage 4): gated on --full; ensure-then-use; degrade

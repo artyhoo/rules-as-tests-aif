@@ -279,6 +279,13 @@ jobs:
         run: bash tests/install-sh/bridge-guided.test.sh
       - name: Run install-sh setup-orchestrator test (one-click-installer S3)
         run: bash tests/install-sh/setup-orchestrator.test.sh
+      - name: Run install-sh preset-staleness test (live-research-default-delivery #811 D4)
+        run: bash tests/install-sh/preset-staleness.test.sh
+      # live-research-default-delivery §6 oracle: the live-snippet wiring + live-wins override
+      # proof must FIRE in CI (the install/ vitest dir is otherwise un-gated — armed-but-not-fired,
+      # PR #796 lesson). Targeted to the two new specs (no full install/ dir gate — scope).
+      - name: Run live-snippet wire oracle + override tests (live-research-default-delivery D1/D2/§6)
+        run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
       - name: Run ci-success aggregate-gate paired-negative
         run: bash scripts/ci-success-gate.test.sh
       - name: Run harvest-via-api mode/ref paired-negative (Git Data API push fallback)

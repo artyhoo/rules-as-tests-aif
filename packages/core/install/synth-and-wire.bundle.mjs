@@ -8565,7 +8565,7 @@ var require_ajv = __commonJS({
 
 // packages/core/install/synth-and-wire.ts
 import { existsSync as existsSync4, readFileSync as readFileSync5, writeFileSync as writeFileSync2 } from "node:fs";
-import { resolve as resolve5 } from "node:path";
+import { dirname as dirname5, resolve as resolve5 } from "node:path";
 import process3 from "node:process";
 
 // packages/core/research/load.ts
@@ -9051,9 +9051,12 @@ async function wireConfigSource(source, opts = {}) {
 }
 var WRAPPER_RULE_KEY = "rules-as-tests/restricted-syntax-audit-exempt";
 function jsString(s) {
-  if (!s.includes('"')) return `"${s}"`;
-  if (!s.includes("'")) return `'${s}'`;
-  return `"${s.replace(/"/g, '\\"')}"`;
+  const needsEscape = s.includes("\\") || s.includes("\n") || s.includes("\r") || s.includes("\u2028") || s.includes("\u2029");
+  if (!needsEscape) {
+    if (!s.includes('"')) return `"${s}"`;
+    if (!s.includes("'")) return `'${s}'`;
+  }
+  return JSON.stringify(s);
 }
 function simpleRulePresent(source, ruleName) {
   return source.includes(`'${ruleName}'`) || source.includes(`"${ruleName}"`);
@@ -9065,10 +9068,9 @@ function wrapperSelectorsPresent(source, arrValue) {
     return sel != null && source.includes(sel);
   });
 }
-function buildRuleConfigElement(ruleName, value, scope) {
-  const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(", ")}], ` : "";
+function buildRuleValueExpr(value) {
   if (typeof value === "string") {
-    return `{ ${filesPart}rules: { '${ruleName}': ${jsString(value)} } }`;
+    return jsString(value);
   }
   if (Array.isArray(value)) {
     const severity = typeof value[0] === "string" ? value[0] : "error";
@@ -9077,9 +9079,48 @@ function buildRuleConfigElement(ruleName, value, scope) {
       if (e.message) parts.push(`message: ${jsString(e.message)}`);
       return `{ ${parts.join(", ")} }`;
     });
-    return `{ ${filesPart}rules: { '${ruleName}': [${jsString(severity)}, ${entries.join(", ")}] } }`;
+    return `[${jsString(severity)}, ${entries.join(", ")}]`;
   }
-  return `{ ${filesPart}rules: { '${ruleName}': ${JSON.stringify(value)} } }`;
+  return JSON.stringify(value);
+}
+function buildRuleConfigElement(ruleName, value, scope) {
+  const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(", ")}], ` : "";
+  return `{ ${filesPart}rules: { ${jsString(ruleName)}: ${buildRuleValueExpr(value)} } }`;
+}
+function exprEqual(a, b) {
+  const norm = (s) => s.replace(/['"`]/g, '"').replace(/\s+/g, "");
+  return norm(a) === norm(b);
+}
+function replaceSimpleRuleValue(elements, SyntaxKind, ruleName, desiredExpr) {
+  for (const el of elements) {
+    if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const prop of el.getProperties?.() ?? []) {
+      let propName;
+      try {
+        propName = normPropName(prop.getName?.());
+      } catch {
+        continue;
+      }
+      if (propName !== "rules") continue;
+      const rulesInit = prop.getInitializer?.();
+      if (!rulesInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+      for (const rp of rulesInit.getProperties?.() ?? []) {
+        let rpName;
+        try {
+          rpName = normPropName(rp.getName?.());
+        } catch {
+          continue;
+        }
+        if (rpName !== ruleName) continue;
+        const init = rp.getInitializer?.();
+        if (!init) return "not-found";
+        if (exprEqual(init.getText(), desiredExpr)) return "same";
+        rp.setInitializer(desiredExpr);
+        return "changed";
+      }
+    }
+  }
+  return "not-found";
 }
 function normPropName(name) {
   if (typeof name !== "string") return "";
@@ -9124,18 +9165,24 @@ async function wireNRules(source, synthRules, _opts = {}) {
   if (ruleEntries.length === 0) {
     return { status: "already-wired", original: source, modified: source };
   }
+  const overrideKeys = _opts.overrideKeys;
   const missing = [];
+  const overrides = [];
   for (const [key, value] of ruleEntries) {
     if (Array.isArray(value)) {
       if (!wrapperSelectorsPresent(source, value)) missing.push({ key, value });
-    } else {
-      if (!simpleRulePresent(source, key)) missing.push({ key, value });
+    } else if (!simpleRulePresent(source, key)) {
+      missing.push({ key, value });
+    } else if (overrideKeys?.has(key)) {
+      overrides.push({ key, value });
     }
   }
-  if (missing.length === 0) {
+  if (missing.length === 0 && overrides.length === 0) {
     return { status: "already-wired", original: source, modified: source };
   }
-  console.debug(`  [synth-wire] DEBUG: ${missing.length} rule(s) to wire: ${missing.map((m) => m.key).join(", ")}`);
+  console.debug(
+    `  [synth-wire] DEBUG: ${missing.length} rule(s) to wire, ${overrides.length} override(s): ${[...missing, ...overrides].map((m) => m.key).join(", ")}`
+  );
   let Project;
   let SyntaxKind;
   try {
@@ -9178,7 +9225,22 @@ async function wireNRules(source, synthRules, _opts = {}) {
     return { status: "unrecognised", original: source, modified: source };
   }
   const configElements = isCallExprMode ? callExprNode.getArguments() : exportArr.getElements?.() ?? [];
+  let changed = false;
+  for (const { key, value } of overrides) {
+    const desired = buildRuleValueExpr(value);
+    const outcome = replaceSimpleRuleValue(configElements, SyntaxKind, key, desired);
+    if (outcome === "changed") {
+      console.debug(`  [synth-wire] DEBUG: live-override replaced value of '${key}'`);
+      changed = true;
+    } else if (outcome === "not-found") {
+      console.debug(`  [synth-wire] DEBUG: override target '${key}' not found as a rules prop \u2014 appending`);
+      if (isCallExprMode) callExprNode.addArgument(buildRuleConfigElement(key, value, _opts.scope));
+      else exportArr.addElement(buildRuleConfigElement(key, value, _opts.scope));
+      changed = true;
+    }
+  }
   for (const { key, value } of missing) {
+    changed = true;
     if (_opts.scope) {
       console.log(`  [wire:N-rule] scoping ${key} to files=${_opts.scope.files.join(", ")}`);
     }
@@ -9205,6 +9267,9 @@ async function wireNRules(source, synthRules, _opts = {}) {
         exportArr.addElement(buildRuleConfigElement(key, value, _opts.scope));
       }
     }
+  }
+  if (!changed) {
+    return { status: "already-wired", original: source, modified: source };
   }
   const modified = sf.getFullText();
   return { status: "wired", original: source, modified };
@@ -9385,6 +9450,68 @@ var STACK_PATTERNS = {
     ]
   }
 };
+var RULE_ID_SAFE = /^[A-Za-z0-9@/_-]+$/;
+function unionWrapperSelectors(presetArr, liveArr) {
+  const severity = typeof liveArr[0] === "string" ? liveArr[0] : typeof presetArr[0] === "string" ? presetArr[0] : "error";
+  const bySelector = /* @__PURE__ */ new Map();
+  for (const e of presetArr.slice(1)) {
+    const sel = e?.selector;
+    if (sel) bySelector.set(sel, e);
+  }
+  for (const e of liveArr.slice(1)) {
+    const sel = e?.selector;
+    if (sel) bySelector.set(sel, e);
+  }
+  return [severity, ...bySelector.values()];
+}
+function mergeLiveRules(presetRules, liveRules) {
+  const rules = { ...presetRules };
+  const overrideKeys = /* @__PURE__ */ new Set();
+  for (const [id, liveVal] of Object.entries(liveRules)) {
+    if (!RULE_ID_SAFE.test(id)) {
+      console.error(`  \xB7 synth-and-wire: live snippet \u2014 non-conforming rule-id '${id}' rejected`);
+      continue;
+    }
+    if (!Object.hasOwn(presetRules, id)) {
+      rules[id] = liveVal;
+      continue;
+    }
+    const presetVal = presetRules[id];
+    if (Array.isArray(liveVal) && Array.isArray(presetVal)) {
+      rules[id] = unionWrapperSelectors(presetVal, liveVal);
+    } else {
+      rules[id] = liveVal;
+      overrideKeys.add(id);
+    }
+  }
+  return { rules, overrideKeys };
+}
+function readLiveSnippet(snippetPath) {
+  if (!existsSync4(snippetPath)) return {};
+  try {
+    const raw = readFileSync5(snippetPath, "utf8").trim();
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const safe = /* @__PURE__ */ Object.create(null);
+      for (const [id, val] of Object.entries(parsed)) {
+        if (!RULE_ID_SAFE.test(id)) {
+          console.error(`  \xB7 synth-and-wire: live snippet \u2014 non-conforming rule-id '${id}' rejected (must match [A-Za-z0-9@/_-]+)`);
+          continue;
+        }
+        safe[id] = val;
+      }
+      return safe;
+    }
+    console.error(`  \xB7 synth-and-wire: live snippet at ${snippetPath} is not a rules object \u2014 ignored`);
+    return {};
+  } catch (err) {
+    console.error(
+      `  \xB7 synth-and-wire: live snippet at ${snippetPath} unreadable (${err.message}) \u2014 using preset baseline only`
+    );
+    return {};
+  }
+}
 async function main2() {
   const argv = process3.argv.slice(2);
   if (argv.includes("--help") || argv.includes("-h")) {
@@ -9408,14 +9535,16 @@ async function main2() {
   const pathIdx = argv.indexOf("--path");
   const configPath = resolve5(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
   const dryRun = argv.includes("--dry-run");
-  const KNOWN_FLAGS = /* @__PURE__ */ new Set(["--help", "-h", "--stack", "--path", "--dry-run"]);
+  const snippetIdx = argv.indexOf("--snippet");
+  const snippetPath = snippetIdx >= 0 ? resolve5(argv[snippetIdx + 1]) : resolve5(dirname5(configPath), ".ai-factory", "synthesizer-output", "eslint-rules-snippet.json");
+  const KNOWN_FLAGS = /* @__PURE__ */ new Set(["--help", "-h", "--stack", "--path", "--dry-run", "--snippet"]);
   for (let i = 0; i < argv.length; i++) {
     if (argv[i].startsWith("--") || argv[i].startsWith("-")) {
       if (!KNOWN_FLAGS.has(argv[i])) {
         console.error(`  \xB7 synth-and-wire: unrecognised flag '${argv[i]}' \u2014 aborting (known: ${[...KNOWN_FLAGS].join(", ")})`);
         process3.exit(0);
       }
-      if (argv[i] === "--stack" || argv[i] === "--path") i++;
+      if (argv[i] === "--stack" || argv[i] === "--path" || argv[i] === "--snippet") i++;
     }
   }
   const stackDef = STACK_PATTERNS[stack];
@@ -9433,17 +9562,26 @@ async function main2() {
     drift: null
   });
   const synthRules = JSON.parse(plan.eslintConfigSnippet);
-  if (Object.keys(synthRules).length === 0) {
+  const liveRules = readLiveSnippet(snippetPath);
+  const { rules: mergedRules, overrideKeys } = mergeLiveRules(synthRules, liveRules);
+  if (Object.keys(liveRules).length > 0) {
+    const newIds = Object.keys(liveRules).filter((id) => !(id in synthRules));
+    const liveSelectors = Array.isArray(liveRules[ESLINT_RESTRICTED_RULE_NAME]) ? liveRules[ESLINT_RESTRICTED_RULE_NAME].length - 1 : 0;
+    console.log(
+      `  [synth-wire] live-research snippet found at ${snippetPath} \u2014 augmenting preset baseline (live precedence; ${newIds.length} new rule-id(s), ${overrideKeys.size} override(s), ${liveSelectors} live selector(s))`
+    );
+  }
+  if (Object.keys(mergedRules).length === 0) {
     console.log(`  [synth-wire] synthesizer emitted no rules for '${stack}' \u2014 no-op`);
     process3.exit(0);
   }
-  console.debug(`  [synth-wire] DEBUG: emitted ${Object.keys(synthRules).length} rule(s): ${Object.keys(synthRules).join(", ")}`);
+  console.debug(`  [synth-wire] DEBUG: emitted ${Object.keys(mergedRules).length} rule(s): ${Object.keys(mergedRules).join(", ")}`);
   if (dryRun) {
     if (!existsSync4(configPath)) {
       console.log(`  [dry-run] [synth-wire] ${configPath} not found \u2014 would skip`);
     } else {
       const source2 = readFileSync5(configPath, "utf8");
-      const result2 = await wireNRules(source2, synthRules);
+      const result2 = await wireNRules(source2, mergedRules, { overrideKeys });
       if (result2.status === "already-wired") {
         console.log(`  [dry-run] [synth-wire] all synthesized rules already present in ${configPath} (no change needed)`);
       } else {
@@ -9457,7 +9595,7 @@ async function main2() {
     process3.exit(0);
   }
   const source = readFileSync5(configPath, "utf8");
-  const result = await wireNRules(source, synthRules);
+  const result = await wireNRules(source, mergedRules, { overrideKeys });
   switch (result.status) {
     case "already-wired":
       console.log(`  [synth-wire] \u2713 all synthesized rules confirmed in ${configPath} (idempotent \u2014 no change)`);
@@ -9487,3 +9625,6 @@ if (process3.argv[1] && (process3.argv[1].endsWith("synth-and-wire.ts") || proce
     process3.exit(0);
   });
 }
+export {
+  mergeLiveRules
+};

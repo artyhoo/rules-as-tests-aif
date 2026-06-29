@@ -466,6 +466,56 @@ refresh_skill_with_transform() {
   echo "  ✓ .claude/skills/$slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 }
 
+# ── #811 preset staleness guard (live-research-default-delivery, D4) ───────────
+# Deps-free, no-network major-version drift WARN: a shipped preset is a frozen snapshot
+# (preset.meta.json pins) that goes stale as the ecosystem moves. When the consumer's
+# installed tool major differs from the preset's recorded major, surface a WARN steering
+# them to live-research delivery. Reads package.json TEXT (deps may be uninstalled at
+# install time — no module/require check). exit stays 0; --dry-run handled by the caller.
+
+# _json_meta_major <preset.meta.json> <key>  — read a numeric pin from the meta "pins" block.
+_json_meta_major() {
+  grep -oE "\"$2\"[[:space:]]*:[[:space:]]*[0-9]+" "$1" 2>/dev/null | grep -oE '[0-9]+' | tail -1
+}
+
+# _pkg_major <package.json> <dep>  — leading integer of the dep's version range (^15.4.0 → 15).
+# The `"dep":` anchor (closing quote before the colon) avoids matching `eslint-config-*` for
+# the `eslint` key. Scans both dependencies + devDependencies (flat text grep).
+_pkg_major() {
+  local pj="$1" dep="$2" entry ver
+  entry=$(grep -oE "\"${dep}\"[[:space:]]*:[[:space:]]*\"[^\"]+\"" "$pj" 2>/dev/null | head -1)
+  [ -n "$entry" ] || return 1
+  ver=$(printf '%s' "$entry" | grep -oE '"[^"]+"[[:space:]]*$' | tr -d '"')
+  printf '%s' "$ver" | grep -oE '[0-9]+' | head -1
+}
+
+# warn_preset_staleness <preset.meta.json> <consumer package.json>
+# Emits a WARN block (and returns 0) when ≥1 pinned tool major differs from the consumer's.
+warn_preset_staleness() {
+  local meta="$1" pj="$2" drift=0 out="" key pin cur snap
+  [ -f "$meta" ] || return 0
+  [ -f "$pj" ] || return 0
+  for key in next eslint prettier typescript-eslint; do
+    pin=$(_json_meta_major "$meta" "$key")
+    [ -n "$pin" ] || continue
+    cur=$(_pkg_major "$pj" "$key") || continue
+    [ -n "$cur" ] || continue
+    if [ "$cur" != "$pin" ]; then
+      out="${out}     - ${key}: preset pinned to v${pin}, you are on v${cur}\n"
+      drift=1
+    fi
+  done
+  if [ "$drift" = "1" ]; then
+    snap=$(grep -oE '"snapshotDate"[[:space:]]*:[[:space:]]*"[^"]+"' "$meta" 2>/dev/null | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+    echo ""
+    echo "⚠  This preset is a frozen Next-15 snapshot (${snap:-unknown}) — your installed tool majors differ:"
+    printf '%b' "$out"
+    echo "   Prefer live-research delivery for rules matching your current versions: run the rule-research"
+    echo "   protocol (agents/rule-researcher.md / the rule-research skill), then ./setup --full. Presets"
+    echo "   are the fallback baseline, not the source of truth."
+  fi
+}
+
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──
 # When sourced directly with INSTALL_SH_LIB_ONLY=1, expose all helpers and stop here.
 # When sourced by install.sh, this guard fires and returns from the `source setup.d/lib.sh`
