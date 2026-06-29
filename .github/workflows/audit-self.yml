@@ -281,6 +281,12 @@ jobs:
         run: bash tests/install-sh/setup-orchestrator.test.sh
       - name: Run install-sh preset-staleness test (live-research-default-delivery #811 D4)
         run: bash tests/install-sh/preset-staleness.test.sh
+      - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)
+        run: bash tests/install-sh/b1-stack-research-lookup.test.sh
+      - name: Run install-sh B3 monorepo per-workspace wire test (multistack-augment-first #827 B3)
+        run: bash tests/install-sh/b3-monorepo-per-workspace-wire.test.sh
+      - name: Run install-sh B4 worktree workspace-resolve test (multistack-augment-first #827 B4)
+        run: bash tests/install-sh/b4-worktree-workspace-resolve.test.sh
       # live-research-default-delivery §6 oracle: the live-snippet wiring + live-wins override
       # proof must FIRE in CI (the install/ vitest dir is otherwise un-gated — armed-but-not-fired,
       # PR #796 lesson). Targeted to the two new specs (no full install/ dir gate — scope).
