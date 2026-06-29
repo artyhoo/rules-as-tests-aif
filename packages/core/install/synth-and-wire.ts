@@ -27,7 +27,7 @@ import process from 'node:process';
 import { loadEntries } from '../research/load.ts';
 import { synthesize } from '../synthesizer/synthesize.ts';
 import { ESLINT_RESTRICTED_RULE_NAME } from '../synthesizer/compile-declarative-md.ts';
-import { wireNRules } from './wire-eslint-r2.ts';
+import { customRulesImportSpecifier, wireNRules } from './wire-eslint-r2.ts';
 
 // ─── Canonical pattern sets per install stack ─────────────────────────────────
 // Mirrors the WRAPPER_TEMPLATES in packages/core/principles/26-template-selector-sync.test.ts.
@@ -250,7 +250,13 @@ async function main(): Promise<void> {
       console.log(`  [dry-run] [synth-wire] ${configPath} not found — would skip`);
     } else {
       const source = readFileSync(configPath, 'utf8');
-      const result = await wireNRules(source, mergedRules, { overrideKeys });
+      const result = await wireNRules(source, mergedRules, {
+        overrideKeys,
+        // #829: enable plugin self-registration for presets that don't pre-register `rules-as-tests`
+        // (RN/ts-server). Resolved against the config's own dir → `./eslint-rules-local/index.mjs`
+        // (40-configs.sh provisions it at the root AND per-workspace), so it works for both layouts.
+        customRulesImportPath: customRulesImportSpecifier(configPath, dirname(configPath)),
+      });
       if (result.status === 'already-wired') {
         console.log(`  [dry-run] [synth-wire] all synthesized rules already present in ${configPath} (no change needed)`);
       } else {
@@ -267,7 +273,11 @@ async function main(): Promise<void> {
   }
 
   const source = readFileSync(configPath, 'utf8');
-  const result = await wireNRules(source, mergedRules, { overrideKeys });
+  const result = await wireNRules(source, mergedRules, {
+    overrideKeys,
+    // #829: see the dry-run site above — enables plugin self-registration for presets lacking it.
+    customRulesImportPath: customRulesImportSpecifier(configPath, dirname(configPath)),
+  });
 
   switch (result.status) {
     case 'already-wired':

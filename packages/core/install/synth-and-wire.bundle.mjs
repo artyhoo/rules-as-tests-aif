@@ -9085,9 +9085,36 @@ function buildRuleValueExpr(value) {
   }
   return JSON.stringify(value);
 }
-function buildRuleConfigElement(ruleName, value, scope) {
+function buildRuleConfigElement(ruleName, value, scope, registerPlugin = false) {
   const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(", ")}], ` : "";
-  return `{ ${filesPart}rules: { ${jsString(ruleName)}: ${buildRuleValueExpr(value)} } }`;
+  const pluginsPart = registerPlugin ? `plugins: { 'rules-as-tests': customRules }, ` : "";
+  return `{ ${filesPart}${pluginsPart}rules: { ${jsString(ruleName)}: ${buildRuleValueExpr(value)} } }`;
+}
+function configRegistersRulesAsTestsPlugin(elements, SyntaxKind) {
+  for (const el of elements) {
+    if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const prop of el.getProperties?.() ?? []) {
+      let propName;
+      try {
+        propName = normPropName(prop.getName?.());
+      } catch {
+        continue;
+      }
+      if (propName !== "plugins") continue;
+      const pluginsInit = prop.getInitializer?.();
+      if (!pluginsInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+      for (const pp of pluginsInit.getProperties?.() ?? []) {
+        let ppName;
+        try {
+          ppName = normPropName(pp.getName?.());
+        } catch {
+          continue;
+        }
+        if (ppName === "rules-as-tests") return true;
+      }
+    }
+  }
+  return false;
 }
 function exprEqual(a, b) {
   const norm = (s) => s.replace(/['"`]/g, '"').replace(/\s+/g, "");
@@ -9162,12 +9189,12 @@ function mergeSelectorsIntoExistingWrapper(elements, SyntaxKind, missingSels) {
   }
   return false;
 }
-async function wireNRules(source, synthRules, _opts = {}) {
+async function wireNRules(source, synthRules, opts = {}) {
   const ruleEntries = Object.entries(synthRules);
   if (ruleEntries.length === 0) {
     return { status: "already-wired", original: source, modified: source };
   }
-  const overrideKeys = _opts.overrideKeys;
+  const overrideKeys = opts.overrideKeys;
   const missing = [];
   const overrides = [];
   for (const [key, value] of ruleEntries) {
@@ -9228,6 +9255,13 @@ async function wireNRules(source, synthRules, _opts = {}) {
   }
   const configElements = isCallExprMode ? callExprNode.getArguments() : exportArr.getElements?.() ?? [];
   let changed = false;
+  const selfRegisterEligible = !!opts.customRulesImportPath && !configRegistersRulesAsTestsPlugin(configElements, SyntaxKind);
+  let didSelfRegister = false;
+  const registerFor = (ruleKey) => {
+    const yes = selfRegisterEligible && ruleKey.startsWith("rules-as-tests/");
+    if (yes) didSelfRegister = true;
+    return yes;
+  };
   for (const { key, value } of overrides) {
     const desired = buildRuleValueExpr(value);
     const outcome = replaceSimpleRuleValue(configElements, SyntaxKind, key, desired);
@@ -9236,15 +9270,15 @@ async function wireNRules(source, synthRules, _opts = {}) {
       changed = true;
     } else if (outcome === "not-found") {
       console.debug(`  [synth-wire] DEBUG: override target '${key}' not found as a rules prop \u2014 appending`);
-      if (isCallExprMode) callExprNode.addArgument(buildRuleConfigElement(key, value, _opts.scope));
-      else exportArr.addElement(buildRuleConfigElement(key, value, _opts.scope));
+      if (isCallExprMode) callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+      else exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
       changed = true;
     }
   }
   for (const { key, value } of missing) {
     changed = true;
-    if (_opts.scope) {
-      console.log(`  [wire:N-rule] scoping ${key} to files=${_opts.scope.files.join(", ")}`);
+    if (opts.scope) {
+      console.log(`  [wire:N-rule] scoping ${key} to files=${opts.scope.files.join(", ")}`);
     }
     if (Array.isArray(value)) {
       const missingSels = value.slice(1).filter(
@@ -9254,9 +9288,9 @@ async function wireNRules(source, synthRules, _opts = {}) {
       if (!merged) {
         console.debug(`  [synth-wire] DEBUG: adding new wrapper block for '${key}'`);
         if (isCallExprMode) {
-          callExprNode.addArgument(buildRuleConfigElement(key, value, _opts.scope));
+          callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
         } else {
-          exportArr.addElement(buildRuleConfigElement(key, value, _opts.scope));
+          exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
         }
       } else {
         console.debug(`  [synth-wire] DEBUG: merged ${missingSels.length} selector(s) into existing '${key}' block`);
@@ -9264,14 +9298,22 @@ async function wireNRules(source, synthRules, _opts = {}) {
     } else {
       console.debug(`  [synth-wire] DEBUG: appending simple rule block for '${key}'`);
       if (isCallExprMode) {
-        callExprNode.addArgument(buildRuleConfigElement(key, value, _opts.scope));
+        callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
       } else {
-        exportArr.addElement(buildRuleConfigElement(key, value, _opts.scope));
+        exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
       }
     }
   }
   if (!changed) {
     return { status: "already-wired", original: source, modified: source };
+  }
+  if (didSelfRegister && opts.customRulesImportPath) {
+    const already = sf.getImportDeclarations().some(
+      (d) => d.getDefaultImport()?.getText() === "customRules"
+    );
+    if (!already) {
+      sf.addImportDeclaration({ defaultImport: "customRules", moduleSpecifier: opts.customRulesImportPath });
+    }
   }
   const modified = sf.getFullText();
   return { status: "wired", original: source, modified };
@@ -9584,7 +9626,13 @@ async function main2() {
       console.log(`  [dry-run] [synth-wire] ${configPath} not found \u2014 would skip`);
     } else {
       const source2 = readFileSync5(configPath, "utf8");
-      const result2 = await wireNRules(source2, mergedRules, { overrideKeys });
+      const result2 = await wireNRules(source2, mergedRules, {
+        overrideKeys,
+        // #829: enable plugin self-registration for presets that don't pre-register `rules-as-tests`
+        // (RN/ts-server). Resolved against the config's own dir → `./eslint-rules-local/index.mjs`
+        // (40-configs.sh provisions it at the root AND per-workspace), so it works for both layouts.
+        customRulesImportPath: customRulesImportSpecifier(configPath, dirname5(configPath))
+      });
       if (result2.status === "already-wired") {
         console.log(`  [dry-run] [synth-wire] all synthesized rules already present in ${configPath} (no change needed)`);
       } else {
@@ -9598,7 +9646,11 @@ async function main2() {
     process3.exit(0);
   }
   const source = readFileSync5(configPath, "utf8");
-  const result = await wireNRules(source, mergedRules, { overrideKeys });
+  const result = await wireNRules(source, mergedRules, {
+    overrideKeys,
+    // #829: see the dry-run site above — enables plugin self-registration for presets lacking it.
+    customRulesImportPath: customRulesImportSpecifier(configPath, dirname5(configPath))
+  });
   switch (result.status) {
     case "already-wired":
       console.log(`  [synth-wire] \u2713 all synthesized rules confirmed in ${configPath} (idempotent \u2014 no change)`);

@@ -265,3 +265,85 @@ describe('#827 B2 — live snippet wires for a stack with NO STACK_PATTERNS entr
     },
   );
 });
+
+describe('#829 — shipped bundle self-registers the rules-as-tests plugin when the base config lacks it', () => {
+  // Faithful end-to-end proof of the PRODUCTION path: spawn the shipped bundle (what 99-finalize.sh
+  // runs via plain node), wiring a live `rules-as-tests/*` rule into a config that does NOT register
+  // the plugin (RN/ts-server preset shape). Pre-#829 the block was emitted bare → ESLint errored
+  // "could not find plugin 'rules-as-tests'" and the rule never fired. Post-fix the bundle injects
+  // `import customRules` + `plugins: { 'rules-as-tests': customRules }` so the plugin resolves.
+  const run = (cfg: string, snippet: string) =>
+    execFileSync('node', [BUNDLE, '--stack', 'react-native', '--path', cfg, '--snippet', snippet], {
+      cwd: REPO_ROOT,
+      stdio: 'pipe',
+      env: { ...process.env, AIF_SYNTH_PKG_ROOT: resolve(REPO_ROOT, 'packages/core') },
+    });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    'positive — unregistered config + live rules-as-tests rule ⇒ plugin self-registered (import + plugins)',
+    () => {
+      const dir = mkdtempSync(resolve(tmpdir(), 'b829-pos-'));
+      const cfg = resolve(dir, 'eslint.config.mjs');
+      // Unregistered config: empty flat-config array — no `plugins: { 'rules-as-tests' }`, no import.
+      writeFileSync(cfg, `export default [];\n`);
+      const snippet = resolve(dir, 'snippet.json');
+      writeFileSync(
+        snippet,
+        JSON.stringify({
+          'rules-as-tests/restricted-syntax-audit-exempt': [
+            'error',
+            { selector: RN_SELECTOR, message: 'no web localStorage in RN' },
+          ],
+        }),
+      );
+      try {
+        run(cfg, snippet);
+        const out = readFileSync(cfg, 'utf8');
+        expect(out).toContain(RN_SELECTOR); // the live rule wired
+        // #829: the new block self-registers the plugin so ESLint resolves it (vs the pre-fix bare block).
+        expect(out).toContain(`plugins: { 'rules-as-tests': customRules }`);
+        expect(out).toMatch(/import customRules from ['"]\.\/eslint-rules-local\/index\.mjs['"]/);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    '❌ paired-negative: a config that ALREADY registers stays single-registration (no duplicate import)',
+    () => {
+      const dir = mkdtempSync(resolve(tmpdir(), 'b829-neg-'));
+      const cfg = resolve(dir, 'eslint.config.mjs');
+      // Already-registered config (react-next shape): must NOT gain a second customRules import.
+      writeFileSync(
+        cfg,
+        [
+          `import customRules from './eslint-rules-local/index.mjs';`,
+          `export default [`,
+          `  { plugins: { 'rules-as-tests': customRules }, rules: {} },`,
+          `];`,
+          ``,
+        ].join('\n'),
+      );
+      const snippet = resolve(dir, 'snippet.json');
+      writeFileSync(
+        snippet,
+        JSON.stringify({
+          'rules-as-tests/restricted-syntax-audit-exempt': [
+            'error',
+            { selector: RN_SELECTOR, message: 'no web localStorage in RN' },
+          ],
+        }),
+      );
+      try {
+        run(cfg, snippet);
+        const out = readFileSync(cfg, 'utf8');
+        expect(out).toContain(RN_SELECTOR); // still wired
+        // detection holds: no SECOND registration / import injected on an already-registered config
+        expect((out.match(/import customRules from/g) ?? []).length).toBe(1);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
+});

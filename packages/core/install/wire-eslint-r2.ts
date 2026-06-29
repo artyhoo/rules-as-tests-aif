@@ -270,12 +270,46 @@ function buildRuleValueExpr(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function buildRuleConfigElement(ruleName: string, value: unknown, scope?: { files: string[] }): string {
+function buildRuleConfigElement(
+  ruleName: string,
+  value: unknown,
+  scope?: { files: string[] },
+  registerPlugin = false,
+): string {
   // SSOT #182: files: scoped emission — when scope provided, emit workspace-scoped block.
   // Scope source = install-time dir→stack map, NOT recipe appliesTo (T-MS-A).
   // jsString() prevents code-injection when glob/ruleName contains a single quote (T-MSA-sec).
+  // #829: registerPlugin emits a `plugins` entry so a `rules-as-tests/*` rule resolves when the
+  // base config does not already register the plugin (RN/ts-server presets). Single-quoted to
+  // match the preset template idiom (eslint.config.react.mjs); the import is injected by wireNRules.
   const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(', ')}], ` : '';
-  return `{ ${filesPart}rules: { ${jsString(ruleName)}: ${buildRuleValueExpr(value)} } }`;
+  const pluginsPart = registerPlugin ? `plugins: { 'rules-as-tests': customRules }, ` : '';
+  return `{ ${filesPart}${pluginsPart}rules: { ${jsString(ruleName)}: ${buildRuleValueExpr(value)} } }`;
+}
+
+/**
+ * #829: true when some config element already registers the `rules-as-tests` plugin — i.e. a
+ * `plugins` property whose initializer object has a `rules-as-tests` key. A rule-id like
+ * `rules-as-tests/foo` under `rules:` does NOT count (the slash is the discriminator): a rule
+ * reference is not a plugin registration. Mirrors mergeSelectorsIntoExistingWrapper's AST walk.
+ */
+function configRegistersRulesAsTestsPlugin(elements: any[], SyntaxKind: any): boolean {
+  for (const el of elements) {
+    if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const prop of el.getProperties?.() ?? []) {
+      let propName: string;
+      try { propName = normPropName(prop.getName?.()); } catch { continue; }
+      if (propName !== 'plugins') continue;
+      const pluginsInit = prop.getInitializer?.();
+      if (!pluginsInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+      for (const pp of pluginsInit.getProperties?.() ?? []) {
+        let ppName: string;
+        try { ppName = normPropName(pp.getName?.()); } catch { continue; }
+        if (ppName === 'rules-as-tests') return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** Quote-/whitespace-insensitive equality of two value expressions (idempotency guard for override). */
@@ -382,8 +416,10 @@ function mergeSelectorsIntoExistingWrapper(
 export async function wireNRules(
   source: string,
   synthRules: Record<string, unknown>,
-  // opts reserved for future use (variant, customRulesImportPath)
-  _opts: TransformOpts = {},
+  // opts.overrideKeys + opts.scope are consumed below; opts.customRulesImportPath enables
+  // #829 plugin self-registration when a net-new rules-as-tests/* block is added to a config
+  // that does not already register the plugin. opts.variant is unused on the N-rule path.
+  opts: TransformOpts = {},
 ): Promise<WireResult> {
   const ruleEntries = Object.entries(synthRules);
   if (ruleEntries.length === 0) {
@@ -396,7 +432,7 @@ export async function wireNRules(
   // comparison (present-but-different ⇒ replace) which string search cannot decide, so they
   // are resolved below with ts-morph. A wrapper rule is never overridden — it augments by
   // selector-union (mergeSelectorsIntoExistingWrapper), so it only appears in `missing`.
-  const overrideKeys = _opts.overrideKeys;
+  const overrideKeys = opts.overrideKeys;
   const missing: Array<{ key: string; value: unknown }> = [];
   const overrides: Array<{ key: string; value: unknown }> = [];
   for (const [key, value] of ruleEntries) {
@@ -475,6 +511,20 @@ export async function wireNRules(
 
   let changed = false;
 
+  // #829: a net-new `rules-as-tests/*` block must self-register the plugin when the base config
+  // does not already register it (RN/ts-server presets) AND the caller supplied an import path.
+  // When eligible, each fresh rules-as-tests block carries `plugins: { 'rules-as-tests': … }` and
+  // the `import customRules` declaration is injected once after the loop (dedupe-guarded). Without
+  // an import path the path degrades to bare (backward-compatible — unit callers pass none).
+  const selfRegisterEligible =
+    !!opts.customRulesImportPath && !configRegistersRulesAsTestsPlugin(configElements, SyntaxKind);
+  let didSelfRegister = false;
+  const registerFor = (ruleKey: string): boolean => {
+    const yes = selfRegisterEligible && ruleKey.startsWith('rules-as-tests/');
+    if (yes) didSelfRegister = true;
+    return yes;
+  };
+
   // Live-wins overrides first: replace an existing simple-rule value when the live value differs.
   for (const { key, value } of overrides) {
     const desired = buildRuleValueExpr(value);
@@ -485,16 +535,16 @@ export async function wireNRules(
     } else if (outcome === 'not-found') {
       // String-present but not locatable as a rules property (e.g. in a comment) — append fresh.
       console.debug(`  [synth-wire] DEBUG: override target '${key}' not found as a rules prop — appending`);
-      if (isCallExprMode) callExprNode.addArgument(buildRuleConfigElement(key, value, _opts.scope));
-      else exportArr.addElement(buildRuleConfigElement(key, value, _opts.scope));
+      if (isCallExprMode) callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+      else exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
       changed = true;
     } // 'same' → no change (idempotent)
   }
 
   for (const { key, value } of missing) {
     changed = true;
-    if (_opts.scope) {
-      console.log(`  [wire:N-rule] scoping ${key} to files=${_opts.scope.files.join(', ')}`);
+    if (opts.scope) {
+      console.log(`  [wire:N-rule] scoping ${key} to files=${opts.scope.files.join(', ')}`);
     }
     if (Array.isArray(value)) {
       const missingSels = (value.slice(1) as Array<{ selector?: string; message?: string }>).filter(
@@ -504,9 +554,9 @@ export async function wireNRules(
       if (!merged) {
         console.debug(`  [synth-wire] DEBUG: adding new wrapper block for '${key}'`);
         if (isCallExprMode) {
-          callExprNode.addArgument(buildRuleConfigElement(key, value, _opts.scope));
+          callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
         } else {
-          exportArr.addElement(buildRuleConfigElement(key, value, _opts.scope));
+          exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
         }
       } else {
         console.debug(`  [synth-wire] DEBUG: merged ${missingSels.length} selector(s) into existing '${key}' block`);
@@ -514,9 +564,9 @@ export async function wireNRules(
     } else {
       console.debug(`  [synth-wire] DEBUG: appending simple rule block for '${key}'`);
       if (isCallExprMode) {
-        callExprNode.addArgument(buildRuleConfigElement(key, value, _opts.scope));
+        callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
       } else {
-        exportArr.addElement(buildRuleConfigElement(key, value, _opts.scope));
+        exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
       }
     }
   }
@@ -524,6 +574,17 @@ export async function wireNRules(
   // Overrides that all matched (outcome 'same') and no missing rules ⇒ byte-identical no-op.
   if (!changed) {
     return { status: 'already-wired', original: source, modified: source };
+  }
+
+  // #829: inject the customRules import exactly once when any block self-registered the plugin.
+  // Dedupe-guarded (mirror the self-contained variant) so a re-run never adds a second import.
+  if (didSelfRegister && opts.customRulesImportPath) {
+    const already = sf.getImportDeclarations().some(
+      (d: any) => d.getDefaultImport()?.getText() === 'customRules',
+    );
+    if (!already) {
+      sf.addImportDeclaration({ defaultImport: 'customRules', moduleSpecifier: opts.customRulesImportPath });
+    }
   }
 
   const modified = sf.getFullText();
