@@ -470,3 +470,106 @@ describe('link-coordination.sh', () => {
     teardown(wt);
   });
 });
+
+// ── (j) GIT-TRACKED one-off exception skip (real git worktree) ─────────────────
+// Regression for the aif planner crash-loop (2026-06-27): a file tracked via a
+// ONE-OFF `.gitignore` exception (not done.md/README.md/kickoff.md) was wrongly
+// adopted into $CANON + symlinked. aif-handoff's cpSync of `.claude` then threw
+// EEXIST when the symlink landed over the git-checked-out real file. The helper
+// must skip ANY git-tracked file, derived from `git ls-files`, not a name-list.
+describe('link-coordination.sh — git-tracked one-off exception (real worktree)', () => {
+  let canon: string;
+  let repo: string;
+  let worktree: string;
+
+  /**
+   * Repo whose .gitignore ignores orchestrator-prompts/* but tracks a ONE-OFF
+   * exception `stage-4.md` (the production shape that broke), alongside the usual
+   * done.md exception. A gitignored `state.md` is the legitimately-symlinkable one.
+   */
+  function setupRepoOneOff(): string {
+    const dir = mkdtempSync(resolve(tmpdir(), 'link-coord-oneoff-'));
+    execSync('git init -q -b main', { cwd: dir });
+    execSync('git config user.email test@example.com', { cwd: dir });
+    execSync('git config user.name test', { cwd: dir });
+    const gitignore = [
+      'node_modules',
+      '.claude/orchestrator-prompts/*',
+      '!.claude/orchestrator-prompts/*/',
+      '.claude/orchestrator-prompts/*/*',
+      '!.claude/orchestrator-prompts/*/done.md',
+      // ONE-OFF tracked exception — the exact shape the name-list cannot enumerate
+      '!.claude/orchestrator-prompts/u1/stage-4.md',
+    ].join('\n');
+    writeFileSync(resolve(dir, '.gitignore'), gitignore + '\n');
+    writeFileSync(resolve(dir, 'README.md'), 'root\n');
+    mkdirSync(resolve(dir, '.claude/orchestrator-prompts/u1'), { recursive: true });
+    writeFileSync(resolve(dir, '.claude/orchestrator-prompts/u1/done.md'), 'done\n');
+    writeFileSync(resolve(dir, '.claude/orchestrator-prompts/u1/stage-4.md'), 'tracked stage-4 content\n');
+    execSync('git add -A && git commit -q -m init', { cwd: dir });
+    return dir;
+  }
+
+  beforeEach(() => {
+    canon = mkdtempSync(resolve(tmpdir(), 'link-coord-canon-oneoff-'));
+    repo = setupRepoOneOff();
+    worktree = resolve(repo, 'wt-feature');
+    // A REAL git worktree so `git ls-files` inside it sees the tracked stage-4.md.
+    execSync(`git worktree add -q "${worktree}" HEAD`, { cwd: repo });
+    // CANON carries a gitignored state.md (the legitimately-linkable file).
+    mkdirSync(resolve(canon, 'u1'), { recursive: true });
+    writeFileSync(resolve(canon, 'u1/state.md'), 'canon state\n');
+  });
+
+  afterEach(() => {
+    try { execSync(`git worktree remove --force "${worktree}"`, { cwd: repo }); } catch { /* ignore */ }
+    teardown(canon, repo);
+  });
+
+  it('(j) PASS: one-off tracked stage-4.md stays a REAL file; gitignored state.md IS symlinked', () => {
+    const stage4 = resolve(worktree, '.claude/orchestrator-prompts/u1/stage-4.md');
+    const state = resolve(worktree, '.claude/orchestrator-prompts/u1/state.md');
+
+    const r = runHelper([worktree], { CLAUDE_COORDINATION_DIR: canon });
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+
+    // Tracked one-off exception: untouched real file (the fix)
+    expect(existsSync(stage4)).toBe(true);
+    expect(lstatSync(stage4).isSymbolicLink(), 'tracked stage-4.md must NOT be a symlink').toBe(false);
+    expect(readFileSync(stage4, 'utf8')).toBe('tracked stage-4 content\n');
+
+    // Gitignored content: correctly symlinked into CANON (helper still does its job)
+    expect(lstatSync(state).isSymbolicLink(), 'gitignored state.md must be a symlink').toBe(true);
+  });
+
+  it('(j-neg) PAIRED-NEGATIVE: with is_tracked() neutered, stage-4.md IS wrongly symlinked', () => {
+    // Prove the git-tracked guard is load-bearing: replace is_tracked with a stub
+    // that always returns false (the pre-fix name-list-only behaviour). The
+    // tracked stage-4.md then gets adopted → symlink (the bug). Must FAIL-safe:
+    // the symlink assertion below is what the real helper PREVENTS.
+    const src = readFileSync(HELPER, 'utf8');
+    const neutered = src.replace(
+      /is_tracked\(\) \{[\s\S]*?\n\}/,
+      'is_tracked() { return 1; }',
+    );
+    expect(neutered, 'is_tracked() must be present to neuter').not.toBe(src);
+    const tmpHelper = resolve(tmpdir(), 'link-coordination-neutered.sh');
+    writeFileSync(tmpHelper, neutered, { mode: 0o755 });
+
+    const stage4 = resolve(worktree, '.claude/orchestrator-prompts/u1/stage-4.md');
+    try {
+      execFileSync('bash', [tmpHelper, worktree], {
+        encoding: 'utf8',
+        env: { ...process.env, CLAUDE_COORDINATION_DIR: canon },
+      });
+    } catch { /* adoption may still exit 0; we only assert the symlink state */ }
+
+    // Without the guard, the tracked file is wrongly turned into a symlink.
+    expect(
+      lstatSync(stage4).isSymbolicLink(),
+      'neutered helper SHOULD wrongly symlink the tracked file (proves guard is load-bearing)',
+    ).toBe(true);
+
+    try { rmSync(tmpHelper); } catch { /* ignore */ }
+  });
+});

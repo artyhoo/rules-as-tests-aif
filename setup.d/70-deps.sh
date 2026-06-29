@@ -48,8 +48,8 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
       pkg.scripts = pkg.scripts || {};
       const want = {
-        "lint": "NODE_OPTIONS=\"--import tsx\" eslint . --max-warnings=0",
-        "lint:fix": "NODE_OPTIONS=\"--import tsx\" eslint . --fix",
+        "lint": "eslint . --max-warnings=0",
+        "lint:fix": "eslint . --fix",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "typecheck": "tsc --noEmit",
@@ -130,14 +130,36 @@ REACT_SPA_DEVDEPS=(
 # Just the RN ESLint toolchain — eslint-config-expo (Expo baseline), @react-native/eslint-config +
 # @eslint/eslintrc (bare-RN baseline via FlatCompat), and the RN lint plugins. Ship BOTH baselines'
 # deps so a consumer can switch Expo↔bare without a reinstall.
+#
+# `typescript` is listed EXPLICITLY for react-native ONLY (GH #779 lint follow-up). The bare-RN
+# baseline resolves `@react-native/eslint-config#overrides[3]` → `@typescript-eslint/parser`, which
+# require()s a standalone `typescript` module at parse time (Expo's eslint-config-expo needs it too).
+# Other stacks get `typescript` auto-installed as a peer of `typescript-eslint`/the parser (verified:
+# a react-spa consumer carries node_modules/typescript with NO package.json entry); RN can't, because
+# the RN install runs with `--legacy-peer-deps` (the a11y-peer ERESOLVE workaround above), which
+# SUPPRESSES npm's peer auto-install. Without this line `npm run lint` dies on a fresh RN consumer:
+# "Cannot find module 'typescript'". Unpinned — consistent with the bare entries in these arrays; the
+# parser's `typescript >=4.8.4 <6.1.0` peer is satisfied by the current registry latest.
 REACT_NATIVE_DEVDEPS=(
   eslint-config-expo @react-native/eslint-config @eslint/eslintrc
   eslint-plugin-react-native eslint-plugin-react-native-a11y
+  typescript
 )
 DEVDEPS=( "${CORE_DEVDEPS[@]}" )
 [ "$STACK" = "react-next" ] && DEVDEPS+=( "${REACT_DEVDEPS[@]}" )
 [ "$STACK" = "react-spa" ] && DEVDEPS+=( "${REACT_SPA_DEVDEPS[@]}" )
 [ "$STACK" = "react-native" ] && DEVDEPS+=( "${REACT_NATIVE_DEVDEPS[@]}" )
+
+# react-native only: eslint-plugin-react-native-a11y peer-deps eslint ^3..^8 (no eslint-9-compatible
+# release exists), while the preset ships eslint ^9. npm 7+ strict peer resolution aborts the whole
+# dev-dep install with ERESOLVE → a fresh `install.sh react-native --full` lands NO toolchain (no
+# prettier/depcruise) and the consumer's `npm run validate` cannot run. The plugin's rules are flat-
+# config plugin OBJECTS consumed as `plugins: { 'react-native-a11y': … }` (eslint.config.rn-common.mjs)
+# — they are eslint-9-functional; the peer range is stale npm metadata, not a runtime incompatibility.
+# So relax peer resolution for the RN npm install ONLY (ts-server/react-next/react-spa keep strict
+# peer checks). npm-specific: pnpm/yarn do not hard-fail on peer conflicts by default. (GH #779 follow-up)
+NPM_PEER_FLAG=""
+[ "$STACK" = "react-native" ] && NPM_PEER_FLAG="--legacy-peer-deps"
 
 DEPS_INSTALLED=""
 _do_dep_install=""
@@ -180,7 +202,9 @@ if [ "$_do_dep_install" = "yes" ]; then
       yarn)
         if ( cd "$PROJECT_ROOT" && yarn add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
       *)
-        if ( cd "$PROJECT_ROOT" && npm install --save-dev "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
+        # $NPM_PEER_FLAG is empty for all stacks except react-native (see ERESOLVE note above).
+        # Unquoted so an empty value expands to no arg (bash 3.2 + `set -u` safe).
+        if ( cd "$PROJECT_ROOT" && npm install --save-dev $NPM_PEER_FLAG "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
     esac
     if [ -n "$_ok" ]; then
       DEPS_INSTALLED="1"

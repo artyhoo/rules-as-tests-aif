@@ -106,6 +106,14 @@ Timeout: track invocation count; after operator-configured ceiling → surface *
 
 **§2.4 — Harvest (after done/verified)**
 
+**Pre-push sweep gate.** Before pushing, run the local CI-equivalent sweep on the harvested branch — the **same script** [`/harvest §3`](../harvest/SKILL.md) uses (one logic, two channels — [dual-implementation-discipline.md §7](../../rules/dual-implementation-discipline.md)):
+
+```bash
+bash scripts/run-local-ci-sweep.sh        # diff-aware; escalates to --full on unmapped paths
+```
+
+A **branch-introduced** red ⇒ HALT harvest, surface it, do NOT push (interpret against the merge-base — a red on `origin/staging` too is pre-existing, not the harvest's). Then push:
+
 ```bash
 tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
 ```

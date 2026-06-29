@@ -7,7 +7,9 @@ PASS=0; FAIL=0
 ok(){ PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad(){ FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
-P="$REPO_ROOT/.claude-plugin/plugin.json"
+# plugin.json lives where CC resolves it for the marketplace `source: ./plugin`
+# (plugin-loadability fix, 2026-06-28); marketplace.json stays at the marketplace root.
+P="$REPO_ROOT/plugin/.claude-plugin/plugin.json"
 M="$REPO_ROOT/.claude-plugin/marketplace.json"
 
 python3 -c "import json; json.load(open('$P'))" 2>/dev/null && ok "plugin.json parses" || bad "plugin.json invalid"

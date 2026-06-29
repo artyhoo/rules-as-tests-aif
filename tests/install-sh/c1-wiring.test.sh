@@ -23,11 +23,11 @@ n=$(find "$T/.ai-factory/skill-context" -name SKILL.md 2>/dev/null | wc -l | tr 
 [ "$n" = "3" ] && ok "P2: 3/3 skill-context landed" || bad "P2: only $n/3 skill-context"
 [ -f "$T/.ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md" ] && ok "P2: aif-orchestrator-discipline present (was the dropped one)" || bad "P2: aif-orchestrator-discipline missing"
 
-# W1 — barrel generated, valid, covers every landed rule file (eslint.config imports it)
-[ -f "$T/eslint-rules-local/index.ts" ] && ok "W1: eslint barrel generated" || bad "W1: eslint barrel missing"
-grep -q 'export default plugin' "$T/eslint-rules-local/index.ts" 2>/dev/null && ok "W1: barrel exports a plugin" || bad "W1: barrel malformed"
-nf=$(find "$T"/eslint-rules-local -maxdepth 1 -name '*.ts' ! -name index.ts | wc -l | tr -d ' ')
-ni=$(grep -c '^import ' "$T/eslint-rules-local/index.ts")
+# W1 — compiled ESM barrel generated, valid, covers every landed rule file (eslint.config imports it)
+[ -f "$T/eslint-rules-local/index.mjs" ] && ok "W1: eslint ESM barrel generated" || bad "W1: eslint ESM barrel missing (S2 fix)"
+grep -q 'export default plugin' "$T/eslint-rules-local/index.mjs" 2>/dev/null && ok "W1: barrel exports a plugin" || bad "W1: barrel malformed"
+nf=$(find "$T"/eslint-rules-local -maxdepth 1 -name '*.ts' ! -name 'index.ts' ! -name '*.d.ts' | wc -l | tr -d ' ')
+ni=$(grep -c '^import ' "$T/eslint-rules-local/index.mjs")
 [ "$nf" = "$ni" ] && [ "$nf" -ge 4 ] && ok "W1: barrel covers all $nf rule files" || bad "W1: barrel $ni imports vs $nf rule files"
 
 # W2 — arch config lands so arch:check has something to run against

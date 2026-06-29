@@ -56,9 +56,10 @@ _05mcp_mode="yes"
 [ -n "${DRY_RUN:-}" ] && _05mcp_mode="dry-run"
 
 _05mcp_row_count=0
-while IFS=$'\t' read -r _05mcp_name _05mcp_detect _05mcp_install _05mcp_kind; do
+while IFS=$'\t' read -r _05mcp_name _05mcp_detect _05mcp_install _05mcp_kind _05mcp_stacks; do
   case "$_05mcp_name" in ''|\#*) continue ;; esac
   [ "$_05mcp_kind" = "mcp" ] || continue
+  : "${_05mcp_stacks:-}"  # stacks column (S3 5-col format) read but unused here — stack filtering lives in 15-companions-stack.sh
   _05mcp_row_count=$((_05mcp_row_count + 1))
   printf '  [05-mcp] processing kind=mcp row #%d: %s\n' "$_05mcp_row_count" "$_05mcp_name"
   companion_step "$_05mcp_name" "$_05mcp_detect" "$_05mcp_install" "$_05mcp_kind" "$_05mcp_mode"

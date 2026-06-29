@@ -204,7 +204,9 @@ printf '%s' "$OUT5" | grep -q "newline in string" \
 
 # §1 NEG (load-bearing): the multi-shadow filter must still PRUNE — not become a blanket passthrough.
 # A boundary file living ONLY under a shadow package must NOT count as root coverage, else the
-# false-green #513 removed would silently return under multi-shadow inputs.
+# false-green #513 removed would silently return under multi-shadow inputs. (GH #777: check-rule-globs.sh
+# now prunes the vendored framework packages/core/, so the shipped eslint-rules/ no longer fakes a
+# root-governed match here — the shadowed-only fixture is genuine again.)
 T6=$(mktemp -d); install_into "$T6" ts-server
 mkdir -p "$T6/pkg-a/src/routes" "$T6/pkg-b"
 echo 'export const x=1;' > "$T6/pkg-a/src/routes/u.ts"          # boundary file ONLY under a shadow pkg

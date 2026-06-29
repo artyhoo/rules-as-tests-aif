@@ -217,6 +217,39 @@ jobs:
         run: npm install --silent
       - name: Run packages/core/hooks/ suite (CI-gap option C — gate the hooks suite)
         run: npm --prefix packages/core run test:hooks
+      # #752 fix (Variant A): rule .mjs/.d.ts are pre-compiled + committed (install copies them,
+      # consumer needs no tsc). This gate fails if a committed artifact drifts from its .ts source
+      # — the executable guard that keeps "ship pre-compiled" honest. Root tsc hoisted above.
+      - name: shipped-rule compiled-artifact drift gate (#752)
+        run: bash scripts/build-shipped-eslint-rules.sh --check
+      # #755 fix: synth-and-wire.ts is precompiled into a zero-runtime-dep .mjs bundle
+      # (ajv+semver inlined via esbuild). This gate fails if the committed bundle drifts
+      # from a fresh esbuild rebuild — the executable guard for the precompiled artifact.
+      - name: synth-bundle drift gate (#755)
+        run: NODE_ENV=development bash scripts/build-synth-bundle.sh --check
+      # #755 functional smoke test: runs the committed bundle zero-dep (no tsx, no ajv/semver
+      # in PATH) against the real recipes + schemas to prove function, not just byte-equality.
+      # AIF_SYNTH_PKG_ROOT overrides the four import.meta.url anchors that break when esbuild
+      # collapses all modules to a single file (the bundle anchor fix). Verifies:
+      #   (a) bundle loads without ENOENT crash (anchor #4 — internal-validators.ts),
+      #   (b) loadEntries finds research entries (anchor #1 — load.ts STORE_ROOT),
+      #   (c) synthesize produces rules (anchors #2/#3 — synthesize.ts RECIPES_ROOT/SCHEMA_PATH).
+      - name: synth-bundle functional smoke test — proves anchor fixes + synthesis (#755)
+        run: |
+          set -euo pipefail
+          export AIF_SYNTH_PKG_ROOT="${GITHUB_WORKSPACE}/packages/core"
+          out=$(node packages/core/install/synth-and-wire.bundle.mjs \
+            --stack react-next --path /tmp/no-eslint-config-smoke.mjs --dry-run 2>&1) || {
+            echo "SMOKE FAIL: bundle exited non-zero (likely ENOENT anchor crash)"
+            echo "$out"
+            exit 1
+          }
+          echo "$out"
+          if echo "$out" | grep -q 'emitted no rules'; then
+            echo "SMOKE FAIL: synthesis emitted no rules — anchor break still present (STORE_ROOT or RECIPES_ROOT not resolving)"
+            exit 1
+          fi
+          echo "✓ synth-bundle smoke test passed: bundle loaded and synthesized rules for react-next"
       # CI-gap option C sibling (render-suite-rot): the packages/core/render/ vitest
       # suite was never gated — only principles/ and hooks/ were — which is how a real
       # snapshot drift (R11 audit-self.yml → ci.yml: the manifest R11 row was updated in
@@ -250,6 +283,8 @@ jobs:
         run: bash scripts/ci-success-gate.test.sh
       - name: Run harvest-via-api mode/ref paired-negative (Git Data API push fallback)
         run: bash tests/dispatcher/harvest-via-api.test.sh
+      - name: Run local-ci-sweep paired-negative (harvest sweep aggregator)
+        run: bash scripts/run-local-ci-sweep.test.sh
       - name: Run install.sh internal-refs transform test (Item 12 mirror-sync, SSOT)
         run: bash tests/install-sh/transform-internal-refs.test.sh
       - name: Run audit-ai-docs consumer-mode paired-negative (D3/D5 skip on consumer installs)
@@ -300,6 +335,8 @@ jobs:
         run: bash tests/install-sh/gh-534-arch-boundaries.test.sh
       - name: Run install-sh rule-enforced print-config test (GH #535 — was present-but-unwired)
         run: bash tests/install-sh/gh-535-rule-enforced.test.sh
+      - name: Run install-sh R2 zod-scope test (gh-730)
+        run: bash tests/install-sh/gh-730-r2-zod-scope.test.sh
       - name: Run install-sh C1 skill-context wiring test (was present-but-unwired)
         run: bash tests/install-sh/c1-wiring.test.sh
       - name: Run install-sh react-spa eslint-rules wiring test (PR #708 cold-review gap)
@@ -310,6 +347,8 @@ jobs:
         run: bash tests/install-sh/ship-orchestration-skills.test.sh
       - name: install-sh — detect-r2-boundary (GH #547 C1 classifier)
         run: bash tests/install-sh/detect-r2-boundary.test.sh
+      - name: Run install-sh multi-stack monorepo per-workspace scoping test (§13.5 I-2 L2)
+        run: bash tests/install-sh/multi-stack-monorepo.test.sh
       - name: install-sh — r2-na-marker (GH #547 C4 two-gates-one-marker)
         run: bash tests/install-sh/r2-na-marker.test.sh
       - name: install-sh — r2-auto-wire (GH #547 C2/C3 fixtures + self-probe)
@@ -336,6 +375,16 @@ jobs:
         run: bash tests/install-sh/layer-units.test.sh
       - name: "install-sh — mcp-layer empirical test (S2: .mcp.json shape + kind=mcp + D2 gate)"
         run: bash tests/install-sh/mcp-layer.test.sh
+      - name: "install-sh — tool-decisions seed integration (S3: deps-hash loop fires on seeded state)"
+        run: bash tests/install-sh/tool-decisions-seed-integration.test.sh
+      - name: "install-sh — setup -y yes-path (S4: forward --full, fail-loud no-hang, 4-stack, no self/consumer branch)"
+        run: bash tests/install-sh/setup-yes-path.test.sh
+      - name: "install-sh — stack auto-detect (GH #780: no-arg → detect from package.json, fail-loud only on unknown)"
+        run: bash tests/install-sh/stack-autodetect.test.sh
+      - name: "install-sh — per-workspace stack detect (§13.5 multi-stack monorepo I-2 Layer 1: {dir→stack} map, neither stack dropped)"
+        run: bash tests/install-sh/workspace-stack-detect.test.sh
+      - name: install-sh — t6-synth-wire-planted-violation (generator-install-wiring T-GIW-A liveness test)
+        run: bash tests/install-sh/t6-synth-wire-planted-violation.test.sh
       - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh (pinned 0.9.0)"
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
@@ -518,6 +567,114 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts || \
             { echo "::error::framework audits failed (react-next consumer)"; exit 1; }
+
+  # Closes the #779 test-gap surfaced in PR #781. The self-install jobs above prove files
+  # LAND on a fresh consumer; the byte-identical snapshot + principle 27 prove the copy-list
+  # is COMPLETE — but NOTHING ran the installed consumer's `npm run validate`, so a "files
+  # landed" green hid a `validate` RED. #779 was exactly that: #735 (edef3b97) vendored the
+  # eslint-rules barrel + guard-liveness.ts (which imports eslint) into the consumer, and the
+  # two shipped consumer gates then regressed — format:check on the newly-vendored
+  # packages/core/eslint-rules/** (un-ignored), arch:check on guard-liveness's `import
+  # { Linter } from 'eslint'` tripping dependency-cruiser's no-non-package-json — while every
+  # ship-completeness check stayed green. This arm runs the actual consumer gates #779 regressed.
+  #
+  # Scope = format:check + arch:check — the two gates #779 regressed (PR #781), NOT the full
+  # `npm run validate`: its other arms (test=vitest, audit:docs, typecheck) cannot be green on
+  # a minimal skeleton without fabricating a whole project. A single prettier-clean src/index.ts
+  # is seeded so tsconfig has inputs (else tsc/depcruise abort with TS18003 on an empty tree)
+  # AND depcruise actually cruises the vendored packages/core/** — i.e. arch:check exercises the
+  # exact #779 surface (verified: reverting #779's depcruise exclude reds this arm with the
+  # original `no-non-package-json: …/guard-liveness.ts → node_modules/eslint/…` error).
+  #
+  # Deterministic + API-free (prettier + dependency-cruiser, no LLM) — complies with
+  # .claude/rules/no-paid-llm-in-ci.md. `install.sh <stack> --full` is the framework-install
+  # core of `./setup -y <stack>`; the wrapper additionally installs Claude-plugin companions +
+  # the aif runtime-bridge, which are operator-environment satellites — they write no consumer
+  # files validate checks and would add non-hermetic network steps, so the consumer tree and
+  # validate result are identical. ts-server + react-next match the self-install coverage above;
+  # react-spa/react-native are a follow-up (they ship preset RULES/ARCHITECTURE docs not yet in
+  # the shipped .prettierignore — a separate latent fresh-install validate-RED, distinct from #779).
+  framework-fresh-install-validate:
+    name: "Fresh-install validate smoke (${{ matrix.stack }}) — closes #779"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [ts-server, react-next, react-spa, react-native]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+      - name: "Fresh ./setup -y install (install.sh --full) into a tmp consumer"
+        # STACK via env (not inline ${{…}} in run:) to avoid template-injection (zizmor). The
+        # value is a GitHub-controlled matrix token from the allowlist above.
+        env:
+          STACK: ${{ matrix.stack }}
+        run: |
+          CONSUMER=$(mktemp -d)
+          cd "$CONSUMER"
+          git init --quiet
+          git config user.email "ci@example.com"
+          git config user.name "CI"
+          echo '{"name":"fresh-validate-consumer","version":"0.0.0","private":true}' > package.json
+          # NOTE: no src/ yet — install.sh resolves arch:check's target to "." when no src/
+          # exists at install time (setup.d/70-deps.sh), which is what makes depcruise cruise the
+          # vendored packages/core/** (the #779 surface). Seeding src/ happens AFTER install below.
+          bash "$GITHUB_WORKSPACE/install.sh" "$STACK" --full
+          echo "CONSUMER=$CONSUMER" >> "$GITHUB_ENV"
+      - name: Seed a minimal source module (so the validate arms have inputs)
+        # Added AFTER install so the arch:check target stayed "." (above). A single prettier-clean
+        # module gives tsconfig inputs — without it tsc/depcruise abort with TS18003 on an empty
+        # tree — while target="." keeps the vendored packages/core/** in depcruise's scope. No
+        # string literal (the consumer ships .prettierrc.json with singleQuote) and no ${…}/backtick
+        # so the line is prettier-config-agnostic AND shellcheck-clean (SC2016). No type annotation
+        # either: the ts-server/react-next/react-spa typed configs enable
+        # @typescript-eslint/no-inferrable-types, which flags `: number` on a literal — the
+        # un-annotated form is lint-clean on all 4 stacks (the lint arm below runs for every stack).
+        run: |
+          cd "$CONSUMER"
+          mkdir -p src
+          printf 'export const answer = 42;\n' > src/index.ts
+      - name: Assert the consumer toolchain installed (else the validate gate is vacuous)
+        run: |
+          cd "$CONSUMER"
+          for bin in prettier depcruise; do
+            test -x "node_modules/.bin/$bin" \
+              || { echo "::error::$bin not installed — install.sh --full dep install failed; the validate gate cannot run (false-green guard)"; exit 1; }
+          done
+          echo "✓ consumer toolchain present (prettier + dependency-cruiser)"
+      - name: "Consumer: npm run format:check (the #779 prettier gate)"
+        run: |
+          cd "$CONSUMER"
+          npm run format:check
+      - name: "Consumer: npm run arch:check (the #779 dependency-cruiser gate)"
+        run: |
+          cd "$CONSUMER"
+          npm run arch:check
+      - name: "Consumer: npm run lint (all stacks — GH #779 lint follow-up)"
+        # All 4 stacks run the consumer's `npm run lint` (eslint . --max-warnings=0). A fresh
+        # `install.sh <stack> --full` vendors the AIF framework namespace (eslint-rules-local/**,
+        # packages/core/**, scripts/audit-r4.ts, the root .mjs/.cjs/.ts configs) into the consumer
+        # tree. `eslint .` walks all of it, so each stack's eslint config must ignore that namespace
+        # or it false-fails on files the consumer never authored:
+        #   • react-native (#787): @react-native's espree @ es2015 parse-errors on the .mjs + a
+        #     dot-notation warn on the vendored .ts → fixed in eslint.config.rn-common.mjs `ignores`
+        #     (plus a standalone `typescript` devdep the --legacy-peer-deps install had dropped).
+        #   • ts-server / react-next / react-spa (this PR): the typescript-eslint type-aware configs
+        #     (strictTypeChecked + projectService) fatal-error on the same vendored .mjs/.ts/.cjs
+        #     (no type info / "not found by the project service") → fixed by adding the framework
+        #     namespace to each stack's eslint config `ignores`.
+        # Deterministic + API-free (eslint, no LLM) per .claude/rules/no-paid-llm-in-ci.md.
+        run: |
+          cd "$CONSUMER"
+          test -x node_modules/.bin/eslint \
+            || { echo "::error::eslint not installed — install.sh --full dep install failed; the lint gate cannot run (false-green guard)"; exit 1; }
+          npm run lint
 
   framework-self-detect:
     name: Detector v1 — self-application snapshot (L1 invariant)
@@ -825,6 +982,30 @@ jobs:
         # gate — they live OUTSIDE .github/workflows/, so these are extra path args.
         run: zizmor --format plain .github/workflows/ templates/ts-server/github-actions-ci.yml templates/ts-server/github-actions-workflow-integrity.yml packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml
 
+  # enforcement-liveness-fix S5: f17 planted-violation test on Node 20 + 22 matrix.
+  # Scoped to f17 only — proves barrel loads without tsx loader on both LTS versions.
+  f17-node-compat:
+    name: "f17 lint-rules planted-violation (Node ${{ matrix.node }})"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install workspace deps (provides tsx + tsc for barrel compilation)
+        run: npm install --silent
+      - name: Install packages/core deps (provides eslint binary for Arm ii)
+        run: npm ci --prefix packages/core --silent
+      - name: "f17 lint-rules planted-violation (Node ${{ matrix.node }})"
+        run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
+
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
   # `ci-success` gates them all, and stays correct as jobs are added/removed (vs
@@ -847,6 +1028,7 @@ jobs:
       - enforce-husky-presence
       - framework-self-install-ts-server
       - framework-self-install-react-next
+      - framework-fresh-install-validate
       - framework-self-detect
       - framework-self-research
       - framework-self-synth
@@ -854,6 +1036,7 @@ jobs:
       - framework-self-install-validated
       - framework-provenance-anti-hand-edit
       - phase-8-canonical-regen-acceptance
+      - f17-node-compat
     runs-on: ubuntu-latest
     permissions:
       contents: read

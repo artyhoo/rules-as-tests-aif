@@ -17,6 +17,7 @@ import {
   generateDegradedSnippet,
   resolveAndWire,
   wireConfigSource,
+  wireNRules,
 } from './wire-eslint-r2.ts';
 
 const TS_MORPH_AVAILABLE = existsSync('./node_modules/ts-morph/package.json')
@@ -195,25 +196,25 @@ describe('transform variants (#644)', () => {
   it.skipIf(!TS_MORPH_AVAILABLE)('self-contained: plugins+rules element + injected customRules import', async () => {
     const r = await wireConfigSource(base, {
       variant: 'self-contained',
-      customRulesImportPath: '../../eslint-rules-local/index.ts',
+      customRulesImportPath: '../../eslint-rules-local/index.mjs',
     });
     expect(r.status).toBe('wired');
     expect(r.variant).toBe('self-contained');
     expect(r.modified).toContain(`plugins: { 'rules-as-tests': customRules }`);
     expect(r.modified).toContain(`'${R2_RULE_ID}': 'error'`);
-    expect(r.modified).toMatch(/import customRules from ['"]\.\.\/\.\.\/eslint-rules-local\/index\.ts['"]/);
+    expect(r.modified).toMatch(/import customRules from ['"]\.\.\/\.\.\/eslint-rules-local\/index\.mjs['"]/);
   });
 });
 
 describe('customRulesImportSpecifier (#644)', () => {
   it('computes the relative path from a per-package config to <root>/eslint-rules-local', () => {
     expect(customRulesImportSpecifier('/repo/apps/api/eslint.config.mjs', '/repo')).toBe(
-      '../../eslint-rules-local/index.ts',
+      '../../eslint-rules-local/index.mjs',
     );
   });
   it('prefixes ./ when the config is at the consumer root', () => {
     expect(customRulesImportSpecifier('/repo/eslint.config.mjs', '/repo')).toBe(
-      './eslint-rules-local/index.ts',
+      './eslint-rules-local/index.mjs',
     );
   });
 });
@@ -264,6 +265,21 @@ describe('resolveAndWire (#644)', () => {
     expect(r.status).toBe('already-wired');
     expect(readFileSync(p, 'utf8')).toBe(wired);
   });
+
+  // §13.5 I-2 L2: scoped-R2-probe regression — when scope is passed, emitted block carries files:
+  it.skipIf(!TS_MORPH_AVAILABLE)('scoped probe: resolveAndWire with scope emits files: glob', async () => {
+    const { p } = tmpConfig(body);
+    const r = await resolveAndWire({
+      configPath: p,
+      cwd: '/repo',
+      runProbe: async () => 'ok',
+      scope: { files: ['apps/api/**'] },
+    });
+    expect(r.status).toBe('wired');
+    const out = readFileSync(p, 'utf8');
+    expect(out).toContain(`files: ["apps/api/**"]`);
+    expect(out).toContain(`'${R2_RULE_ID}': 'error'`);
+  });
 });
 
 describe('manual snippets are self-contained (#644)', () => {
@@ -273,4 +289,88 @@ describe('manual snippets are self-contained (#644)', () => {
     expect(s).toContain(`plugins: { 'rules-as-tests': customRules }`);
     expect(s).toContain(R2_RULE_ID);
   });
+});
+
+// ─── §13.5 I-2 L2: per-workspace scoping primitive (SSOT #182) ───────────────
+// Proves that the files: emission seam works across both rule emitters (R2 path
+// via wireConfigSource, N-rule path via wireNRules). Scope source = install-time
+// dir→stack detection map, NOT recipe appliesTo (T-MS-A countermeasure).
+describe('scoped emission — §13.5 I-2 L2 primitive (SSOT #182)', () => {
+  const base = `import base from './base.mjs';\nexport default [...base];\n`;
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    'bare variant + scope emits { files: [glob], rules: {...} }',
+    async () => {
+      const r = await wireConfigSource(base, { scope: { files: ['apps/api/**'] } });
+      expect(r.status).toBe('wired');
+      expect(r.modified).toContain(`files: ["apps/api/**"]`);
+      expect(r.modified).toContain(`'${R2_RULE_ID}': 'error'`);
+      expect(r.modified).not.toContain('plugins:'); // bare — no plugin registration
+    }
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    'no scope → global element (backward-compatible default)',
+    async () => {
+      const r = await wireConfigSource(base);
+      expect(r.status).toBe('wired');
+      expect(r.modified).not.toContain('files:');
+      expect(r.modified).toContain(`'${R2_RULE_ID}': 'error'`);
+    }
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    'self-contained variant + scope emits files: AND plugins:',
+    async () => {
+      const r = await wireConfigSource(base, {
+        variant: 'self-contained',
+        customRulesImportPath: '../../eslint-rules-local/index.mjs',
+        scope: { files: ['apps/api/**'] },
+      });
+      expect(r.status).toBe('wired');
+      expect(r.modified).toContain(`files: ["apps/api/**"]`);
+      expect(r.modified).toContain(`plugins: { 'rules-as-tests': customRules }`);
+      expect(r.modified).toContain(`'${R2_RULE_ID}': 'error'`);
+    }
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    'N-rule path: wireNRules with scope emits files: glob on simple rule',
+    async () => {
+      // Proves buildRuleConfigElement scope seam on the synth/N-rule path.
+      // Uses a placeholder rule name — proves the primitive generally, independent of R2.
+      const synthRules = { 'rules-as-tests/no-non-null-assertion': 'error' };
+      const r = await wireNRules(base, synthRules, { scope: { files: ['apps/web/**'] } });
+      expect(r.status).toBe('wired');
+      expect(r.modified).toContain(`files: ["apps/web/**"]`);
+      expect(r.modified).toContain(`'rules-as-tests/no-non-null-assertion': 'error'`);
+    }
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    'multi-file scope: two files in scope array emitted correctly',
+    async () => {
+      const r = await wireConfigSource(base, {
+        scope: { files: ['apps/api/**', 'apps/api/*.ts'] },
+      });
+      expect(r.status).toBe('wired');
+      expect(r.modified).toContain(`files: ["apps/api/**", "apps/api/*.ts"]`);
+    }
+  );
+
+  // Security: a workspace dir containing a single quote must not break out of the string literal.
+  // jsString() wraps in double quotes when the value contains ' — prevents code injection into
+  // the generated eslint.config.mjs (finding 3e8b46e1ab2b).
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    "scope glob with single quote is safely escaped — no code injection",
+    async () => {
+      const r = await wireConfigSource(base, { scope: { files: ["apps/it's/**"] } });
+      expect(r.status).toBe('wired');
+      // jsString("apps/it's/**") → "apps/it's/**" (double-quoted; no double-quote in value)
+      expect(r.modified).toContain(`files: ["apps/it's/**"]`);
+      // Must NOT contain raw single-quote delimiter that would break the JS string literal
+      expect(r.modified).not.toMatch(/files: \['apps\/it's/);
+      expect(r.modified).toContain(`'${R2_RULE_ID}': 'error'`);
+    }
+  );
 });

@@ -41,15 +41,15 @@ src/
 
 ## Key differences from Next.js (App Router)
 
-| Concern | Next.js | React SPA (Vite) |
-|---|---|---|
-| Rendering | Server Components + Client Components | Client-only (all components run in browser) |
-| Server Actions | `'use server'` directive, `use-server-directive` rule | ❌ No Server Actions |
-| `'use client'` | Required for client-interactivity | ❌ Not needed — everything is client |
-| Error boundary | Next.js `error.tsx` convention | ✅ **Must wrap App root manually** (R-SPA-EB rule) |
-| Routing | App Router file conventions | Library: `react-router`, `tanstack-router`, etc. |
-| Data fetching | React Server Components, streaming | TanStack Query, SWR, or native fetch |
-| Entry point | `app/layout.tsx` | `src/main.tsx` + `src/App.tsx` |
+| Concern        | Next.js                                               | React SPA (Vite)                                   |
+| -------------- | ----------------------------------------------------- | -------------------------------------------------- |
+| Rendering      | Server Components + Client Components                 | Client-only (all components run in browser)        |
+| Server Actions | `'use server'` directive, `use-server-directive` rule | ❌ No Server Actions                               |
+| `'use client'` | Required for client-interactivity                     | ❌ Not needed — everything is client               |
+| Error boundary | Next.js `error.tsx` convention                        | ✅ **Must wrap App root manually** (R-SPA-EB rule) |
+| Routing        | App Router file conventions                           | Library: `react-router`, `tanstack-router`, etc.   |
+| Data fetching  | React Server Components, streaming                    | TanStack Query, SWR, or native fetch               |
+| Entry point    | `app/layout.tsx`                                      | `src/main.tsx` + `src/App.tsx`                     |
 
 ## Error boundary requirement (R-SPA-EB)
 

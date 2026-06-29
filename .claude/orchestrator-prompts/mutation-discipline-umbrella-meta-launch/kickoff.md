@@ -93,7 +93,7 @@ D.1-D.5 must wait for B's mutator to land (so new tests inherit mutation protect
 
 Dispatch as **Mode A inline Opus session**. R-phase produces a research-patch; no worktree needed (doc-only output).
 
-**Worker brief (paste verbatim into Agent tool or inline session):**
+**Worker brief (paste verbatim into Agent tool or inline session):** <!-- channel-discipline: allow historical instance, loose wording; closed umbrella — surfaced in Stage B PR notes -->
 
 ```text
 Role: Worker — R-phase mutation audit (single sub-wave A)

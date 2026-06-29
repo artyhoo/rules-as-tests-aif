@@ -109,4 +109,4 @@ if [ "${fail}" -eq 1 ]; then
   echo ""; echo "❌ fallback: critical checks FAILED."
   echo "   Install Node ≥20 for the full TS-core hook (substance arms)."; exit 1
 fi
-echo "✅ fallback: critical checks passed."; exit 0
+echo "⚠ fallback [REDUCED]: Prior-art + §1.7 presence checks passed. Substance arms (TypeScript rule logic) NOT run — install tsx for the full pre-push hook."; exit 0

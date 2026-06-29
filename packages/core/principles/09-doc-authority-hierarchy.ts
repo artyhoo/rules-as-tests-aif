@@ -47,6 +47,8 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   '.claude/rules/companion-install-principle.md',
   '.claude/rules/language-discipline.md',
   '.claude/rules/ci-tool-pinning.md',
+  '.claude/rules/egress-no-api-bypass.md',
+  '.claude/rules/skill-description-quality.md',
 
   // docs/meta-factory/ reference docs (excluding sub-folders + filename-convention transients)
   'docs/meta-factory/EXECUTION-PLAN.md',
@@ -82,7 +84,16 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'skills/tool-bootstrapping/SKILL.md',
   'skills/tool-bootstrapping/references/decision-format.md',
 
-  // .claude/skills/ — project-internal skill primary + cold references (Wave 5.1)
+  // .claude/skills/ — project-internal skill primary + cold references (Wave 5.1 + DN-M1)
+  '.claude/skills/ai-doc/SKILL.md',
+  '.claude/skills/aif-doctor/SKILL.md',
+  '.claude/skills/dispatcher/SKILL.md',
+  '.claude/skills/harvest/SKILL.md',
+  '.claude/skills/pipeline/SKILL.md',
+  '.claude/skills/rule-research/SKILL.md',
+  '.claude/skills/self-reflection/SKILL.md',
+  '.claude/skills/story/SKILL.md',
+  '.claude/skills/template-audit/SKILL.md',
   '.claude/skills/tool-bootstrapping/SKILL.md',
   '.claude/skills/tool-bootstrapping/references/decision-format.md',
 
@@ -117,6 +128,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'agents/memory-codification-auditor.md',
   'agents/orchestrator-worker-discipline.md',
   'agents/aif-init.md',
+  'agents/rule-researcher.md',
 ];
 
 /**

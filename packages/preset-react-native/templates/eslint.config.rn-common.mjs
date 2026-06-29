@@ -12,6 +12,37 @@ import reactNativeA11y from 'eslint-plugin-react-native-a11y';
 
 /** @type {import('eslint').Linter.Config[]} */
 const rnCommon = [
+  // ─── Global ignores (#779 lint follow-up) ────────────────────────────
+  // A flat-config object with ONLY `ignores` (no `files`) is global — it applies regardless of
+  // its position in the array, so both baselines (Expo + bare-RN, which spread this layer LAST)
+  // inherit it. Without it, `eslint .` walks the whole tree and the @react-native baseline
+  // false-fails on two surfaces a fresh consumer must never lint:
+  //   1. Build artifacts / generated output (mirrors the SPA + Next presets' ignores).
+  //   2. AIF framework machinery vendored by install.sh — NOT app code. The bare-RN baseline
+  //      parses `.mjs` with espree @ ecmaVersion 2015 (no `import.meta` / optional chaining), and
+  //      @react-native enables `dot-notation` (warn) → `eslint . --max-warnings=0` dies on the
+  //      shipped rule plugin (`eslint-rules-local/`), the TS hooks (`packages/core/`), and the
+  //      vendored config files. The consumer authors none of these; lint only their own source.
+  {
+    ignores: [
+      // 1 — build artifacts + generated output (SPA/Next preset parity)
+      'dist/**',
+      'build/**',
+      'coverage/**',
+      '.stryker-tmp/**',
+      'node_modules/**',
+      'public/**',
+      '**/*.d.ts',
+      'reports/**',
+      // 2 — AIF framework machinery vendored by install.sh (not consumer code)
+      'eslint-rules-local/**',
+      'packages/core/**',
+      'eslint.config.mjs',
+      'eslint.config.rn-common.mjs',
+      'vitest.config.ts',
+    ],
+  },
+
   // ─── React Native style / text rules (#144) ──────────────────────────
   // eslint-plugin-react-native@^5 under ESLint flat config.
   // Requires: peer eslint ^9, plugin added as object (no legacy .configs.all shorthand in v5 flat).

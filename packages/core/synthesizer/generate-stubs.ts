@@ -135,6 +135,63 @@ export const stubGenerateForbid: GenerateClient = {
   },
 };
 
+// stubGenerateReactSPA → returns the SPA rule set (all 3 as manual).
+//   spa-error-boundary → eslintConfig absent → check.type:'manual'.
+//     WHY manual: require-error-boundary is a glob-scoped rule (app-root files only). The L4
+//     tautology gate runs all eslint rules against a generic JSX negative-corpus file
+//     (unrelated.tsx) which has JSX but no ErrorBoundary — the rule fires tautologically.
+//     This is architecturally correct: the rule is not general-purpose; it is only valid
+//     when glob-scoped. So EB is 'manual' (same reasoning as RN R14/R15 being plugin rules).
+//     The paired fixture test (b) proves the rule itself works correctly via direct Linter call.
+//   spa-a11y  → eslintConfig absent → check.type:'manual' (plugin rule, honest about harness limit).
+//   spa-hooks → eslintConfig absent → check.type:'manual' (plugin rule, honest about harness limit).
+// Oracle coverage = {R-SPA-EB, R-SPA-A11Y, R-SPA-HOOKS} per RULES.react-spa.md.
+export const stubGenerateReactSPA: GenerateClient = {
+  async generate(_menu: Menu): Promise<GenerateSelection> {
+    return {
+      rules: [
+        // R-SPA-EB: require-error-boundary — glob-scoped rule → tautological on generic JSX → manual
+        {
+          entryId: 'spa-error-boundary',
+          ruleId: 'rules-as-tests/require-error-boundary',
+          title: 'App-root must render content inside an ErrorBoundary JSX element',
+          stack: ['react-spa'],
+          // eslintConfig absent → synthesizeGenerate emits check.type:'manual'
+          // (tautology gate would reject this rule on unrelated.tsx)
+          examples: {
+            bad: "function App() {\n  return <main><div>Hello</div></main>;\n}",
+            good: "import { ErrorBoundary } from 'react-error-boundary';\nfunction App() {\n  return (\n    <ErrorBoundary fallback={<div>Error</div>}>\n      <main><div>Hello</div></main>\n    </ErrorBoundary>\n  );\n}",
+          },
+        },
+        // R-SPA-A11Y: eslint-plugin-jsx-a11y — plugin rule → NOT in L4 KNOWN_PLUGINS → manual
+        {
+          entryId: 'spa-a11y',
+          ruleId: 'jsx-a11y/alt-text',
+          title: 'Web accessibility — jsx-a11y rules for React SPA',
+          stack: ['react-spa'],
+          // eslintConfig absent → synthesizeGenerate emits check.type:'manual'
+          examples: {
+            bad: "<img src=\"logo.png\" />",
+            good: "<img src=\"logo.png\" alt=\"Company logo\" />",
+          },
+        },
+        // R-SPA-HOOKS: eslint-plugin-react-hooks — plugin rule → NOT in L4 KNOWN_PLUGINS → manual
+        {
+          entryId: 'spa-hooks',
+          ruleId: 'react-hooks/rules-of-hooks',
+          title: 'Rules of Hooks — react-hooks plugin for React SPA',
+          stack: ['react-spa'],
+          // eslintConfig absent → synthesizeGenerate emits check.type:'manual'
+          examples: {
+            bad: "function Component({ condition }: { condition: boolean }) {\n  if (condition) {\n    const [x] = useState(0);\n    return <div>{x}</div>;\n  }\n  return null;\n}",
+            good: "function Component() {\n  const [x, setX] = useState(0);\n  return <div onClick={() => setX(1)}>{x}</div>;\n}",
+          },
+        },
+      ],
+    };
+  },
+};
+
 export const stubGenerateBad: GenerateClient = {
   async generate(menu: Menu): Promise<GenerateSelection> {
     const first = menu.candidates[0];

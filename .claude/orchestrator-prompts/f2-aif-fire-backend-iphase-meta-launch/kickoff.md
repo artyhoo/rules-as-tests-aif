@@ -62,7 +62,7 @@ Empty result before the Worker has opened a PR is expected. After the Worker rep
 
 ## §4 Sub-wave dispatch instruction (Stage 1, the only stage)
 
-**Channel: maintainer-paste into a fresh CC tab** (NOT Agent-tool dispatch). Write-task Worker dispatch via the Agent tool with `isolation:"worktree"` silently fails for writes (`#worker-dispatch-via-subagent`, bug #39886). The umbrella kickoff's "inline Agent" wording means a single-focus Opus session; the channel is a pasted tab the maintainer opens.
+**Channel: maintainer-paste into a fresh CC tab** (NOT Agent-tool dispatch). Write-task Worker dispatch via the Agent tool with `isolation:"worktree"` silently fails for writes (`#worker-dispatch-via-subagent`, bug #39886). The umbrella kickoff's "inline Agent" wording means a single-focus Opus session; the channel is a pasted tab the maintainer opens. <!-- channel-discipline: allow teaches the anti-pattern (NOT-this-channel guidance + bug #39886) -->
 
 Paste this into a new CC tab:
 

@@ -1,0 +1,80 @@
+import { ESLintUtils } from '@typescript-eslint/utils';
+const createRule = ESLintUtils.RuleCreator((_name) => `https://github.com/Yhooi2/rules-as-tests-aif/blob/main/packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries`);
+// Returns true if node is (or contains) a direct z.* call/member chain.
+// Handles z.object({}).parse(x), z.string().nullable().parse(x), etc.
+function isZodChain(node) {
+    if (node.type === 'CallExpression')
+        return isZodChain(node.callee);
+    if (node.type === 'MemberExpression') {
+        if (node.object.type === 'Identifier' && node.object.name === 'z')
+            return true;
+        return isZodChain(node.object);
+    }
+    return false;
+}
+// Heuristic: is the receiver node a Zod schema?
+// Uses AST + ESLint scope analysis only — zero type info, zero new dependencies.
+// Three signals: (1) direct z.* chain, (2) *Schema naming, (3) scope-resolved z.* init or 'zod' import.
+function isZodishReceiver(receiver, scope) {
+    // (1) Direct z.* chain: z.object({}).parse(x), z.string().parse(x)
+    if (isZodChain(receiver))
+        return true;
+    if (receiver.type !== 'Identifier')
+        return false;
+    const name = receiver.name;
+    // (2) *Schema naming convention (e.g. OrderSchema, bodySchema)
+    if (name.endsWith('Schema'))
+        return true;
+    // (3) Scope-resolve: walk scope chain to check declaration
+    let s = scope;
+    while (s) {
+        const variable = s.set.get(name);
+        if (variable) {
+            for (const def of variable.defs) {
+                // Imported directly from 'zod': import { schema } from 'zod'
+                if (def.type === 'ImportBinding' &&
+                    def.parent?.source.value === 'zod')
+                    return true;
+                // Variable initialised from a z.* chain: const S = z.object({...})
+                if (def.type === 'Variable') {
+                    const init = def.node.init;
+                    if (init && isZodChain(init))
+                        return true;
+                }
+            }
+            break; // found variable in this scope level; stop traversal
+        }
+        s = s.upper;
+    }
+    return false;
+}
+export const noUnsafeZodParse = createRule({
+    name: 'no-unsafe-zod-parse',
+    meta: {
+        type: 'problem',
+        docs: {
+            description: 'Forbid Zod schema `.parse()` in HTTP boundary files; require `.safeParse()`. Stdlib `.parse()` (JSON, Date, path) is not flagged.',
+        },
+        messages: {
+            useSafeParse: 'Use `.safeParse()` instead of `.parse()` in HTTP boundaries — `.parse()` throws and bypasses structured error handling (R2).',
+        },
+        schema: [],
+    },
+    defaultOptions: [],
+    create(context) {
+        const sourceCode = context.sourceCode;
+        return {
+            "CallExpression[callee.type='MemberExpression'][callee.property.name='parse']"(node) {
+                const line = node.loc.start.line;
+                const lines = sourceCode.lines;
+                const currentLine = lines[line - 1] ?? '';
+                if (currentLine.includes('// audit:exempt'))
+                    return;
+                const callee = node.callee;
+                if (!isZodishReceiver(callee.object, sourceCode.getScope(node)))
+                    return;
+                context.report({ node, messageId: 'useSafeParse' });
+            },
+        };
+    },
+});

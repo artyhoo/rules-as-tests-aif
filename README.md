@@ -22,7 +22,7 @@ After install, your project has:
 5. **Stack configs**:
    - ESLint 10 flat config (typescript-eslint strictTypeChecked + Prettier; for React, also react-hooks + jsx-a11y/strict + @next/next).
    - Vitest 4.x with `.unit.ts` / `.integration.ts` / `.audit.ts` naming and per-module coverage thresholds (90% domain, 85% application).
-   - Stryker mutation testing (incremental on PR diff, full sweep nightly).
+   - Stryker mutation testing (incremental on PR diff).
    - dependency-cruiser layered architecture rules.
    - Husky pre-commit (lint-staged) + pre-push (typecheck + vitest related + arch + audit-ai-docs).
    - GitHub Actions CI with required `ci-success` job.
@@ -238,8 +238,10 @@ cp /tmp/rt/templates/shared/tsconfig.json .
 
 - **`ts-server`** — Node.js 20.19+ server-only (Fastify, Hono, Express, plain HTTP).
 - **`react-next`** — React 19 + Next.js 15 (App Router) + TypeScript.
+- **`react-spa`** — React 19 + Vite SPA (Feature-Sliced Design). _Early — ships the `require-error-boundary` rule; the rule-pack is still growing._
+- **`react-native`** — React Native / Expo (Expo or bare-RN baseline). _Experimental baseline — stack scaffold + templates; a dedicated rule-pack is not yet shipped._
 
-Pass the stack to `./setup` (or `install.sh`) as a positional argument — `ts-server` / `react-next` — or omit it to get an interactive picker. (The legacy `setup.sh` wrapper auto-detected the stack from `next.config.*` / `react` in `package.json`.) Both share base configs (tsconfig, husky, lint-staged, RULES R1-R11). React adds R12-R20 + Storybook + Playwright.
+Pass the stack to `./setup` (or `install.sh`) as a positional argument — `ts-server` / `react-next` / `react-spa` / `react-native` — or omit it to get an interactive picker. (The legacy `setup.sh` wrapper auto-detected the stack from `next.config.*` / `react` in `package.json`.) All share base configs (tsconfig, husky, lint-staged, RULES R1-R11); the React stacks add R12-R20 + Storybook/Playwright where applicable.
 
 ## Forward compatibility note on AIF extensions
 

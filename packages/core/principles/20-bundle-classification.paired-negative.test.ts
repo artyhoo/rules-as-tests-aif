@@ -1,153 +1,134 @@
 /**
  * Principle 20 paired-negative — bundle-curate.sh correctness (principle 02 mandate)
  *
- * Per .claude/rules/ai-laziness-traps.md §2 T15 self-application and principle 02:
- * a deliberately broken bundle-curate.sh (simulated by injecting wrong logic)
- * must fail the positive checks in 20-bundle-classification.test.ts.
+ * REWRITTEN 2026-06-27 (DN-T3-2, §13.32 DN-M1 Task-3 fix). The prior version built
+ * fabricated markdown strings locally (brokenBundleNoFilter/NoCap/NoOverlap) and never
+ * executed bundle-curate.sh — it asserted properties of hand-written rows, proving
+ * nothing about the real checker. That was the SUSPECT-TAUTOLOGY finding in
+ * docs/meta-factory/research-patches/2026-06-27-§13.32-DN-M1-task3-principle-test-assertion-audit.md §4.2.
  *
- * This file proves the positive checks are non-tautological: real violations
- * (eligibility filter broken, cap not enforced, overlap not rejected) would
- * be caught if they appeared in the actual helper.
+ * This version runs a deliberately-MUTATED copy of the REAL bundle-curate.sh against the
+ * REAL fixtures and asserts the positive checks in 20-bundle-classification.test.ts would
+ * FAIL — the genuine principle-02 paired-negative: break the subject, the gate must catch it.
+ * Each mutant disables exactly ONE rule (eligibility filter / max-5 cap / file-overlap),
+ * and each arm asserts the matching positive expectation no longer holds. A `control` arm
+ * proves the un-mutated script DOES produce the positive expectations, so a mutant arm
+ * failing means the mutation broke it — not a fixture/runner regression.
  *
- * T-BA-C binding: this file MUST include a test that proves a bundle containing
- * an R-phase item would fail the positive check (i.e., the filter being absent
- * means an R-phase item appears in-bundle, which the principle 20 check catches).
+ * The mutant runs from a COPY of the whole helpers dir in a temp dir (so the script's
+ * sibling lookups — classify-work.sh / assign-skill.sh via SCRIPT_DIR — still resolve)
+ * and never writes into the tracked tree (parallel-safe w.r.t. principle 14 skill-drift).
+ *
+ * T-BA-C: the eligibility-filter mutant proves a bundle with an R-phase item (filter
+ * broken) loses the `excluded: type=R-phase` row the positive check (:104) asserts.
  */
 import { describe, it, expect } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import {
+  readFileSync,
+  writeFileSync,
+  chmodSync,
+  mkdtempSync,
+  rmSync,
+  cpSync,
+} from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 
-/** Simulate a broken bundle-curate.sh that passes ALL items through (no filter). */
-function brokenBundleNoFilter(items: string[]): string {
-  const rows = items.map((item, i) => `| ${i + 1} | ${item} | pass | direct-Edit | none | — | in-bundle (${i + 1}/5) |`);
-  return [
-    '| idx | item-source | classification | dispatch-mode | assigned-skill | file-scope | notes |',
-    '|---|---|---|---|---|---|---|',
-    ...rows,
-  ].join('\n');
-}
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(HERE, '../../..');
+const HELPER = resolve(REPO_ROOT, '.claude/skills/pipeline/helpers/bundle-curate.sh');
+const HELPERS_DIR = dirname(HELPER);
+const FIXTURES = resolve(HERE, '__fixtures__/bundle');
 
-/** Simulate a broken bundle-curate.sh that ignores the max-5 cap. */
-function brokenBundleNoCap(items: string[]): string {
-  const rows = items.map((item, i) => `| ${i + 1} | ${item} | fix | direct-Edit | none | — | in-bundle (${i + 1}/${items.length}) |`);
-  return [
-    '| idx | item-source | classification | dispatch-mode | assigned-skill | file-scope | notes |',
-    '|---|---|---|---|---|---|---|',
-    ...rows,
-  ].join('\n');
-}
+/**
+ * Per-arm timeout. bundle-curate.sh spawns classify-work.sh + assign-skill.sh ONCE PER
+ * backlog item (8 for backlog-2), so a single run is ~3-5s; under the parallel principle
+ * suite (where the positive 20-bundle file ALSO spawns bundle-curate concurrently) a run
+ * can exceed vitest's 5s default and false-fail on timeout, not on a real assertion.
+ * Mirrors the principle-02 bash-mutator precedent (60s for inherently slow shell spawns).
+ */
+const SLOW_SHELL_MS = 60_000;
 
-/** Simulate a broken bundle-curate.sh that ignores file-overlap. */
-function brokenBundleNoOverlap(items: string[]): string {
-  const rows = items.map((item, i) => `| ${i + 1} | ${item} | fix | direct-Edit | none | shared.sh | in-bundle (${i + 1}/5) |`);
-  return [
-    '| idx | item-source | classification | dispatch-mode | assigned-skill | file-scope | notes |',
-    '|---|---|---|---|---|---|---|',
-    ...rows,
-  ].join('\n');
-}
-
-function countRows(output: string, pattern: string): number {
+/** Count rows whose notes cell contains a pattern (same shape as the positive file). */
+function countRows(output: string, notesPattern: string): number {
   return output
     .split('\n')
-    .filter((line) => line.startsWith('|') && line.includes(pattern))
+    .filter((line) => line.startsWith('|') && line.includes(notesPattern))
     .length;
 }
 
-describe('Principle 20 paired-negative — broken bundle logic must fail positive checks', () => {
-  // T-BA-C binding: R-phase item in bundle means filter is broken
-  it('T-BA-C: broken filter (no eligibility check) lets R-phase item appear in-bundle — positive check would catch it', () => {
-    const items = [
-      'fix typo in alpha.sh',
-      'research patch prior art survey for new capability',  // R-phase — must be excluded
-      'fix comment in beta.sh',
-    ];
+/**
+ * Copy the whole helpers dir to a temp dir, apply ONE literal break to the
+ * bundle-curate.sh copy, run it on a fixture, and always clean up. Throws if the
+ * mutation target is absent (so a future edit that moves the line fails loudly
+ * instead of silently testing an un-mutated script).
+ */
+function runMutant(find: string, replace: string, fixtureName: string): string {
+  const tmpDir = mkdtempSync(join(tmpdir(), 'p20-pn-'));
+  try {
+    const helpersCopy = join(tmpDir, 'helpers');
+    cpSync(HELPERS_DIR, helpersCopy, { recursive: true });
 
-    // Broken: no filter, R-phase item gets in-bundle
-    const brokenOutput = brokenBundleNoFilter(items);
+    const mutantHelper = join(helpersCopy, 'bundle-curate.sh');
+    const original = readFileSync(mutantHelper, 'utf8');
+    const mutated = original.replace(find, replace);
+    if (mutated === original) {
+      throw new Error(
+        `mutation target not found in bundle-curate.sh: ${JSON.stringify(find)} — ` +
+          `the script changed; update this paired-negative's mutation target`,
+      );
+    }
+    writeFileSync(mutantHelper, mutated);
+    chmodSync(mutantHelper, 0o755);
 
-    // The broken output DOES contain in-bundle for the R-phase item
-    const rphaseRow = brokenOutput.split('\n').find((l) => l.includes('research patch prior art survey'));
-    expect(rphaseRow).toBeDefined();
-    expect(rphaseRow).toContain('in-bundle');
+    return execFileSync('/bin/bash', [mutantHelper, resolve(FIXTURES, fixtureName)], {
+      encoding: 'utf8',
+      cwd: REPO_ROOT,
+    });
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
 
-    // This is the VIOLATION that principle 20 positive test would catch:
-    // "R-phase item is excluded (not in {fix,I-phase-small})" assertion would FAIL
-    // because brokenOutput has no row with 'excluded: type=R-phase not in {fix,I-phase-small}'
-    expect(brokenOutput).not.toContain('excluded: type=R-phase not in {fix,I-phase-small}');
-    // So we prove: if the positive test checks for this exclusion, it would fail on brokenOutput.
-    const hasExcludedRphase = brokenOutput.includes('excluded: type=R-phase');
-    expect(hasExcludedRphase).toBe(false);  // confirms the filter is absent in broken version
-  });
+describe('Principle 20 paired-negative — a broken bundle-curate.sh fails the positive checks', () => {
+  // ── control: the un-mutated script DOES produce the positive expectations ────
+  // Proves the mutant arms below fail BECAUSE of the mutation, not a fixture/runner bug.
+  it('control: the real (un-mutated) bundle-curate.sh excludes the R-phase item and caps at 5', () => {
+    const out = execFileSync('/bin/bash', [HELPER, resolve(FIXTURES, 'backlog-2-mixed.txt')], {
+      encoding: 'utf8',
+      cwd: REPO_ROOT,
+    });
+    expect(out).toContain('excluded: type=R-phase not in {fix,I-phase-small}');
+    expect(countRows(out, 'in-bundle')).toBe(5);
+  }, SLOW_SHELL_MS);
 
-  it('T-BA-C: I-phase-large item in broken output — positive check would catch it', () => {
-    const items = [
-      'fix lint warning in alpha.sh',
-      'implement complex feature across component.ts service.ts controller.ts',  // I-phase-large
-    ];
-    const brokenOutput = brokenBundleNoFilter(items);
+  // ── T-BA-C: eligibility-filter mutant → R-phase item no longer excluded ──────
+  it('T-BA-C: broken B1 eligibility filter → R-phase item is NOT excluded (positive :104 would fail)', () => {
+    // Replace the B1 condition with a hard-false test (`[[ 1 -eq 0 ]]`), NOT the string
+    // `false` — `[[ false ]]` is truthy in bash (non-empty string), which would keep the
+    // exclusion firing. `1 -eq 0` makes the condition genuinely false → filter disabled.
+    const out = runMutant(
+      '"${ITEM_TYPE}" != "fix" && "${ITEM_TYPE}" != "I-phase-small"',
+      '1 -eq 0',
+      'backlog-2-mixed.txt',
+    );
+    expect(out).not.toContain('excluded: type=R-phase not in {fix,I-phase-small}');
+  }, SLOW_SHELL_MS);
 
-    // Broken output has no exclusion for I-phase-large
-    expect(brokenOutput).not.toContain('excluded: type=I-phase-large');
+  // ── max-5 cap mutant → more than 5 items enter the bundle ────────────────────
+  it('broken max-5 cap → >5 items in-bundle (positive :99 toBe(5) would fail)', () => {
+    const out = runMutant('"${BUNDLE_COUNT}" -lt 5', '"${BUNDLE_COUNT}" -lt 999', 'backlog-2-mixed.txt');
+    // backlog-2 has 6 items passing the filter; with the cap broken all 6 enter (not 5).
+    expect(countRows(out, 'in-bundle')).toBeGreaterThan(5);
+  }, SLOW_SHELL_MS);
 
-    // Positive test assertion 'I-phase-large item is excluded' would fail on brokenOutput
-    const iLargeExcluded = brokenOutput.includes('excluded: type=I-phase-large not in {fix,I-phase-small}');
-    expect(iLargeExcluded).toBe(false);
-  });
-
-  it('broken no-cap: 7 items all in-bundle — positive check (cap=5) would catch it', () => {
-    const sevenItems = [
-      'fix 1 in alpha.sh', 'fix 2 in beta.sh', 'fix 3 in gamma.sh',
-      'fix 4 in delta.sh', 'fix 5 in epsilon.sh', 'fix 6 in zeta.sh',
-      'fix 7 in eta.sh',
-    ];
-    const brokenOutput = brokenBundleNoCap(sevenItems);
-
-    // Broken: 7 in-bundle rows (no cap)
-    expect(countRows(brokenOutput, 'in-bundle')).toBe(7);
-
-    // Positive test asserts countRows(output, 'in-bundle') === 5 — would FAIL on 7
-    const inBundleCount = countRows(brokenOutput, 'in-bundle');
-    expect(inBundleCount).not.toBe(5);  // proves the cap check is load-bearing
-
-    // Also: no 'max-bundle-5 cap' exclusion in broken output
-    expect(countRows(brokenOutput, 'max-bundle-5 cap')).toBe(0);
-  });
-
-  it('broken no-overlap: 3 items sharing shared.sh all in-bundle — positive check would catch it', () => {
-    const items = [
-      'fix lint in shared.sh',
-      'fix comment in shared.sh',
-      'fix typo in shared.sh',
-    ];
-    const brokenOutput = brokenBundleNoOverlap(items);
-
-    // Broken: all 3 in-bundle (no overlap rejection)
-    expect(countRows(brokenOutput, 'in-bundle')).toBe(3);
-    expect(countRows(brokenOutput, 'file-overlap')).toBe(0);
-
-    // Positive test for backlog-3-overlap asserts: 2 items excluded by file-overlap
-    // — would FAIL on brokenOutput because 0 file-overlap exclusions exist
-    const overlapCount = countRows(brokenOutput, 'file-overlap with prior candidate');
-    expect(overlapCount).toBe(0);  // proves the overlap check is load-bearing
-  });
-
-  // T15 self-application: queuing "improve bundle-curate.sh" items
-  it('T15 self-application: 2 items improving bundle-curate.sh share file scope → second excluded by overlap', () => {
-    // If we process these through the REAL helper in backlog-1-clean style,
-    // items sharing "bundle-curate.sh" in their description would be:
-    //   item 1: "fix typo in bundle-curate.sh" → FILE_SCOPE = bundle-curate.sh, candidate
-    //   item 2: "fix lint in bundle-curate.sh" → FILE_SCOPE = bundle-curate.sh, OVERLAP → excluded
-    //
-    // We simulate this here to prove the self-application logic is coherent:
-    const simulatedWithOverlap = [
-      '| 1 | fix typo in bundle-curate.sh | fix | direct-Edit | none | bundle-curate.sh | in-bundle (1/5) |',
-      '| 2 | fix lint in bundle-curate.sh | fix | direct-Edit | none | bundle-curate.sh | excluded: file-overlap with prior candidate |',
-    ].join('\n');
-
-    // The first item IS in-bundle
-    expect(simulatedWithOverlap).toContain('in-bundle (1/5)');
-    // The second item IS excluded by overlap
-    expect(simulatedWithOverlap).toContain('excluded: file-overlap with prior candidate');
-    // Net result: 1 bundle-curate.sh improvement per bundle run → correct
-    expect(countRows(simulatedWithOverlap, 'in-bundle')).toBe(1);
-  });
+  // ── file-overlap mutant → overlapping items no longer rejected ───────────────
+  it('broken file-overlap rejection → overlapping items stay in-bundle (positive :130 toBe(3) would fail)', () => {
+    const out = runMutant('"${OVERLAP}" -eq 1', '"${OVERLAP}" -eq 999', 'backlog-3-overlap.txt');
+    // backlog-3 has 5 fix items (3 share a file); with overlap rejection broken, >3 enter.
+    expect(countRows(out, 'in-bundle')).toBeGreaterThan(3);
+    expect(countRows(out, 'file-overlap with prior candidate')).toBe(0);
+  }, SLOW_SHELL_MS);
 });

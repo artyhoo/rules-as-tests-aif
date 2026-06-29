@@ -4,12 +4,13 @@
 # `$REPO_ROOT/packages/core/hooks/pre-push.ts` when Node≥20 + that file is present,
 # else falls to the bash fallback. Before this fix install.sh shipped only the
 # fallback, so the TS arm was unreachable in every consumer install. This test runs
-# the REAL install pipeline and asserts pre-push.ts + its bounded static import
-# closure land under packages/core/hooks/ with the relative layout the dispatcher
-# resolves. PAIRED-NEGATIVE: the fallback must still land (we ADD the TS arm, we
-# don't replace it) AND the dynamically-import()ed guard-liveness.ts must NOT ship
-# (it degrades gracefully when absent) — that negative arm proves the closure is
-# bounded, not "ship everything".
+# the REAL install pipeline and asserts pre-push.ts + its COMPLETE import closure
+# (static AND dynamic await-import() targets) land under packages/core/hooks/ with
+# the relative layout the dispatcher resolves. PAIRED-NEGATIVE: the bash fallback
+# must still land (we ADD the TS arm, we don't replace it). Per GH #735 the
+# dynamically-import()ed guard-liveness.ts / cmd-script-liveness.ts die()/push-block
+# when absent (NOT graceful) — so the COMPLETE graph must ship, including the
+# eslint-rules barrel guard-liveness.ts transitively needs.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -42,7 +43,15 @@ H="$T/packages/core/hooks"
 # PAIRED-NEGATIVE arm 1 — fallback still lands (TS arm is additive, not a replacement)
 [ -f "$H/pre-push.fallback.sh" ] && ok "neg: bash fallback still shipped (TS arm is additive)" || bad "neg: fallback lost"
 
-# PAIRED-NEGATIVE arm 2 — guard-liveness.ts must NOT ship (dynamically imported, degrades gracefully)
-[ ! -f "$H/checks/guard-liveness.ts" ] && ok "neg: guard-liveness.ts NOT shipped (closure bounded)" || bad "neg: guard-liveness.ts leaked — closure not bounded"
+# Static import added in GH #735 — its absence is the ERR_MODULE_NOT_FOUND headline (crashes at load).
+[ -f "$H/checks/unpinned-tool-install.ts" ] && ok "checks/unpinned-tool-install.ts shipped (static import — #735 crash headline)" || bad "checks/unpinned-tool-install.ts missing — ERR_MODULE_NOT_FOUND at load"
+
+# Dynamic await-import() targets — per GH #735 these die()/push-block when absent (NOT graceful),
+# so the COMPLETE graph must ship. (Supersedes the old "bounded static-only closure" negative arm.)
+[ -f "$H/checks/guard-liveness.ts" ]      && ok "checks/guard-liveness.ts shipped (dynamic import — die() when its gate fires)"      || bad "checks/guard-liveness.ts missing — pre-push die()s/push-blocks"
+[ -f "$H/checks/cmd-script-liveness.ts" ] && ok "checks/cmd-script-liveness.ts shipped (dynamic import — die() when its gate fires)" || bad "checks/cmd-script-liveness.ts missing — pre-push die()s/push-blocks"
+
+# Transitive dep of guard-liveness.ts (../../eslint-rules/index.ts) — barrel must ship or guard-liveness die()s on load.
+[ -f "$H/../eslint-rules/index.ts" ] && ok "eslint-rules/index.ts barrel shipped (guard-liveness transitive dep)" || bad "eslint-rules/index.ts missing — guard-liveness die()s on load"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

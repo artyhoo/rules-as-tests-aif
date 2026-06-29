@@ -35,11 +35,15 @@
 # committed durable design doc (git owns it); state.md + _plan-cache +
 # _master-backlog-delta are gitignored regenerable runtime (this helper owns them).
 #
-# Tracked files skipped: README.md (root), */done.md + */kickoff.md (per umbrella).
-# These match .gitignore tracked-exception lines:
-#   !.claude/orchestrator-prompts/README.md
-#   !.claude/orchestrator-prompts/*/done.md
-#   !.claude/orchestrator-prompts/*/kickoff.md
+# Tracked files skipped: ANY git-tracked file under orchestrator-prompts/ — the
+# decision is derived from `git ls-files` (see is_tracked() below), NOT a fixed
+# name-list. The common cases (README.md, */done.md, */kickoff.md) retain a
+# name-based fast-path so fake/non-git worktrees in tests still skip them; the
+# git-tracked check additionally covers one-off .gitignore tracked-exceptions
+# (e.g. !.../<umbrella>/stage-N.md, !.../modular-install-fullpack/kickoff-s*.md)
+# that the name-list cannot enumerate. Symlinking such a tracked file replaces the
+# real committed file with a symlink, which a downstream recursive copy (aif-handoff
+# cpSync of `.claude`) then hits as EEXIST — the crash-loop this guard prevents.
 
 set -euo pipefail
 
@@ -70,6 +74,23 @@ fi
 CANON="${CLAUDE_COORDINATION_DIR:-$HOME/.claude-coordination/rules-as-tests-aif}"
 WT_PROMPTS="$WT_DIR/.claude/orchestrator-prompts"
 
+# ── TRACKED-FILE DETECTION ────────────────────────────────────────────────────
+# A file that git tracks is owned by git and must NEVER be symlink-managed: doing
+# so replaces the real committed file with a symlink in the primary checkout, and
+# a downstream recursive copy (e.g. aif-handoff's cpSync of `.claude` into a fresh
+# worktree) then throws EEXIST when the symlink lands over the git-checked-out real
+# file. The historical hard-coded skip-list (done.md / README.md / kickoff.md) only
+# covered the *common* tracked-exception lines in .gitignore; one-off exceptions
+# (e.g. `!.claude/orchestrator-prompts/<umbrella>/stage-N.md`,
+# `!.../modular-install-fullpack/kickoff-s*.md`) slipped through and were wrongly
+# adopted. This check derives the skip decision from git itself, so ANY tracked
+# file is skipped regardless of name. Non-git / fake worktrees: ls-files returns
+# non-zero → not skipped here, and the name-based fast-path below still applies.
+is_tracked() {
+  # $1 = path (absolute or repo-relative) inside $WT_DIR
+  git -C "$WT_DIR" ls-files --error-unmatch -- "$1" >/dev/null 2>&1
+}
+
 # ── INIT ──────────────────────────────────────────────────────────────────────
 
 mkdir -p "$CANON"
@@ -79,7 +100,10 @@ mkdir -p "$WT_PROMPTS"
 # Only when a seed-source is given AND $CANON currently has zero umbrella dirs.
 # Seeds gitignored content from the primary checkout into $CANON so fresh
 # worktrees are not blind (preserves J5 goal with live-share semantics).
-# Excludes tracked files (done.md, README.md) — $CANON holds only gitignored content.
+# Excludes tracked files — $CANON holds only gitignored content. The name-based
+# excludes (done.md, README.md) are kept as a fast-path; the authoritative filter
+# is the git-tracked exclude list built below, so one-off tracked exceptions
+# (stage-N.md, kickoff-s*.md) are never seeded into $CANON either.
 
 if [[ -n "$SEED_SRC" ]]; then
   SRC_PROMPTS="$SEED_SRC/.claude/orchestrator-prompts"
@@ -91,9 +115,16 @@ if [[ -n "$SEED_SRC" ]]; then
 
   if [[ "$CANON_DIRS" -eq 0 ]] && [[ -d "$SRC_PROMPTS" ]] && command -v rsync >/dev/null 2>&1; then
     echo "link-coordination: seeding \$CANON from $SRC_PROMPTS ..." >&2
+    # Build rsync excludes for every git-tracked file under orchestrator-prompts/
+    # (paths made relative to $SRC_PROMPTS, which is the rsync transfer root).
+    TRACKED_EXCLUDES=()
+    while IFS= read -r tracked_rel; do
+      [[ -n "$tracked_rel" ]] && TRACKED_EXCLUDES+=( --exclude="${tracked_rel#.claude/orchestrator-prompts/}" )
+    done < <(git -C "$SEED_SRC" ls-files -- '.claude/orchestrator-prompts/' 2>/dev/null)
     rsync -a --ignore-existing \
       --exclude='done.md' \
       --exclude='README.md' \
+      ${TRACKED_EXCLUDES[@]+"${TRACKED_EXCLUDES[@]}"} \
       "$SRC_PROMPTS/" "$CANON/" 2>/dev/null || true
     echo "link-coordination: seed complete." >&2
   fi
@@ -117,10 +148,14 @@ if [[ -d "$WT_PROMPTS" ]]; then
       [[ -L "$file_path" ]] && continue        # skip existing symlinks
 
       filename="$(basename "$file_path")"
-      # Skip tracked files (git owns them; never symlink-manage)
+      # Skip tracked files (git owns them; never symlink-manage).
+      # Name-based fast-path (covers fake/non-git worktrees in tests) …
       [[ "$filename" == "done.md" ]] && continue
       [[ "$filename" == "README.md" ]] && continue
       [[ "$filename" == "kickoff.md" ]] && continue
+      # … plus the authoritative git-tracked check (covers one-off .gitignore
+      # exceptions like stage-N.md / kickoff-s*.md the name-list cannot enumerate).
+      is_tracked "$file_path" && continue
 
       canon_target="$CANON/$umbrella/$filename"
 
@@ -187,12 +222,17 @@ if [[ -d "$CANON" ]]; then
     for canon_file in "$canon_umbrella_dir"*; do
       [[ -f "$canon_file" ]] || continue
       filename="$(basename "$canon_file")"
-      # Skip tracked files (git owns them; never symlink-manage)
+      # Skip tracked files (git owns them; never symlink-manage).
       [[ "$filename" == "done.md" ]] && continue
       [[ "$filename" == "README.md" ]] && continue
       [[ "$filename" == "kickoff.md" ]] && continue
 
       wt_target="$wt_umbrella_dir/$filename"
+
+      # Authoritative git-tracked check on the worktree target (covers one-off
+      # .gitignore tracked-exceptions the name-list cannot enumerate). Prevents
+      # symlinking over a git-checked-out real file → downstream cpSync EEXIST.
+      is_tracked "$wt_target" && continue
 
       if [[ -L "$wt_target" ]]; then
         # Already a symlink → skip (correct by assumption)

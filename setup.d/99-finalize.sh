@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup.d/99-finalize.sh — §6b-bis-L2 R2 AST-wire + V2 otel WARN + ignore_shipped_configs CALL + Done.
+# setup.d/99-finalize.sh — synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done.
 #
 # Sources: lib.sh (already in dispatcher scope)
 # S0 rows: R2-L2 (install.sh:1597-1641), otel (install.sh:1643-1657),
@@ -9,6 +9,35 @@
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 # O3: HIGHEST-RISK ordering item — must run AFTER 70-deps (ts-morph) and LAST (SKIPPED complete)
 # O2: reads _r2_verdict (from 60-ci) + DEPS_INSTALLED + DEVDEPS (from 70-deps)
+
+# ─── synth-wire: deterministic synthesizer → root eslint.config.mjs ─────────────
+# Runs synthesize() for the detected stack and AST-merges emitted rules-as-tests rules
+# (R12/R14/R20 for react-next) into the consumer's root eslint.config.mjs.  Idempotent:
+# the preset template already hand-inlines these rules (principle 26 guarantees sync),
+# so this is a fast string-check no-op for a freshly-installed consumer.  Its value is
+# architectural: the synthesizer is now the declared source of truth; future recipe
+# additions will wire into the config without template edits.
+#
+# Runs regardless of _r2_verdict (R12/R14/R20 are not boundary-gated like R2) and
+# honours --dry-run (writes nothing, prints what would change).
+# rc=0 on every branch — install must not abort on wirer failure.
+if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+  _synth_wirer="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
+  if [ ! -f "$_synth_wirer" ]; then
+    echo "  · synth-and-wire: bundle not found at $_synth_wirer — skipped"
+  else
+    echo "▶ synth-wire: confirming synthesized rules-as-tests slice in eslint.config.mjs"
+    # Run from PROJECT_ROOT so ts-morph resolves from consumer node_modules.
+    # AIF_SYNTH_PKG_ROOT anchors the bundle's fs-based recipe + schema reads to the
+    # correct framework payload dir (packages/core/) — import.meta.url collapses to
+    # install/ under bundling (zero-dep Path-3, #755); env var is the load-bearing bridge.
+    ( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
+        node "$_synth_wirer" \
+          --stack "${STACK:-ts-server}" \
+          --path "$PROJECT_ROOT/eslint.config.mjs" \
+          ${DRY_RUN:+--dry-run} 2>&1 ) || true
+  fi
+fi
 
 # ─── 6b-bis-L2. GH #547 Layer 2: AST-wire R2 into consumer per-package configs ─
 # Runs AFTER §8 dep-install so ts-morph is resolvable when --full is set.
@@ -51,6 +80,56 @@ if [ "${_r2_verdict:-}" = "boundary-present" ] && [ "$DRY_RUN" != "--dry-run" ] 
           ( cd "$PROJECT_ROOT" && npx --no-install tsx "$_wirer" \
               --path "$_cfg" ${FULL:+--yes} 2>&1 ) || true
         done
+      fi
+    fi
+  fi
+fi
+
+# §13.5 I-2 L2: R2 per-workspace wiring for multi-stack monorepos (SSOT #182).
+# The block above gates on root eslint.config.mjs — intentional for flat repos. In a multi-stack
+# monorepo there is NO root config; this block wires R2 into ts-server workspace configs only.
+# No --scope: workspace-local config placement already scopes ESLint to that workspace — a
+# dir-prefixed files: glob inside a workspace-local config is relative to that config's dir,
+# making 'ws/**' resolve to 'ws/ws/**' (nothing). Scoping is by config placement, not files:.
+# Scope source = _detect_stacks_per_workspace detection map, NOT recipe appliesTo (T-MS-A).
+if [ "$DRY_RUN" != "--dry-run" ] && [ ! -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+  _ws_map_r2=$(_detect_stacks_per_workspace "$PROJECT_ROOT")
+  if [ -n "$_ws_map_r2" ]; then
+    if ! command -v node >/dev/null 2>&1 || \
+       [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
+      echo "  · R2 per-workspace: Node/ts-morph not available — add R2 manually to ts-server workspace configs"
+    else
+      _wirer_ws="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
+      if [ ! -f "$_wirer_ws" ]; then
+        echo "  · R2 per-workspace: wirer not found at $_wirer_ws — skipped"
+      else
+        echo "▶ R2 per-workspace: scoped wiring (multi-stack monorepo)"
+        while IFS=$'\t' read -r _ws_dir _ws_stack; do
+          [ -n "$_ws_dir" ] || continue
+          case "$_ws_stack" in
+            ts-server)
+              # Wire R2 into every eslint.config.mjs within this workspace.
+              # No --scope: the config is workspace-local (placed by 40-configs.sh) so ESLint
+              # scoping is already provided by config placement — a dir-prefixed files: glob
+              # inside a workspace-local config would be relative to that config's own dir,
+              # making 'apps/api/**' match 'apps/api/apps/api/**' (nothing). Omit files: here.
+              while IFS= read -r -d '' _ws_cfg; do
+                echo "  · R2 wiring: $_ws_cfg"
+                ( cd "$PROJECT_ROOT" && npx --no-install tsx "$_wirer_ws" \
+                    --path "$_ws_cfg" ${FULL:+--yes} 2>&1 ) || true
+              done < <(find "$PROJECT_ROOT/$_ws_dir" \
+                -name 'eslint.config.mjs' \
+                ! -path '*/node_modules/*' \
+                -print0 2>/dev/null)
+              ;;
+            unknown)
+              echo "  ⚠ $_ws_dir: unknown stack — R2 not wired (re-checkable marker; not exit 1)"
+              ;;
+            *)
+              : # react-native / react-next / react-spa: R2 is a server-boundary rule; not wired per-workspace
+              ;;
+          esac
+        done <<< "$_ws_map_r2"
       fi
     fi
   fi

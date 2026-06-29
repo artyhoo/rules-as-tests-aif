@@ -55,6 +55,7 @@ chmod +x "$FAKE"
 
 A=$(mktemp -d); mkdir -p "$A/apps/api/src/routes"
 write_root_cfg "$A" no-console
+printf '{"name":"api","dependencies":{"zod":"3.0.0"}}\n' > "$A/apps/api/package.json"
 printf "export default [{ files: ['**/*.{ts,tsx}'], rules: {} }];\n" > "$A/apps/api/eslint.config.mjs"
 printf 'export const x = 1;\n' > "$A/apps/api/src/routes/probe.ts"
 CWDLOG="$A.cwdlog"; : > "$CWDLOG"
@@ -66,6 +67,7 @@ grep -qE '/apps/api$' "$CWDLOG" && ok "Arm1: gate invoked print-config FROM the 
 # ── Arm 1b (paired-negative): shadowed pkg DOES wire the rule → gate PASSES (no false-fail) ──
 B=$(mktemp -d); mkdir -p "$B/apps/api/src/routes"
 write_root_cfg "$B" no-console
+printf '{"name":"api","dependencies":{"zod":"3.0.0"}}\n' > "$B/apps/api/package.json"
 printf "export default [{ files: ['**/routes/**/*.{ts,tsx}'], rules: { 'no-console': 'error' } }];\n" > "$B/apps/api/eslint.config.mjs"
 printf 'export const x = 1;\n' > "$B/apps/api/src/routes/probe.ts"
 : > "$B.cwdlog"
@@ -79,6 +81,7 @@ fi
 ESV9=$(mktemp -d)
 if ( cd "$ESV9" && printf '{"name":"e","private":true}\n' > package.json && npm i eslint@9 --no-save --silent >/dev/null 2>&1 ); then
   mkdir -p "$ESV9/apps/api/src/routes"; write_root_cfg "$ESV9" no-console
+  printf '{"name":"api","dependencies":{"zod":"3.0.0"}}\n' > "$ESV9/apps/api/package.json"
   printf 'export const x = 1;\n' > "$ESV9/apps/api/src/routes/probe.ts"
   # CASE A — self-contained pkg config without the rule → FAIL
   printf "export default [{ files: ['**/*.{ts,tsx}'], rules: {} }];\n" > "$ESV9/apps/api/eslint.config.mjs"

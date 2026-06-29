@@ -1,15 +1,31 @@
 #!/usr/bin/env bash
 # setup — one-click orchestrator: framework (install.sh) + companions (manifest) + runtime-bridge.
+#
+# Usage:
+#   ./setup                         # interactive install; stack auto-detected from package.json
+#   ./setup -y                      # non-interactive full install; stack auto-detected (GH #780)
+#   ./setup ts-server               # interactive install; explicit stack; companions optional
+#   ./setup -y ts-server            # non-interactive full install (all layers + dev-deps auto)
+#   ./setup --yes ts-server         # alias for -y
+#   ./setup --all ts-server         # alias for -y
+#   ./setup --full ts-server        # alias for -y (wrapper alias; forwards --full to install.sh)
+#   ./setup --dry-run ts-server     # preview without writing
+#
+# Stack: ts-server | react-next | react-spa | react-native
+# When omitted, the stack is auto-detected from the consumer's package.json (GH #780). On the
+# yes-path (-y/--yes/--all/--full) the dispatcher fails loud (never an interactive prompt) only
+# when detection is genuinely unknown; an explicit positional stack always wins.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-MODE="interactive"; DRY=""; STACK=""
+MODE="interactive"; DRY=""; STACK=""; FULL=""
 for a in "$@"; do
   case "$a" in
-    --yes)      MODE="yes" ;;
-    --all)      MODE="all" ;;
+    -y|--yes)   MODE="yes"; FULL="--full" ;;
+    --all)      MODE="all"; FULL="--full" ;;
+    --full)     MODE="yes"; FULL="--full" ;;
     --dry-run)  DRY="--dry-run"; MODE="dry-run" ;;
-    ts-server|react-next) STACK="$a" ;;
+    ts-server|react-next|react-spa|react-native) STACK="$a" ;;
   esac
 done
 
@@ -19,15 +35,16 @@ for tool in bash git python3 curl; do
 done
 
 echo "▶ Framework (install.sh)"
-bash "$HERE/install.sh" ${STACK:+$STACK} ${DRY:+$DRY}
+bash "$HERE/install.sh" ${STACK:+$STACK} ${DRY:+$DRY} ${FULL:+$FULL}
 
 echo "▶ Companions"
 source "$HERE/setup.d/engine.sh"
 emode="$MODE"; [ "$MODE" = "all" ] && emode="yes"
-# manifest is TAB-delimited, single tab, no padding — format contract lives in
+# manifest is TAB-delimited, 5 fields (S3: added stacks column) — format contract lives in
 # setup.d/companions.manifest header (S3 parser contract); inner pipes in
 # detect_cmd are preserved because IFS splits on tab only.
-while IFS=$'\t' read -r name detect install kind; do
+# stacks field is read but ignored here; stack-aware selection lives in 15-companions-stack.sh.
+while IFS=$'\t' read -r name detect install kind stacks; do
   case "$name" in ''|\#*) continue ;; esac
   [ "$kind" = "external-service" ] && continue   # handled in bridge step
   [ "$kind" = "mcp" ] && continue                # D5/I1: processed by 05-mcp layer inside install.sh (before 70-deps), never post-install

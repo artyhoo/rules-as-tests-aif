@@ -26,8 +26,9 @@
  * bash glue, closing the loop on the wave-10 TS migration.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
-import { resolve, dirname, basename } from 'node:path';
+import { readFileSync, readdirSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { resolve, dirname, basename, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -170,13 +171,17 @@ echo "Running simple check..."
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('Principle 16 — Hook stub completeness', () => {
-  // ── Arm (a): real-tree pass ────────────────────────────────────────────────
+  // ── Arm (a): real-tree dormant-state doc (live coverage lives in arms d/e) ──
   it('(a) real-tree: post-migration empty hard-fail set passes vacuously (not a sanity-die)', () => {
     const prePushContent = readFileSync(PRE_PUSH_PATH, 'utf8');
     const hardFails = extractHardFailScripts(prePushContent);
 
     // After Wave 10.6, there should be ZERO .test.sh hard-fail invocations.
-    // The test must pass, not die, in this state.
+    // The test must pass, not die, in this state. NOTE (DN-T3-1): this arm is
+    // DORMANT-by-construction — with hardFails empty, runStubCompletenessCheck
+    // early-returns before its readdirSync loop runs, so green here means "dormant",
+    // NOT "actively verified". The live detection coverage is arms (d)/(e) below,
+    // which drive the outer function with a NON-empty hard-fail set.
     expect(
       hardFails,
       'Expected zero .test.sh hard-fail scripts in pre-push.ts after Wave 10.6 migration',
@@ -184,6 +189,41 @@ describe('Principle 16 — Hook stub completeness', () => {
 
     const violations = runStubCompletenessCheck(prePushContent, TESTS_DIR);
     expect(violations, 'Vacuous pass: no violations when hard-fail set is empty').toHaveLength(0);
+  });
+
+  // ── Arm (d): OUTER check exercised end-to-end against a real tests dir (DN-T3-1) ──
+  // Closes the vacuity gap in arm (a): runStubCompletenessCheck's readdirSync enumeration
+  // + scope-gate + stub-matching loop is never reached with 0 hard-fails. These two arms
+  // drive that OUTER path against a temp tests dir, proving the full real-tree machinery
+  // catches a missing stub — not just the inner checkTestFileStubCompleteness helper (b/c).
+  it('(d) outer check: runStubCompletenessCheck flags a missing stub across a real tests dir', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'p16-stub-'));
+    try {
+      writeFileSync(join(tmpDir, 'has-stub.test.sh'), FIXTURE_TEST_WITH_STUB);
+      writeFileSync(join(tmpDir, 'missing-stub.test.sh'), FIXTURE_TEST_MISSING_STUB);
+      writeFileSync(join(tmpDir, 'no-make-repo.test.sh'), FIXTURE_TEST_NO_MAKE_TEST_REPO);
+
+      const violations = runStubCompletenessCheck(FIXTURE_PREPUSH_WITH_HARDFAIL, tmpDir);
+
+      // Only missing-stub.test.sh is flagged: has-stub passes, no-make-repo is out of scope.
+      expect(violations).toHaveLength(1);
+      expect(violations[0]).toContain('missing-stub.test.sh: missing stub for some-audit.test.sh');
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  // ── Arm (e): OUTER check positive — every in-scope file stubbed → no violations ──
+  it('(e) outer check: runStubCompletenessCheck returns [] when every in-scope file has the stub', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'p16-stub-ok-'));
+    try {
+      writeFileSync(join(tmpDir, 'has-stub.test.sh'), FIXTURE_TEST_WITH_STUB);
+      writeFileSync(join(tmpDir, 'no-make-repo.test.sh'), FIXTURE_TEST_NO_MAKE_TEST_REPO);
+      const violations = runStubCompletenessCheck(FIXTURE_PREPUSH_WITH_HARDFAIL, tmpDir);
+      expect(violations).toHaveLength(0);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   // ── Arm (b): paired-negative — missing stub is DETECTED ───────────────────

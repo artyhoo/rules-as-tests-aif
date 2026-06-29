@@ -31,6 +31,7 @@ Universal format read by Cursor, Codex CLI, Aider, Windsurf, and other non-CC ha
 | [`.claude/rules/companion-install-principle.md`](.claude/rules/companion-install-principle.md) | Companions/external services install via their own official installer; no version pins; no reimplementing steps |
 | [`.claude/rules/doc-authority-hierarchy.md`](.claude/rules/doc-authority-hierarchy.md) | Every canonical doc declares its authority scope (Authoritative-for header) to prevent goal-redefinition drift |
 | [`.claude/rules/dual-implementation-discipline.md`](.claude/rules/dual-implementation-discipline.md) | CC-native and portable fallback delivery channels; when each applies; how to prevent drift between them |
+| [`.claude/rules/egress-no-api-bypass.md`](.claude/rules/egress-no-api-bypass.md) | Aif-agent branch egress lands via host `git push` by default (runs the real pre-push gate); Git-Data-API land is break-glass only |
 | [`.claude/rules/kickoff-staging-placement.md`](.claude/rules/kickoff-staging-placement.md) | Dispatch-input kickoffs must be merged to staging before `/pipeline`/aif dispatch; edit-time reminder via the rule injector |
 | [`.claude/rules/language-discipline.md`](.claude/rules/language-discipline.md) | Internal machinery is English-only; human-facing output is Russian when AIF_HOOK_LANG=ru, else English; match-metadata stays bilingual |
 | [`.claude/rules/memory-codification.md`](.claude/rules/memory-codification.md) | Durable behavioural conventions must be codified in the repo; memory is a pointer, not the source of truth |
@@ -40,6 +41,7 @@ Universal format read by Cursor, Codex CLI, Aider, Windsurf, and other non-CC ha
 | [`.claude/rules/recommendation-laziness-discipline.md`](.claude/rules/recommendation-laziness-discipline.md) | Recommendations need at least one evidence-bearing tool call in the same turn; ambiguous forks route via AskUserQuestion |
 | [`.claude/rules/reviewer-discipline.md`](.claude/rules/reviewer-discipline.md) | Reviewer sessions surface decision-needed forks; they do not choose project strategy |
 | [`.claude/rules/rule-enforcement-channel-selection.md`](.claude/rules/rule-enforcement-channel-selection.md) | Every rule fails at the earliest reachable channel; CI is the last resort, not the primary gate |
+| [`.claude/rules/skill-description-quality.md`](.claude/rules/skill-description-quality.md) | SKILL.md `description`-field quality discipline (deferred Class C); promotion at ≥3 misrouting incidents / 6 months |
 
 ## Key files for contributors
 

@@ -20,6 +20,14 @@
 # hard failure. Reads RULE_GLOBS.boundary from eslint.config.mjs so the boundary definition can never
 # drift from the rule's real scope.
 #
+# GH #730: verification is scoped to R2-relevant packages — those whose nearest package.json declares
+# `zod` in dependencies / devDependencies. A zod-less package (e.g. an Expo/RN app) cannot have an
+# unsafe-zod-parse boundary → silently skipped as "R2 N/A", not a hard fail. Grep shape reuses
+# detect-r2-boundary.sh:84 — `"zod"[[:space:]]*:` — matching `"zod":` exactly and NOT matching
+# `"zod-to-json-schema":` / `"@hono/zod-openapi":`. The "R2 ⟺ zod present" principle applies at
+# package granularity here; at call-site granularity in no-unsafe-zod-parse.ts (GH #737) — same
+# principle, different files, neither duplicated.
+#
 # Exit: 0 = R2 is in the resolved config of every checked boundary file (or no boundary file yet, or
 #           eslint not installed → skip); 1 = R2 is missing from the resolved config of ≥1 boundary
 #           file (silent inertness — the false-green this gate exists to catch).
@@ -130,6 +138,23 @@ governing_dir() { # $1=file → nearest ancestor dir (incl the file's own dir) w
   printf '.\n'
 }
 
+nearest_pkg_json() { # $1=path → nearest package.json at/above its dir, walking up to ".", else non-zero
+  local d
+  d=$(dirname "$1")
+  while [ -n "$d" ]; do
+    [ -f "$d/package.json" ] && { printf '%s\n' "$d/package.json"; return 0; }
+    [ "$d" = "." ] && break
+    d=$(dirname "$d")
+  done
+  return 1
+}
+
+package_has_zod() { # $1=boundary file → 0 iff nearest package.json declares "zod" (not zod-to-json-schema etc.)
+  local pj
+  pj=$(nearest_pkg_json "$1") || return 1  # no package.json → not R2-relevant (conservative: skip)
+  grep -qE '"zod"[[:space:]]*:' "$pj"
+}
+
 verify_file() { # $1=file
   local file="$1" gd rel label out
   gd=$(governing_dir "$file")
@@ -156,13 +181,23 @@ done < <(
     find . \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -path "*/$t/*" -print 2>/dev/null
   done
 )
-[ -n "$root_bf" ] && verify_file "$root_bf"
+if [ -n "$root_bf" ]; then
+  if package_has_zod "$root_bf"; then
+    verify_file "$root_bf"
+  else
+    echo "  · root config: no zod boundary — R2 N/A (skipped)"
+  fi
+fi
 
 # Each shadowed package that OWNS boundary files — governed by its own config, not the root one.
 if [ "${#shadows[@]}" -gt 0 ]; then
   for s in "${shadows[@]}"; do
     bf=$(find_boundary_in "$s") || continue
-    verify_file "$bf"
+    if package_has_zod "$bf"; then
+      verify_file "$bf"
+    else
+      echo "  · ${s#./}: no zod boundary — R2 N/A (skipped)"
+    fi
   done
 fi
 

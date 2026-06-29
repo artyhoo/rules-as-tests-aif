@@ -245,7 +245,7 @@ Self-check for THIS umbrella: this meta-kickoff itself does not introduce a slow
 
 ## §7 Phase -1 reviewer dispatch (between stages)
 
-Before dispatching Stage 2 I-phase, invoke (in a separate session, NOT via Agent tool from a write-task channel):
+Before dispatching Stage 2 I-phase, invoke (in a separate session, NOT via Agent tool from a write-task channel): <!-- channel-discipline: allow teaches the anti-pattern (NOT-this-channel guidance) -->
 
 ```text
 Session: Phase -1 cold-review for slow-test-triage Stage 1 → Stage 2 transition

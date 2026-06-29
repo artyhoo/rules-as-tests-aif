@@ -6,7 +6,8 @@
 #   ./install.sh react-next --force             # overwrite existing files
 #   ./install.sh react-next --dry-run           # preview without writing
 #   ./install.sh react-next --dry-run --force   # preview overwrite plan
-#   ./install.sh ts-server --full               # also auto-install dev-deps (no prompts)
+#   ./install.sh ts-server --full               # also auto-install dev-deps (no prompts; stack required)
+#   ./setup -y ts-server                        # recommended one-shot path (wrapper: --full + companions)
 #   ./install.sh ts-server --wire-ci            # also auto-wire missing CI gates via yq (opt-in, detect-first)
 #
 # What it does:
@@ -117,6 +118,7 @@ SHIPPED_DOCS=(
   "agents/memory-codification-auditor.md"
   "agents/orchestrator-worker-discipline.md"
   "agents/aif-init.md"
+  "agents/rule-researcher.md"
   "skills/tool-bootstrapping/SKILL.md"
   "skills/tool-bootstrapping/references/decision-format.md"
 )
@@ -170,21 +172,38 @@ if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
   fi
 fi
 
-# Pick stack interactively if not provided
+# Pick stack when none was supplied. An explicit positional STACK (parsed above) always wins.
+# Otherwise auto-detect from the consumer's repo signals (package.json) so a fresh `./setup -y`
+# installs without a hand-typed stack — GH #780. REUSE _detect_stack_from_pkg (lib.sh, SSOT,
+# node-free). Fall back to the interactive menu / `--full` fail-loud ONLY when detection is
+# genuinely `unknown` — never a silent wrong install on doubt.
 if [ -z "$STACK" ]; then
-  echo "What stack does this project use?"
-  echo "  1) ts-server    — Node.js + Fastify/Hono/Express (server only)"
-  echo "  2) react-next   — React 19 + Next.js 15 App Router"
-  echo "  3) react-spa    — React 19 + Vite SPA (Feature-Sliced Design)"
-  echo "  4) react-native — React Native / Expo (Expo or bare-RN baseline)"
-  read -rp "Choose [1/2/3/4]: " choice
-  case "$choice" in
-    1) STACK="ts-server" ;;
-    2) STACK="react-next" ;;
-    3) STACK="react-spa" ;;
-    4) STACK="react-native" ;;
-    *) echo "❌ Invalid choice"; exit 1 ;;
-  esac
+  STACK="$(_detect_stack_from_pkg)"
+  if [ "$STACK" = "unknown" ]; then
+    STACK=""   # reset so the interactive menu / --full fail-loud below handles it
+    if [ -n "$FULL" ]; then
+      echo "❌ --yes / --full: could not auto-detect a stack from package.json"
+      echo "   (no react-native / next / react / typescript dependency signal)."
+      echo "   Specify one explicitly: ts-server | react-next | react-spa | react-native"
+      echo "   Example: ./setup -y ts-server"
+      exit 1
+    fi
+    echo "What stack does this project use?"
+    echo "  1) ts-server    — Node.js + Fastify/Hono/Express (server only)"
+    echo "  2) react-next   — React 19 + Next.js 15 App Router"
+    echo "  3) react-spa    — React 19 + Vite SPA (Feature-Sliced Design)"
+    echo "  4) react-native — React Native / Expo (Expo or bare-RN baseline)"
+    read -rp "Choose [1/2/3/4]: " choice
+    case "$choice" in
+      1) STACK="ts-server" ;;
+      2) STACK="react-next" ;;
+      3) STACK="react-spa" ;;
+      4) STACK="react-native" ;;
+      *) echo "❌ Invalid choice"; exit 1 ;;
+    esac
+  else
+    echo "  ▶ Auto-detected stack from package.json: $STACK"
+  fi
 fi
 
 if [ "$STACK" != "ts-server" ] && [ "$STACK" != "react-next" ] && [ "$STACK" != "react-spa" ] && [ "$STACK" != "react-native" ]; then
@@ -312,15 +331,36 @@ do_refresh() {
   fi
 
   # ── Core hooks (TS pre-push pipeline) ───────────────────
+  # Ships the COMPLETE import graph of pre-push.ts: static imports (lines 30-32)
+  # AND dynamic await import() targets (lines 405/469). Missing entries crash the
+  # hook with ERR_MODULE_NOT_FOUND before any gate runs. (#735)
   echo "▶ Core hooks (TS) → packages/core/hooks/"
   for _ts in \
     pre-push.ts \
     utils/run-check.ts \
     utils/git.ts \
     checks/prior-art.ts \
-    checks/s17.ts; do
+    checks/s17.ts \
+    checks/unpinned-tool-install.ts \
+    checks/guard-liveness.ts \
+    checks/cmd-script-liveness.ts; do
     refresh_safe "$PKG_ROOT/packages/core/hooks/$_ts" "$PROJECT_ROOT/packages/core/hooks/$_ts"
   done
+  # ── Core ESLint rules (transitive dep of guard-liveness.ts) ─────────────────
+  # guard-liveness.ts imports ../../eslint-rules/index.ts (relative, not node_modules).
+  # Without this group, guard-liveness.ts dies on load even after the 3 checks ship.
+  # Destination: packages/core/eslint-rules/ on the consumer (same relative path). (#735)
+  echo "▶ Core ESLint rules → packages/core/eslint-rules/"
+  for _esl in \
+    index.ts \
+    no-unsafe-zod-parse.ts \
+    no-direct-time-randomness.ts \
+    require-otel-span.ts \
+    restricted-syntax-audit-exempt.ts; do
+    refresh_safe "$PKG_ROOT/packages/core/eslint-rules/$_esl" \
+                 "$PROJECT_ROOT/packages/core/eslint-rules/$_esl"
+  done
+
   _fb_src="$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh"
   _fb_dst="$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh"
   refresh_safe "$_fb_src" "$_fb_dst"

@@ -15,13 +15,13 @@
 | Entry | Status |
 |---|---|
 | [§13.4 Обработка legacy кодовой базы](#134-обработка-legacy-кодовой-базы) | open, armed |
-| [§13.5 Multi-stack monorepos](#135-multi-stack-monorepos) | open, armed |
+| [§13.5 Multi-stack monorepos](#135-multi-stack-monorepos) | open, I-2 L1+L2 shipped (generation-live-delivery = hypothesis-realization) |
 | [§13.6 Relationship с AIF core](#136-relationship-с-aif-core) | hypothesis verified; operationalization deferred |
 | [§13.7 Operationalization L2 semantic drift detection](#137-operationalization-l2-semantic-drift-detection) | partial (symbolic v1 closed Phase 5; behavioral + embedding open) |
 | [§13.8 Decision matrix expansion rule](#138-decision-matrix-expansion-rule) | open, running mechanism trigger |
 | [§13.9 Bypass через `--no-verify`](#139-bypass-через---no-verify--структурное-решение) | open, armed |
-| [§13.10 LLM v2 trigger conditions](#1310-llm-v2-trigger-conditions) | OPEN, v2 trigger |
-| [§13.11 LLM cost model + tracking](#1311-llm-cost-model--tracking) | OPEN, v2 trigger |
+| [§13.10 LLM v2 trigger conditions](#1310-llm-v2-trigger-conditions) | PARTIALLY FIRED (areas 1+2) |
+| [§13.11 LLM cost model + tracking](#1311-llm-cost-model--tracking) | OPEN (trigger fired) |
 | [§13.12 Real-corpus validation strategy](#1312-real-corpus-validation-strategy) | OPEN, v2 trigger |
 | [§13.13 Versioning strategy для preset / recipes](#1313-versioning-strategy-для-preset--recipes) | OPEN, v2 trigger |
 | [§13.14 Backwards compatibility / rules-lock.json migration](#1314-backwards-compatibility--rules-lockjson-migration) | OPEN, v2 trigger |
@@ -61,6 +61,16 @@
 Это требует более продвинутого Layer 1 ([architecture.md](architecture.md) §2.3), который понимает workspace structure.
 
 **Trigger:** first consumer is multi-stack monorepo (e.g. `apps/web` + `apps/api` + `packages/shared`), OR Phase 11 AIF integration entry research kicks off — workspace scoping in ESLint flat config is a primary Phase 11 entry-question (formalized 2026-05-13 via D8 resolution).
+
+**Status 2026-06-28 — I-2 L1 + L2 shipped:**
+- **I-1** (#790): fresh `-y` single-root stack auto-detect.
+- **I-2 Layer 1** (#793): `_detect_stacks_per_workspace` / `_workspace_pkg_dirs` in `setup.d/lib.sh` — per-workspace detection map (`dir<TAB>stack`), node-free, tested.
+- **I-2 Layer 2** (this branch, PR TBD): per-workspace scoping primitive + preset delivery.
+  - `files:` emission seam added to both rule emitters: `buildRuleConfigElement` (N-rule / synth path) and `r2Element` (R2 path) in `packages/core/install/wire-eslint-r2.ts` — SSOT #182 (ESLint flat-config native `files:` scoping, REFERENCE).
+  - `setup.d/40-configs.sh` converted from single-`$STACK` chain → per-workspace loop: each workspace dir receives its stack's recipe-synced preset `eslint.config.mjs` + `eslint-rules-local/index.mjs` stub (3-level re-export, workspace is always `container/name` deep).
+  - `setup.d/99-finalize.sh`: R2 scoped to `apps/api/**` for ts-server workspaces; react-native workspace gets its preset; `unknown` workspace emits re-checkable marker.
+  - Tests: `packages/core/install/wire-eslint-r2.test.ts` (scoped emission proof), `tests/install-sh/multi-stack-monorepo.test.sh` (timeliner acceptance + no-regression).
+- **Remaining open (hypothesis-realization = sibling umbrella `generation-live-delivery`):** making the synthesizer the LIVE delivery for ts-server/react-native (the deep generation-coverage work — out of scope for L2, which builds only the scoping brick).
 
 ### 13.6 Relationship с AIF core
 
@@ -108,8 +118,10 @@ Decision matrix в [self-application.md](self-application.md) §3 фиксиру
 
 ### 13.10 LLM v2 trigger conditions
 
-**Status:** OPEN, v2 trigger.
+**Status:** PARTIALLY FIRED (areas 1+2 via Stage 2), areas 3/4/5 OPEN.
 **Origin:** Phase 7 close (2026-05-08). EXECUTION-PLAN.md §6.0 locks deterministic-v1 stance and defers LLM extension as a strict-superset v2 trigger. This section is the SSOT for the trigger conditions per area.
+
+> **Trigger fired (2026-06-23, recorded 2026-06-26).** Areas **1** (L2 LLM research) and **2** (Path A L3 gen — «picks from menu») were **fired** by the `stage-2-generate-path` umbrella (Stages 0–5 merged #668/#674/#680/#686/#690/#691): live `web_search` under `allowed_domains` + LLM rule-selection, gated by the existing deterministic L4. **Path A only** — areas **3** (Path B AST gen), **4** (Gate 5 two-AI review), **5** (Gate 3 Stryker mutation) remain **OPEN**, explicitly out-of-scope-HARD per [`stage-2-generate-path/kickoff.md:60`](../../.claude/orchestrator-prompts/stage-2-generate-path/kickoff.md), each with its own later trigger. Sequencing-commitment record (issue #646 hybrid decision): [research-patches/2026-06-26-phase-5-v2-trigger-fired.md](research-patches/2026-06-26-phase-5-v2-trigger-fired.md).
 
 | # | v2 area | Layer | Trigger condition | Verification gate |
 |---|---|---|---|---|
@@ -127,10 +139,10 @@ Decision matrix в [self-application.md](self-application.md) §3 фиксиру
 
 ### 13.11 LLM cost model + tracking
 
-**Status:** OPEN, v2 trigger.
+**Status:** OPEN (trigger fired 2026-06-23; cost-tracking infra still deferred).
 **Origin:** Phase 8 verdict gate already mentions «cost ≤$5» (EXECUTION-PLAN §6 Phase 8 evaluation), but no tracking infrastructure exists. First LLM v2 invocation triggers this.
 
-**Trigger condition:** first LLM v2 invocation in any of L2/L3/L4 (per §13.10).
+**Trigger condition:** first LLM v2 invocation in any of L2/L3/L4 (per §13.10). **Fired** by the `stage-2-generate-path` umbrella (#691) — but generation runs **install-time on the consumer's own LLM subscription, never in CI** ([no-paid-llm-in-ci.md](../../.claude/rules/no-paid-llm-in-ci.md)), so the framework incurs `$0` and no cost-log was built. The open questions below stay deferred until a metered surface (e.g. a self-research CI path, areas §13.10 #1 verification gate) needs per-invocation budgeting.
 
 **Open questions to answer at trigger time:**
 

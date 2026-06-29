@@ -13,7 +13,7 @@ import testingLibrary from 'eslint-plugin-testing-library';
 import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
 import { defineConfig } from 'eslint/config';
-import customRules from './eslint-rules-local/index.ts';
+import customRules from './eslint-rules-local/index.mjs';
 
 // ─── AIF rule-scope globs (F3) ──────────────────────────
 // LAYOUT-AGNOSTIC custom-rule globs (its OWN Next/app-router shape, NOT cloned from the
@@ -59,6 +59,18 @@ export default defineConfig(
       '**/*.d.ts',
       'next-env.d.ts',
       'reports/**',
+      // ─── AIF framework machinery vendored by install.sh (GH #779 lint follow-up) ───
+      // NOT consumer source — `eslint .` walks the whole tree and this config's type-aware
+      // rules (strictTypeChecked + projectService) fatal-error on the shipped `.mjs` (no type
+      // info) and the vendored `.ts`/`.cjs` outside the tsconfig `src/**` include. The consumer
+      // authors none of these; lint only their own source. Parity with react-native (#787).
+      'eslint-rules-local/**',
+      'packages/core/**',
+      'scripts/audit-r4.ts',
+      'eslint.config.mjs',
+      'vitest.config.ts',
+      'playwright.config.ts',
+      '.dependency-cruiser.cjs',
     ],
   },
 

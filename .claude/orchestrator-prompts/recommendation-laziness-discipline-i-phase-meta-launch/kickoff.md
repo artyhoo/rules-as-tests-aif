@@ -74,7 +74,7 @@ Expected: 3 lines (one per sub-wave). If any empty → that sub-wave's PR is not
 
 ## §4 Sub-wave dispatch instructions
 
-**Dispatch channel:** per `meta-orchestrator/SKILL.md §5` anti-pattern `#worker-dispatch-via-subagent`, write-task Workers belong in **fresh CC sessions opened by maintainer pasting a §10 1-liner block** — NOT dispatched via the Agent tool from this meta-orchestrator session.
+**Dispatch channel:** per `meta-orchestrator/SKILL.md §5` anti-pattern `#worker-dispatch-via-subagent`, write-task Workers belong in **fresh CC sessions opened by maintainer pasting a §10 1-liner block** — NOT dispatched via the Agent tool from this meta-orchestrator session. <!-- channel-discipline: allow teaches the anti-pattern (NOT-this-channel guidance) -->
 
 > **Discrepancy with umbrella kickoff §2:** the umbrella kickoff at `.claude/orchestrator-prompts/recommendation-laziness-discipline-i-phase/kickoff.md §2` says «Dispatch as 3 concurrent `Agent` tool calls in one message». That instruction predates the `#worker-dispatch-via-subagent` anti-pattern codification (PR #186 meta-orchestrator skill, 2026-05-23). The skill's anti-pattern is binding here. If the maintainer wants the older Agent-tool channel anyway, surface this explicitly — but the default is paste-blocks.
 

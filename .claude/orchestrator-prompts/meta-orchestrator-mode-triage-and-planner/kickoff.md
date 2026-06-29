@@ -220,7 +220,7 @@ cd ../rules-as-tests-aif-mode-triage-rphase
 git checkout -b research/meta-orchestrator-mode-triage-prior-art
 # Verify design doc present in worktree (PR #238 must have merged):
 ls docs/meta-factory/research-patches/2026-05-25-meta-orchestrator-mode-triage-and-planner-design.md
-# THEN dispatch Mode A Worker via Agent tool with isolation:"worktree" pointed at this kickoff §3 + §5 + §7.
+# THEN dispatch Mode A Worker via Agent tool with isolation:"worktree" pointed at this kickoff §3 + §5 + §7. <!-- channel-discipline: allow historical pre-rule instance (2026-05-25, before the rule; closed umbrella) — surfaced in Stage B PR notes -->
 ```
 
 Per [`parallel-subwave-isolation.md §1`](../../../.claude/rules/parallel-subwave-isolation.md): `git worktree add` MUST be followed by `git checkout -b <branch>` before any commit. Worker commits to `research/meta-orchestrator-mode-triage-prior-art`, opens PR with base=staging, auto-merge enabled.

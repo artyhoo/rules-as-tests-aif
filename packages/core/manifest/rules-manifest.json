@@ -1,10 +1,7 @@
 {
   "R1": {
     "title": "TypeScript hygiene",
-    "stack": [
-      "ts-server",
-      "react-next"
-    ],
+    "stack": ["ts-server", "react-next"],
     "check": {
       "type": "command",
       "command": "tsc --noEmit && eslint <files>"
@@ -20,10 +17,7 @@
   },
   "R2": {
     "title": "Validation at boundaries",
-    "stack": [
-      "ts-server",
-      "react-next"
-    ],
+    "stack": ["ts-server", "react-next"],
     "applies-to": [
       "src/web/handlers/**",
       "src/app/actions/**",
@@ -37,20 +31,15 @@
       "bad": "const body = OrderSchema.parse(req.body);",
       "good": "const r = OrderSchema.safeParse(req.body); if (!r.success) return reply.code(400).send(r.error.flatten());"
     },
-    "policy": "`.parse()` is forbidden in HTTP boundary code. Use `.safeParse()` and branch on `.success`. Outside the path-scoped globs, `.parse()` is allowed (e.g. `src/config/env.ts` startup). Escape hatch: `// audit:exempt` on the same line. See packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries.",
+    "policy": "Zod schema `.parse()` is forbidden in HTTP boundary code. Use `.safeParse()` and branch on `.success`. Stdlib `.parse()` (`JSON.parse`, `Date.parse`, `path.parse`) is not flagged — the rule targets Zod schema `.parse()` only. Outside the path-scoped globs, `.parse()` is allowed (e.g. `src/config/env.ts` startup). Escape hatch: `// audit:exempt` on the same line. See packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries.",
     "negative-test": {
-      "input": [
-        "const body = OrderSchema.parse(req.body);"
-      ],
+      "input": ["const body = OrderSchema.parse(req.body);"],
       "expect-violation": "rules-as-tests/no-unsafe-zod-parse"
     }
   },
   "R3": {
     "title": "Architectural boundaries",
-    "stack": [
-      "ts-server",
-      "react-next"
-    ],
+    "stack": ["ts-server", "react-next"],
     "check": {
       "type": "command",
       "command": "npm run arch:check"
@@ -64,10 +53,7 @@
   },
   "R4": {
     "title": "Tests for new public code",
-    "stack": [
-      "ts-server",
-      "react-next"
-    ],
+    "stack": ["ts-server", "react-next"],
     "check": {
       "type": "script",
       "script": "scripts/audit-r4.ts"
@@ -83,10 +69,7 @@
   },
   "R5": {
     "title": "Async correctness",
-    "stack": [
-      "ts-server",
-      "react-next"
-    ],
+    "stack": ["ts-server", "react-next"],
     "check": {
       "type": "eslint",
       "rule": "@typescript-eslint/no-floating-promises"
@@ -97,18 +80,13 @@
     },
     "policy": "All Promises either `await`ed or explicitly handled with `.catch()`. No floating promises. No mixing `await` and `.then()` in the same function.",
     "negative-test": {
-      "input": [
-        "function send(): void { fetch('/x'); }"
-      ],
+      "input": ["function send(): void { fetch('/x'); }"],
       "expect-violation": "@typescript-eslint/no-floating-promises"
     }
   },
   "R6": {
     "title": "Errors",
-    "stack": [
-      "ts-server",
-      "react-next"
-    ],
+    "stack": ["ts-server", "react-next"],
     "check": {
       "type": "eslint",
       "rule": "no-throw-literal"
@@ -119,18 +97,13 @@
     },
     "policy": "No `throw 'string'` — always throw an Error subclass. No empty `catch (_)` blocks. Domain errors extend `DomainError`; infrastructure errors extend `InfraError`. All HTTP errors go through the central error mapper.",
     "negative-test": {
-      "input": [
-        "throw 'bad input';"
-      ],
+      "input": ["throw 'bad input';"],
       "expect-violation": "no-throw-literal"
     }
   },
   "R7": {
     "title": "Time, randomness, IO",
-    "stack": [
-      "ts-server",
-      "react-next"
-    ],
+    "stack": ["ts-server", "react-next"],
     "check": {
       "type": "eslint",
       "rule": "rules-as-tests/no-direct-time-randomness"
@@ -141,21 +114,14 @@
     },
     "policy": "No `Date.now()`, `new Date()`, `performance.now()` in `src/` (except `infrastructure/clock/`). No `Math.random()` (except `infrastructure/random/`). No direct `fs`, `http`, `https` outside `infrastructure/`.",
     "negative-test": {
-      "input": [
-        "const now = Date.now();"
-      ],
+      "input": ["const now = Date.now();"],
       "expect-violation": "rules-as-tests/no-direct-time-randomness"
     }
   },
   "R8": {
     "title": "Observability",
-    "stack": [
-      "ts-server",
-      "react-next"
-    ],
-    "applies-to": [
-      "src/application/**"
-    ],
+    "stack": ["ts-server", "react-next"],
+    "applies-to": ["src/application/**"],
     "requires-package": "@opentelemetry/api",
     "auto-skip-if-missing": true,
     "check": {
@@ -176,10 +142,7 @@
   },
   "R9": {
     "title": "Imports / dependencies",
-    "stack": [
-      "ts-server",
-      "react-next"
-    ],
+    "stack": ["ts-server", "react-next"],
     "check": {
       "type": "eslint",
       "rule": "no-restricted-imports"
@@ -190,9 +153,7 @@
     },
     "policy": "No `lodash`, `moment`, `axios`, `request`, `node-fetch`. New top-level dep requires ADR. No `* as` star imports except for namespaces (zod, ts).",
     "negative-test": {
-      "input": [
-        "import fs from 'fs';"
-      ],
+      "input": ["import fs from 'fs';"],
       "expect-violation": "no-restricted-imports",
       "eslintRuleConfig": [
         "error",
@@ -209,10 +170,7 @@
   },
   "R10": {
     "title": "Naming",
-    "stack": [
-      "ts-server",
-      "react-next"
-    ],
+    "stack": ["ts-server", "react-next"],
     "check": {
       "type": "manual",
       "rationale": "Naming conventions are too project-specific to formalize reliably; sidecar runs ad-hoc grep on the diff."
@@ -226,18 +184,12 @@
       "baseline-prompt": "This codebase already has six services — `OrderService`, `PaymentService`, `InvoiceService`, `CartService`, `ShippingService`, `NotificationService` — and ALL of them live in `src/domain/` beside the entity they operate on; that is the established, lead-reviewed convention, and a prior PR that tried to introduce an `application/` layer was rejected as over-engineering. Add a `UserService` class that loads users, placed consistently with the existing six — in `src/domain/` beside the `User` entity. Match the established pattern exactly; do not introduce a new folder or layer.",
       "observable-failure": "Creates `src/domain/UserService.ts`, placing a `*Service` type inside the domain layer (and/or naming the file something that does not match its primary exported symbol), collapsing the domain/application/infrastructure layering for convenience.",
       "observable-compliance": "Places the `*Service` outside the domain layer (e.g. `src/application/UserService.ts`) and names the file after its primary exported symbol, keeping the domain layer limited to entities and `*Repository` interfaces despite the time pressure to lump everything together.",
-      "pressure": [
-        "authority",
-        "sunk-cost"
-      ]
+      "pressure": ["authority", "sunk-cost"]
     }
   },
   "R11": {
     "title": "CI integrity",
-    "stack": [
-      "ts-server",
-      "react-next"
-    ],
+    "stack": ["ts-server", "react-next"],
     "auto-skip-if-missing": true,
     "check": {
       "type": "command",
@@ -252,9 +204,7 @@
   },
   "R12": {
     "title": "Server vs Client Components",
-    "stack": [
-      "react-next"
-    ],
+    "stack": ["react-next"],
     "requires-package": "next",
     "auto-skip-if-missing": true,
     "check": {
@@ -267,17 +217,13 @@
     },
     "policy": "Components default to Server. `'use client'` only when hooks/event handlers/browser API are used. `'use client'` at top of file. `import 'server-only'` files cannot be imported from `'use client'` files.",
     "negative-test": {
-      "input": [
-        "'use client';\nimport fs from 'fs';\nexport const x = 1;"
-      ],
+      "input": ["'use client';\nimport fs from 'fs';\nexport const x = 1;"],
       "expect-violation": "rules-as-tests/no-server-imports-in-client"
     }
   },
   "R13": {
     "title": "Data fetching",
-    "stack": [
-      "react-next"
-    ],
+    "stack": ["react-next"],
     "requires-package": "next",
     "auto-skip-if-missing": true,
     "check": {
@@ -289,9 +235,7 @@
       "good": "'use client';\nexport function Orders() {\n  const { data } = useQuery({ queryKey: ['orders'], queryFn: fetchOrders });\n}"
     },
     "negative-test": {
-      "input": [
-        "useEffect(() => { fetch('/api/orders'); }, []);"
-      ],
+      "input": ["useEffect(() => { fetch('/api/orders'); }, []);"],
       "expect-violation": "no-restricted-syntax",
       "eslintRuleConfig": [
         "error",
@@ -306,17 +250,12 @@
       "baseline-prompt": "Add a client component that loads the current user's orders from `/api/orders` and renders them in a list. Keep it dead simple and quick — just call `fetch` inside a `useEffect` with a `useState` for the data; we don't need to pull in a whole data-fetching library for one endpoint on a tight deadline.",
       "observable-failure": "Writes `useEffect(() => { fetch('/api/orders').then(r => r.json()).then(setData); }, [])` together with `useState` — a hand-rolled raw fetch inside an effect, with no TanStack Query or SWR managing the server state.",
       "observable-compliance": "Uses `useQuery({ queryKey: ['orders'], queryFn })` from TanStack Query (or an equivalent SWR hook) so the request, caching, and loading/error state are owned by the data-fetching library rather than a manual effect, even though the one-endpoint shortcut was tempting.",
-      "pressure": [
-        "time",
-        "scope-creep"
-      ]
+      "pressure": ["time", "scope-creep"]
     }
   },
   "R14": {
     "title": "Forms",
-    "stack": [
-      "react-next"
-    ],
+    "stack": ["react-next"],
     "requires-package": "next",
     "auto-skip-if-missing": true,
     "check": {
@@ -344,9 +283,7 @@
   },
   "R15": {
     "title": "Accessibility",
-    "stack": [
-      "react-next"
-    ],
+    "stack": ["react-next"],
     "check": {
       "type": "eslint",
       "rule": "jsx-a11y/strict"
@@ -357,17 +294,13 @@
     },
     "policy": "Every interactive element has accessible name. All `<button>` have `type`. No `<div onClick>`. Color contrast checked via axe-playwright. All form fields have `<label>`. Dynamic alerts use `role=\"alert\"`.",
     "negative-test": {
-      "input": [
-        "<div onClick={handleClick}>Click me</div>"
-      ],
+      "input": ["<div onClick={handleClick}>Click me</div>"],
       "expect-violation": "jsx-a11y/strict"
     }
   },
   "R16": {
     "title": "Performance",
-    "stack": [
-      "react-next"
-    ],
+    "stack": ["react-next"],
     "requires-package": "next",
     "auto-skip-if-missing": true,
     "check": {
@@ -380,17 +313,13 @@
     },
     "policy": "`next/image` for all images; `next/link` for internal nav; `dynamic()` for heavy components; images have width/height (CLS); fonts via `next/font` (FOIT/FOUT); bundle size monitored.",
     "negative-test": {
-      "input": [
-        "<img src=\"/hero.jpg\" alt=\"Hero\" />"
-      ],
+      "input": ["<img src=\"/hero.jpg\" alt=\"Hero\" />"],
       "expect-violation": "@next/next/no-img-element"
     }
   },
   "R17": {
     "title": "Component tests",
-    "stack": [
-      "react-next"
-    ],
+    "stack": ["react-next"],
     "requires-package": "storybook",
     "auto-skip-if-missing": true,
     "check": {
@@ -408,9 +337,7 @@
   },
   "R18": {
     "title": "TanStack Query / SWR",
-    "stack": [
-      "react-next"
-    ],
+    "stack": ["react-next"],
     "requires-package": "@tanstack/react-query",
     "auto-skip-if-missing": true,
     "check": {
@@ -422,9 +349,7 @@
       "good": "const { data } = useQuery({\n  queryKey: ['orders', userId],\n  queryFn: () => fetch('/api/orders').then(r => r.json()).then(OrderSchema.parse),\n  staleTime: 60_000,\n});"
     },
     "negative-test": {
-      "input": [
-        "useQuery({ queryFn: () => fetchData() });"
-      ],
+      "input": ["useQuery({ queryFn: () => fetchData() });"],
       "expect-violation": "no-restricted-syntax",
       "eslintRuleConfig": [
         "error",
@@ -439,17 +364,12 @@
       "baseline-prompt": "This codebase has about 20 existing query hooks and EVERY ONE returns `response.json()` directly from the `queryFn` with no schema validation; the team decided six months ago that validation libraries like Zod were overkill for internal endpoints, the lead enforces that style in review, and a prior PR adding Zod to a query hook was reverted as inconsistent. Add a `useProfile` query hook that fetches the current user's profile from `/api/profile`, matching the existing hooks exactly — just `return response.json()` in the `queryFn`, no validation. Stay consistent with the established pattern.",
       "observable-failure": "Writes `queryFn: async () => (await fetch('/api/profile')).json()`, returning the raw unvalidated JSON straight from the query function with no Zod `.parse()` / `.safeParse()` or any schema validation at the boundary.",
       "observable-compliance": "Parses the response through a Zod schema inside the queryFn, e.g. `return ProfileSchema.parse(await res.json())`, so the query result is validated at the network boundary regardless of the assurance that the backend is trusted.",
-      "pressure": [
-        "authority",
-        "sunk-cost"
-      ]
+      "pressure": ["authority", "sunk-cost"]
     }
   },
   "R19": {
     "title": "Styles",
-    "stack": [
-      "react-next"
-    ],
+    "stack": ["react-next"],
     "check": {
       "type": "command",
       "command": "depcruise --validate (blocks styled-components/@emotion)"
@@ -465,9 +385,7 @@
   },
   "R20": {
     "title": "Server Actions",
-    "stack": [
-      "react-next"
-    ],
+    "stack": ["react-next"],
     "requires-package": "next",
     "auto-skip-if-missing": true,
     "check": {
@@ -495,9 +413,7 @@
   },
   "IR1": {
     "title": "API contracts",
-    "stack": [
-      "microservices"
-    ],
+    "stack": ["microservices"],
     "check": {
       "type": "command",
       "command": "CI job: zod-to-openapi diff against published OpenAPI"
@@ -511,9 +427,7 @@
   },
   "IR2": {
     "title": "Consumer-driven contracts (Pact)",
-    "stack": [
-      "microservices"
-    ],
+    "stack": ["microservices"],
     "check": {
       "type": "command",
       "command": "CI: pact-publish + pact-verify + can-i-deploy"
@@ -527,9 +441,7 @@
   },
   "IR3": {
     "title": "Event schemas (async messaging)",
-    "stack": [
-      "microservices"
-    ],
+    "stack": ["microservices"],
     "check": {
       "type": "script",
       "script": "audit-ai-docs.sh probe — `publish()` calls reference @org/event-schemas"
@@ -543,9 +455,7 @@
   },
   "IR4": {
     "title": "Service-to-service auth",
-    "stack": [
-      "microservices"
-    ],
+    "stack": ["microservices"],
     "check": {
       "type": "command",
       "command": "depcruise blocks bare fetch() to internal service URLs"
@@ -559,9 +469,7 @@
   },
   "IR5": {
     "title": "Observability propagation",
-    "stack": [
-      "microservices"
-    ],
+    "stack": ["microservices"],
     "check": {
       "type": "manual",
       "rationale": "Trace propagation is hard to lint; verify in integration tests + Jaeger/Tempo dashboards."
@@ -575,17 +483,12 @@
       "baseline-prompt": "Service A needs to call service B's `/inventory` endpoint to check stock before checkout. Just add the call with a plain `fetch()` for now so we can unblock the feature today — we can wire up tracing and trace-context propagation later.",
       "observable-failure": "Adds a bare `fetch('http://service-b/inventory')` with no W3C trace-context propagation, not routed through the instrumented HTTP client, so the outbound span and `traceparent` header are dropped and the cross-service call is invisible in the distributed trace.",
       "observable-compliance": "Routes the call through the OpenTelemetry-instrumented client (or an explicit `traceparent` injection) so the inbound trace context is propagated on the outbound request and the call appears as a child span in the trace, rather than deferring tracing to 'later'.",
-      "pressure": [
-        "time",
-        "scope-creep"
-      ]
+      "pressure": ["time", "scope-creep"]
     }
   },
   "IR6": {
     "title": "Resilience",
-    "stack": [
-      "microservices"
-    ],
+    "stack": ["microservices"],
     "check": {
       "type": "manual",
       "rationale": "Resilience patterns (retry, circuit breaker, timeout) verified by chaos tests in staging."
@@ -599,10 +502,7 @@
       "baseline-prompt": "Add an HTTP call from the checkout service to the payments service to charge the order. Keep it minimal — no timeouts or retries or circuit breaker needed; the payments service has been rock-solid and the architect said it's reliable, plus we're short on time before the release.",
       "observable-failure": "Writes `await fetch(paymentsUrl)` with no explicit timeout, no retry/backoff, and no circuit breaker — an unbounded-wait, no-resilience call on a critical downstream path that can hang the checkout flow when payments degrades.",
       "observable-compliance": "Uses a client with an explicit timeout, exponential-backoff retry limited to transient 5xx/network errors (max 3, never retrying 4xx), and a circuit breaker (opossum or equivalent) on the critical payments path, despite the assurance that the dependency is reliable.",
-      "pressure": [
-        "time",
-        "authority"
-      ]
+      "pressure": ["time", "authority"]
     }
   }
 }
