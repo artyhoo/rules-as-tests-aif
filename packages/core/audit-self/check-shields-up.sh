@@ -2,7 +2,9 @@
 # check-shields-up.sh — prove installed Husky shields are wired and active.
 #
 # Asserts:
-#   1. git core.hooksPath is configured to '.husky'
+#   1. git core.hooksPath is configured to '.husky' (husky v8) OR '.husky/_' (husky v9):
+#      husky v9's prepare step runs `git config core.hooksPath .husky/_`, so '.husky/_' is the
+#      v9-valid value — hooks ARE active via the .husky/_/<hook> wrappers that source ../<hook>.
 #   2. .husky/pre-commit exists, is executable, and references 'lint-staged' (the gate command)
 #   3. .husky/pre-push exists, is executable, and references the pre-push dispatcher
 #
@@ -59,10 +61,10 @@ echo "▶ check-shields-up: git root $GIT_ROOT"
 HOOKS_PATH="$(git -C "$GIT_ROOT" config core.hooksPath 2>/dev/null || true)"
 if [ -z "$HOOKS_PATH" ]; then
   bad "core.hooksPath not set — Husky hooks are NOT wired (run ./setup or git config core.hooksPath .husky)"
-elif [ "$HOOKS_PATH" = ".husky" ]; then
-  ok "core.hooksPath = .husky — hooks are wired"
+elif [ "$HOOKS_PATH" = ".husky" ] || [ "$HOOKS_PATH" = ".husky/_" ]; then
+  ok "core.hooksPath = $HOOKS_PATH — hooks are wired (.husky = husky v8, .husky/_ = husky v9)"
 else
-  bad "core.hooksPath = '$HOOKS_PATH' (expected '.husky') — shields not pointing to the installed hooks"
+  bad "core.hooksPath = '$HOOKS_PATH' (expected '.husky' or '.husky/_') — shields not pointing to the installed hooks"
 fi
 
 HUSKY_DIR="$GIT_ROOT/.husky"
