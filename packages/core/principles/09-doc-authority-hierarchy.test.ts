@@ -33,7 +33,10 @@ import { fileURLToPath } from 'node:url';
 import {
   REQUIRED_HEADER_DOCS,
   EXEMPT_PATTERNS,
+  REQUIRED_PATH_PATTERNS,
   isExempt,
+  matchesRequiredPattern,
+  enumerateSkillPrimaryDocs,
   hasAuthorityHeader,
   checkDocsHaveAuthorityHeader,
   selectRequiredPaths,
@@ -240,6 +243,86 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
         re.test('packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md'),
       ),
     ).toBe(true);
+  });
+
+  // ── Dynamic skill-doc enumeration (2026-07-02 delta-audit F2) ─────────────
+  // Gap-class observed in the wild: /story (#592) + /ai-doc shipped headerless
+  // while this suite stayed green — the static list only knew tool-bootstrapping
+  // (1 of 8 internal skills). New skills must be covered the moment they land.
+  // Source: docs/meta-factory/research-patches/2026-07-02-doc-audit-delta.md §2.
+  describe('dynamic skill-doc enumeration — new skills cannot land headerless', () => {
+    it('every enumerated skill doc (SKILL.md + references/*.md) declares Authoritative-for', () => {
+      const enumerated = enumerateSkillPrimaryDocs(REPO_ROOT);
+      const result = checkDocsHaveAuthorityHeader(enumerated, REPO_ROOT);
+      expect(
+        result.violations,
+        `Skill-doc authority violations:\n${result.violations.map((v) => `${v.path}: ${v.reason}`).join('\n')}`,
+      ).toHaveLength(0);
+    });
+
+    it('enumeration is non-vacuous: sees both roots and both doc kinds', () => {
+      const enumerated = enumerateSkillPrimaryDocs(REPO_ROOT);
+      // Known tracked anchors — a primary doc that predates the fix, a cold
+      // reference, and a post-FQA skill of the exact gap-class.
+      expect(enumerated).toContain('.claude/skills/tool-bootstrapping/SKILL.md');
+      expect(enumerated).toContain('.claude/skills/pipeline/references/red-flags.md');
+      expect(enumerated).toContain('.claude/skills/story/SKILL.md');
+      expect(enumerated).toContain('skills/rules-as-tests/SKILL.md');
+      expect(enumerated.length).toBeGreaterThanOrEqual(20);
+    });
+
+    it('enumeration covers every static skill-root entry (no list/reality drift)', () => {
+      const enumerated = new Set(enumerateSkillPrimaryDocs(REPO_ROOT));
+      const staticSkillDocs = REQUIRED_HEADER_DOCS.filter(
+        (p) => p.startsWith('skills/') || p.startsWith('.claude/skills/'),
+      );
+      const missing = staticSkillDocs.filter((p) => !enumerated.has(p));
+      expect(
+        missing,
+        `Static skill-doc entries not found by enumeration (deleted or untracked?):\n${missing.join('\n')}`,
+      ).toEqual([]);
+    });
+
+    it('positive: patterns match skill primary docs + cold references in both roots', () => {
+      expect(matchesRequiredPattern('.claude/skills/story/SKILL.md')).toBe(true);
+      expect(matchesRequiredPattern('.claude/skills/pipeline/references/red-flags.md')).toBe(true);
+      expect(matchesRequiredPattern('skills/rules-as-tests/SKILL.md')).toBe(true);
+      expect(matchesRequiredPattern('skills/rules-as-tests/references/ai-traps.md')).toBe(true);
+    });
+
+    it('negative: patterns do NOT match helpers, fixtures, non-md, or nested extras', () => {
+      // helpers/ and other non-references sub-dirs are out of rule §2 scope
+      expect(matchesRequiredPattern('.claude/skills/story/helpers/notes.md')).toBe(false);
+      // fixture copies live under packages/** — EXEMPT territory, never required
+      expect(
+        matchesRequiredPattern(
+          'packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md',
+        ),
+      ).toBe(false);
+      // non-markdown and root-level files
+      expect(matchesRequiredPattern('.claude/skills/story/helpers/emit-story-prompt.sh')).toBe(false);
+      expect(matchesRequiredPattern('.claude/skills/README.md')).toBe(false);
+      // nested one level deeper than references/*.md
+      expect(matchesRequiredPattern('.claude/skills/x/references/sub/deep.md')).toBe(false);
+    });
+
+    it('edit-time channel: selectRequiredPaths keeps dynamic skill docs (mutation: was dropped pre-fix)', () => {
+      // Pre-fix, a new skill's SKILL.md was filtered OUT (not in the static
+      // list) → the PostToolUse shim exited 0 silently and the headerless doc
+      // sailed through to CI-green. Post-fix it must survive the filter.
+      const filtered = selectRequiredPaths([
+        '.claude/skills/story/SKILL.md',
+        'package.json',
+        'unrelated/source.ts',
+      ]);
+      expect(filtered).toEqual(['.claude/skills/story/SKILL.md']);
+    });
+
+    it('REQUIRED_PATH_PATTERNS exported and anchored (sentinel)', () => {
+      expect(REQUIRED_PATH_PATTERNS.length).toBe(2);
+      // Anchoring sentinel: a path merely *containing* a skills segment must not match.
+      expect(matchesRequiredPattern('docs/skills/foo/SKILL.md')).toBe(false);
+    });
   });
 
   // ── Criterion 3 — exactly-one-goal-authority ──────────────────────────────

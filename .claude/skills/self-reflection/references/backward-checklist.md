@@ -1,6 +1,7 @@
 # Backward-check — full enumeration
 
-> **Scope:** complete backward-check enumeration for §1.7 «Recommendation self-discipline check». Scoped by inheriting from [SKILL.md](../SKILL.md).
+> **Authoritative for:** the complete backward-check enumeration for §1.7 «Recommendation self-discipline check» (new-rule scope determination, full sweep, closure) — inherits invocation scope from [SKILL.md](../SKILL.md).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists). The §1.7 discipline itself — owned by [phase-research-coverage.md](../../../rules/phase-research-coverage.md).
 
 The backward direction is what `#recursive-self-application-gap` was created to catch. Forward-check verifies the proposal complies with existing disciplines; backward-check verifies the new rule the proposal introduces is applied to *all* existing artefacts under its scope.
 

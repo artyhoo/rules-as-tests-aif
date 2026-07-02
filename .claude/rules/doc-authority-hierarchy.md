@@ -40,6 +40,8 @@ Conflicting authority claims become detectable at review time and at session-sta
 - `docs/meta-factory/retros/` — closed historical artifacts post-merge; individual files scope-bound by phase ID
 - `docs/meta-factory/research-patches/` — one patch per coverage gap, append-only; individual files scope-bound by gap
 
+> **Dynamic enforcement note (2026-07-02):** skill primary docs + cold references under **both** roots (`skills/*` and `.claude/skills/*`: `SKILL.md`, `references/*.md`) are enforced **dynamically** by principle 09 (`enumerateSkillPrimaryDocs` + `REQUIRED_PATH_PATTERNS`, git-aware per the principle-15 pattern) — a new skill is covered the moment it lands, with no static-list edit. Origin: 2026-07-02 delta-audit F2 — `/story` + `/ai-doc` shipped headerless while the static-list-only test stayed green ([research-patches/2026-07-02-doc-audit-delta.md §2](../../docs/meta-factory/research-patches/2026-07-02-doc-audit-delta.md)).
+
 **Filename-convention authority (no per-file header required — filename itself establishes scope):**
 - `docs/meta-factory/PHASE-*-PROMPT.md` and `docs/meta-factory/*-PROMPT.md` (orchestrator/reviewer prompts) — filename indicates phase + transient nature; per-file authority is implicit
 - `docs/meta-factory/phase-*-research.md` and `docs/meta-factory/phase-*-entry-research.md` — filename indicates phase entry research scope

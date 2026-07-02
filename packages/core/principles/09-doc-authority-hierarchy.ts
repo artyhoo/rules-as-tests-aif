@@ -9,7 +9,8 @@
  *
  * Keep the function signature stable — downstream consumers depend on it.
  */
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const AUTHORITY_HEADER_RE = /^> \*\*Authoritative for:\*\*/m;
 
@@ -145,6 +146,82 @@ export function isExempt(relPath: string): boolean {
 }
 
 /**
+ * Path patterns whose files require an Authoritative-for header *dynamically* —
+ * without a static REQUIRED_HEADER_DOCS entry. Added 2026-07-02 (delta-audit F2:
+ * /story + /ai-doc shipped headerless while principle 09 stayed green, because
+ * the static list only knew tool-bootstrapping). Covers rule §2 "Skill primary
+ * docs + cold references" for both skill roots. Anchored so fixture copies under
+ * packages/** (EXEMPT_PATTERNS territory) never match.
+ */
+export const REQUIRED_PATH_PATTERNS: readonly RegExp[] = [
+  /^(?:\.claude\/)?skills\/[^/]+\/SKILL\.md$/,
+  /^(?:\.claude\/)?skills\/[^/]+\/references\/[^/]+\.md$/,
+];
+
+export function matchesRequiredPattern(relPath: string): boolean {
+  return REQUIRED_PATH_PATTERNS.some((re) => re.test(relPath));
+}
+
+/** Skill roots swept by the dynamic enumeration (mirrors principle 15). */
+const SKILL_DOC_ROOTS: readonly string[] = ['.claude/skills', 'skills'];
+
+/**
+ * Tracked files under the skill roots, or null when git is unavailable.
+ * Git-aware for the same reason as principle 15 (FQA S1-D F1): an
+ * installer-populated clone carries gitignored `aif-*` skills that are
+ * headerless by design — filesystem-blind enumeration would false-RED locally
+ * while green in CI. Falls back to null → filesystem enumeration off-repo.
+ */
+function trackedSkillDocs(repoRoot: string): Set<string> | null {
+  try {
+    const out = execFileSync(
+      'git',
+      ['-C', repoRoot, 'ls-files', '--', ...SKILL_DOC_ROOTS],
+      { encoding: 'utf8' },
+    );
+    return new Set(out.split('\n').filter(Boolean));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Enumerate skill primary docs + cold references (repo-root-relative POSIX
+ * paths): `<root>/<skill>/SKILL.md` and `<root>/<skill>/references/*.md` for
+ * each skill root. New skills are covered the moment they land — no static
+ * list edit required (the 2026-07-02 gap-class). Zero glob dep.
+ */
+export function enumerateSkillPrimaryDocs(
+  repoRoot: string = process.cwd(),
+): string[] {
+  const tracked = trackedSkillDocs(repoRoot);
+  const found: string[] = [];
+  for (const root of SKILL_DOC_ROOTS) {
+    const absRoot = `${repoRoot}/${root}`;
+    if (!existsSync(absRoot)) continue;
+    for (const entry of readdirSync(absRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const candidates: string[] = [`${root}/${entry.name}/SKILL.md`];
+      const refsAbs = `${absRoot}/${entry.name}/references`;
+      if (existsSync(refsAbs)) {
+        for (const ref of readdirSync(refsAbs, { withFileTypes: true })) {
+          if (ref.isFile() && ref.name.endsWith('.md')) {
+            candidates.push(`${root}/${entry.name}/references/${ref.name}`);
+          }
+        }
+      }
+      for (const rel of candidates) {
+        if (!existsSync(`${repoRoot}/${rel}`)) continue;
+        // Git-aware skip: audit only the tracked surface when git is available.
+        if (tracked && !tracked.has(rel)) continue;
+        found.push(rel);
+      }
+    }
+  }
+  return found.sort();
+}
+
+/**
  * Filter argv-style path list to entries that the rule cares about:
  * - paths enumerated in REQUIRED_HEADER_DOCS (authority-bearing docs), OR
  * - paths matching an EXEMPT_PATTERNS glob (fixtures intentionally headerless).
@@ -152,10 +229,16 @@ export function isExempt(relPath: string): boolean {
  * Used by the CLI shim (sub-wave 7.1.c, M1 fix 2026-05-11) so PostToolUse hooks
  * fired on non-doc edits (.ts/.json/package.json) no longer surface FAIL noise.
  * Empty result → caller should exit 0 silently.
+ *
+ * 2026-07-02 (delta-audit F2): also keeps paths matching REQUIRED_PATH_PATTERNS,
+ * so the edit-time channel (PostToolUse shim) catches a brand-new skill doc
+ * missing its header — not only CI.
  */
 export function selectRequiredPaths(paths: string[]): string[] {
   const requiredSet = new Set<string>(REQUIRED_HEADER_DOCS);
-  return paths.filter((p) => requiredSet.has(p) || isExempt(p));
+  return paths.filter(
+    (p) => requiredSet.has(p) || matchesRequiredPattern(p) || isExempt(p),
+  );
 }
 
 function readFile(p: string): string {
