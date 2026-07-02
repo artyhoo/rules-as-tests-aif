@@ -4,7 +4,7 @@
 > Companion: [PROPOSAL.md](PROPOSAL.md) (overview)
 >
 > **Authoritative for:** 6-layer architecture description (L0 Invariant Core → L5 Installer), data flow between layers, Path A vs Path B synthesis paths, v1 deterministic stance per layer.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Phase scope and acceptance criteria — see [EXECUTION-PLAN.md](EXECUTION-PLAN.md).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Phase scope and acceptance criteria — see [EXECUTION-PLAN.md](EXECUTION-PLAN.md). **Implementation status** — this doc describes the *target* layer design, not a claim that every layer is currently built; per-layer reality lives in [EXECUTION-PLAN.md](EXECUTION-PLAN.md) (status-audit 2026-06-29 / post-v1 block). External doc-synthesis tools (e.g. DeepWiki) reading L0-L5 as an operational subsystem is the misread this line exists to prevent.
 
 ---
 
