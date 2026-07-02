@@ -198,6 +198,26 @@ if [ -z "$DRY_RUN" ]; then
     echo "export const rules = plugin.rules;"
   } > "$_barrel"
   echo "  ✓ generated eslint-rules-local/index.mjs ($(grep -c '^import ' "$_barrel") rules)"
+
+  # #838: a consumer must only carry fences-fire fixtures its OWN barrel can enforce.
+  # Fixtures ship unconditionally above (step 5a), but stack-specific rules (e.g. R12
+  # no-server-imports-in-client, react-next only) land per-stack — probing a fixture whose
+  # rule is absent from the barrel makes linter.verify THROW ("Could not find <rule> in
+  # plugin") → check:fences-fire false-REDs on every non-next stack. Filter is scoped to
+  # the manifests WE ship (iterates the framework source dir), so consumer-authored
+  # fixtures are never touched. Keeps the gate strict where it must be: on react-next the
+  # R12 fixture still ships, so R12 vanishing from the barrel still turns the gate RED.
+  for _m in "$PKG_ROOT"/packages/core/audit-self/fixtures/fences-fire/*.manifest.json; do
+    [ -f "$_m" ] || continue
+    _mstem="$(basename "$_m" .manifest.json)"
+    _rid=$(sed -n 's/.*"rule-id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$_m" | head -1)
+    _rkey="${_rid##*/}"
+    [ -n "$_rkey" ] || continue
+    if ! grep -q "'$_rkey':" "$_barrel"; then
+      rm -f "$PROJECT_ROOT/scripts/fences-fire-fixtures/$_mstem".*
+      echo "  · fences fixture [$_mstem] not shipped — rule '$_rkey' not in this stack's barrel"
+    fi
+  done
 fi
 
 # ─── 6. Stack-specific templates ────────────────────────
