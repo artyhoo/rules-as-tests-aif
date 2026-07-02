@@ -25,7 +25,7 @@ e3c6086efb6dbafaac285132c61c3da1f17ada581d1efe84986c1589ed1b905a  .claude/skills
 f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66  .claude/skills/dispatcher/helpers/monitor-classify.sh
 e1784c032fb6366007c76da0dcbba0f9db6a6816e4d3d9d27e0128554838d0a0  .claude/skills/dispatcher/helpers/notify-gate.sh
 5d21f0757512eafe17f0be69a891dea8ddee4627b3bf71871e8a71536e3dab7f  .claude/skills/dispatcher/helpers/tg-notify.sh
-99772bb197317a143c2f56265597feeeab09da534b2406a5ee79175ec6f62272  .claude/skills/pipeline/SKILL.md
+127c1276d67820df5494b7c49249d6147c90f4aed44739451381ceb90256f5f9  .claude/skills/pipeline/SKILL.md
 7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .claude/skills/pipeline/evals/RESULTS.md
 29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .claude/skills/pipeline/evals/evals.json
 3fb659d0d73c6bdf90ab35758808c0e0ac47f31d19c7665bcc719dcf2497df2b  .claude/skills/pipeline/evals/files/scenario-1-noarg-state.md
@@ -68,7 +68,7 @@ dc81b0178b42ad6b120d92eeaa65de0bb60b0a0744c9205dcb6d7d7814d9bf5d  .claude/skills
 1eec4cec44402238c004dbcef2a953b0e19b0fbdd01f344e8ff46b87e3923bda  .claude/skills/pipeline/references/red-flags.md
 099f646a8f53b2faff048ac0404ebdfa8b42a12b5a610d74c68dcca499f4f39c  .claude/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
-7c79f71a9893fd2ae4abd20f3119d5fc90d524fd594e80959994cdf4cb3530f0  .claude/skills/rules-as-tests/SKILL.md
+b064130e802640087e30c10cd066921d3fce4087d7b9703e81b5c95887629979  .claude/skills/rules-as-tests/SKILL.md
 9cf60a06f9448d9666799a640dc4d5a93aa7c24292adc85b00f20af914e7ecc7  .claude/skills/rules-as-tests/references/ai-traps.md
 4ecd9cd5dccfb3a16a7a72c2eabb2a847dd73bcd445595070ed08cc1a9e53d21  .claude/skills/rules-as-tests/references/checks-map.md
 421649209ad31993e1ea89bb6e2a813254f2effd9a948da0798cadf11a7ddc93  .claude/skills/rules-as-tests/references/doc-organization.md
