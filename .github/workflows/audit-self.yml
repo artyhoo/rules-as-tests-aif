@@ -384,6 +384,8 @@ jobs:
         run: bash tests/install-sh/install-self-verification.test.sh
       - name: "install-sh — check-fences-fire paired-negative (D4: probe is falsifiable; FENCE SILENT + FALSE POSITIVE arms)"
         run: bash tests/install-sh/check-fences-fire-paired-negative.test.sh
+      - name: "install-sh — check-fences-fire FULL barrel (#838: R12 ACTIVE on react-next; neutered-R12 teeth; partial-barrel stacks not false-RED)"
+        run: bash tests/install-sh/check-fences-fire-full-barrel.test.sh
       - name: "install-sh — check-shields-up paired-negative (#831: husky v9 .husky/_ accepted; positive + negative arms)"
         run: bash tests/install-sh/check-shields-up-paired-negative.test.sh
       - name: "install-sh — byte-identical snapshot compare: all 4 stacks × {greenfield,brownfield} (modular-install-fullpack S1)"
