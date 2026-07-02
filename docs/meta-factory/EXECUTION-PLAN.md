@@ -43,7 +43,7 @@
 - `tests/audit/audit-ai-docs.test.sh` — 16 негативных тестов
 
 **Что НЕ работает (подтверждено через `ls`):**
-- `.husky/` в корне репо отсутствует. Templates `husky-pre-commit.sh` и `husky-pre-push.sh` существуют, шипятся consumer'у через `install.sh:171-174` (mkdir + copy + chmod), но **author их не запускает**.
+- ~~`.husky/` в корне репо отсутствует. Templates `husky-pre-commit.sh` и `husky-pre-push.sh` существуют, шипятся consumer'у через `install.sh:171-174` (mkdir + copy + chmod), но **author их не запускает**.~~ — ЗАКРЫТО (Phase 1.A, commit `fea6ea7c7`): `.husky/{pre-commit,pre-push,post-checkout}` в корне репо и активны у author'а; таблица Pre-commit/Pre-push и схема ниже сохранены как историческая мотивация Phase 1.A (отметка 2026-07-02, doc-truth sweep).
 - ~~`audit-self.yml` НЕ имеет job'а `framework-self-install`~~ — ЗАКРЫТО 2026-06-29 (PR #823): jobs `framework-self-install-{ts-server,react-next,validated}` + `install-self-verification.test.sh` гоняются в CI.
 - `audit-self.yml` НЕ запускает actionlint/zizmor (что и привело к 4-cycle fix на workflow-integrity.yml).
 - `.claude/orchestrator-prompts/` — нет валидации SHA/file-existence для action references (привело к фейковому `rhysd/actionlint@<fake-sha>` в batch-D.md).

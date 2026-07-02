@@ -60,7 +60,7 @@ Install rules-as-tests-aif into this project. Follow these steps exactly:
    Show output. If it fails, stop and ask me what to do.
 
 4. From the rules-as-tests-aif package directory, run:
-   `bash setup.sh --stack=<detected-stack>`
+   `bash setup -y <detected-stack>`
 
    This installs:
    - .claude/agents/{review-sidecar,living-docs-auditor,compliance-verifier}.md (best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists)
@@ -72,7 +72,7 @@ Install rules-as-tests-aif into this project. Follow these steps exactly:
    - package.json scripts (lint, typecheck, test, audit:docs, validate, etc.)
    - Dev dependencies via `npm install -D` (~25 packages)
 
-5. After setup.sh completes, do these checks and report results:
+5. After setup completes, do these checks and report results:
    a. `npm run typecheck` — should pass on a fresh project
    b. `npm run lint` — may have warnings on existing code, that's OK
    c. `npm run audit:docs` — should run, may report findings (read them aloud to me)

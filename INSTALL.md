@@ -73,6 +73,8 @@ The installer:
 
 By default it **never overwrites** existing files. Use `--force` to overwrite.
 
+Two further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first). The recommended `./setup -y <stack>` one-shot path already implies `--full` + companions.
+
 ---
 
 ## Path C: manual copy (full control)

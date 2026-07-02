@@ -27,7 +27,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -379,53 +379,56 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
   });
 
   // ── Criterion 4 — PROPOSAL.md not edited since freeze ────────────────────
-  // Goal-drift audit 2026-06-05: assert PROPOSAL.md received no commits after
-  // the freeze commit 397840c ("docs(proposal): add Authoritative-for header —
-  // freeze as historical artifact"). Post-freeze edits to PROPOSAL.md violate
-  // the `#frozen-doc-still-edited` anti-pattern from doc-authority-hierarchy §4.
+  // Goal-drift audit 2026-06-05: PROPOSAL.md is FROZEN — post-freeze edits
+  // violate the `#frozen-doc-still-edited` anti-pattern (doc-authority-
+  // hierarchy §4). Originally pinned to freeze commit 397840c ("docs(proposal):
+  // add Authoritative-for header — freeze as historical artifact") via
+  // `git log <sha>..HEAD`. Re-anchored 2026-07-02 to a CONTENT hash: the repo
+  // integrates PRs via squash merge, so the SHA of any post-freeze refresh
+  // commit is unreachable in post-merge clones (`git cat-file -e` fails loud
+  // in CI) — a SHA pin cannot survive its own landing. The byte hash pins the
+  // same invariant history-independently (precedent: install-sh baseline
+  // fingerprints). Snapshot refreshed 2026-07-02: status line DRAFT/RFC →
+  // FROZEN + MD040 fence-language repair — maintainer-sanctioned header-only
+  // edit per doc-authority-hierarchy §4 carve-out, resolving the §8(a)
+  // DECISION-NEEDED of research-patches/2026-07-02-doc-audit-delta.md.
   // Source: docs/meta-factory/research-patches/2026-06-05-goal-drift-audit.md §6
   describe('Criterion 4 — frozen PROPOSAL.md not edited since freeze', () => {
-    // SHA of the commit that froze PROPOSAL.md (deterministic, stable).
-    const PROPOSAL_FREEZE_SHA = '397840c';
     const PROPOSAL_PATH = 'docs/meta-factory/PROPOSAL.md';
+    // sha256 of the frozen PROPOSAL.md bytes (status line updated 2026-07-02).
+    // On a sanctioned §4 carve-out edit (header/typo/link repair), re-pin this
+    // constant in the same commit with maintainer sign-off — any other
+    // divergence is a freeze violation.
+    const PROPOSAL_FROZEN_SHA256 =
+      'cd06bcf3d8622f588ee42681212e1d706b1989d9bdb32b160daccb4eb7db8b61';
+    const FROZEN_STATUS_LINE =
+      '> Status: **FROZEN — historical design artifact** (original status at freeze: DRAFT / RFC)';
+    const PRE_FREEZE_STATUS_LINE = '> Status: **DRAFT / RFC**';
 
-    it('PROPOSAL.md has zero commits after the freeze SHA', () => {
-      // Assert git is available and the freeze SHA resolves before running assertion.
-      // Fails loud rather than silently skipping if pre-conditions are not met
-      // (e.g. shallow clone missing the SHA).
-      execFileSync('git', ['cat-file', '-e', PROPOSAL_FREEZE_SHA], {
-        cwd: REPO_ROOT,
-        stdio: 'pipe',
-      });
-      const gitOutput = execFileSync(
-        'git',
-        ['log', '--oneline', `${PROPOSAL_FREEZE_SHA}..HEAD`, '--', PROPOSAL_PATH],
-        { cwd: REPO_ROOT, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
-      ).trim();
+    const sha256 = (text: string): string =>
+      createHash('sha256').update(text).digest('hex');
+
+    it('PROPOSAL.md content matches the frozen snapshot byte-for-byte', () => {
+      // readFileSync throws (fails loud) if the file is missing or unreadable.
+      const content = readFileSync(resolve(REPO_ROOT, PROPOSAL_PATH), 'utf8');
       expect(
-        gitOutput,
-        `PROPOSAL.md received post-freeze commit(s) — #frozen-doc-still-edited violation:\n${gitOutput}`,
-      ).toBe('');
+        sha256(content),
+        'PROPOSAL.md diverged from the frozen snapshot — #frozen-doc-still-edited ' +
+          'violation. If this is a sanctioned §4 carve-out (header/typo/link ' +
+          'repair), re-pin PROPOSAL_FROZEN_SHA256 in the same commit.',
+      ).toBe(PROPOSAL_FROZEN_SHA256);
     });
 
-    it('mutation: a post-freeze commit on PROPOSAL.md is detected by git log', () => {
-      // Prove the git log query format is correct: using a very old commit as
-      // "freeze SHA" for a file that HAS had commits after it should return output.
-      // Assert both SHAs resolve before running — fails loud rather than silently
-      // marking detected=true when git is unavailable or the SHA is missing.
-      execFileSync('git', ['cat-file', '-e', '29acb8d'], { cwd: REPO_ROOT, stdio: 'pipe' });
-      execFileSync('git', ['cat-file', '-e', PROPOSAL_FREEZE_SHA], {
-        cwd: REPO_ROOT,
-        stdio: 'pipe',
-      });
-      // Any commit that pre-dates the freeze should produce output when used as lower bound,
-      // since PROPOSAL.md had commits before 397840c.
-      const earlyOutput = execFileSync(
-        'git',
-        ['log', '--oneline', `29acb8d..${PROPOSAL_FREEZE_SHA}`, '--', PROPOSAL_PATH],
-        { cwd: REPO_ROOT, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
-      ).trim();
-      expect(earlyOutput.length > 0).toBe(true);
+    it('mutation: reverting the status line to pre-freeze DRAFT/RFC changes the hash', () => {
+      // Non-vacuous negative arm: prove the pin is sensitive to exactly the
+      // historical edit class (a one-line status change), not only to gross
+      // rewrites. Guards assert the replacement target exists and actually
+      // mutates, so the arm cannot silently pass vacuously.
+      const content = readFileSync(resolve(REPO_ROOT, PROPOSAL_PATH), 'utf8');
+      expect(content).toContain(FROZEN_STATUS_LINE);
+      const mutated = content.replace(FROZEN_STATUS_LINE, PRE_FREEZE_STATUS_LINE);
+      expect(mutated).not.toBe(content);
+      expect(sha256(mutated)).not.toBe(PROPOSAL_FROZEN_SHA256);
     });
   });
 });
