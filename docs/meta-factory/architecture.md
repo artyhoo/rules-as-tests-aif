@@ -29,7 +29,7 @@ Layer 5 — Installer
 
 | Компонент | Содержание | Почему invariant |
 |---|---|---|
-| Принципы | 5 layers framework, AST > grep, paired negative tests, mutation testing, two-AI review (via AIF `review-sidecar` with `model: opus` override) | Это сам тезис; если генерировать — теряется опора |
+| Принципы | 5 layers framework, AST > grep, paired negative tests, mutation testing, two-AI review (via AIF `review-sidecar`; `model: opus` override — v2 trigger, не в shipped-агенте: см. v1-stance note в §2.6 / [open-questions.md §13.10 entry #4](open-questions.md)) | Это сам тезис; если генерировать — теряется опора |
 | Meta-rules | «every rule has executable check», «no tautology», «documents lie», «MUST не демотируется до should» | Критерии валидности любого LLM-output |
 | Workflow контракт | detect → research → synthesize → validate → install | Контракт между фазами |
 | Schema manifest | JSON Schema для `rules-manifest.json` | Фиксирует формат, в который research должен попадать |
