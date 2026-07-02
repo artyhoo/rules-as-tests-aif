@@ -117,6 +117,7 @@ ln -sf "$BARREL_DIR" "$SCRATCH/eslint-rules-local"
 cat > "$SCRATCH/fence-probe.mts" << 'PROBE_SCRIPT'
 import { Linter } from 'eslint';
 import { readFileSync } from 'node:fs';
+import tsParser from '@typescript-eslint/parser';
 import { default as plugin } from './eslint-rules-local/index.mjs';
 
 const ruleId   = process.env['FENCE_RULE_ID']   ?? '';
@@ -134,10 +135,17 @@ const ruleOpts: unknown[] = optsJson ? (JSON.parse(optsJson) as unknown[]) : [];
 const ruleValue = ruleOpts.length > 0 ? (['error', ...ruleOpts] as const) : ('error' as const);
 
 const linter = new Linter();
+// `files` is REQUIRED: in ESLint flat config an object without a `files` key
+// matches NO file, so `linter.verify(..., { filename: 'bad.ts' })` returns
+// "No matching configuration found" and the rule never runs — every fence
+// falsely reads SILENT (#832). The TS parser lets the probe parse TS-syntax
+// fixtures (e.g. `(x: unknown)`); it is already a packages/core dependency
+// (required by the @typescript-eslint/utils-authored rules themselves).
 const cfg = [{
+  files: ['**/*.{ts,tsx,js,jsx}'],
   plugins: { [pluginName]: plugin },
   rules: { [ruleId]: ruleValue },
-  languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+  languageOptions: { ecmaVersion: 2022, sourceType: 'module', parser: tsParser },
 }];
 
 const badCode  = readFileSync(badFile, 'utf8');

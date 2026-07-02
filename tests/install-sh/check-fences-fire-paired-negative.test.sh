@@ -7,8 +7,15 @@
 # the meta-test proves the meta-gate has teeth.
 #
 # ARMS:
-#   (i)  form-check: check-fences-fire.sh script exists and is executable
-#   (ii) FENCE SILENT arm: bad fixture replaced with valid code → gate must exit non-zero
+#   (i)   form-check: check-fences-fire.sh script exists and is executable
+#   (pos) POSITIVE arm: gate run against unmodified source-plugin fixtures MUST exit 0
+#         (all included fences fire on the deliberately-bad fixtures). This is the
+#         NON-VACUOUS arm — it catches an always-silent gate (#832: without it the
+#         other arms only assert fail-on-broken, which a permanently-broken gate
+#         satisfied vacuously). It builds its own barrel from the SOURCE plugin
+#         (packages/core/eslint-rules/index.ts) so it RUNS in framework CI even though
+#         the shipped install-generated barrel (eslint-rules-local/index.mjs) is absent.
+#   (ii)  FENCE SILENT arm: bad fixture replaced with valid code → gate must exit non-zero
 #   (iii) FALSE POSITIVE arm: good fixture replaced with bad code → gate must exit non-zero
 #
 # SKIP condition: tsx or eslint not available (same graceful-degrade as the gate itself).
@@ -49,16 +56,76 @@ for _e in \
 done
 
 if [ -z "$TSX_BIN" ] || [ -z "$ESLINT_BIN" ]; then
+  skip "(pos) tsx or eslint not found — POSITIVE arm SKIP (graceful degrade, same condition as the gate)"
   skip "(ii) tsx or eslint not found — arms (ii)/(iii) SKIP (same condition as the gate)"
   skip "(iii) tsx or eslint not found — arm (iii) SKIP"
   echo ""
   echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"
-  exit 0
+  [ "$FAIL" -eq 0 ]; exit $?
+fi
+
+# Single EXIT trap for every scratch dir this test creates (a second `trap ... EXIT`
+# would REPLACE the first and leak the earlier dir).
+POS_SCRATCH=""; SCRATCH=""
+trap '[ -n "$POS_SCRATCH" ] && rm -rf "$POS_SCRATCH"; [ -n "$SCRATCH" ] && rm -rf "$SCRATCH"' EXIT
+
+# Gate SKIP detection must match the gate's actual skip wording ("SKIP —", "— skipped",
+# "module load failed"). A bare 'SKIP' pattern would ALWAYS match the trailing
+# "PASS=… FAIL=… SKIP=…" summary line, silently turning every genuine arm FAIL into an
+# inconclusive skip — the same vacuousness this test exists to prevent.
+GATE_SKIP_PATTERN='SKIP —|— skipped|module load failed|dep missing'
+
+# ─── Arm (pos): NON-VACUOUS POSITIVE — gate exits 0 on unmodified source-plugin fixtures ──
+# This is the teeth: an always-silent gate (the #832 bug) makes every fence read SILENT,
+# so the gate exits non-zero on UNMODIFIED bad fixtures → this arm FAILs. The arm therefore
+# detects a permanently-broken gate that the fail-on-broken arms (ii)/(iii) cannot.
+#
+# It is non-vacuous in framework CI: instead of relying on the shipped install-generated
+# barrel (eslint-rules-local/index.mjs — absent in this repo, generated only on consumers),
+# it builds a barrel that re-exports the SOURCE plugin. The probe runs via tsx, which
+# resolves the .ts entry point directly.
+#
+# Only fixtures whose rule-id is exported by the source plugin are copied:
+#   - no-unsafe-zod-parse.*            (rule-id rules-as-tests/no-unsafe-zod-parse)
+#   - require-use-server-directive.*   (rule-id rules-as-tests/restricted-syntax-audit-exempt)
+# R12 (no-server-imports-in-client) is a synthesizer recipe (next-r12-*.json) absent from the
+# source plugin → covered by the consumer's install-generated barrel; framework-CI coverage is
+# a follow-up (#832 split). Including its fixture here would make the gate exit non-zero for the
+# WRONG reason (rule not registered), so it is deliberately excluded.
+POS_SCRATCH=$(mktemp -d)
+
+POS_NM="$(dirname "$(dirname "$TSX_BIN")")"
+ln -sf "$POS_NM" "$POS_SCRATCH/node_modules"
+
+mkdir -p "$POS_SCRATCH/eslint-rules-local"
+cat > "$POS_SCRATCH/eslint-rules-local/index.mjs" << EOF
+// Built from the SOURCE plugin (not the shipped install-generated barrel) so the POSITIVE
+// arm RUNS in framework CI. tsx resolves the .ts entry point.
+export { default } from '$REPO_ROOT/packages/core/eslint-rules/index.ts';
+EOF
+
+POS_FIXTURES="$POS_SCRATCH/scripts/fences-fire-fixtures"
+mkdir -p "$POS_FIXTURES"
+for _stem in no-unsafe-zod-parse require-use-server-directive; do
+  for _suffix in manifest.json bad.txt good.txt bad.ts good.ts bad.tsx good.tsx; do
+    [ -f "$FIXTURE_SRC/$_stem.$_suffix" ] && cp "$FIXTURE_SRC/$_stem.$_suffix" "$POS_FIXTURES/"
+  done
+done
+
+POS_OUTPUT=$(AIF_PROJECT_ROOT="$POS_SCRATCH" bash "$GATE_SCRIPT" 2>&1)
+POS_RC=$?
+
+if [ "$POS_RC" -eq 0 ] && echo "$POS_OUTPUT" | grep -q 'fence fires on bad input'; then
+  ok "(pos) POSITIVE arm: gate exits 0 + fences ACTIVE on unmodified source-plugin fixtures — gate is NON-VACUOUS (not always-silent)"
+elif echo "$POS_OUTPUT" | grep -qE "$GATE_SKIP_PATTERN"; then
+  skip "(pos) gate SKIP'd in scratch env (tool/barrel resolution) — POSITIVE arm inconclusive: $(echo "$POS_OUTPUT" | head -3 | tr '\n' '|')"
+else
+  bad "(pos) POSITIVE arm: gate did NOT exit 0 + fences-ACTIVE on unmodified bad fixtures (rc=$POS_RC) — fences are SILENT (the #832 always-silent bug)"
+  echo "    gate output: $(echo "$POS_OUTPUT" | head -8 | tr '\n' '|')"
 fi
 
 # ─── Scratch: isolated fixture environment ────────────────────────────────────
 SCRATCH=$(mktemp -d)
-trap 'rm -rf "$SCRATCH"' EXIT
 
 FIXTURES_DIR="$SCRATCH/fences-fire-fixtures"
 mkdir -p "$FIXTURES_DIR"
@@ -78,7 +145,9 @@ if [ -z "$BARREL_SRC" ]; then
   skip "(iii) same reason"
   echo ""
   echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"
-  exit 0
+  # NOT a bare `exit 0`: the (pos) arm has already run — its FAIL must propagate
+  # even when arms (ii)/(iii) skip (framework repo has no install-generated barrel).
+  [ "$FAIL" -eq 0 ]; exit $?
 fi
 
 # Symlink node_modules so the gate's scratch probe can import eslint
@@ -125,7 +194,7 @@ ARM2_RC=$?
 
 if [ "$ARM2_RC" -ne 0 ]; then
   ok "(ii) FENCE SILENT arm: gate exits non-zero (rc=$ARM2_RC) when bad fixture has valid code — probe is falsifiable"
-elif echo "$ARM2_OUTPUT" | grep -q 'SKIP\|tsx.*not.*found\|eslint.*not.*found\|module.*not.*found\|cannot find\|Cannot find'; then
+elif echo "$ARM2_OUTPUT" | grep -qE "$GATE_SKIP_PATTERN"; then
   skip "(ii) gate SKIP'd (tool resolution issue in scratch env) — arm inconclusive"
 else
   bad "(ii) FENCE SILENT arm: gate exited 0 when bad file is valid code — probe accepts silent fences (vacuous pass)"
@@ -158,7 +227,7 @@ ARM3_RC=$?
 
 if [ "$ARM3_RC" -ne 0 ]; then
   ok "(iii) FALSE POSITIVE arm: gate exits non-zero (rc=$ARM3_RC) when good fixture has bad code — probe catches false positives"
-elif echo "$ARM3_OUTPUT" | grep -q 'SKIP\|tsx.*not.*found\|eslint.*not.*found\|module.*not.*found\|cannot find\|Cannot find'; then
+elif echo "$ARM3_OUTPUT" | grep -qE "$GATE_SKIP_PATTERN"; then
   skip "(iii) gate SKIP'd — arm inconclusive"
 else
   bad "(iii) FALSE POSITIVE arm: gate exited 0 when good file triggers the rule — probe misses false positives"
